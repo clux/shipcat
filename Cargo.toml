@@ -1,0 +1,23 @@
+[package]
+authors = ["Eirik Albrigtsen <eirik.albrigtsen@babylonhealth.com>"]
+name = "babyl"
+readme = "README.md"
+version = "0.1.0"
+
+[[bin]]
+doc = false
+name = "babyl"
+path = "src/main.rs"
+
+[dependencies]
+clap = "2.29.1"
+failure = "0.1.1"
+log = "0.4.1"
+loggerv = "0.6.0"
+serde = "1.0.27"
+serde_derive = "1.0.27"
+serde_yaml = "0.7.3"
+
+[lib]
+name = "babyl"
+path = "src/lib.rs"

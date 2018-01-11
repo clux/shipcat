@@ -1,0 +1,30 @@
+name: conversation-service
+resources:
+  limits:
+    cpu: 800m
+    memory: 1024Mi
+  requests:
+    cpu: 200m
+    memory: 512Mi
+replicas:
+  min: 2
+  max: 4
+prometheus:
+  enabled: true
+  path: /metrics
+dashboards:
+  auth-python:
+    rows:
+      - users-connected
+      - conversation-length
+newrelic:
+  license: arsitnwf234430iearosnt
+vault:
+  path: /blah/woot
+logging:
+  alerts:
+    error-rate-5xx:
+      type: median
+      threshold: 2
+      status-code: 500
+preStopHookPath: /die
