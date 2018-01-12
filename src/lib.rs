@@ -12,9 +12,4 @@ use failure::Error;
 pub type BabylResult<T> = Result<T, Error>;
 
 mod manifest;
-pub use manifest::Manifest;
-
-pub fn validate() -> BabylResult<()> {
-    let mf = Manifest::read()?;
-    mf.verify()
-}
+pub use manifest::{init, validate, Manifest};

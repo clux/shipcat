@@ -42,8 +42,10 @@ fn main() {
             .short("d")
             .long("debug")
             .help("Adds line numbers to log statements"))
+        .subcommand(SubCommand::with_name("init")
+            .about("Create an initial babyl manifest"))
         .subcommand(SubCommand::with_name("validate")
-            .about("validate the format of the babyl manifest"));
+            .about("Validate the babyl manifest"));
 
     let args = app.get_matches();
 
@@ -58,6 +60,9 @@ fn main() {
     // Handle subcommands
     if let Some(_) = args.subcommand_matches("validate") {
         result_exit(args.subcommand_name().unwrap(), babyl::validate())
+    }
+    if let Some(_) = args.subcommand_matches("init") {
+        result_exit(args.subcommand_name().unwrap(), babyl::init())
     }
 
     unreachable!("Subcommand valid, but not implemented");

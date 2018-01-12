@@ -2,6 +2,7 @@ use serde_yaml;
 
 use std::io::prelude::*;
 use std::fs::File;
+use std::env;
 use std::path::{PathBuf, Path};
 use std::collections::BTreeMap;
 
@@ -195,4 +196,18 @@ fn parse_cpu(s: &str) -> BabylResult<f64> {
     }
     trace!("Returned {} cores", res);
     Ok(res)
+}
+
+pub fn validate() -> BabylResult<()> {
+    let mf = Manifest::read()?;
+    mf.verify()
+}
+
+pub fn init() -> BabylResult<()> {
+    let pwd = env::current_dir()?;
+    let last_comp = pwd.components().last().unwrap(); // std::path::Component
+    let dirname = last_comp.as_os_str().to_str().unwrap();
+
+    let mf = Manifest::new(dirname, pwd.join("babyl.yaml"));
+    mf.write()
 }
