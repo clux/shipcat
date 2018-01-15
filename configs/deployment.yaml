@@ -31,13 +31,12 @@ spec:
       - name: {{ mf.name }}
         image: quay.io/babylonhealth/{{ mf.name }}:2e00604bcd52dc1d0251ff723965b5270911ae3f
         imagePullPolicy: IfNotPresent
-        env:
-        - name: CONTENT_CONFIG
-          value: "/config/config.ini"
-        - name: LOGGING_CONFIG
-          value: "/config/logging.conf"
-        - name: NEWRELIC_CONFIG
-          value: "/config/newrelic.ini"
+        {% if mf.env %}env:
+        {% for key, value in mf.env %}
+        - name: {{ key }}
+          value: "{{ value }}"
+        {% endfor %}
+        {% endif %}
         volumeMounts:
         - name: config-volume
           mountPath: /config/
