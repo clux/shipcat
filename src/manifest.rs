@@ -6,7 +6,7 @@ use std::env;
 use std::path::{PathBuf, Path};
 use std::collections::BTreeMap;
 
-use super::BabylResult;
+use super::Result;
 
 // k8s related structs
 
@@ -71,7 +71,6 @@ pub struct Prometheus {
     pub path: String,
     // TODO: Maybe include names of metrics?
 }
-
 
 /// Main manifest, serializable from babyl.yaml
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -139,7 +138,7 @@ impl Manifest {
         }
     }
     /// Read a manifest file in an arbitrary path
-    pub fn read_from(pwd: &PathBuf) -> BabylResult<Manifest> {
+    pub fn read_from(pwd: &PathBuf) -> Result<Manifest> {
         let mpath = pwd.join("babyl.yaml");
         trace!("Using manifest in {}", mpath.display());
         let mut f = File::open(&mpath)?;
@@ -152,12 +151,12 @@ impl Manifest {
     }
 
     /// Read a manifest file in PWD
-    pub fn read() -> BabylResult<Manifest> {
+    pub fn read() -> Result<Manifest> {
         Ok(Manifest::read_from(&Path::new(".").to_path_buf())?)
     }
 
     /// Fills in defaults from config file
-    pub fn fill(&mut self) -> BabylResult<()> {
+    pub fn fill(&mut self) -> Result<()> {
         // TODO: put the defaults file somewhere!
         let data = "name: default-service\
 resources:\
@@ -192,7 +191,7 @@ replicas:\
     }
 
     /// Update the manifest file in the current folder
-    pub fn write(&self) -> BabylResult<()> {
+    pub fn write(&self) -> Result<()> {
         let encoded = serde_yaml::to_string(self)?;
         trace!("Writing manifest in {}", self.location);
         let mut f = File::create(&self.location)?;
@@ -204,11 +203,12 @@ replicas:\
     /// Verify assumptions about manifest
     ///
     /// Assumes the manifest has been `fill()`ed.
-    pub fn verify(&self) -> BabylResult<()> {
+    pub fn verify(&self) -> Result<()> {
         if self.name == "" {
             bail!("Name cannot be empty")
         }
         // 1. Verify resources
+        // (We can unwrap all the values as we assume fill!)
         let req = self.resources.clone().unwrap().requests.unwrap().clone();
         let lim = self.resources.clone().unwrap().limits.unwrap().clone();
         let req_memory = parse_memory(&req.memory)?;
@@ -239,7 +239,7 @@ replicas:\
 }
 
 // Parse normal k8s memory resource value into integers
-fn parse_memory(s: &str) -> BabylResult<u64> {
+fn parse_memory(s: &str) -> Result<u64> {
     let digits = s.chars().take_while(|ch| ch.is_digit(10)).collect::<String>();
     let unit = s.chars().skip_while(|ch| ch.is_digit(10)).collect::<String>();
     let mut res : u64 = digits.parse()?;
@@ -265,7 +265,7 @@ fn parse_memory(s: &str) -> BabylResult<u64> {
 
 // Parse normal k8s cpu resource values into floats
 // We don't allow power of two variants here
-fn parse_cpu(s: &str) -> BabylResult<f64> {
+fn parse_cpu(s: &str) -> Result<f64> {
     let digits = s.chars().take_while(|ch| ch.is_digit(10)).collect::<String>();
     let unit = s.chars().skip_while(|ch| ch.is_digit(10)).collect::<String>();
     let mut res : f64 = digits.parse()?;
@@ -282,13 +282,13 @@ fn parse_cpu(s: &str) -> BabylResult<f64> {
     Ok(res)
 }
 
-pub fn validate() -> BabylResult<()> {
+pub fn validate() -> Result<()> {
     let mut mf = Manifest::read()?;
     mf.fill()?;
     mf.verify()
 }
 
-pub fn init() -> BabylResult<()> {
+pub fn init() -> Result<()> {
     let pwd = env::current_dir()?;
     let last_comp = pwd.components().last().unwrap(); // std::path::Component
     let dirname = last_comp.as_os_str().to_str().unwrap();

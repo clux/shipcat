@@ -13,9 +13,8 @@ use babyl::*;
 #[allow(unused_imports)]
 use clap::{Arg, App, AppSettings, SubCommand, ArgMatches};
 use std::process;
-use std::fmt::{Display, Debug};
 
-fn result_exit<T, E: Display + Debug>(name: &str, x: Result<T, E>) {
+fn result_exit<T>(name: &str, x: Result<T>) {
     let _ = x.map_err(|e| {
         println!(""); // add a separator
         error!("{} error: {}", name, e);
@@ -52,7 +51,7 @@ fn main() {
     // by default, always show INFO messages for now (+1)
     loggerv::Logger::new()
         .verbosity(args.occurrences_of("verbose") + 1)
-        .module_path(false) // seems to not work with failure crate?
+        .module_path(false) // seems to not work with failure/error-chain crates
         .line_numbers(args.is_present("debug"))
         .init()
         .unwrap();
