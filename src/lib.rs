@@ -6,6 +6,10 @@ extern crate serde_derive;
 extern crate serde_yaml;
 
 #[macro_use]
+extern crate tera;
+
+
+#[macro_use]
 extern crate log;
 
 
@@ -34,3 +38,6 @@ error_chain! {
 
 mod manifest;
 pub use manifest::{init, validate, Manifest};
+
+mod kube;
+pub use kube::generate;

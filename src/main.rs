@@ -41,6 +41,8 @@ fn main() {
             .short("d")
             .long("debug")
             .help("Adds line numbers to log statements"))
+        .subcommand(SubCommand::with_name("generate")
+            .about("Generate kubefile from manifest"))
         .subcommand(SubCommand::with_name("init")
             .about("Create an initial babyl manifest"))
         .subcommand(SubCommand::with_name("validate")
@@ -62,6 +64,9 @@ fn main() {
     }
     if let Some(_) = args.subcommand_matches("init") {
         result_exit(args.subcommand_name().unwrap(), babyl::init())
+    }
+    if let Some(_) =  args.subcommand_matches("generate") {
+        result_exit(args.subcommand_name().unwrap(), babyl::generate())
     }
 
     unreachable!("Subcommand valid, but not implemented");

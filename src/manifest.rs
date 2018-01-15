@@ -93,6 +93,8 @@ pub struct Manifest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config: Option<ConfigMount>,
 
+    // TODO: boot time -> minReadySeconds
+
 
     /// Prometheus metric options
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -101,6 +103,7 @@ pub struct Manifest {
 //  enabled: true
 //  path: /metrics
     /// Dashboards to generate
+    #[serde(default)]
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub dashboards: BTreeMap<String, Dashboard>,
 //dashboards:
@@ -119,9 +122,7 @@ pub struct Manifest {
 //      threshold: 2
 //      status-code: 500
 //preStopHookPath: /die
-    // TODO: newrelic token
-//newrelic:
-//  license: arsitnwf234430iearosnt
+// newrelic options? we generate the newrelic.ini from a vault secret + manifest.name
 
     // Internal path of this manifest
     #[serde(skip_serializing, skip_deserializing)]

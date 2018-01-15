@@ -1,0 +1,87 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ mf.name }}
+  namespace: dev
+
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ mf.name }}
+  namespace: dev
+spec:
+  replicas: {{ mf.replicas.min }}
+  minReadySeconds: 30
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ mf.replicas.max - mf.replicas.min }}
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        k8s-app: {{ mf.name }}
+    spec:
+      serviceAccountName: {{ mf.name }}
+      imagePullSecrets:
+      - name: babylonhealth-deploy-dev-pull-secret
+      containers:
+      - name: {{ mf.name }}
+        image: quay.io/babylonhealth/{{ mf.name }}:2e00604bcd52dc1d0251ff723965b5270911ae3f
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: CONTENT_CONFIG
+          value: "/config/config.ini"
+        - name: LOGGING_CONFIG
+          value: "/config/logging.conf"
+        - name: NEWRELIC_CONFIG
+          value: "/config/newrelic.ini"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /config/
+        readinessProbe:
+          httpGet:
+            path: /content/health
+            port: 7799
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ mf.name }}-config
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: {{ mf.name }}
+  name: {{ mf.name }}
+  namespace: dev
+spec:
+  ports:
+  - port: 80
+    targetPort: 7799
+  selector:
+    k8s-app: {{ mf.name }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ mf.name }}-config
+  namespace: dev
+data:
+  config.ini: |-
+    [SENTRY]
+    DSN=https://f38654123075466da99e1e67ebcced56:42ea54e6457546d3940d24ac7da1cdb1@dev-uk-sentry.ops.babylontech.co.uk/43
+  logging.conf: |-
+    # Basic logging config for Python microservices
+    [loggers]
+    keys=root,babylon
+  newrelic.ini: |-
+    [newrelic]
+    license_key = 007015786e56e693643ba29dcc4e59aee5e0ca42
+    app_name = {{ mf.name }} (development)
