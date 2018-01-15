@@ -8,12 +8,15 @@ use std::collections::BTreeMap;
 
 use super::BabylResult;
 
+// k8s related structs
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ResourceRequest {
     /// CPU request string
     cpu: String,
     /// Memory request string
     memory: String,
+    // TODO: ephemeral-storage + extended-resources
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -22,33 +25,37 @@ pub struct ResourceLimit {
     cpu: String,
     /// Memory limit string
     memory: String,
-}
-
-impl Default for ResourceLimit {
-    fn default() -> Self {
-        ResourceLimit {
-            cpu: "800m".into(),
-            memory: "1024Mi".into(),
-        }
-    }
-}
-impl Default for ResourceRequest {
-    fn default() -> Self {
-        ResourceRequest {
-            cpu: "200m".into(),
-            memory: "512Mi".into(),
-        }
-    }
+    // TODO: ephemeral-storage + extended-resources
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Resources {
     /// Resource requests for k8s
-    pub requests: ResourceRequest,
+    pub requests: Option<ResourceRequest>,
     /// Resource limits for k8s
-    pub limits: ResourceLimit,
+    pub limits: Option<ResourceLimit>,
 }
 
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct Replicas {
+    /// Minimum replicas for k8s deployment
+    pub min: u32,
+    /// Maximum replicas for k8s deployment
+    pub max: u32,
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct ConfigMount {
+    /// Name of file to mount as in k8s
+    pub name: String,
+    /// Local location of template
+    pub src: String,
+}
+
+
+// misc structs
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Dashboard {
@@ -66,25 +73,62 @@ pub struct Prometheus {
 }
 
 
+/// Main manifest, serializable from babyl.yaml
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Manifest {
     /// Name of the main component
     pub name: String,
 
-    /// Default environment to build in
-    pub resources: Resources,
+    // Kubernetes specific flags
+
+    /// Resource limits and requests
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resources: Option<Resources>,
+    /// Replication limits
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub replicas: Option<Replicas>,
+    /// Environment variables to inject
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env: Option<BTreeMap<String, String>>,
+    /// Environment file to mount
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config: Option<ConfigMount>,
+
 
     /// Prometheus metric options
-    pub prometheus: Prometheus,
-
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prometheus: Option<Prometheus>,
+//prometheus:
+//  enabled: true
+//  path: /metrics
     /// Dashboards to generate
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub dashboards: BTreeMap<String, Dashboard>,
+//dashboards:
+//  auth-python:
+//    rows:
+//      - users-connected
+//      - conversation-length
 
-    /// Internal path of this manifest
+    // TODO: health/die, secrets/vault, logging alerts
+//vault:
+//  path: /blah/woot
+//logging:
+//  alerts:
+//    error-rate-5xx:
+//      type: median
+//      threshold: 2
+//      status-code: 500
+//preStopHookPath: /die
+    // TODO: newrelic token
+//newrelic:
+//  license: arsitnwf234430iearosnt
+
+    // Internal path of this manifest
     #[serde(skip_serializing, skip_deserializing)]
     location: String,
 }
+
 
 impl Manifest {
     pub fn new(name: &str, location: PathBuf) -> Manifest {
@@ -112,6 +156,41 @@ impl Manifest {
         Ok(Manifest::read_from(&Path::new(".").to_path_buf())?)
     }
 
+    /// Fills in defaults from config file
+    pub fn fill(&mut self) -> BabylResult<()> {
+        // TODO: put the defaults file somewhere!
+        let data = "name: default-service\
+resources:\
+  limits:\
+    cpu: 800m\
+    memory: 1024Mi\
+  requests:\
+    cpu: 200m\
+    memory: 512Mi\
+replicas:\
+  min: 2\
+  max: 4\
+";
+        let mf: Manifest = serde_yaml::from_str(&data)?;
+
+        if self.resources.is_none() {
+            self.resources = mf.resources.clone();
+        }
+        if let Some(ref mut res) = self.resources {
+            if res.limits.is_none() {
+                res.limits = mf.resources.clone().unwrap().limits;
+            }
+            if res.requests.is_none() {
+                res.requests = mf.resources.clone().unwrap().requests;
+            }
+            // for now: if limits or requests are specified, you have to fill in both CPU and memory
+        }
+        if self.replicas.is_none() {
+            self.replicas = mf.replicas;
+        }
+        Ok(())
+    }
+
     /// Update the manifest file in the current folder
     pub fn write(&self) -> BabylResult<()> {
         let encoded = serde_yaml::to_string(self)?;
@@ -123,15 +202,20 @@ impl Manifest {
     }
 
     /// Verify assumptions about manifest
+    ///
+    /// Assumes the manifest has been `fill()`ed.
     pub fn verify(&self) -> BabylResult<()> {
         if self.name == "" {
             bail!("Name cannot be empty")
         }
         // 1. Verify resources
-        let req_cpu = parse_cpu(&self.resources.requests.cpu)?;
-        let lim_cpu = parse_cpu(&self.resources.limits.cpu)?;
-        let req_memory = parse_memory(&self.resources.requests.memory)?;
-        let lim_memory = parse_memory(&self.resources.limits.memory)?;
+        let req = self.resources.clone().unwrap().requests.unwrap().clone();
+        let lim = self.resources.clone().unwrap().limits.unwrap().clone();
+        let req_memory = parse_memory(&req.memory)?;
+        let lim_memory = parse_memory(&lim.memory)?;
+        let req_cpu = parse_cpu(&req.cpu)?;
+        let lim_cpu = parse_cpu(&lim.cpu)?;
+
         // 1.1 limits >= requests
         if req_cpu > lim_cpu {
             bail!("Requested more CPU than what was limited");
@@ -199,7 +283,8 @@ fn parse_cpu(s: &str) -> BabylResult<f64> {
 }
 
 pub fn validate() -> BabylResult<()> {
-    let mf = Manifest::read()?;
+    let mut mf = Manifest::read()?;
+    mf.fill()?;
     mf.verify()
 }
 
