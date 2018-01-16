@@ -25,6 +25,7 @@ error_chain! {
         Io(::std::io::Error) #[cfg(unix)];
         Float(::std::num::ParseFloatError);
         Int(::std::num::ParseIntError);
+        Tmpl(tera::Error);
         Serde(serde_yaml::Error);
     }
     errors {
@@ -35,6 +36,12 @@ error_chain! {
     }
 }
 
+
+pub fn init_tera() -> tera::Tera {
+    let mut tera = compile_templates!("configs/*");
+    tera.autoescape_on(vec!["html"]);
+    tera
+}
 
 mod manifest;
 pub use manifest::{init, validate, Manifest};

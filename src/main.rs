@@ -4,7 +4,6 @@ extern crate clap;
 extern crate log;
 extern crate loggerv;
 
-
 extern crate babyl;
 
 #[allow(unused_imports)]
@@ -13,6 +12,7 @@ use babyl::*;
 #[allow(unused_imports)]
 use clap::{Arg, App, AppSettings, SubCommand, ArgMatches};
 use std::process;
+
 
 fn result_exit<T>(name: &str, x: Result<T>) {
     let _ = x.map_err(|e| {
@@ -58,6 +58,8 @@ fn main() {
         .init()
         .unwrap();
 
+    let tera = babyl::init_tera();
+
     // Handle subcommands
     if let Some(_) = args.subcommand_matches("validate") {
         result_exit(args.subcommand_name().unwrap(), babyl::validate())
@@ -66,7 +68,7 @@ fn main() {
         result_exit(args.subcommand_name().unwrap(), babyl::init())
     }
     if let Some(_) =  args.subcommand_matches("generate") {
-        result_exit(args.subcommand_name().unwrap(), babyl::generate())
+        result_exit(args.subcommand_name().unwrap(), babyl::generate(&tera))
     }
 
     unreachable!("Subcommand valid, but not implemented");

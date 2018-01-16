@@ -1,76 +1,22 @@
-// kube api structs are go style came case:
-#![allow(non_snake_case)]
-
-/*#[derive(Serialize, Deserialize, Clone, Default)]
-pub struct Metadata {
-    name: Option<String>,
-    namespace: Option<String>,
-    labels: Option<String>
-}
-
-#[derive(Serialize, Deserialize, Clone, Default)]
-pub struct ServiceAccount {
-    pub apiVersion: String,
-    pub kind: String,
-    pub metadata: Metadata,
-}
-
-
-#[derive(Serialize, Deserialize, Clone, Default)]
-pub struct DeploymentStrategy {
-}
-#[derive(Serialize, Deserialize, Clone, Default)]
-pub struct DeploymentTemplate {
-}
-
-
-
-#[derive(Serialize, Deserialize, Clone, Default)]
-pub struct DeploymentSpec {
-    replicas: u32,
-    minReadySeconds: u32,
-    strategy: DeploymentStrategy,
-    template: DeploymentTemplate,
-}
-
-#[derive(Serialize, Deserialize, Clone, Default)]
-pub struct Deployment {
-    pub apiVersion: String,
-    pub kind: String,
-    pub metadata: Metadata,
-    pub spec: DeploymentSpec,
-}
-
-impl Deployment {
-    pub fn new() -> Deployment {
-        Deployment {
-            apiVersion: "extensions/v1beta1".into(),
-            kind: "Deployment".into()
-        }
-    }
-}
-*/
-//shelving explicit structs for templating for now
-
-//use tera;
-
-use std::env;
-use std::fs::File;
-use std::io::prelude::*;
-
 use tera::{Tera, Context};
 use super::{Manifest, Result};
 
 
-pub fn generate() -> Result<String> {
+fn newrelic(tera: &Tera, mf: &Manifest) -> Result<String> {
+    let env = "development".to_string(); // TODO: from CLI
+    let license = "234l23eenistr983255342y".to_string(); // TODO: vault
+    let mut ctx = Context::new();
+    ctx.add("license_key", &license);
+    ctx.add("app", &mf.name);
+    ctx.add("environment", &env);
+    Ok(tera.render("newrelic-python.yml", &ctx)?)
+}
+
+pub fn generate(tera: &Tera) -> Result<String> {
     let mut mf = Manifest::read()?;
     mf.fill()?;
 
-    let cfg_dir = env::current_dir()?.join("configs"); // TODO: config dir
-    let tpl_path = cfg_dir.join("deployment.yaml");
-    let mut f = File::open(&tpl_path)?;
-    let mut tpl = String::new();
-    f.read_to_string(&mut tpl)?;
+    let newrelic_cfg = newrelic(tera, &mf)?;
 
     let mut context = Context::new();
     context.add("mf", &mf);
@@ -78,7 +24,8 @@ pub fn generate() -> Result<String> {
         context.add("ports", &mf._portmaps);
         context.add("healthPort", &mf._portmaps[0].target); // TODO: health check proper
     }
-    let res = Tera::one_off(&tpl, &context, false).unwrap(); // TODO: convert to Error
+    context.add("newrelic", &newrelic_cfg);
+    let res = tera.render("deployment.yaml", &context)?;
     print!("{}", res);
     Ok(res)
 }

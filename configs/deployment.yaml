@@ -83,7 +83,7 @@ data:
     # Basic logging config for Python microservices
     [loggers]
     keys=root,babylon
+{% if newrelic %}
   newrelic.ini: |-
-    [newrelic]
-    license_key = 007015786e56e693643ba29dcc4e59aee5e0ca42
-    app_name = {{ mf.name }} (development)
+    {{ newrelic }}
+{% endif %}
