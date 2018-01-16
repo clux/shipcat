@@ -54,7 +54,6 @@ pub struct ConfigMount {
     pub src: String,
 }
 
-
 // misc structs
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -70,6 +69,15 @@ pub struct Prometheus {
     /// Path to poll
     pub path: String,
     // TODO: Maybe include names of metrics?
+}
+
+
+#[derive(Serialize, Clone, Default, Debug)]
+pub struct PortMap {
+    /// Host port
+    pub host: u32,
+    /// Target port
+    pub target: u32,
 }
 
 /// Main manifest, serializable from babyl.yaml
@@ -92,6 +100,10 @@ pub struct Manifest {
     /// Environment file to mount
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config: Option<ConfigMount>,
+    /// Ports to expose (docker style host:target)
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub ports: Vec<String>,
 
     // TODO: boot time -> minReadySeconds
 
@@ -126,7 +138,11 @@ pub struct Manifest {
 
     // Internal path of this manifest
     #[serde(skip_serializing, skip_deserializing)]
-    location: String,
+    _location: String,
+
+    // Parsed port map of this manifest
+    #[serde(skip_serializing, skip_deserializing)]
+    pub _portmaps: Vec<PortMap>
 }
 
 
@@ -134,7 +150,7 @@ impl Manifest {
     pub fn new(name: &str, location: PathBuf) -> Manifest {
         Manifest {
             name: name.into(),
-            location: location.to_string_lossy().into(),
+            _location: location.to_string_lossy().into(),
             ..Default::default()
         }
     }
@@ -147,7 +163,7 @@ impl Manifest {
         f.read_to_string(&mut data)?;
         let mut res: Manifest = serde_yaml::from_str(&data)?;
         // store the location internally (not serialized to disk)
-        res.location = mpath.to_string_lossy().into();
+        res._location = mpath.to_string_lossy().into();
         Ok(res)
     }
 
@@ -158,19 +174,11 @@ impl Manifest {
 
     /// Fills in defaults from config file
     pub fn fill(&mut self) -> Result<()> {
-        // TODO: put the defaults file somewhere!
-        let data = "name: default-service\
-resources:\
-  limits:\
-    cpu: 800m\
-    memory: 1024Mi\
-  requests:\
-    cpu: 200m\
-    memory: 512Mi\
-replicas:\
-  min: 2\
-  max: 4\
-";
+        let cfg_dir = env::current_dir()?.join("configs"); // TODO: config dir
+        let def_pth = cfg_dir.join("babyl.yaml");
+        let mut f = File::open(&def_pth)?;
+        let mut data = String::new();
+        f.read_to_string(&mut data)?;
         let mf: Manifest = serde_yaml::from_str(&data)?;
 
         if self.resources.is_none() {
@@ -188,16 +196,19 @@ replicas:\
         if self.replicas.is_none() {
             self.replicas = mf.replicas;
         }
+        for s in &self.ports {
+            self._portmaps.push(parse_ports(s)?);
+        }
         Ok(())
     }
 
     /// Update the manifest file in the current folder
     pub fn write(&self) -> Result<()> {
         let encoded = serde_yaml::to_string(self)?;
-        trace!("Writing manifest in {}", self.location);
-        let mut f = File::create(&self.location)?;
+        trace!("Writing manifest in {}", self._location);
+        let mut f = File::create(&self._location)?;
         write!(f, "{}\n", encoded)?;
-        debug!("Wrote manifest in {}: \n{}", self.location, encoded);
+        debug!("Wrote manifest in {}: \n{}", self._location, encoded);
         Ok(())
     }
 
@@ -232,11 +243,30 @@ replicas:\
             bail!("Requested more than 10 GB of memory");
         }
 
-        // 2. TODO: other keys
+        // 2. Ports restrictions? currently parse only
+
+
+        // X. TODO: other keys
 
         Ok(())
     }
+}
 
+// Parse normal docker style host:target port opening
+fn parse_ports(s: &str) -> Result<PortMap> {
+    let split: Vec<&str> = s.split(':').collect();
+    if split.len() != 2 {
+        bail!("Port listing {} not in the form of host:target", s);
+    }
+    let host = split[0].parse().map_err(|e| {
+        warn!("Invalid host port {} could not be parsed", split[0]);
+        e
+    })?;
+    let target = split[1].parse().map_err(|e| {
+        warn!("Invalid target port {} could not be parsed", split[0]);
+        e
+    })?;
+    Ok(PortMap{ host, target })
 }
 
 // Parse normal k8s memory resource value into integers

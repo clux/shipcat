@@ -8,7 +8,9 @@ resources:
     memory: 512Mi
 replicas:
   min: 2
-  max: 4
+  max: 5
+ports:
+- 80:8000
 env:
   LOGGING_CONF: "/config/logging.conf"
   NEWRELIC_CONFIG: "/config/newrelic.ini"

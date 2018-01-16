@@ -63,7 +63,8 @@ use super::{Manifest, Result};
 
 
 pub fn generate() -> Result<String> {
-    let mf = Manifest::read()?;
+    let mut mf = Manifest::read()?;
+    mf.fill()?;
 
     let cfg_dir = env::current_dir()?.join("configs"); // TODO: config dir
     let tpl_path = cfg_dir.join("deployment.yaml");
@@ -73,6 +74,10 @@ pub fn generate() -> Result<String> {
 
     let mut context = Context::new();
     context.add("mf", &mf);
+    if !mf._portmaps.is_empty() {
+        context.add("ports", &mf._portmaps);
+        context.add("healthPort", &mf._portmaps[0].target); // TODO: health check proper
+    }
     let res = Tera::one_off(&tpl, &context, false).unwrap(); // TODO: convert to Error
     print!("{}", res);
     Ok(res)

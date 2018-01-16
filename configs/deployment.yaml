@@ -29,7 +29,7 @@ spec:
       - name: babylonhealth-deploy-dev-pull-secret
       containers:
       - name: {{ mf.name }}
-        image: quay.io/babylonhealth/{{ mf.name }}:2e00604bcd52dc1d0251ff723965b5270911ae3f
+        image: quay.io/babylonhealth/{{ mf.name }}:SHA_OR_TAG_HERE
         imagePullPolicy: IfNotPresent
         {% if mf.env %}env:
         {% for key, value in mf.env %}
@@ -43,7 +43,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /content/health
-            port: 7799
+            port: {{ healthPort }}
           initialDelaySeconds: 30
           periodSeconds: 30
       volumes:
@@ -60,9 +60,12 @@ metadata:
   name: {{ mf.name }}
   namespace: dev
 spec:
-  ports:
-  - port: 80
-    targetPort: 7799
+  {% if ports %}ports:
+  {% for pm in ports %}
+  - port: {{ pm.host }}
+    targetPort: {{ pm.target }}
+  {% endfor %}
+  {% endif %}
   selector:
     k8s-app: {{ mf.name }}
 
@@ -75,7 +78,7 @@ metadata:
 data:
   config.ini: |-
     [SENTRY]
-    DSN=https://f38654123075466da99e1e67ebcced56:42ea54e6457546d3940d24ac7da1cdb1@dev-uk-sentry.ops.babylontech.co.uk/43
+    DSN=https://f3865412307546@dev-uk-sentry.ops.babylontech.co.uk/43
   logging.conf: |-
     # Basic logging config for Python microservices
     [loggers]
