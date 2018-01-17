@@ -17,3 +17,12 @@ In a new repo:
 babyl init
 babyl validate
 ```
+
+If you have `vault` credentials you can generate the complete kube file:
+
+```sh
+export VAULT_ADDR=...
+export VAULT_TOKEN=...
+
+babyl generate
+```
