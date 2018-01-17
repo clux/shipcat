@@ -1,4 +1,4 @@
-//! A very basic client for Hashicorp's Vault
+//! A very basic client for Hashicorp Vault
 
 use reqwest;
 use reqwest::header::Connection;
@@ -20,8 +20,9 @@ fn default_token() -> Result<String> {
     env::var("VAULT_TOKEN")
         .or_else(|_: env::VarError| -> Result<String> {
             // Build a path to ~/.vault-token.
-            let mut path = env::home_dir().ok_or_else(|| { ErrorKind::NoHomeDirectory })?;
-            path.push(".vault-token");
+            let path = env::home_dir()
+                .ok_or_else(|| { ErrorKind::NoHomeDirectory })?
+                .join(".vault-token");
 
             // Read the file.
             let mut f = File::open(path)?;
@@ -32,9 +33,7 @@ fn default_token() -> Result<String> {
         .chain_err(|| ErrorKind::MissingVaultToken)
 }
 
-/// Secret data retrieved from Vault.  This has a bunch more fields, but
-/// the exact list of fields doesn't seem to be documented anywhere, so
-/// let's be conservative.
+/// Secret data retrieved from Vault using only standard fields
 #[derive(Debug, Deserialize)]
 struct Secret {
     /// The key-value pairs associated with this secret.
@@ -62,12 +61,9 @@ impl Vault {
         default_addr().is_ok()
     }
 
-    /// Construct a new vault::Vault, attempting to use the same
-    /// environment variables and files used by the `vault` CLI tool and
-    /// the Ruby `vault` gem.
+    /// Initialize using the same evars or token files that the `vault` CLI uses
     pub fn default() -> Result<Vault> {
-        let client = reqwest::Client::new();
-        Vault::new(client, &default_addr()?, default_token()?)
+        Vault::new(reqwest::Client::new(), &default_addr()?, default_token()?)
     }
 
     fn new<U, S>(client: reqwest::Client, addr: U, token: S) -> Result<Vault>
@@ -98,8 +94,7 @@ impl Vault {
             .chain_err(&mkerr)?;
 
         // Generate informative errors for HTTP failures, because these can
-        // be caused by everything from bad URLs to overly restrictive
-        // vault policies.
+        // be caused by everything from bad URLs to overly restrictive vault policies
         if !res.status().is_success() {
             let status = res.status().to_owned();
             let err: Error = ErrorKind::UnexpectedHttpStatus(status).into();
@@ -126,10 +121,11 @@ impl Vault {
         // Retrieve secret from cache (now that it exists)
         let secret = self.secrets.get(&pth).unwrap();
 
+        // NB: Currently assume each path in vault has a single `value`
         // Read the value key (which should exist)
         secret.data
             .get("value")
-            .ok_or_else(|| { ErrorKind::MissingKeyInSecret(pth).into() })
+            .ok_or_else(|| { ErrorKind::MissingSecret(pth).into() })
             .map(|v| v.clone())
     }
 }

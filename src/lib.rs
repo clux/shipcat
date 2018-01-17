@@ -56,7 +56,7 @@ error_chain! {
             description("could not access URL")
             display("could not access URL '{}'", &url)
         }
-        MissingKeyInSecret(key: String) {
+        MissingSecret(key: String) {
             description("secret does not have value for specified key")
             display("secret '{}' does not exist", &key)
         }
