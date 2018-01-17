@@ -7,12 +7,12 @@ _shipcat()
     local cur prev words cword
     _init_completion || return
 
-    local -r subcommands="init help validate generate status
+    local -r subcommands="init help validate generate status ship
                           list-environments"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(init|help|validate|generate|status) ]]; then
+        if [[ ${words[i]} == @(init|help|validate|generate|status|ship) ]]; then
             has_sub=1
         fi
     done

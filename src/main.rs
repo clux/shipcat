@@ -43,6 +43,8 @@ fn main() {
             .help("Adds line numbers to log statements"))
         .subcommand(SubCommand::with_name("generate")
             .about("Generate kubefile from manifest"))
+        .subcommand(SubCommand::with_name("ship")
+            .about("Ship to kubernetes"))
         .subcommand(SubCommand::with_name("init")
             .about("Create an initial shipcat manifest"))
         .subcommand(SubCommand::with_name("validate")
