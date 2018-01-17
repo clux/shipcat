@@ -12,8 +12,8 @@ fn newrelic(tera: &Tera, mf: &Manifest) -> Result<String> {
     Ok(tera.render("newrelic-python.yml", &ctx)?)
 }
 
-pub fn generate(tera: &Tera, mf: Manifest) -> Result<String> {
-    let newrelic_cfg = newrelic(tera, &mf)?;
+pub fn generate(tera: &Tera, mf: &Manifest) -> Result<String> {
+    let newrelic_cfg = newrelic(tera, mf)?;
 
     let mut context = Context::new();
     context.add("mf", &mf);
@@ -22,13 +22,16 @@ pub fn generate(tera: &Tera, mf: Manifest) -> Result<String> {
         context.add("healthPort", &mf._portmaps[0].target); // TODO: health check proper
     }
     context.add("newrelic", &newrelic_cfg);
-    let res = tera.render("deployment.yaml", &context)?;
-    print!("{}", res);
-    Ok(res)
+    Ok(tera.render("deployment.yaml", &context)?)
 }
 
 
-
+pub fn ship(tera: &Tera, mf: &Manifest) -> Result<()> {
+    let kubefile = generate(tera, mf)?;
+    // TODO: write kubefile
+    // TODO: kubectl apply -f kubefile
+    Ok(())
+}
 // kubectl get pod -n dev -l=k8s-app=clinical-knowledge
 
 // for full info: -o json - can grep that for stuff?

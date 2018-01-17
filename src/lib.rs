@@ -77,4 +77,4 @@ mod manifest;
 pub use manifest::{init, validate, Manifest};
 
 mod kube;
-pub use kube::generate;
+pub use kube::{ship, generate};

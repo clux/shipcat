@@ -84,8 +84,18 @@ fn main() {
     // Populate a complete manifest (with ALL values) early for advanced commands
     let mf = Manifest::completed(&mut vault).unwrap();
 
-    if let Some(_) =  args.subcommand_matches("generate") {
-        let res = shipcat::generate(&tera, mf);
+    if let Some(_) = args.subcommand_matches("generate") {
+        let res = shipcat::generate(&tera, &mf);
+        if let Ok(r) = res {
+            print!("{}", r);
+        } else {
+            result_exit(args.subcommand_name().unwrap(), res)
+        }
+
+    }
+
+    if let Some(_) = args.subcommand_matches("ship") {
+        let res = shipcat::ship(&tera, &mf);
         result_exit(args.subcommand_name().unwrap(), res)
     }
 
