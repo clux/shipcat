@@ -59,6 +59,7 @@ fn main() {
         .unwrap();
 
     let tera = babyl::init_tera();
+    let mut client = babyl::vault::Client::default().unwrap();
 
     // Handle subcommands
     if let Some(_) = args.subcommand_matches("validate") {
