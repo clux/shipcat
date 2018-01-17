@@ -4,10 +4,10 @@ extern crate clap;
 extern crate log;
 extern crate loggerv;
 
-extern crate babyl;
+extern crate shipcat;
 
 #[allow(unused_imports)]
-use babyl::*;
+use shipcat::*;
 
 #[allow(unused_imports)]
 use clap::{Arg, App, AppSettings, SubCommand, ArgMatches};
@@ -25,14 +25,14 @@ fn result_exit<T>(name: &str, x: Result<T>) {
 }
 
 fn main() {
-    let app = App::new("babyl")
+    let app = App::new("shipcat")
         .version(crate_version!())
         .setting(AppSettings::VersionlessSubcommands)
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .setting(AppSettings::ColoredHelp)
         .setting(AppSettings::DeriveDisplayOrder)
         .global_settings(&[AppSettings::ColoredHelp])
-        .about("babyl microservice manager")
+        .about("Deploy right meow")
         .arg(Arg::with_name("verbose")
             .short("v")
             .multiple(true)
@@ -44,9 +44,9 @@ fn main() {
         .subcommand(SubCommand::with_name("generate")
             .about("Generate kubefile from manifest"))
         .subcommand(SubCommand::with_name("init")
-            .about("Create an initial babyl manifest"))
+            .about("Create an initial shipcat manifest"))
         .subcommand(SubCommand::with_name("validate")
-            .about("Validate the babyl manifest"));
+            .about("Validate the shipcat manifest"));
 
     let args = app.get_matches();
 
@@ -60,24 +60,24 @@ fn main() {
 
     // clients for network related subcommands
     // TODO: ssl cert location thingy here
-    let mut client = babyl::vault::Client::default().unwrap();
+    let mut client = shipcat::vault::Client::default().unwrap();
 
     // templating engine
-    let tera = babyl::init_tera();
+    let tera = shipcat::init_tera();
 
     // Handle subcommands dumb subcommands
     if let Some(_) = args.subcommand_matches("validate") {
-        result_exit(args.subcommand_name().unwrap(), babyl::validate())
+        result_exit(args.subcommand_name().unwrap(), shipcat::validate())
     }
     if let Some(_) = args.subcommand_matches("init") {
-        result_exit(args.subcommand_name().unwrap(), babyl::init())
+        result_exit(args.subcommand_name().unwrap(), shipcat::init())
     }
 
     // Populate a complete manifest (with ALL values) early for advanced commands
     let mf = Manifest::completed(&mut client).unwrap();
 
     if let Some(_) =  args.subcommand_matches("generate") {
-        let res = babyl::generate(&tera, mf);
+        let res = shipcat::generate(&tera, mf);
         result_exit(args.subcommand_name().unwrap(), res)
     }
 

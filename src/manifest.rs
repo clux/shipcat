@@ -81,7 +81,7 @@ pub struct PortMap {
     pub target: u32,
 }
 
-/// Main manifest, serializable from babyl.yaml
+/// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Manifest {
     /// Name of the main component
@@ -157,7 +157,7 @@ impl Manifest {
     }
     /// Read a manifest file in an arbitrary path
     pub fn read_from(pwd: &PathBuf) -> Result<Manifest> {
-        let mpath = pwd.join("babyl.yaml");
+        let mpath = pwd.join("shipcat.yml");
         trace!("Using manifest in {}", mpath.display());
         let mut f = File::open(&mpath)?;
         let mut data = String::new();
@@ -176,7 +176,7 @@ impl Manifest {
     /// Fills in defaults from config file
     pub fn fill(&mut self) -> Result<()> {
         let cfg_dir = env::current_dir()?.join("configs"); // TODO: config dir
-        let def_pth = cfg_dir.join("babyl.yaml");
+        let def_pth = cfg_dir.join("shipcat.yml");
         let mut f = File::open(&def_pth)?;
         let mut data = String::new();
         f.read_to_string(&mut data)?;
@@ -343,6 +343,6 @@ pub fn init() -> Result<()> {
     let last_comp = pwd.components().last().unwrap(); // std::path::Component
     let dirname = last_comp.as_os_str().to_str().unwrap();
 
-    let mf = Manifest::new(dirname, pwd.join("babyl.yaml"));
+    let mf = Manifest::new(dirname, pwd.join("shipcat.yml"));
     mf.write()
 }
