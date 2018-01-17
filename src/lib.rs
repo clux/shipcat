@@ -71,6 +71,7 @@ pub fn init_tera() -> tera::Tera {
 }
 
 pub mod vault;
+pub mod list;
 
 mod manifest;
 pub use manifest::{init, validate, Manifest};

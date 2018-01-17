@@ -7,7 +7,7 @@ use std::path::{PathBuf, Path};
 use std::collections::BTreeMap;
 
 use super::Result;
-use super::vault::Client;
+use super::vault::Vault;
 
 // k8s related structs
 
@@ -173,8 +173,8 @@ impl Manifest {
         Ok(Manifest::read_from(&Path::new(".").to_path_buf())?)
     }
 
-    /// Fills in defaults from config file
-    pub fn fill(&mut self) -> Result<()> {
+    /// Populate implicit defaults from config file
+    fn implicits(&mut self) -> Result<()> {
         let cfg_dir = env::current_dir()?.join("configs"); // TODO: config dir
         let def_pth = cfg_dir.join("shipcat.yml");
         let mut f = File::open(&def_pth)?;
@@ -203,11 +203,9 @@ impl Manifest {
         Ok(())
     }
 
-    // Return a completed (read, filled in, and populate secrets) manifest
-    pub fn completed(client: &mut Client) -> Result<Manifest> {
-        let mut mf = Manifest::read()?;
-        mf.fill()?;
-        if let Some(mut envs) = mf.env.clone() {
+    // Populate placeholder fields with secrets from vault
+    fn secrets(&mut self, client: &mut Vault) -> Result<()> {
+        if let Some(mut envs) = self.env.clone() {
             // iterate over evar key values and find the ones we need
             for (key, value) in envs.iter_mut() {
                 if value == &"IN_VAULT" {
@@ -216,8 +214,17 @@ impl Manifest {
                     *value = secret;
                 }
             }
-            mf.env = Some(envs); // overwrite env key with our populated one
+            self.env = Some(envs); // overwrite env key with our populated one
         }
+        Ok(())
+    }
+
+    // Return a completed (read, filled in, and populate secrets) manifest
+    pub fn completed(client: &mut Vault) -> Result<Manifest> {
+        let mut mf = Manifest::read()?;
+        mf.implicits()?;
+        mf.secrets(client)?;
+
         Ok(mf)
     }
 
@@ -233,13 +240,13 @@ impl Manifest {
 
     /// Verify assumptions about manifest
     ///
-    /// Assumes the manifest has been `fill()`ed.
+    /// Assumes the manifest has been populated with `implicits`
     pub fn verify(&self) -> Result<()> {
         if self.name == "" {
             bail!("Name cannot be empty")
         }
         // 1. Verify resources
-        // (We can unwrap all the values as we assume fill!)
+        // (We can unwrap all the values as we assume implicit called!)
         let req = self.resources.clone().unwrap().requests.unwrap().clone();
         let lim = self.resources.clone().unwrap().limits.unwrap().clone();
         let req_memory = parse_memory(&req.memory)?;
@@ -334,7 +341,7 @@ fn parse_cpu(s: &str) -> Result<f64> {
 
 pub fn validate() -> Result<()> {
     let mut mf = Manifest::read()?;
-    mf.fill()?;
+    mf.implicits()?;
     mf.verify()
 }
 

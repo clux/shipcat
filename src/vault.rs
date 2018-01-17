@@ -44,7 +44,7 @@ struct Secret {
 }
 
 /// A basic Vault client.
-pub struct Client {
+pub struct Vault {
     /// Our HTTP client.  This can be configured to mock out the network.
     client: reqwest::Client,
     /// The address of our Vault server.
@@ -56,26 +56,26 @@ pub struct Client {
 }
 
 
-impl Client {
+impl Vault {
     /// Has the user indicated that they want to enable our Vault backend?
     pub fn is_enabled() -> bool {
         default_addr().is_ok()
     }
 
-    /// Construct a new vault::Client, attempting to use the same
+    /// Construct a new vault::Vault, attempting to use the same
     /// environment variables and files used by the `vault` CLI tool and
     /// the Ruby `vault` gem.
-    pub fn default() -> Result<Client> {
+    pub fn default() -> Result<Vault> {
         let client = reqwest::Client::new();
-        Client::new(client, &default_addr()?, default_token()?)
+        Vault::new(client, &default_addr()?, default_token()?)
     }
 
-    fn new<U, S>(client: reqwest::Client, addr: U, token: S) -> Result<Client>
+    fn new<U, S>(client: reqwest::Client, addr: U, token: S) -> Result<Vault>
         where U: reqwest::IntoUrl,
               S: Into<String>
     {
         let addr = addr.into_url()?;
-        Ok(Client {
+        Ok(Vault {
             client: client,
             addr: addr,
             token: token.into(),
@@ -137,11 +137,11 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use super::Client;
+    use super::Vault;
 
     #[test]
     fn get_dev_secret() {
-        let mut client = Client::default().unwrap();
+        let mut client = Vault::default().unwrap();
         let secret = client.read("development", "babylon_core_ruby/internal_service_auth_key").unwrap();
         assert_eq!(secret, "INTERNAL_SERVICE_DUMMY_AUTH_KEY");
 

@@ -46,7 +46,10 @@ fn main() {
         .subcommand(SubCommand::with_name("init")
             .about("Create an initial shipcat manifest"))
         .subcommand(SubCommand::with_name("validate")
-            .about("Validate the shipcat manifest"));
+            .about("Validate the shipcat manifest"))
+        .subcommand(SubCommand::with_name("list-environments")
+            .setting(AppSettings::Hidden)
+            .about("list supported k8s environments"));
 
     let args = app.get_matches();
 
@@ -60,7 +63,7 @@ fn main() {
 
     // clients for network related subcommands
     // TODO: ssl cert location thingy here
-    let mut client = shipcat::vault::Client::default().unwrap();
+    let mut vault = shipcat::vault::Vault::default().unwrap();
 
     // templating engine
     let tera = shipcat::init_tera();
@@ -72,9 +75,12 @@ fn main() {
     if let Some(_) = args.subcommand_matches("init") {
         result_exit(args.subcommand_name().unwrap(), shipcat::init())
     }
+    if args.subcommand_matches("list-environments").is_some() {
+        result_exit(args.subcommand_name().unwrap(), shipcat::list::environments())
+    }
 
     // Populate a complete manifest (with ALL values) early for advanced commands
-    let mf = Manifest::completed(&mut client).unwrap();
+    let mf = Manifest::completed(&mut vault).unwrap();
 
     if let Some(_) =  args.subcommand_matches("generate") {
         let res = shipcat::generate(&tera, mf);
