@@ -12,10 +12,7 @@ fn newrelic(tera: &Tera, mf: &Manifest) -> Result<String> {
     Ok(tera.render("newrelic-python.yml", &ctx)?)
 }
 
-pub fn generate(tera: &Tera) -> Result<String> {
-    let mut mf = Manifest::read()?;
-    mf.fill()?;
-
+pub fn generate(tera: &Tera, mf: Manifest) -> Result<String> {
     let newrelic_cfg = newrelic(tera, &mf)?;
 
     let mut context = Context::new();

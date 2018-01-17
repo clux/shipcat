@@ -65,15 +65,20 @@ fn main() {
     // templating engine
     let tera = babyl::init_tera();
 
-    // Handle subcommands
+    // Handle subcommands dumb subcommands
     if let Some(_) = args.subcommand_matches("validate") {
         result_exit(args.subcommand_name().unwrap(), babyl::validate())
     }
     if let Some(_) = args.subcommand_matches("init") {
         result_exit(args.subcommand_name().unwrap(), babyl::init())
     }
+
+    // Populate a complete manifest (with ALL values) early for advanced commands
+    let mf = Manifest::completed(&mut client).unwrap();
+
     if let Some(_) =  args.subcommand_matches("generate") {
-        result_exit(args.subcommand_name().unwrap(), babyl::generate(&tera))
+        let res = babyl::generate(&tera, mf);
+        result_exit(args.subcommand_name().unwrap(), res)
     }
 
     unreachable!("Subcommand valid, but not implemented");

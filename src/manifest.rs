@@ -7,6 +7,7 @@ use std::path::{PathBuf, Path};
 use std::collections::BTreeMap;
 
 use super::Result;
+use super::vault::Client;
 
 // k8s related structs
 
@@ -200,6 +201,24 @@ impl Manifest {
             self._portmaps.push(parse_ports(s)?);
         }
         Ok(())
+    }
+
+    // Return a completed (read, filled in, and populate secrets) manifest
+    pub fn completed(client: &mut Client) -> Result<Manifest> {
+        let mut mf = Manifest::read()?;
+        mf.fill()?;
+        if let Some(mut envs) = mf.env.clone() {
+            // iterate over evar key values and find the ones we need
+            for (key, value) in envs.iter_mut() {
+                if value == &"IN_VAULT" {
+                    // TODO: handle different environments
+                    let secret = client.read("development", key)?;
+                    *value = secret;
+                }
+            }
+            mf.env = Some(envs); // overwrite env key with our populated one
+        }
+        Ok(mf)
     }
 
     /// Update the manifest file in the current folder
