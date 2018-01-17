@@ -13,15 +13,23 @@ fn newrelic(tera: &Tera, mf: &Manifest) -> Result<String> {
 }
 
 pub fn generate(tera: &Tera, mf: &Manifest) -> Result<String> {
-    let newrelic_cfg = newrelic(tera, mf)?;
-
     let mut context = Context::new();
     context.add("mf", &mf);
+
+    let mut has_configmap = !mf.config.is_empty();
+
+    if true { // always newrelic atm
+        let newrelic_cfg = newrelic(tera, mf)?;
+        context.add("newrelic", &newrelic_cfg);
+        has_configmap = true;
+    }
+    context.add("has_configmap", &has_configmap);
+
+
     if !mf._portmaps.is_empty() {
         context.add("ports", &mf._portmaps);
         context.add("healthPort", &mf._portmaps[0].target); // TODO: health check proper
     }
-    context.add("newrelic", &newrelic_cfg);
     Ok(tera.render("deployment.yaml", &context)?)
 }
 

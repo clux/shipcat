@@ -88,10 +88,10 @@ fn main() {
         let res = shipcat::generate(&tera, &mf);
         if let Ok(r) = res {
             print!("{}", r);
+            result_exit(args.subcommand_name().unwrap(), Ok(r))
         } else {
             result_exit(args.subcommand_name().unwrap(), res)
         }
-
     }
 
     if let Some(_) = args.subcommand_matches("ship") {

@@ -98,9 +98,10 @@ pub struct Manifest {
     /// Environment variables to inject
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<BTreeMap<String, String>>,
-    /// Environment file to mount
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub config: Option<ConfigMount>,
+    /// Environment files to mount
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub config: Vec<ConfigMount>,
     /// Ports to expose (docker style host:target)
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]

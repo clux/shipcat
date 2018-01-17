@@ -15,3 +15,6 @@ env:
   ELASTICSEARCH_LOGS_PASSWORD: "IN_VAULT"
   LOGGING_CONF: "/config/logging.conf"
   NEWRELIC_CONFIG: "/config/newrelic.ini"
+config:
+  - name: config.ini
+    src: /volume

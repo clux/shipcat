@@ -37,19 +37,23 @@ spec:
           value: "{{ value }}"
         {% endfor %}
         {% endif %}
+        {% if has_configmap %}
         volumeMounts:
         - name: config-volume
           mountPath: /config/
+        {% endif %}
         readinessProbe:
           httpGet:
             path: /content/health
             port: {{ healthPort }}
           initialDelaySeconds: 30
           periodSeconds: 30
+      {% if has_configmap %}
       volumes:
       - name: config-volume
         configMap:
           name: {{ mf.name }}-config
+      {% endif %}
 
 ---
 kind: Service
@@ -69,6 +73,7 @@ spec:
   selector:
     k8s-app: {{ mf.name }}
 
+{% if has_configmap %}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -76,14 +81,14 @@ metadata:
   name: {{ mf.name }}-config
   namespace: dev
 data:
-  config.ini: |-
-    [SENTRY]
-    DSN=https://f3865412307546@dev-uk-sentry.ops.babylontech.co.uk/43
-  logging.conf: |-
-    # Basic logging config for Python microservices
-    [loggers]
-    keys=root,babylon
-{% if newrelic %}
+  {% if mf.config %}
+  {% for cfg in mf.config %}
+  {{ cfg.name}}: |-
+    {{ cfg.src }} TODO: get value here
+  {% endfor %}
+  {% endif %}
+  {% if newrelic %}
   newrelic.ini: |-
     {{ newrelic }}
+  {% endif %}
 {% endif %}
