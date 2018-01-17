@@ -8,6 +8,7 @@ Build yourself for now. Use [rustup](https://rustup.rs/) to get stable rust.
 ```sh
 cargo build
 ln -sf $PWD/target/debug/shipcat /usr/local/bin/shipcat
+echo "source $PWD/shipcat.complete.sh" >> ~/.bash_completion
 ```
 
 ## Usage
