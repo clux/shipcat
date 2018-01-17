@@ -83,6 +83,7 @@ impl Client {
         })
     }
 
+    // The actual HTTP GET logic
     fn get_secret(&self, path: &str) -> Result<Secret> {
         let url = self.addr.join(&format!("v1/{}", path))?;
         debug!("Getting secret {}", url);
@@ -110,20 +111,25 @@ impl Client {
         Ok(serde_json::from_str(&body)?)
     }
 
-    pub fn get_loc(&mut self, pth: &str) -> Result<String> {
-        // Look up cached secret or query vault:
-        if !self.secrets.contains_key(pth) {
-            let secret = self.get_secret(pth)?;
+    /// Read secret from a Vault via an authenticated HTTP GET (or memory cache)
+    pub fn read(&mut self, env: &str, value: &str) -> Result<String> {
+        // Construct babylon specific secret path
+        let pth = format!("secret/{}/{}", env, value);
+
+        // Check cache for secret first
+        if !self.secrets.contains_key(&pth) {
+            // Nope. Do the request, then cache the result.
+            let secret = self.get_secret(&pth)?;
             self.secrets.insert(pth.to_owned(), secret);
         }
 
-        // Get the secret from our cache - get_secret succeeded so can unwrap.
-        let secret = self.secrets.get(pth).unwrap();
+        // Retrieve secret from cache (now that it exists)
+        let secret = self.secrets.get(&pth).unwrap();
 
-        // Look up the specified key in our secret's data bag.
+        // Read the value key (which should exist)
         secret.data
             .get("value")
-            .ok_or_else(|| { ErrorKind::MissingKeyInSecret(pth.to_owned()).into() })
+            .ok_or_else(|| { ErrorKind::MissingKeyInSecret(pth).into() })
             .map(|v| v.clone())
     }
 }
@@ -136,8 +142,11 @@ mod tests {
     #[test]
     fn get_dev_secret() {
         let mut client = Client::default().unwrap();
-        let secret = client.get_loc("secret/development/babylon_core_ruby/internal_service_auth_key").unwrap();
+        let secret = client.read("development", "babylon_core_ruby/internal_service_auth_key").unwrap();
         assert_eq!(secret, "INTERNAL_SERVICE_DUMMY_AUTH_KEY");
-    }
 
+        let secret2 = client.read("development", "ELASTICSEARCH_LOGS_PASSWORD").unwrap();
+        assert_eq!(secret2, "devops4ever");
+
+    }
 }

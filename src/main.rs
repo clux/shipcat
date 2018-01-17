@@ -58,8 +58,12 @@ fn main() {
         .init()
         .unwrap();
 
-    let tera = babyl::init_tera();
+    // clients for network related subcommands
+    // TODO: ssl cert location thingy here
     let mut client = babyl::vault::Client::default().unwrap();
+
+    // templating engine
+    let tera = babyl::init_tera();
 
     // Handle subcommands
     if let Some(_) = args.subcommand_matches("validate") {
