@@ -78,7 +78,7 @@ fn main() {
     let mut vault = shipcat::vault::Vault::default().unwrap();
 
     // templating engine
-    let tera = shipcat::init_tera();
+    let tera = shipcat::template::init();
 
     // Handle subcommands dumb subcommands
     if let Some(_) = args.subcommand_matches("validate") {

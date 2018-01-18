@@ -63,13 +63,7 @@ error_chain! {
     }
 }
 
-
-pub fn init_tera() -> tera::Tera {
-    let mut tera = compile_templates!("dev/*");
-    tera.autoescape_on(vec!["html"]);
-    tera
-}
-
+pub mod template;
 pub mod vault;
 pub mod list;
 
