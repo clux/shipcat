@@ -1,6 +1,6 @@
 # shipcat
 
-A small CLI helper to manage microservice deployments running on `kubernetes` via `shipcat.yml`. Lives in your repo, catches vermin, [purrs](https://en.wikipedia.org/wiki/Ship%27s_cat).
+A small CLI helper to manage microservice deployments running on `kubernetes` via `shipcat.yml`. Lives [on your ship](https://github.com/Babylonpartners/cathulk), catches vermin, [purrs](https://en.wikipedia.org/wiki/Ship%27s_cat).
 
 ## Installation
 To build yourself, use [rustup](https://rustup.rs/) to get stable rust.
