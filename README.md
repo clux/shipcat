@@ -34,6 +34,6 @@ shipcat generate
 If you have `kubectl` credentials you can ship your service to the initial enviroment:
 
 ```sh
-kubectl auth can-i deploy Deployment
+kubectl auth can-i rollout Deployment
 shipcat ship
 ```
