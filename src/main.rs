@@ -67,7 +67,7 @@ fn main() {
     // by default, always show INFO messages for now (+1)
     loggerv::Logger::new()
         .verbosity(args.occurrences_of("verbose") + 1)
-        .module_path(false) // seems to not work with failure/error-chain crates
+        .module_path(true) // may need cargo clean's if it fails..
         .line_numbers(args.is_present("debug"))
         .init()
         .unwrap();
