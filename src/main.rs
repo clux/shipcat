@@ -100,7 +100,7 @@ fn main() {
         // NB: Currently reading it hackily from root of cathulk
         let mf = Manifest::completed(&env, &service, &mut vault).unwrap();
 
-        let res = shipcat::generate(&tera, mf, env, true);
+        let res = shipcat::generate(&tera, mf, env, false, true);
         result_exit(args.subcommand_name().unwrap(), res)
     }
 

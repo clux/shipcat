@@ -45,7 +45,19 @@ fn template_config(tera: &Tera, name: &str, mount: &ConfigMount, env: &str) -> R
 
 }
 
-pub fn generate(tera: &Tera, mf: Manifest, env: &str, to_stdout: bool) -> Result<String> {
+use std::path::PathBuf;
+use std::fs;
+pub fn create_output(pwd: &PathBuf) -> Result<()> {
+    let loc = pwd.join("OUTPUT");
+    if loc.is_dir() {
+        fs::remove_dir_all(&loc)?;
+    }
+    fs::create_dir(&loc)?;
+    Ok(())
+}
+
+
+pub fn generate(tera: &Tera, mf: Manifest, env: &str, to_stdout: bool, to_file: bool) -> Result<String> {
     let mut context = Context::new();
     context.add("mf", &mf);
 
@@ -69,6 +81,18 @@ pub fn generate(tera: &Tera, mf: Manifest, env: &str, to_stdout: bool) -> Result
     let res = tera.render("deployment.yaml", &context)?;
     if to_stdout {
         print!("{}", res);
+    }
+    if to_file {
+        use std::path::Path;
+        use std::fs::File;
+        use std::io::prelude::*;
+
+        let loc = Path::new(".");
+        create_output(&loc.to_path_buf())?;
+        let full_pth = loc.join("OUTPUT").join("values.yaml");
+        let mut f = File::create(&full_pth)?;
+        write!(f, "{}\n", res)?;
+        info!("Wrote kubefiles in {}", full_pth.to_string_lossy());
     }
     Ok(res)
 }
