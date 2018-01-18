@@ -75,6 +75,15 @@ pub struct Prometheus {
 }
 
 
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct VaultOpts {
+    /// If Vault name differs from service name
+    pub name: String,
+    /// If the secret lives under a special suffix
+    pub suffix: Option<String>,
+}
+
+
 //#[derive(Serialize, Clone, Default, Debug)]
 //pub struct PortMap {
 //    /// Host port
@@ -108,6 +117,9 @@ pub struct Manifest {
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub ports: Vec<u32>,
+    /// Vault options
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vault: Option<VaultOpts>,
 
     // TODO: boot time -> minReadySeconds
 
@@ -202,6 +214,12 @@ impl Manifest {
         if self.replicas.is_none() {
             self.replicas = mf.replicas;
         }
+        if self.vault.is_none() {
+            self.vault = Some(VaultOpts {
+                name: mf.name.clone(),
+                suffix: None,
+            })
+        }
         // only using target ports now, disabling this now
         //for s in &self.ports {
         //    self._portmaps.push(parse_ports(s)?);
@@ -210,16 +228,25 @@ impl Manifest {
     }
 
     // Populate placeholder fields with secrets from vault
-    fn secrets(&mut self, client: &mut Vault, service: &str, env: &str) -> Result<()> {
+    fn secrets(&mut self, client: &mut Vault, env: &str) -> Result<()> {
         let envmap: HashMap<&str, &str> =[
             ("dev", "development"), // dev env uses vault secrets in development
         ].iter().cloned().collect();
+        // TODO: we need to use dev-uk for kube in the future
+        // restructure so we don't need environment suffix
 
         if let Some(mut envs) = self.env.clone() {
             // iterate over evar key values and find the ones we need
             for (key, value) in envs.iter_mut() {
                 if value == &"IN_VAULT" {
-                    let full_key = format!("{}/{}", service, key);
+                    let vopts = self.vault.clone().unwrap();
+                    let serv = vopts.name;
+                    // TODO: we should not have to deal with environment suffix
+                    let full_key = if let Some(suffix) = vopts.suffix {
+                       format!("{}/{}/{}", serv, suffix, key)
+                    } else {
+                        format!("{}/{}", serv, key)
+                    };
                     let secret = client.read(envmap.get(env).unwrap(), &full_key)?;
                     *value = secret;
                 }
@@ -234,7 +261,7 @@ impl Manifest {
         let pth = Path::new(".").join(env).join(service);
         let mut mf = Manifest::read_from(&pth)?;
         mf.implicits(env)?;
-        mf.secrets(client, service, env)?;
+        mf.secrets(client, env)?;
 
         Ok(mf)
     }

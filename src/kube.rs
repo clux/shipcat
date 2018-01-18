@@ -31,7 +31,9 @@ fn template_config(tera: &Tera, name: &str, mount: &ConfigMount, env: &str) -> R
         ("dev", "development"), // dev env has descriptive name development
     ].iter().cloned().collect();
 
-    let license = "234l23eenistr983255342y".to_string(); // TODO: from vault
+    // newrelic api key for dev
+    // TODO: generalize
+    let license = "007015786e56e693643ba29dcc4e59aee5e0ca42".to_string();
 
     // currenly a reusable context for the various templated configs
     let mut ctx = Context::new();
