@@ -4,21 +4,6 @@ use tera::{Tera, Context};
 use super::{Result};
 use super::manifest::*;
 
-/*fn newrelic(tera: &Tera, mf: &Manifest, env: &str) -> Result<String> {
-    let envmap: HashMap<&str, &str> =[
-        ("dev", "development"), // dev env has descriptive name development
-    ].iter().cloned().collect();
-
-    let env = envmap.get(env).unwrap().to_string();
-    let license = "234l23eenistr983255342y".to_string(); // TODO: vault
-    let mut ctx = Context::new();
-    ctx.add("license_key", &license);
-    ctx.add("app", &mf.name);
-    ctx.add("environment", &env);
-    Ok(tera.render("newrelic-java.yml", &ctx)?)
-}
-*/
-
 #[derive(Serialize, Clone, Default)]
 pub struct Mount {
     pub name: String,
