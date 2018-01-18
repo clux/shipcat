@@ -42,6 +42,15 @@ fn main() {
             .long("debug")
             .help("Adds line numbers to log statements"))
         .subcommand(SubCommand::with_name("generate")
+            .arg(Arg::with_name("environment")
+                .short("e")
+                .long("env")
+                .required(true)
+                .takes_value(true)
+                .help("Kubernetes environment"))
+            .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service name"))
             .about("Generate kubefile from manifest"))
         .subcommand(SubCommand::with_name("ship")
             .about("Ship to kubernetes"))
@@ -65,6 +74,7 @@ fn main() {
 
     // clients for network related subcommands
     // TODO: ssl cert location thingy here
+    //openssl_probe::init_ssl_cert_env_vars();
     let mut vault = shipcat::vault::Vault::default().unwrap();
 
     // templating engine
@@ -81,23 +91,23 @@ fn main() {
         result_exit(args.subcommand_name().unwrap(), shipcat::list::environments())
     }
 
-    // Populate a complete manifest (with ALL values) early for advanced commands
-    let mf = Manifest::completed(&mut vault).unwrap();
 
-    if let Some(_) = args.subcommand_matches("generate") {
-        let res = shipcat::generate(&tera, &mf);
-        if let Ok(r) = res {
-            print!("{}", r);
-            result_exit(args.subcommand_name().unwrap(), Ok(r))
-        } else {
-            result_exit(args.subcommand_name().unwrap(), res)
-        }
-    }
+    if let Some(a) = args.subcommand_matches("generate") {
+        let env = a.value_of("environment").unwrap();
+        let service = a.value_of("service").unwrap();
 
-    if let Some(_) = args.subcommand_matches("ship") {
-        let res = shipcat::ship(&tera, &mf);
+        // Populate a complete manifest (with ALL values) early for advanced commands
+        // NB: Currently reading it hackily from root of cathulk
+        let mf = Manifest::completed(&env, &service, &mut vault).unwrap();
+
+        let res = shipcat::generate(&tera, mf, env, true);
         result_exit(args.subcommand_name().unwrap(), res)
     }
+
+    //if let Some(_) = args.subcommand_matches("ship") {
+    //    let res = shipcat::ship(&tera, &mf);
+    //    result_exit(args.subcommand_name().unwrap(), res)
+    //}
 
     unreachable!("Subcommand valid, but not implemented");
 }

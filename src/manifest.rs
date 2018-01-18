@@ -49,10 +49,12 @@ pub struct Replicas {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ConfigMount {
-    /// Name of file to mount as in k8s
+    /// Name of file to template
     pub name: String,
-    /// Local location of template
-    pub src: String,
+    /// Name of file as used in code
+    pub dest: String,
+    /// Volume directory in docker
+    pub volume: String,
 }
 
 // misc structs
@@ -73,13 +75,13 @@ pub struct Prometheus {
 }
 
 
-#[derive(Serialize, Clone, Default, Debug)]
-pub struct PortMap {
-    /// Host port
-    pub host: u32,
-    /// Target port
-    pub target: u32,
-}
+//#[derive(Serialize, Clone, Default, Debug)]
+//pub struct PortMap {
+//    /// Host port
+//    pub host: u32,
+//    /// Target port
+//    pub target: u32,
+//}
 
 /// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -102,10 +104,10 @@ pub struct Manifest {
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub config: Vec<ConfigMount>,
-    /// Ports to expose (docker style host:target)
+    /// Ports to expose
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub ports: Vec<String>,
+    pub ports: Vec<u32>,
 
     // TODO: boot time -> minReadySeconds
 
@@ -142,9 +144,9 @@ pub struct Manifest {
     #[serde(skip_serializing, skip_deserializing)]
     _location: String,
 
-    // Parsed port map of this manifest
-    #[serde(skip_serializing, skip_deserializing)]
-    pub _portmaps: Vec<PortMap>
+//    // Parsed port map of this manifest
+//    #[serde(skip_serializing, skip_deserializing)]
+//    pub _portmaps: Vec<PortMap>
 }
 
 
@@ -175,8 +177,10 @@ impl Manifest {
     }
 
     /// Populate implicit defaults from config file
-    fn implicits(&mut self) -> Result<()> {
-        let cfg_dir = env::current_dir()?.join("configs"); // TODO: config dir
+    ///
+    /// Currently assume defaults live in environment directory
+    fn implicits(&mut self, env: &str) -> Result<()> {
+        let cfg_dir = env::current_dir()?.join(env); // TODO: generalize
         let def_pth = cfg_dir.join("shipcat.yml");
         let mut f = File::open(&def_pth)?;
         let mut data = String::new();
@@ -198,9 +202,10 @@ impl Manifest {
         if self.replicas.is_none() {
             self.replicas = mf.replicas;
         }
-        for s in &self.ports {
-            self._portmaps.push(parse_ports(s)?);
-        }
+        // only using target ports now, disabling this now
+        //for s in &self.ports {
+        //    self._portmaps.push(parse_ports(s)?);
+        //}
         Ok(())
     }
 
@@ -221,9 +226,10 @@ impl Manifest {
     }
 
     // Return a completed (read, filled in, and populate secrets) manifest
-    pub fn completed(client: &mut Vault) -> Result<Manifest> {
-        let mut mf = Manifest::read()?;
-        mf.implicits()?;
+    pub fn completed(env: &str, service: &str, client: &mut Vault) -> Result<Manifest> {
+        let pth = Path::new(".").join(env).join(service);
+        let mut mf = Manifest::read_from(&pth)?;
+        mf.implicits(env)?;
         mf.secrets(client)?;
 
         Ok(mf)
@@ -280,7 +286,8 @@ impl Manifest {
 }
 
 // Parse normal docker style host:target port opening
-fn parse_ports(s: &str) -> Result<PortMap> {
+// disabled for now - only parsing target port vector
+/*fn parse_ports(s: &str) -> Result<PortMap> {
     let split: Vec<&str> = s.split(':').collect();
     if split.len() != 2 {
         bail!("Port listing {} not in the form of host:target", s);
@@ -294,7 +301,7 @@ fn parse_ports(s: &str) -> Result<PortMap> {
         e
     })?;
     Ok(PortMap{ host, target })
-}
+}*/
 
 // Parse normal k8s memory resource value into integers
 fn parse_memory(s: &str) -> Result<u64> {
@@ -342,7 +349,7 @@ fn parse_cpu(s: &str) -> Result<f64> {
 
 pub fn validate() -> Result<()> {
     let mut mf = Manifest::read()?;
-    mf.implicits()?;
+    mf.implicits("dev")?; // TODO: this is going to fail anyway now
     mf.verify()
 }
 

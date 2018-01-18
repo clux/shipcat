@@ -65,7 +65,7 @@ error_chain! {
 
 
 pub fn init_tera() -> tera::Tera {
-    let mut tera = compile_templates!("configs/*");
+    let mut tera = compile_templates!("dev/*");
     tera.autoescape_on(vec!["html"]);
     tera
 }
