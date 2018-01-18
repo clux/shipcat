@@ -4,7 +4,7 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::env;
 use std::path::{PathBuf, Path};
-use std::collections::BTreeMap;
+use std::collections::{HashMap, BTreeMap};
 
 use super::Result;
 use super::vault::Vault;
@@ -210,13 +210,17 @@ impl Manifest {
     }
 
     // Populate placeholder fields with secrets from vault
-    fn secrets(&mut self, client: &mut Vault) -> Result<()> {
+    fn secrets(&mut self, client: &mut Vault, service: &str, env: &str) -> Result<()> {
+        let envmap: HashMap<&str, &str> =[
+            ("dev", "development"), // dev env uses vault secrets in development
+        ].iter().cloned().collect();
+
         if let Some(mut envs) = self.env.clone() {
             // iterate over evar key values and find the ones we need
             for (key, value) in envs.iter_mut() {
                 if value == &"IN_VAULT" {
-                    // TODO: handle different environments
-                    let secret = client.read("development", key)?;
+                    let full_key = format!("{}/{}", service, key);
+                    let secret = client.read(envmap.get(env).unwrap(), &full_key)?;
                     *value = secret;
                 }
             }
@@ -230,7 +234,7 @@ impl Manifest {
         let pth = Path::new(".").join(env).join(service);
         let mut mf = Manifest::read_from(&pth)?;
         mf.implicits(env)?;
-        mf.secrets(client)?;
+        mf.secrets(client, service, env)?;
 
         Ok(mf)
     }
