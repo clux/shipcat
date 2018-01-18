@@ -18,4 +18,4 @@ cp shipcat.complete.sh release/share/
 cd release
 tar czf ../shipcat.tar.gz .
 
-# TODO: OSX build
+# TODO: OSX build on CI

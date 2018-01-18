@@ -11,7 +11,11 @@ ln -sf $PWD/target/debug/shipcat /usr/local/bin/shipcat
 echo "source $PWD/shipcat.complete.sh" >> ~/.bash_completion
 ```
 
-To install a prebuilt, extract [one of the tarballs](https://github.com/Babylonpartners/shipcat/releases) into `/usr/local` or a prefix of your choice, then add `source /usr/local/share/shipcat.complete.sh` to `~/.bash_completion`.
+To install a prebuilt, extract [one of the tarballs](https://github.com/Babylonpartners/shipcat/releases) into `/usr/local`, then:
+
+```sh
+echo source /usr/local/share/shipcat.complete.sh >> ~/.bash_completion
+```
 
 ## Usage
 To create an initial manifest, use `shipcat init`.
