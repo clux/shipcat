@@ -3,7 +3,7 @@
 A small CLI helper to manage microservice deployments running on `kubernetes` via `shipcat.yml`. Lives in your repo, catches vermin, [purrs](https://en.wikipedia.org/wiki/Ship%27s_cat).
 
 ## Installation
-Build yourself for now. Use [rustup](https://rustup.rs/) to get stable rust.
+To build yourself, use [rustup](https://rustup.rs/) to get stable rust.
 
 ```sh
 cargo build
@@ -11,7 +11,7 @@ ln -sf $PWD/target/debug/shipcat /usr/local/bin/shipcat
 echo "source $PWD/shipcat.complete.sh" >> ~/.bash_completion
 ```
 
-TODO: OSX/Linux prebuilts.
+To install a prebuilt, extract [one of the tarballs](https://github.com/Babylonpartners/shipcat/releases) into `/usr/local` or a prefix of your choice, then add `source /usr/local/share/shipcat.complete.sh` to `~/.bash_completion`.
 
 ## Usage
 To create an initial manifest, use `shipcat init`.
