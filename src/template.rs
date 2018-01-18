@@ -6,7 +6,8 @@ fn indent4(v: Value, _: HashMap<String, Value>) -> Result<Value> {
     let s : String = try_get_value!("indent", "value", String, v);
     let mut xs = vec![];
     for l in s.lines() {
-      xs.push(format!("    {}", l))
+      // indent all non-empty lines by 4 spaces
+      xs.push(if l == "" { l.to_string() } else { format!("    {}", l) });
     }
     Ok(serde_json::to_value(&xs.join("\n")).unwrap())
 }
