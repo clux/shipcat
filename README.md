@@ -14,7 +14,7 @@ echo "source $PWD/shipcat.complete.sh" >> ~/.bash_completion
 To install a prebuilt, extract [one of the tarballs](https://github.com/Babylonpartners/shipcat/releases) into `/usr/local`, then:
 
 ```sh
-echo source /usr/local/share/shipcat.complete.sh >> ~/.bash_completion
+echo "source /usr/local/share/shipcat.complete.sh" >> ~/.bash_completion
 ```
 
 ## Usage
