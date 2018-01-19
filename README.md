@@ -23,7 +23,7 @@ chmod +x shipcat
 ## Usage
 To create an initial manifest, use `shipcat init`.
 
-In general, add keys to your [shipcat.yml](https://github.com/Babylonpartners/shipcat/blob/master/shipcat.yml#L1) file and make sure `shipcat validate` passes.
+In general, add keys to your `shipcat.yml` file in the [cathulk repo](https://github.com/Babylonpartners/cathulk) and make sure `shipcat validate` passes.
 
 If you have `vault` credentials you can generate the complete kube file.
 
