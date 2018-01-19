@@ -25,7 +25,8 @@ jobs:
             - target
       - store_artifacts:
           path: target/x86_64-unknown-linux-musl/release/shipcat
-          destination: ~/shipcat/target/x86_64-unknown-linux-musl/release/
+          destination: shipcat
+      - run: ls **
       - save_cache:
           key: cargo.registry
           paths:
@@ -37,4 +38,6 @@ jobs:
     working_directory: ~/shipcat
     steps:
       - checkout
+      - restore_cache:
+        key: cargo.registry
       - run: ls **
