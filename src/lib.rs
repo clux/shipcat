@@ -1,15 +1,15 @@
 #![recursion_limit = "1024"]
 
-
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_yaml;
 
+// templating
 #[macro_use]
 extern crate tera;
 extern crate walkdir;
 
-// vault deps
+// vault api
 extern crate reqwest;
 extern crate serde_json;
 #[macro_use]
@@ -59,6 +59,10 @@ error_chain! {
         MissingSecret(key: String) {
             description("secret does not have value for specified key")
             display("secret '{}' does not exist", &key)
+        }
+        NoExposedPorts {
+            description("service exposes no ports")
+            display("service exposes no ports")
         }
     }
 }

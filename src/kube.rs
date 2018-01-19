@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use tera::{Tera, Context};
 use super::{Result};
+use super::template::render;
 use super::manifest::*;
 
 #[derive(Serialize, Clone, Default)]
@@ -27,7 +28,7 @@ fn template_config(tera: &Tera, name: &str, mount: &ConfigMount, env: &str) -> R
     ctx.add("newrelic_license", &license); // for newrelic
     ctx.add("app", &name.to_string()); // for newrelic
     ctx.add("environment", envmap.get(env).unwrap()); // for newrelic
-    Ok(tera.render(&mount.name, &ctx)?)
+    Ok(render(tera, &mount.name, &ctx)?)
 
 }
 
@@ -53,10 +54,14 @@ pub fn generate(tera: &Tera, mf: Manifest, env: &str, to_stdout: bool, to_file: 
     ].iter().cloned().collect();
     context.add("tag", tagmap.get(env).unwrap());
 
-    if !mf.ports.is_empty() {
-        context.add("ports", &mf.ports);
-        context.add("healthPort", &mf.ports[0]); // TODO: health check proper
+    if let Some(h) = mf.health {
+        context.add("boottime", &h.wait.to_string());
+    } else {
+        context.add("boottime", &"30".to_string());
     }
+    context.add("ports", &mf.ports);
+    context.add("healthPort", &mf.ports[0]); // TODO: health check proper
+
     let mut mounts : Vec<Mount> = vec![];
     for mount in mf.config.iter() {
         let res = template_config(tera, &mf.name, mount, env)?;
@@ -64,7 +69,7 @@ pub fn generate(tera: &Tera, mf: Manifest, env: &str, to_stdout: bool, to_file: 
     }
     context.add("mounts", &mounts);
 
-    let res = tera.render("deployment.yaml", &context)?;
+    let res = render(tera, "deployment.yaml", &context)?;
     if to_stdout {
         print!("{}", res);
     }
@@ -78,7 +83,7 @@ pub fn generate(tera: &Tera, mf: Manifest, env: &str, to_stdout: bool, to_file: 
         let full_pth = loc.join("OUTPUT").join("values.yaml");
         let mut f = File::create(&full_pth)?;
         write!(f, "{}\n", res)?;
-        info!("Wrote kubefiles in {}", full_pth.to_string_lossy());
+        info!("Wrote kubefiles for {} in {}", mf.name, full_pth.to_string_lossy());
     }
     Ok(res)
 }

@@ -2,9 +2,7 @@
 
 ## Plan
 ### immediate
-- finish basic templating of files
 - kubectl apply with output of shipcat generate tested (yaml format)
-- [fix whitespace crap..](http://jaytaylor.com/notes/node/1457984547000.html)
 - create manifests for everything (and fix up issues)
 - make new jenkins job from cathulk repo without k8s plugin
 - generalize jenkins job to work with both dev AND global envs

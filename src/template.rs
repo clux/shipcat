@@ -12,8 +12,8 @@ fn indent4(v: Value, _: HashMap<String, Value>) -> Result<Value> {
     let s : String = try_get_value!("indent", "value", String, v);
     let mut xs = vec![];
     for l in s.lines() {
-      // indent all non-empty lines by 4 spaces
-      xs.push(if l == "" { l.to_string() } else { format!("    {}", l) });
+        // indent all non-empty lines by 4 spaces
+        xs.push(if l == "" { l.to_string() } else { format!("    {}", l) });
     }
     Ok(serde_json::to_value(&xs.join("\n")).unwrap())
 }
@@ -71,7 +71,12 @@ pub fn init(env: &str, service: &str) -> super::Result<Tera> {
     Ok(tera)
 }
 
-pub fn render(tera: &Tera, context: &Context, tmpl: &str) -> super::Result<String> {
+pub fn render(tera: &Tera, tmpl: &str, context: &Context) -> super::Result<String> {
     let result = tera.render(tmpl, context)?;
-    Ok(result)
+    let mut xs = vec![];
+    for l in result.lines() {
+        // trim whitespace (mostly to satisfy linters)
+        xs.push(l.trim_right());
+    }
+    Ok(xs.join("\n"))
 }

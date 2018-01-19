@@ -6,7 +6,7 @@ use std::env;
 use std::path::{PathBuf, Path};
 use std::collections::{HashMap, BTreeMap};
 
-use super::Result;
+use super::{Result, ErrorKind};
 use super::vault::Vault;
 
 // k8s related structs
@@ -83,6 +83,17 @@ pub struct VaultOpts {
     pub suffix: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct HealthCheck {
+    // Port where the health check is located (typically first exposed port)
+    //pub port: u32,
+    // NB: maybe do ports later, currently use first exposed port
+
+    /// Where the health check is located (typically /health)
+    pub uri: String,
+    /// How long to wait after boot in seconds (typically 30s)
+    pub wait: u32
+}
 
 //#[derive(Serialize, Clone, Default, Debug)]
 //pub struct PortMap {
@@ -120,9 +131,14 @@ pub struct Manifest {
     /// Vault options
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vault: Option<VaultOpts>,
+    /// Health check parameters
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub health: Option<HealthCheck>,
+
 
     // TODO: boot time -> minReadySeconds
 
+// TODO: service dependencies!
 
     /// Prometheus metric options
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -140,9 +156,7 @@ pub struct Manifest {
 //      - users-connected
 //      - conversation-length
 
-    // TODO: health/die, secrets/vault, logging alerts
-//vault:
-//  path: /blah/woot
+// TODO: logging alerts
 //logging:
 //  alerts:
 //    error-rate-5xx:
@@ -219,6 +233,12 @@ impl Manifest {
                 name: mf.name.clone(),
                 suffix: None,
             })
+        }
+        if self.ports.is_empty() {
+            return Err(ErrorKind::NoExposedPorts.into());
+        }
+        if self.health.is_none() {
+            self.health = mf.health
         }
         // only using target ports now, disabling this now
         //for s in &self.ports {
