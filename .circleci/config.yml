@@ -38,6 +38,4 @@ jobs:
     working_directory: ~/shipcat
     steps:
       - checkout
-      - restore_cache:
-        key: cargo.registry
       - run: ls **
