@@ -1,12 +1,11 @@
 version: 2
 workflows:
   version: 2
-  compile_build_and_test:
+  compile_build_and_release:
     jobs:
       - compile_app
-      - release:
-          requires:
-            - compile_app
+      # TODO: github releases rather than circi build artifacts
+      # TODO: osx artifacts
 jobs:
   compile_app:
     docker:
@@ -26,16 +25,7 @@ jobs:
       - store_artifacts:
           path: target/x86_64-unknown-linux-musl/release/shipcat
           destination: shipcat
-      - run: ls **
       - save_cache:
           key: cargo.registry
           paths:
             - /root/.cargo
-  release:
-    machine:
-      services:
-        - docker
-    working_directory: ~/shipcat
-    steps:
-      - checkout
-      - run: ls **
