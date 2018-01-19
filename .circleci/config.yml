@@ -1,0 +1,40 @@
+version: 2
+workflows:
+  version: 2
+  compile_build_and_test:
+    jobs:
+      - compile_app
+      - release:
+          requires:
+            - compile_app
+jobs:
+  compile_app:
+    docker:
+      - image: clux/muslrust:stable
+    working_directory: /volume
+    steps:
+      - checkout
+      - restore_cache:
+          key: cargo.registry
+      - restore_cache:
+          key: target-{{ checksum "Cargo.lock" }}
+      - run: cargo build --release
+      - save_cache:
+          key: target-{{ checksum "Cargo.lock" }}
+          paths:
+            - target
+      - store_artifacts:
+          path: target/x86_64-unknown-linux-musl/release/shipcat
+          destination: ~/shipcat/target/x86_64-unknown-linux-musl/release/
+      - save_cache:
+          key: cargo.registry
+          paths:
+            - /root/.cargo
+  release:
+    machine:
+      services:
+        - docker
+    working_directory: ~/shipcat
+    steps:
+      - checkout
+      - run: ls **
