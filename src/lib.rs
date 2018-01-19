@@ -7,7 +7,7 @@ extern crate serde_yaml;
 
 #[macro_use]
 extern crate tera;
-
+extern crate walkdir;
 
 // vault deps
 extern crate reqwest;

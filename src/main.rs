@@ -77,9 +77,6 @@ fn main() {
     //openssl_probe::init_ssl_cert_env_vars();
     let mut vault = shipcat::vault::Vault::default().unwrap();
 
-    // templating engine
-    let tera = shipcat::template::init();
-
     // Handle subcommands dumb subcommands
     if let Some(_) = args.subcommand_matches("validate") {
         result_exit(args.subcommand_name().unwrap(), shipcat::validate())
@@ -95,6 +92,9 @@ fn main() {
     if let Some(a) = args.subcommand_matches("generate") {
         let env = a.value_of("environment").unwrap();
         let service = a.value_of("service").unwrap();
+
+        // templating engine
+        let tera = shipcat::template::init(env, service).unwrap();
 
         // Populate a complete manifest (with ALL values) early for advanced commands
         // NB: Currently reading it hackily from root of cathulk

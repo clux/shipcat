@@ -193,7 +193,7 @@ impl Manifest {
     /// Currently assume defaults live in environment directory
     fn implicits(&mut self, env: &str) -> Result<()> {
         let cfg_dir = env::current_dir()?.join(env); // TODO: generalize
-        let def_pth = cfg_dir.join("shipcat.yml");
+        let def_pth = cfg_dir.join("shipcat-defaults.yml");
         let mut f = File::open(&def_pth)?;
         let mut data = String::new();
         f.read_to_string(&mut data)?;

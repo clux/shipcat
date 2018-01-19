@@ -12,6 +12,7 @@ pub struct Mount {
 
 fn template_config(tera: &Tera, name: &str, mount: &ConfigMount, env: &str) -> Result<String> {
     // friendly env name (used by newrelic config)
+    // TODO: should be dev-uk or dev once namespace changes
     let envmap: HashMap<&str, &str> =[
         ("dev", "development"), // dev env has descriptive name development
     ].iter().cloned().collect();
@@ -23,7 +24,7 @@ fn template_config(tera: &Tera, name: &str, mount: &ConfigMount, env: &str) -> R
     // currenly a reusable context for the various templated configs
     let mut ctx = Context::new();
 
-    ctx.add("license_key", &license); // for newrelic
+    ctx.add("newrelic_license", &license); // for newrelic
     ctx.add("app", &name.to_string()); // for newrelic
     ctx.add("environment", envmap.get(env).unwrap()); // for newrelic
     Ok(tera.render(&mount.name, &ctx)?)
