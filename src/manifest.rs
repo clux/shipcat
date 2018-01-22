@@ -248,9 +248,15 @@ impl Manifest {
             self.health = mf.health
         }
         let mut volume_index = 1;
+        let num_volumes = self.volumes.len();
         for vol in self.volumes.iter_mut() {
             if vol.name.is_none() {
-                vol.name = Some(format!("{}-config-{}", self.name, volume_index));
+                if volume_index == 1 && num_volumes == 1 {
+                    // have simpler config man names when only one volume
+                    vol.name = Some(format!("{}-config", self.name));
+                } else {
+                    vol.name = Some(format!("{}-config-{}", self.name, volume_index));
+                }
                 volume_index += 1;
             }
         }
