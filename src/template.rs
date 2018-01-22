@@ -24,6 +24,7 @@ pub fn init(env: &str, service: &str) -> super::Result<Tera> {
     tera.register_filter("indent4", indent4);
 
     // TODO: rather than using PWD we could have a CATHULK_ROOT evar here
+    // TODO: add service subfolder first, THEN env subfolder so we have specificity!
     let cathulk_root = Path::new(".");
     let edir = Path::new(&cathulk_root).join(env);
     let edirs = WalkDir::new(&edir)

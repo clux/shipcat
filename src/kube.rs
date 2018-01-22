@@ -4,13 +4,22 @@ use tera::Context; // just a hashmap wrapper
 use super::{Result};
 use super::manifest::*;
 
+/// Completely filled in ConfigMount
 #[derive(Serialize, Clone, Default)]
-pub struct Mount {
+pub struct RenderedMount {
+    pub name: String,
+    pub path: String,
+    pub configs: Vec<RenderedConfig>,
+}
+/// Completely filled in ConfigMountedFile
+#[derive(Serialize, Clone, Default)]
+pub struct RenderedConfig {
     pub name: String,
     pub value: String,
 }
 
-fn template_config(dep: &Deployment, mount: &ConfigMount) -> Result<String> {
+
+fn template_config(dep: &Deployment, mount: &ConfigMountedFile) -> Result<String> {
     // friendly env-loc name (used by newrelic config)
     let envloc = format!("{}-{}", dep.environment, dep.location);
 
@@ -76,10 +85,18 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
     context.add("ports", &dep.manifest.ports);
     context.add("healthPort", &dep.manifest.ports[0]); // TODO: health check proper
 
-    let mut mounts : Vec<Mount> = vec![];
-    for mount in dep.manifest.config.iter() {
-        let res = template_config(dep, mount)?;
-        mounts.push(Mount { name: mount.dest.clone(), value: res });
+    let mut mounts = vec![];
+    for mount in dep.manifest.volumes.clone().into_iter() {
+        let mut files = vec![];
+        for cfg in mount.configs.iter() {
+            let res = template_config(dep, cfg)?;
+            files.push(RenderedConfig { name: cfg.dest.clone(), value: res });
+        }
+        mounts.push(RenderedMount {
+            name: mount.name.unwrap(), // filled in by implicits
+            path: mount.mount,
+            configs: files,
+        });
     }
     context.add("mounts", &mounts);
 
