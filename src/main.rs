@@ -47,7 +47,13 @@ fn main() {
                 .long("env")
                 .required(true)
                 .takes_value(true)
-                .help("Kubernetes environment"))
+                .help("Environment name (dev, qa, prod)"))
+            .arg(Arg::with_name("location")
+                .short("l")
+                .long("location")
+                .required(true)
+                .takes_value(true)
+                .help("Location of deployment (uk, rw, ca)"))
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
@@ -72,11 +78,6 @@ fn main() {
         .init()
         .unwrap();
 
-    // clients for network related subcommands
-    // TODO: ssl cert location thingy here
-    //openssl_probe::init_ssl_cert_env_vars();
-    let mut vault = shipcat::vault::Vault::default().unwrap();
-
     // Handle subcommands dumb subcommands
     if let Some(_) = args.subcommand_matches("validate") {
         result_exit(args.subcommand_name().unwrap(), shipcat::validate())
@@ -92,6 +93,13 @@ fn main() {
     if let Some(a) = args.subcommand_matches("generate") {
         let env = a.value_of("environment").unwrap();
         let service = a.value_of("service").unwrap();
+        let location = a.value_of("location").unwrap();
+
+        // clients for network related subcommands
+        // TODO: ssl cert location thingy here
+        //openssl_probe::init_ssl_cert_env_vars();
+        // TODO: vault client parametrised to ENV and location here!
+        let mut vault = shipcat::vault::Vault::default().unwrap();
 
         // Populate a complete manifest (with ALL values) early for advanced commands
         // NB: Currently reading it hackily from root of cathulk
@@ -104,7 +112,7 @@ fn main() {
         let dep = shipcat::Deployment {
             service: service.into(),
             environment: env.into(),
-            location: "uk".into(), // TODO: parametrise
+            location: location.into(),
             manifest: mf,
             // only provide template::render as the interface (move tera into this)
             render: Box::new(move |tmpl, context| {

@@ -10,12 +10,9 @@ pub struct Mount {
     pub value: String,
 }
 
-fn template_config(dep: &Deployment, name: &str, mount: &ConfigMount) -> Result<String> {
-    // friendly env name (used by newrelic config)
-    // TODO: should be dev-uk or dev once namespace changes
-    let envmap: HashMap<&str, &str> =[
-        ("dev", "development"), // dev env has descriptive name development
-    ].iter().cloned().collect();
+fn template_config(dep: &Deployment, mount: &ConfigMount) -> Result<String> {
+    // friendly env-loc name (used by newrelic config)
+    let envloc = format!("{}-{}", dep.environment, dep.location);
 
     // newrelic api key for dev
     // TODO: generalize
@@ -25,8 +22,8 @@ fn template_config(dep: &Deployment, name: &str, mount: &ConfigMount) -> Result<
     let mut ctx = Context::new();
 
     ctx.add("newrelic_license", &license); // for newrelic
-    ctx.add("app", &name.to_string()); // for newrelic
-    ctx.add("environment", envmap.get(&*dep.environment).unwrap()); // for newrelic
+    ctx.add("app", &dep.service); // for newrelic
+    ctx.add("environmentlocation", &envloc); // for newrelic
     Ok((dep.render)(&mount.name, &ctx)?)
 }
 
@@ -81,7 +78,7 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
 
     let mut mounts : Vec<Mount> = vec![];
     for mount in dep.manifest.config.iter() {
-        let res = template_config(dep, &dep.manifest.name, mount)?;
+        let res = template_config(dep, mount)?;
         mounts.push(Mount { name: mount.dest.clone(), value: res });
     }
     context.add("mounts", &mounts);
