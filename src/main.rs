@@ -93,14 +93,27 @@ fn main() {
         let env = a.value_of("environment").unwrap();
         let service = a.value_of("service").unwrap();
 
-        // templating engine
-        let tera = shipcat::template::init(env, service).unwrap();
-
         // Populate a complete manifest (with ALL values) early for advanced commands
         // NB: Currently reading it hackily from root of cathulk
         let mf = Manifest::completed(&env, &service, &mut vault).unwrap();
 
-        let res = shipcat::generate(&tera, mf, env, false, true);
+        // templating engine
+        let tera = shipcat::template::init(env, service).unwrap();
+
+        // All parameters for a k8s deployment
+        let dep = shipcat::Deployment {
+            service: service.into(),
+            environment: env.into(),
+            location: "uk".into(), // TODO: parametrise
+            manifest: mf,
+            // only provide template::render as the interface (move tera into this)
+            render: Box::new(move |tmpl, context| {
+                template::render(&tera, tmpl, context)
+            }),
+        };
+        dep.check(); // some sanity asserts
+
+        let res = shipcat::generate(&dep, false, true);
         result_exit(args.subcommand_name().unwrap(), res)
     }
 
