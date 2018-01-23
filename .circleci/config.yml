@@ -29,7 +29,7 @@ jobs:
           paths:
             - /root/.cargo
   build_image:
-    machine:: true
+    machine: true
     steps:
       - checkout
       - run: ls **
