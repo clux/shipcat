@@ -4,7 +4,9 @@ workflows:
   compile_build_and_release:
     jobs:
       - compile_app
-      - build_image
+      - build_image:
+        requires:
+            - compile_app
 jobs:
   compile_app:
     docker:
