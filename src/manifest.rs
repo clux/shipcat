@@ -85,7 +85,7 @@ pub struct Prometheus {
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct VaultOpts {
     /// If Vault name differs from service name
-    pub name: String,
+    pub name: Option<String>,
     /// If the secret lives under a special suffix
     pub suffix: Option<String>,
 }
@@ -219,6 +219,7 @@ impl Manifest {
     fn implicits(&mut self, env: &str) -> Result<()> {
         let cfg_dir = env::current_dir()?.join(env); // TODO: generalize
         let def_pth = cfg_dir.join("shipcat-defaults.yml");
+        debug!("Populating environment defaults using {}", def_pth.display());
         let mut f = File::open(&def_pth)?;
         let mut data = String::new();
         f.read_to_string(&mut data)?;
@@ -246,7 +247,7 @@ impl Manifest {
         }
         if self.vault.is_none() {
             self.vault = Some(VaultOpts {
-                name: mf.name.clone(),
+                name: Some(self.name.clone()),
                 suffix: None,
             })
         }
@@ -289,7 +290,7 @@ impl Manifest {
             for (key, value) in envs.iter_mut() {
                 if value == &"IN_VAULT" {
                     let vopts = self.vault.clone().unwrap();
-                    let serv = vopts.name;
+                    let serv = vopts.name.unwrap();
                     // TODO: we should not have to deal with environment suffix
                     let full_key = if let Some(suffix) = vopts.suffix {
                        format!("{}/{}/{}", serv, suffix, key)
@@ -322,6 +323,13 @@ impl Manifest {
         let mut f = File::create(&self._location)?;
         write!(f, "{}\n", encoded)?;
         debug!("Wrote manifest in {}: \n{}", self._location, encoded);
+        Ok(())
+    }
+
+    /// Print manifest to stdout
+    pub fn print(&self) -> Result<()> {
+        let encoded = serde_yaml::to_string(self)?;
+        print!("{}\n", encoded);
         Ok(())
     }
 
@@ -427,10 +435,14 @@ fn parse_cpu(s: &str) -> Result<f64> {
     Ok(res)
 }
 
-pub fn validate() -> Result<()> {
-    let mut mf = Manifest::read()?;
-    mf.implicits("dev")?; // TODO: this is going to fail anyway now
-    mf.verify()
+pub fn validate(env: &str, service: &str) -> Result<()> {
+    let pth = Path::new(".").join(env).join(service);
+    trace!("Reading manifest from {}", pth.display());
+    let mut mf = Manifest::read_from(&pth)?;
+    trace!("got mf for {} {}", env, service);
+    mf.implicits(env)?;
+    mf.verify()?;
+    mf.print()
 }
 
 pub fn init() -> Result<()> {
