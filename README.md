@@ -1,4 +1,4 @@
-# shipcat
+![Shipcat](.doc/shipcat-babylon.png)
 
 A small CLI helper to manage microservice deployments running on `kubernetes` via `shipcat.yml`. Lives [on your ship](https://github.com/Babylonpartners/cathulk), catches vermin, [purrs](https://en.wikipedia.org/wiki/Ship%27s_cat).
 
