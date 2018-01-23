@@ -4,8 +4,7 @@ workflows:
   compile_build_and_release:
     jobs:
       - compile_app
-      # TODO: github releases rather than circi build artifacts
-      # TODO: osx artifacts
+      - build_image
 jobs:
   compile_app:
     docker:
@@ -29,3 +28,14 @@ jobs:
           key: cargo.registry
           paths:
             - /root/.cargo
+  build_image:
+    machine:: true
+    steps:
+      - checkout
+      - run: ls **
+      - login: |
+         docker --version
+         docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
+
+      # build the kubcat image using the compiled binary and push it
+      - run: make tag-latest
