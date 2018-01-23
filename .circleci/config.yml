@@ -33,9 +33,7 @@ jobs:
     steps:
       - checkout
       - run: ls **
-      - login: |
-         docker --version
-         docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
+      - run: docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
 
       # build the kubcat image using the compiled binary and push it
       - run: make tag-latest
