@@ -113,8 +113,12 @@ pub struct HealthCheck {
 /// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Manifest {
-    /// Name of the main component
+    /// Name of the service
     pub name: String,
+
+    /// Optional image name (if different from service name)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
 
     // Kubernetes specific flags
 
@@ -219,6 +223,11 @@ impl Manifest {
         let mut data = String::new();
         f.read_to_string(&mut data)?;
         let mf: Manifest = serde_yaml::from_str(&data)?;
+
+        if self.image.is_none() {
+            // by default image name == service name
+            self.image = Some(self.name.clone());
+        }
 
         if self.resources.is_none() {
             self.resources = mf.resources.clone();
