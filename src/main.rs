@@ -63,6 +63,15 @@ fn main() {
         .subcommand(SubCommand::with_name("init")
             .about("Create an initial shipcat manifest"))
         .subcommand(SubCommand::with_name("validate")
+            .arg(Arg::with_name("environment")
+                .short("e")
+                .long("env")
+                .required(true)
+                .takes_value(true)
+                .help("Environment name (dev, qa, prod)"))
+            .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service name"))
             .about("Validate the shipcat manifest"))
         .subcommand(SubCommand::with_name("list-environments")
             .setting(AppSettings::Hidden)
@@ -78,10 +87,6 @@ fn main() {
         .init()
         .unwrap();
 
-    // Handle subcommands dumb subcommands
-    if let Some(_) = args.subcommand_matches("validate") {
-        result_exit(args.subcommand_name().unwrap(), shipcat::validate())
-    }
     if let Some(_) = args.subcommand_matches("init") {
         result_exit(args.subcommand_name().unwrap(), shipcat::init())
     }
@@ -123,6 +128,14 @@ fn main() {
 
         let res = shipcat::generate(&dep, false, true);
         result_exit(args.subcommand_name().unwrap(), res)
+    }
+
+    // Handle subcommands dumb subcommands
+    if let Some(a) = args.subcommand_matches("validate") {
+        let env = a.value_of("environment").unwrap();
+        let service = a.value_of("service").unwrap();
+
+        result_exit(args.subcommand_name().unwrap(), shipcat::validate(env, service))
     }
 
     //if let Some(_) = args.subcommand_matches("ship") {
