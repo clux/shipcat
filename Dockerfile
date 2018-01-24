@@ -21,4 +21,7 @@ RUN set -x && \
     kubectl version --client && \
     shipcat --version
 
+# Add yamllint as well for convenience
+RUN apk add --no-cache python3 && pip3 install yamllint
+
 USER kubectl
