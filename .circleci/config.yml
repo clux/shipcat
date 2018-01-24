@@ -30,10 +30,17 @@ jobs:
           key: cargo.registry
           paths:
             - /root/.cargo
+      - persist_to_workspace:
+          root: target/x86_64-unknown-linux-musl/release/
+          paths:
+            - shipcat
+
   build_image:
     machine: true
     steps:
       - checkout
+      - attach_workspace:
+          at: .
       - run: ls **
       - run: docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
 
