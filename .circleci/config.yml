@@ -4,9 +4,9 @@ workflows:
   comiple_and_build:
     jobs:
       - compile_app
-      - build_image:
-        requires:
-          - compile_app
+#      - build_image:
+#        requires:
+#          - compile_app
 jobs:
   compile_app:
     docker:
@@ -34,8 +34,14 @@ jobs:
           root: target/x86_64-unknown-linux-musl/release/
           paths:
             - shipcat
-
-  build_image:
-    machine: true
-    steps:
-      - checkout
+#  build_image:
+#    machine: true
+#    steps:
+#      - checkout
+#      - attach_workspace:
+#          at: .
+#      - run: ls **
+#      - run: docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
+#
+#      # build the kubcat image using the compiled binary and push it
+#      - run: make tag-latest
