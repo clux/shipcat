@@ -119,7 +119,7 @@ impl Vault {
         }
 
         // Retrieve secret from cache (now that it exists)
-        let secret = self.secrets.get(&pth).unwrap();
+        let secret = &self.secrets[&pth];
 
         // NB: Currently assume each path in vault has a single `value`
         // Read the value key (which should exist)
