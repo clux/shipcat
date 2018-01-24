@@ -6,7 +6,7 @@ workflows:
       - compile_app
       - build_image:
         requires:
-            - compile_app
+          - compile_app
 jobs:
   compile_app:
     docker:
