@@ -38,19 +38,8 @@ jobs:
     machine: true
     steps:
       - checkout
-      - run: ls **
       - attach_workspace:
           at: .
-      - run: ls **
-
-#  build_image:
-#    machine: true
-#    steps:
-#      - checkout
-#      - attach_workspace:
-#          at: .
-#      - run: ls **
-#      - run: docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
-#
-#      # build the kubcat image using the compiled binary and push it
-#      - run: make tag-latest
+      - run: ls -lah *
+      - run: docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
+      - run: make tag-release
