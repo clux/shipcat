@@ -39,6 +39,10 @@ jobs:
     steps:
       - checkout
       - run: ls **
+      - attach_workspace:
+          at: .
+      - run: ls **
+
 #  build_image:
 #    machine: true
 #    steps:
