@@ -61,8 +61,11 @@ pub struct Deployment {
     pub render: Box<Fn(&str, &Context) -> Result<(String)>>,
 }
 impl Deployment {
-    pub fn check(&self) {
-        assert_eq!(&self.service, &self.manifest.name)
+    pub fn check(&self) -> Result<()> {
+        if self.service != self.manifest.name {
+            bail!("manifest name does not match service name");
+        }
+        Ok(())
     }
 }
 
