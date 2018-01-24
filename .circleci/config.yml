@@ -1,7 +1,7 @@
 version: 2
 workflows:
   version: 2
-  compile_build_and_release:
+  comiple_and_build:
     jobs:
       - compile_app
       - build_image:
@@ -39,10 +39,3 @@ jobs:
     machine: true
     steps:
       - checkout
-      - attach_workspace:
-          at: .
-      - run: ls **
-      - run: docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
-
-      # build the kubcat image using the compiled binary and push it
-      - run: make tag-latest
