@@ -4,9 +4,18 @@ workflows:
   comiple_and_build:
     jobs:
       - compile_app
+      - test:
+          filters:
+            branches:
+              ignore:
+                - master
       - build_image:
           requires:
             - compile_app
+          filters:
+            branches:
+              only:
+                - master
 jobs:
   compile_app:
     docker:
@@ -34,6 +43,21 @@ jobs:
           root: target/x86_64-unknown-linux-musl/release/
           paths:
             - shipcat
+
+  test:
+    docker:
+      - image: clux/muslrust:stable
+    working_directory: /volume
+    steps:
+      - checkout
+      - restore_cache:
+          key: cargo.registry
+      - restore_cache:
+          key: target-{{ checksum "Cargo.lock" }}
+      # Do this later (currently needs some low-grade vault evars)
+      #- run: cargo test
+      - run: cargo doc --no-deps
+
   build_image:
     machine: true
     steps:
