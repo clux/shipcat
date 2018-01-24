@@ -23,6 +23,13 @@ fn result_exit<T>(name: &str, x: Result<T>) {
     });
     process::exit(0);
 }
+fn conditional_exit<T>(x: Result<T>) -> T {
+    x.map_err(|e| {
+        error!("error: {}", e);
+        debug!("{:?}", e); // in the off-chance that Debug is useful
+        process::exit(1);
+    }).unwrap()
+}
 
 fn main() {
     let app = App::new("shipcat")
@@ -104,14 +111,14 @@ fn main() {
         // TODO: ssl cert location thingy here
         //openssl_probe::init_ssl_cert_env_vars();
         // TODO: vault client parametrised to ENV and location here!
-        let mut vault = shipcat::vault::Vault::default().unwrap();
+        let mut vault = conditional_exit(shipcat::vault::Vault::default());
 
         // Populate a complete manifest (with ALL values) early for advanced commands
         // NB: Currently reading it hackily from root of cathulk
-        let mf = Manifest::completed(env, service, &mut vault).unwrap();
+        let mf = conditional_exit(Manifest::completed(env, service, &mut vault));
 
         // templating engine
-        let tera = shipcat::template::init(env, service).unwrap();
+        let tera = conditional_exit(shipcat::template::init(env, service));
 
         // All parameters for a k8s deployment
         let dep = shipcat::Deployment {
@@ -124,7 +131,7 @@ fn main() {
                 template::render(&tera, tmpl, context)
             }),
         };
-        dep.check(); // some sanity asserts
+        conditional_exit(dep.check()); // some sanity asserts
 
         let res = shipcat::generate(&dep, false, true);
         result_exit(args.subcommand_name().unwrap(), res)

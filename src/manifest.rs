@@ -201,6 +201,9 @@ impl Manifest {
     pub fn read_from(pwd: &PathBuf) -> Result<Manifest> {
         let mpath = pwd.join("shipcat.yml");
         trace!("Using manifest in {}", mpath.display());
+        if !mpath.exists() {
+            bail!("Manifest file {} does not exist", mpath.display())
+        }
         let mut f = File::open(&mpath)?;
         let mut data = String::new();
         f.read_to_string(&mut data)?;
@@ -222,6 +225,9 @@ impl Manifest {
         let cfg_dir = env::current_dir()?.join(env); // TODO: generalize
         let def_pth = cfg_dir.join("shipcat-defaults.yml");
         debug!("Populating environment defaults using {}", def_pth.display());
+        if !def_pth.exists() {
+            bail!("Defaults file {} does not exist", def_pth.display())
+        }
         let mut f = File::open(&def_pth)?;
         let mut data = String::new();
         f.read_to_string(&mut data)?;
@@ -311,6 +317,9 @@ impl Manifest {
     // Return a completed (read, filled in, and populate secrets) manifest
     pub fn completed(env: &str, service: &str, client: &mut Vault) -> Result<Manifest> {
         let pth = Path::new(".").join(env).join(service);
+        if !pth.exists() {
+            bail!("Service folder {} does not exist", pth.display())
+        }
         let mut mf = Manifest::read_from(&pth)?;
         mf.implicits(env)?;
         mf.secrets(client, env)?;
