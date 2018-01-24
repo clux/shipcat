@@ -6,7 +6,7 @@ use std::env;
 use std::path::{PathBuf, Path};
 use std::collections::{HashMap, BTreeMap};
 
-use super::{Result, ErrorKind};
+use super::Result;
 use super::vault::Vault;
 
 // k8s related structs
@@ -121,6 +121,9 @@ pub struct Manifest {
     /// Optional image name (if different from service name)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
+    /// Optional image command (if not using the default docker command)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
 
     // Kubernetes specific flags
 
@@ -260,7 +263,7 @@ impl Manifest {
             })
         }
         if self.ports.is_empty() {
-            return Err(ErrorKind::NoExposedPorts.into());
+            warn!("{} exposes no ports", self.name);
         }
         if self.health.is_none() {
             self.health = mf.health
