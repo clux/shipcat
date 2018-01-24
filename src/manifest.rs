@@ -85,8 +85,10 @@ pub struct Prometheus {
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct VaultOpts {
     /// If Vault name differs from service name
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// If the secret lives under a special suffix
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub suffix: Option<String>,
 }
 
