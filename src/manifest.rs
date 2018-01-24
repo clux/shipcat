@@ -366,6 +366,13 @@ impl Manifest {
 
         // 2. Ports restrictions? currently parse only
 
+        // 3. volumes
+        // 3.1) mount paths can't be empty string
+        for v in &self.volumes {
+            if v.mount == "" || v.mount == "~" {
+                bail!("Empty mountpath for {} mount ", v.name.clone().unwrap())
+            }
+        }
 
         // X. TODO: other keys
 
