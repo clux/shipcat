@@ -86,7 +86,9 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
         context.add("boottime", &"30".to_string());
     }
     context.add("ports", &dep.manifest.ports);
-    context.add("healthPort", &dep.manifest.ports[0]); // TODO: health check proper
+    if !dep.manifest.ports.is_empty() {
+        context.add("healthPort", &dep.manifest.ports[0]); // TODO: health check proper
+    }
 
     let mut mounts = vec![];
     for mount in dep.manifest.volumes.clone() {

@@ -60,10 +60,6 @@ error_chain! {
             description("secret does not have value for specified key")
             display("secret '{}' does not exist", &key)
         }
-        NoExposedPorts {
-            description("service exposes no ports")
-            display("service exposes no ports")
-        }
     }
 }
 
