@@ -42,4 +42,4 @@ jobs:
           at: .
       - run: ls -lah *
       - run: docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
-      - run: make tag-release
+      - run: make tag-latest
