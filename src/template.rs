@@ -40,7 +40,7 @@ pub fn init(env: &str, service: &str) -> super::Result<Tera> {
         })
         // skip hidden files
         .filter(|e| {
-            !e.file_name().to_string_lossy().starts_with(".")
+            !e.file_name().to_string_lossy().starts_with('.')
         })
         // if subdirectoried files, only from the directory of the relevant service
         .filter(|e| {

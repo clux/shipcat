@@ -4,14 +4,14 @@ use tera::Context; // just a hashmap wrapper
 use super::{Result};
 use super::manifest::*;
 
-/// Completely filled in ConfigMount
+/// Completely filled in `ConfigMount`
 #[derive(Serialize, Clone, Default)]
 pub struct RenderedMount {
     pub name: String,
     pub path: String,
     pub configs: Vec<RenderedConfig>,
 }
-/// Completely filled in ConfigMountedFile
+/// Completely filled in `ConfigMountedFile`
 #[derive(Serialize, Clone, Default)]
 pub struct RenderedConfig {
     pub name: String,
@@ -75,7 +75,7 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
     let tagmap: HashMap<&str, &str> =[
         ("dev", "develop"), // dev env uses develop docker tags
     ].iter().cloned().collect();
-    context.add("tag", tagmap.get(&*dep.environment).unwrap());
+    context.add("tag", &tagmap[&*dep.environment]);
 
     if let Some(ref h) = dep.manifest.health {
         context.add("boottime", &h.wait.to_string());
@@ -86,9 +86,9 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
     context.add("healthPort", &dep.manifest.ports[0]); // TODO: health check proper
 
     let mut mounts = vec![];
-    for mount in dep.manifest.volumes.clone().into_iter() {
+    for mount in dep.manifest.volumes.clone() {
         let mut files = vec![];
-        for cfg in mount.configs.iter() {
+        for cfg in &mount.configs {
             let res = template_config(dep, cfg)?;
             files.push(RenderedConfig { name: cfg.dest.clone(), value: res });
         }

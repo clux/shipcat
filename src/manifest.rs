@@ -188,7 +188,7 @@ pub struct Manifest {
 
 
 impl Manifest {
-    pub fn new(name: &str, location: PathBuf) -> Manifest {
+    pub fn new(name: &str, location: &PathBuf) -> Manifest {
         Manifest {
             name: name.into(),
             _location: location.to_string_lossy().into(),
@@ -259,7 +259,7 @@ impl Manifest {
         }
         let mut volume_index = 1;
         let num_volumes = self.volumes.len();
-        for vol in self.volumes.iter_mut() {
+        for vol in &mut self.volumes {
             if vol.name.is_none() {
                 if volume_index == 1 && num_volumes == 1 {
                     // have simpler config man names when only one volume
@@ -287,8 +287,8 @@ impl Manifest {
 
         if let Some(mut envs) = self.env.clone() {
             // iterate over evar key values and find the ones we need
-            for (key, value) in envs.iter_mut() {
-                if value == &"IN_VAULT" {
+            for (key, value) in &mut envs {
+                if value == "IN_VAULT" {
                     let vopts = self.vault.clone().unwrap();
                     let serv = vopts.name.unwrap();
                     // TODO: we should not have to deal with environment suffix
@@ -297,7 +297,7 @@ impl Manifest {
                     } else {
                         format!("{}/{}", serv, key)
                     };
-                    let secret = client.read(envmap.get(env).unwrap(), &full_key)?;
+                    let secret = client.read(envmap[env], &full_key)?;
                     *value = secret;
                 }
             }
@@ -450,6 +450,6 @@ pub fn init() -> Result<()> {
     let last_comp = pwd.components().last().unwrap(); // std::path::Component
     let dirname = last_comp.as_os_str().to_str().unwrap();
 
-    let mf = Manifest::new(dirname, pwd.join("shipcat.yml"));
+    let mf = Manifest::new(dirname, &pwd.join("shipcat.yml"));
     mf.write()
 }
