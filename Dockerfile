@@ -5,7 +5,7 @@ ENV KUBEVER=1.9.1 \
     VAULT_ADDR=https://vault.babylontech.co.uk:8200
 
 # Install shipcat (build for musl outside)
-ADD target/x86_64-unknown-linux-musl/release/shipcat /usr/local/bin/shipcat
+ADD shipcat /usr/local/bin/shipcat
 
 # Install kubectl (see https://aur.archlinux.org/packages/kubectl-bin )
 ADD https://storage.googleapis.com/kubernetes-release/release/v${KUBEVER}/bin/linux/amd64/kubectl /usr/local/bin/kubectl
