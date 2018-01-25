@@ -67,6 +67,13 @@ fn main() {
             .about("Generate kubefile from manifest"))
         .subcommand(SubCommand::with_name("ship")
             .about("Ship to kubernetes"))
+        .subcommand(SubCommand::with_name("slack")
+            .setting(AppSettings::TrailingVarArg)
+            .arg(Arg::with_name("message")
+                .required(true)
+                .multiple(true))
+            .about("Post message to slack"))
+
         .subcommand(SubCommand::with_name("init")
             .about("Create an initial shipcat manifest"))
         .subcommand(SubCommand::with_name("validate")
@@ -144,6 +151,15 @@ fn main() {
 
         result_exit(args.subcommand_name().unwrap(), shipcat::validate(env, service))
     }
+
+    if let Some(a) = args.subcommand_matches("slack") {
+        let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
+        let msg = shipcat::slack::Message { text };
+        result_exit(args.subcommand_name().unwrap(), shipcat::slack::message(msg))
+    }
+
+
+
 
     //if let Some(_) = args.subcommand_matches("ship") {
     //    let res = shipcat::ship(&tera, &mf);

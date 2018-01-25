@@ -15,6 +15,9 @@ extern crate serde_json;
 #[macro_use]
 extern crate hyper;
 
+// notifications
+extern crate slack_hook;
+
 #[macro_use]
 extern crate log;
 
@@ -33,9 +36,18 @@ error_chain! {
         Tmpl(tera::Error);
         SerdeY(serde_yaml::Error);
         SerdeJ(serde_json::Error);
+        Slack(slack_hook::Error);
         Reqw(reqwest::UrlError);
     }
     errors {
+        MissingSlackUrl {
+            description("SLACK_SHIPCAT_HOOK_URL not specified")
+            display("SLACK_SHIPCAT_HOOK_URL not specified")
+        }
+        MissingSlackChannel {
+            description("SLACK_SHIPCAT_CHANNEL not specified")
+            display("SLACK_SHIPCAT_CHANNEL not specified")
+        }
         MissingVaultAddr {
             description("VAULT_ADDR not specified")
             display("VAULT_ADDR not specified")
@@ -66,6 +78,7 @@ error_chain! {
 pub mod template;
 pub mod vault;
 pub mod list;
+pub mod slack;
 
 mod manifest;
 pub use manifest::{init, validate, Manifest};
