@@ -1,6 +1,6 @@
 ![Shipcat](.doc/shipcat-babylon.png)
 
-[![CircleCI](https://circleci.com/gh/Babylonpartners/shipcat.svg?style=svg&circle-token=1e5d93bf03a4c9d9c7f895d7de7bb21055d431ef)](https://circleci.com/gh/Babylonpartners/shipcat)
+[![CircleCI](https://circleci.com/gh/Babylonpartners/shipcat.svg?style=shield&circle-token=1e5d93bf03a4c9d9c7f895d7de7bb21055d431ef)](https://circleci.com/gh/Babylonpartners/shipcat)
 
 [![Docker Repository on Quay](https://quay.io/repository/babylonhealth/kubecat/status?token=6de24c74-1576-467f-8658-ec224df9302d "Docker Repository on Quay")](https://quay.io/repository/babylonhealth/kubecat)
 
@@ -24,6 +24,8 @@ curl -sSL "${caturl}?circle-token=$CIRCLE_TOKEN" > shipcat
 chmod +x shipcat
 # put it somewhere on your $PATH like /usr/local/bin/
 ```
+
+Mac users can use the [docker image](./Dockerfile) built from master. There's a [convenience invocation in cathulk](https://github.com/Babylonpartners/cathulk/blob/66e113db7166ec936bf66c9aa77a4a4899bd7b57/Makefile#L11-L17) where it's designed to be used.
 
 ## Usage
 To create an initial manifest, use `shipcat init`.
