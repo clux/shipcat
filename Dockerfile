@@ -2,7 +2,7 @@ FROM alpine:3.6
 
 ENV KUBEVER=1.9.1 \
     HOME=/config \
-    VAULT_ADDR=https://vault.babylontech.co.uk:8200
+    SSL_CERT_DIR=/etc/ssl/certs/
 
 # Install shipcat (build for musl outside)
 ADD shipcat /usr/local/bin/shipcat
