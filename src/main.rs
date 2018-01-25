@@ -68,6 +68,11 @@ fn main() {
         .subcommand(SubCommand::with_name("ship")
             .about("Ship to kubernetes"))
         .subcommand(SubCommand::with_name("slack")
+            .arg(Arg::with_name("url")
+                .short("u")
+                .long("url")
+                .takes_value(true)
+                .help("url to link to at the end of the messge"))
             .setting(AppSettings::TrailingVarArg)
             .arg(Arg::with_name("message")
                 .required(true)
@@ -154,7 +159,8 @@ fn main() {
 
     if let Some(a) = args.subcommand_matches("slack") {
         let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
-        let msg = shipcat::slack::Message { text };
+        let link = a.value_of("url").map(String::from);
+        let msg = shipcat::slack::Message { text, link };
         result_exit(args.subcommand_name().unwrap(), shipcat::slack::message(msg))
     }
 
