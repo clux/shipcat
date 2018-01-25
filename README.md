@@ -47,3 +47,11 @@ If you have `kubectl` credentials you can ship your service to the initial envir
 kubectl auth can-i rollout Deployment
 shipcat ship
 ```
+
+If you have `slack` tokens, you can also use `shipcat` to talk to slack:
+
+```sh
+export SLACK_SHIPCAT_HOOK_URL=https://hooks.slack.com/services/***REMOVED***/***REMOVED***/***REMOVED***
+export SLACK_SHIPCAT_CHANNEL="#eirik"
+shipcat slack hi eirik
+```
