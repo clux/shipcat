@@ -25,7 +25,7 @@ chmod +x shipcat
 # put it somewhere on your $PATH like /usr/local/bin/
 ```
 
-Mac users can use the [docker image](./Dockerfile) built from master. There's a [convenience invocation in cathulk](https://github.com/Babylonpartners/cathulk/blob/66e113db7166ec936bf66c9aa77a4a4899bd7b57/Makefile#L11-L17) where it's designed to be used.
+Mac users can use the [docker image](./Dockerfile) built from master. There's a [convenience invocation in cathulk](https://github.com/Babylonpartners/cathulk/blob/master/Makefile#L3) where it's designed to be used.
 
 ## Usage
 To create an initial manifest, use `shipcat init`.
