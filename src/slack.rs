@@ -34,9 +34,15 @@ pub fn message(msg: Message) -> Result<()> {
       .username(hook_user);
 
     if let Some(link) = msg.link {
+        let split: Vec<&str> = link.split('|').collect();
+        if split.len() > 2 {
+            bail!("Link {} not in the form of url|description", link);
+        }
+        let desc = if split.len() == 2 { split[1].into() } else { link.clone() };
+        let addr = if split.len() == 2 { split[0].into() } else { link.clone() };
         p = p.text(vec![
             Text(msg.text.into()),
-            Link(SlackLink::new(&link, &link))
+            Link(SlackLink::new(&addr, &desc))
         ].as_slice());
     } else {
         p = p.text(msg.text);

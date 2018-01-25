@@ -72,7 +72,7 @@ fn main() {
                 .short("u")
                 .long("url")
                 .takes_value(true)
-                .help("url to link to at the end of the messge"))
+                .help("url|description to link to at the end of the message"))
             .setting(AppSettings::TrailingVarArg)
             .arg(Arg::with_name("message")
                 .required(true)
