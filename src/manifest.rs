@@ -274,9 +274,9 @@ impl Manifest {
             if vol.name.is_none() {
                 if volume_index == 1 && num_volumes == 1 {
                     // have simpler config man names when only one volume
-                    vol.name = Some(format!("{}-config", self.name));
+                    vol.name = Some(format!("{}-config", self.name.clone()));
                 } else {
-                    vol.name = Some(format!("{}-config-{}", self.name, volume_index));
+                    vol.name = Some(format!("{}-config-{}", self.name.clone(), volume_index));
                 }
                 volume_index += 1;
             }
@@ -386,6 +386,9 @@ impl Manifest {
             if v.mount == "" || v.mount == "~" {
                 bail!("Empty mountpath for {} mount ", v.name.clone().unwrap())
             }
+        }
+        if self.volumes.len() > 1 {
+            bail!("{} using more than one config volume", self.name);
         }
 
         // X. TODO: other keys
