@@ -89,6 +89,13 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
     if !dep.manifest.ports.is_empty() {
         context.add("healthPort", &dep.manifest.ports[0]); // TODO: health check proper
     }
+    let mut strategy = None;
+    if let Some(ref rep) = dep.manifest.replicas {
+        if rep.max != rep.min {
+            strategy = Some("rolling".to_string());
+        }
+    }
+    context.add("replication_strategy", &strategy);
 
     let mut mounts = vec![];
     for mount in dep.manifest.volumes.clone() {
