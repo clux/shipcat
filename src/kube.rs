@@ -112,7 +112,7 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
     }
     context.add("mounts", &mounts);
 
-    let res = (dep.render)("deployment.yaml", &context)?;
+    let res = (dep.render)("deployment.yaml.j2", &context)?;
     if to_stdout {
         print!("{}", res);
     }

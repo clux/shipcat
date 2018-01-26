@@ -88,6 +88,12 @@ fn main() {
                 .required(true)
                 .takes_value(true)
                 .help("Environment name (dev, qa, prod)"))
+            .arg(Arg::with_name("location")
+                .short("l")
+                .long("location")
+                .required(true)
+                .takes_value(true)
+                .help("Location of deployment (uk, rw, ca)"))
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
@@ -127,7 +133,7 @@ fn main() {
 
         // Populate a complete manifest (with ALL values) early for advanced commands
         // NB: Currently reading it hackily from root of cathulk
-        let mf = conditional_exit(Manifest::completed(env, service, &mut vault));
+        let mf = conditional_exit(Manifest::completed(env, location, service, &mut vault));
 
         // templating engine
         let tera = conditional_exit(shipcat::template::init(env, service));
@@ -152,9 +158,10 @@ fn main() {
     // Handle subcommands dumb subcommands
     if let Some(a) = args.subcommand_matches("validate") {
         let env = a.value_of("environment").unwrap();
+        let location = a.value_of("location").unwrap();
         let service = a.value_of("service").unwrap();
 
-        result_exit(args.subcommand_name().unwrap(), shipcat::validate(env, service))
+        result_exit(args.subcommand_name().unwrap(), shipcat::validate(env, location, service))
     }
 
     if let Some(a) = args.subcommand_matches("slack") {

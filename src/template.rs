@@ -26,9 +26,9 @@ pub fn init(env: &str, service: &str) -> super::Result<Tera> {
     // TODO: rather than using PWD we could have a CATHULK_ROOT evar here
     // TODO: add service subfolder first, THEN env subfolder so we have specificity!
     let cathulk_root = Path::new(".");
-    let edir = Path::new(&cathulk_root).join(env);
-    let edirs = WalkDir::new(&edir)
-        .min_depth(1)
+    let sdir = Path::new(&cathulk_root).join("services");
+    let sdirs = WalkDir::new(&sdir)
+        .min_depth(2)
         .max_depth(2)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -36,7 +36,7 @@ pub fn init(env: &str, service: &str) -> super::Result<Tera> {
         .filter(|e| e.file_type().is_file())
         // skip the shipcat files (never templated)
         .filter(|e| {
-            e.file_name().to_string_lossy() != "shipcat.yml"
+            e.file_name().to_string_lossy().ends_with(".j2")
         })
         // skip hidden files
         .filter(|e| {
@@ -49,12 +49,12 @@ pub fn init(env: &str, service: &str) -> super::Result<Tera> {
             cmps.next(); // envname
             let last_comp = cmps.next().unwrap(); // folder name or file name!
             let dirname = last_comp.as_os_str().to_str().unwrap();
-            let dirpth = edir.join(dirname);
+            let dirpth = sdir.join(dirname);
             (!dirpth.is_dir() || dirname == service)
         });
 
     // add all templates to the templating engine
-    for entry in edirs {
+    for entry in sdirs {
         let tpth = entry.path();
         debug!("Reading {}", entry.path().display());
 
@@ -68,6 +68,51 @@ pub fn init(env: &str, service: &str) -> super::Result<Tera> {
         debug!("Storing {}", fname);
         tera.add_raw_template(&fname, &data)?;
     }
+
+    // UGH MASSIVE COPY OF TEMPLATES FOR TEMPLATES DIR:!! TEMPORARY
+    let sdir = Path::new(&cathulk_root).join("templates");
+    let sdirs = WalkDir::new(&sdir)
+        .min_depth(1)
+        .max_depth(1)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        // files only
+        .filter(|e| e.file_type().is_file())
+        // skip the shipcat files (never templated)
+        .filter(|e| {
+            e.file_name().to_string_lossy().ends_with(".j2")
+        })
+        // skip hidden files
+        .filter(|e| {
+            !e.file_name().to_string_lossy().starts_with('.')
+        })
+        // if subdirectoried files, only from the directory of the relevant service
+        .filter(|e| {
+            let mut cmps = e.path().components();
+            cmps.next(); // .
+            cmps.next(); // envname
+            let last_comp = cmps.next().unwrap(); // folder name or file name!
+            let dirname = last_comp.as_os_str().to_str().unwrap();
+            let dirpth = sdir.join(dirname);
+            (!dirpth.is_dir() || dirname == service)
+        });
+
+    // add all templates to the templating engine
+    for entry in sdirs {
+        let tpth = entry.path();
+        debug!("Reading {}", entry.path().display());
+
+        // read it
+        let mut f = File::open(&tpth)?;
+        let mut data = String::new();
+        f.read_to_string(&mut data)?;
+
+        // store in template engine internal hashmap under a easy name
+        let fname = tpth.file_name().unwrap().to_string_lossy();
+        debug!("Storing {}", fname);
+        tera.add_raw_template(&fname, &data)?;
+    }
+
 
     Ok(tera)
 }
