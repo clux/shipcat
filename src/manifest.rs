@@ -224,9 +224,10 @@ impl Manifest {
     /// Populate implicit defaults from config file
     ///
     /// Currently assume defaults live in environment directory
-    fn implicits(&mut self, env: &str) -> Result<()> {
-        let cfg_dir = env::current_dir()?.join(env); // TODO: generalize
-        let def_pth = cfg_dir.join("shipcat-defaults.yml");
+    fn implicits(&mut self, env: &str, loc: &str) -> Result<()> {
+        let cfg_dir = env::current_dir()?.join("environments");
+
+        let def_pth = cfg_dir.join(format!("{}-{}.yml", env, loc));
         debug!("Populating environment defaults using {}", def_pth.display());
         if !def_pth.exists() {
             bail!("Defaults file {} does not exist", def_pth.display())
@@ -318,13 +319,13 @@ impl Manifest {
     }
 
     // Return a completed (read, filled in, and populate secrets) manifest
-    pub fn completed(env: &str, service: &str, client: &mut Vault) -> Result<Manifest> {
-        let pth = Path::new(".").join(env).join(service);
+    pub fn completed(env: &str, loc: &str, service: &str, client: &mut Vault) -> Result<Manifest> {
+        let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
-        mf.implicits(env)?;
+        mf.implicits(env, loc)?;
         mf.secrets(client, env)?;
 
         Ok(mf)
@@ -459,12 +460,12 @@ fn parse_cpu(s: &str) -> Result<f64> {
     Ok(res)
 }
 
-pub fn validate(env: &str, service: &str) -> Result<()> {
-    let pth = Path::new(".").join(env).join(service);
+pub fn validate(env: &str, location: &str, service: &str) -> Result<()> {
+    let pth = Path::new(".").join("services").join(service);
     trace!("Reading manifest from {}", pth.display());
     let mut mf = Manifest::read_from(&pth)?;
     trace!("got mf for {} {}", env, service);
-    mf.implicits(env)?;
+    mf.implicits(env, location)?;
     mf.verify()?;
     mf.print()
 }
