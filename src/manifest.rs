@@ -375,8 +375,14 @@ impl Manifest {
         if req_cpu > 10.0 {
             bail!("Requested more than 10 cores");
         }
-        if req_memory > 10*1024*1024*1024 {
+        if req_memory > 10.0*1024.0*1024.0*1024.0 {
             bail!("Requested more than 10 GB of memory");
+        }
+        if lim_cpu > 20.0 {
+            bail!("CPU limit set to more than 20 cores");
+        }
+        if lim_memory > 20.0*1024.0*1024.0*1024.0 {
+            bail!("Memory limit set to more than 20 GB of memory");
         }
 
         // 2. Ports restrictions? currently parse only
@@ -416,24 +422,24 @@ impl Manifest {
     Ok(PortMap{ host, target })
 }*/
 
-// Parse normal k8s memory resource value into integers
-fn parse_memory(s: &str) -> Result<u64> {
-    let digits = s.chars().take_while(|ch| ch.is_digit(10)).collect::<String>();
-    let unit = s.chars().skip_while(|ch| ch.is_digit(10)).collect::<String>();
-    let mut res : u64 = digits.parse()?;
+// Parse normal k8s memory resource value into floats
+fn parse_memory(s: &str) -> Result<f64> {
+    let digits = s.chars().take_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
+    let unit = s.chars().skip_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
+    let mut res : f64 = digits.parse()?;
     trace!("Parsed {} ({})", digits, unit);
     if unit == "Ki" {
-        res *= 1024;
+        res *= 1024.0;
     } else if unit == "Mi" {
-        res *= 1024*1024;
+        res *= 1024.0*1024.0;
     } else if unit == "Gi" {
-        res *= 1024*1024*1024;
+        res *= 1024.0*1024.0*1024.0;
     } else if unit == "k" {
-        res *= 1000;
+        res *= 1000.0;
     } else if unit == "M" {
-        res *= 1000*1000;
+        res *= 1000.0*1000.0;
     } else if unit == "G" {
-        res *= 1000*1000*1000;
+        res *= 1000.0*1000.0*1000.0;
     } else if unit != "" {
         bail!("Unknown unit {}", unit);
     }
@@ -444,8 +450,8 @@ fn parse_memory(s: &str) -> Result<u64> {
 // Parse normal k8s cpu resource values into floats
 // We don't allow power of two variants here
 fn parse_cpu(s: &str) -> Result<f64> {
-    let digits = s.chars().take_while(|ch| ch.is_digit(10)).collect::<String>();
-    let unit = s.chars().skip_while(|ch| ch.is_digit(10)).collect::<String>();
+    let digits = s.chars().take_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
+    let unit = s.chars().skip_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
     let mut res : f64 = digits.parse()?;
 
     trace!("Parsed {} ({})", digits, unit);
