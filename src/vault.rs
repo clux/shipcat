@@ -82,7 +82,7 @@ impl Vault {
     // The actual HTTP GET logic
     fn get_secret(&self, path: &str) -> Result<Secret> {
         let url = self.addr.join(&format!("v1/{}", path))?;
-        debug!("Getting secret {}", url);
+        debug!("GET {}", url);
 
         let mkerr = || ErrorKind::Url(url.clone());
         let mut res = self.client.get(url.clone())
@@ -107,9 +107,8 @@ impl Vault {
     }
 
     /// Read secret from a Vault via an authenticated HTTP GET (or memory cache)
-    pub fn read(&mut self, env: &str, value: &str) -> Result<String> {
-        // Construct babylon specific secret path
-        let pth = format!("secret/{}/{}", env, value);
+    pub fn read(&mut self, key: &str) -> Result<String> {
+        let pth = format!("secret/{}", key);
 
         // Check cache for secret first
         if !self.secrets.contains_key(&pth) {
@@ -138,11 +137,7 @@ mod tests {
     #[test]
     fn get_dev_secret() {
         let mut client = Vault::default().unwrap();
-        let secret = client.read("development", "babylon_core_ruby/internal_service_auth_key").unwrap();
-        assert_eq!(secret, "INTERNAL_SERVICE_DUMMY_AUTH_KEY");
-
-        let secret2 = client.read("development", "ELASTICSEARCH_LOGS_PASSWORD").unwrap();
-        assert_eq!(secret2, "devops4ever");
-
+        let secret = client.read("dev-uk/amphora-svc/ASK_SECRET").unwrap();
+        assert_eq!(secret, "catdog");
     }
 }
