@@ -78,9 +78,6 @@ fn main() {
                 .required(true)
                 .multiple(true))
             .about("Post message to slack"))
-
-        .subcommand(SubCommand::with_name("init")
-            .about("Create an initial shipcat manifest"))
         .subcommand(SubCommand::with_name("validate")
             .arg(Arg::with_name("environment")
                 .short("e")
@@ -112,9 +109,6 @@ fn main() {
         .init()
         .unwrap();
 
-    if let Some(_) = args.subcommand_matches("init") {
-        result_exit(args.subcommand_name().unwrap(), shipcat::init())
-    }
     if args.subcommand_matches("list-environments").is_some() {
         result_exit(args.subcommand_name().unwrap(), shipcat::list::environments())
     }

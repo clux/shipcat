@@ -28,8 +28,6 @@ chmod +x shipcat
 Mac users can use the [docker image](./Dockerfile) built from master. There's a [convenience invocation in cathulk](https://github.com/Babylonpartners/cathulk/blob/master/Makefile#L3) where it's designed to be used.
 
 ## Usage
-To create an initial manifest, use `shipcat init`.
-
 In general, add keys to your `shipcat.yml` file in the [cathulk repo](https://github.com/Babylonpartners/cathulk) and make sure `shipcat validate` passes.
 
 If you have `vault` credentials you can generate the complete kube file.
@@ -41,17 +39,17 @@ export VAULT_TOKEN=...
 shipcat generate
 ```
 
-If you have `kubectl` credentials you can ship your service to the initial enviroment:
+If you have `kubectl` credentials, you can ship your service to the initial enviroment:
 
 ```sh
 kubectl auth can-i rollout Deployment
 shipcat ship
 ```
 
-If you have `slack` tokens, you can also use `shipcat` to talk to slack:
+If you have `slack` credentials, you can use `shipcat slack` to talk to slack:
 
 ```sh
-export SLACK_SHIPCAT_HOOK_URL=https://hooks.slack.com/services/***REMOVED***/***REMOVED***/***REMOVED***
-export SLACK_SHIPCAT_CHANNEL="#eirik"
+export SLACK_SHIPCAT_HOOK_URL=...
+export SLACK_SHIPCAT_CHANNEL="#kubernetes"
 shipcat slack hi eirik
 ```
