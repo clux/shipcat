@@ -203,7 +203,7 @@ impl Manifest {
         }
     }
     /// Read a manifest file in an arbitrary path
-    pub fn read_from(pwd: &PathBuf) -> Result<Manifest> {
+    fn read_from(pwd: &PathBuf) -> Result<Manifest> {
         let mpath = pwd.join("shipcat.yml");
         trace!("Using manifest in {}", mpath.display());
         if !mpath.exists() {
@@ -216,11 +216,6 @@ impl Manifest {
         // store the location internally (not serialized to disk)
         res._location = mpath.to_string_lossy().into();
         Ok(res)
-    }
-
-    /// Read a manifest file in PWD
-    pub fn read() -> Result<Manifest> {
-        Ok(Manifest::read_from(&Path::new(".").to_path_buf())?)
     }
 
     /// Add implicit defaults to self
@@ -331,14 +326,17 @@ impl Manifest {
     }
 
     // Return a completed (read, filled in, and populate secrets) manifest
-    pub fn completed(env: &str, loc: &str, service: &str, client: &mut Vault) -> Result<Manifest> {
+    pub fn completed(env: &str, loc: &str, service: &str, vault: Option<&mut Vault>) -> Result<Manifest> {
         let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
         mf.implicits()?;
-        mf.secrets(client, env, loc)?;
+        if let Some(client) = vault {
+            debug!("Injecting secrets from vault {}-{}", env, loc);
+            mf.secrets(client, env, loc)?;
+        }
 
         // merge service specific env overrides if they exists
         let envlocals = Path::new(".")
@@ -480,28 +478,7 @@ fn parse_cpu(s: &str) -> Result<f64> {
 }
 
 pub fn validate(env: &str, location: &str, service: &str) -> Result<()> {
-    let pth = Path::new(".").join("services").join(service);
-    trace!("Reading manifest from {}", pth.display());
-    let mut mf = Manifest::read_from(&pth)?;
-    mf.implicits()?;
-
-    // merge service specific env overrides if they exists
-    let envlocals = Path::new(".")
-        .join("services")
-        .join(service)
-        .join(format!("{}-{}.yml", env, location));
-    if envlocals.is_file() {
-        debug!("Merging environment locals from {}", envlocals.display());
-        mf.merge(&envlocals)?;
-    }
-    // merge global environment defaults if they exist
-    let envglobals = Path::new(".")
-        .join("environments")
-        .join(format!("{}-{}.yml", env, location));
-    if envglobals.is_file() {
-        debug!("Merging environment globals from {}", envglobals.display());
-        mf.merge(&envglobals)?;
-    }
+    let mf = Manifest::completed(env, location, service, None)?;
     mf.verify()?;
     mf.print()
 }
