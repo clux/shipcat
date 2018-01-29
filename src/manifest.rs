@@ -2,7 +2,6 @@ use serde_yaml;
 
 use std::io::prelude::*;
 use std::fs::File;
-use std::env;
 use std::path::{PathBuf, Path};
 use std::collections::{HashMap, BTreeMap};
 
@@ -481,13 +480,4 @@ pub fn validate(env: &str, location: &str, service: &str) -> Result<()> {
     let mf = Manifest::completed(env, location, service, None)?;
     mf.verify()?;
     mf.print()
-}
-
-pub fn init() -> Result<()> {
-    let pwd = env::current_dir()?;
-    let last_comp = pwd.components().last().unwrap(); // std::path::Component
-    let dirname = last_comp.as_os_str().to_str().unwrap();
-
-    let mf = Manifest::new(dirname, &pwd.join("shipcat.yml"));
-    mf.write()
 }
