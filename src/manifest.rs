@@ -153,6 +153,10 @@ pub struct Manifest {
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<Dependency>,
+    /// Regions service is deployed to
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub regions: Vec<String>,
 
 
     // TODO: boot time -> minReadySeconds
@@ -433,6 +437,14 @@ impl Manifest {
                 let vstr = apiv.chars().skip_while(|ch| *ch == 'v').collect::<String>();
                 let ver : usize = vstr.parse()?;
                 trace!("Parsed api version of dependency {} as {}", d.name.clone(), ver);
+            }
+        }
+
+        // 5. regions
+        // TODO: move these tests to cathulk (babylon specific)
+        for r in &self.regions {
+            if r != "dev-uk" && r != "dev-global" {
+                bail!("Unsupported region {}", r);
             }
         }
 
