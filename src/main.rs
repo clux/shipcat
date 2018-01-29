@@ -136,7 +136,7 @@ fn main() {
         let mf = conditional_exit(Manifest::completed(env, location, service, &mut vault));
 
         // templating engine
-        let tera = conditional_exit(shipcat::template::init(env, service));
+        let tera = conditional_exit(shipcat::template::init(service));
 
         // All parameters for a k8s deployment
         let dep = shipcat::Deployment {
