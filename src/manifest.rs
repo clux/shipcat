@@ -313,8 +313,6 @@ impl Manifest {
         let envmap: HashMap<&str, String> =[
             ("dev", format!("dev-{}", loc)),
         ].iter().cloned().collect();
-        // TODO: we need to use dev-uk for kube in the future
-        // restructure so we don't need environment suffix
 
         if let Some(mut envs) = self.env.clone() {
             // iterate over evar key values and find the ones we need
@@ -322,7 +320,6 @@ impl Manifest {
                 if value == "IN_VAULT" {
                     let vopts = self.vault.clone().unwrap();
                     let svc = vopts.name.unwrap();
-
                     let full_key = format!("{}/{}/{}", envmap[env], svc, key);
                     let secret = client.read(&full_key)?;
                     *value = secret;
@@ -437,24 +434,6 @@ impl Manifest {
         Ok(())
     }
 }
-
-// Parse normal docker style host:target port opening
-// disabled for now - only parsing target port vector
-/*fn parse_ports(s: &str) -> Result<PortMap> {
-    let split: Vec<&str> = s.split(':').collect();
-    if split.len() != 2 {
-        bail!("Port listing {} not in the form of host:target", s);
-    }
-    let host = split[0].parse().map_err(|e| {
-        warn!("Invalid host port {} could not be parsed", split[0]);
-        e
-    })?;
-    let target = split[1].parse().map_err(|e| {
-        warn!("Invalid target port {} could not be parsed", split[0]);
-        e
-    })?;
-    Ok(PortMap{ host, target })
-}*/
 
 // Parse normal k8s memory resource value into floats
 fn parse_memory(s: &str) -> Result<f64> {
