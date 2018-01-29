@@ -133,8 +133,9 @@ pub struct Manifest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub replicas: Option<Replicas>,
     /// Environment variables to inject
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub env: Option<BTreeMap<String, String>>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub env: BTreeMap<String, String>,
     /// Environment files to mount
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -269,14 +270,8 @@ impl Manifest {
         f.read_to_string(&mut data)?;
         let mf: Manifest = serde_yaml::from_str(&data)?;
 
-
-        // TODO: deal with 3 way merges better..
-        if let Some(envs) = mf.env {
-            let mut mainmap = self.env.clone().unwrap();
-            for (k,v) in envs {
-                mainmap.entry(k).or_insert(v);
-            }
-            self.env = Some(mainmap);
+        for (k,v) in mf.env {
+            self.env.entry(k).or_insert(v);
         }
 
         if self.resources.is_none() && mf.resources.is_some() {
@@ -317,16 +312,15 @@ impl Manifest {
             self.name.clone().unwrap()
         };
 
-        if let Some(ref mut envs) = self.env {
-            // iterate over key value evars and replace placeholders
-            for (k, v) in envs.iter_mut() {
-                if v == "IN_VAULT" {
-                    let vkey = format!("{}-{}/{}/{}", env, loc, svc, k);
-                    let secret = client.read(&vkey)?;
-                    *v = secret;
-                }
+        // iterate over key value evars and replace placeholders
+        for (k, v) in self.env.iter_mut() {
+            if v == "IN_VAULT" {
+                let vkey = format!("{}-{}/{}/{}", env, loc, svc, k);
+                let secret = client.read(&vkey)?;
+                *v = secret;
             }
         }
+
         Ok(())
     }
 
