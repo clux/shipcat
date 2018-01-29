@@ -82,7 +82,7 @@ pub struct Prometheus {
 }
 
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VaultOpts {
     /// If Vault name differs from service name
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -116,7 +116,9 @@ pub struct HealthCheck {
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Manifest {
     /// Name of the service
-    pub name: String,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 
     /// Optional image name (if different from service name)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -195,7 +197,7 @@ pub struct Manifest {
 impl Manifest {
     pub fn new(name: &str, location: &PathBuf) -> Manifest {
         Manifest {
-            name: name.into(),
+            name: Some(name.into()),
             _location: location.to_string_lossy().into(),
             ..Default::default()
         }
@@ -221,28 +223,63 @@ impl Manifest {
         Ok(Manifest::read_from(&Path::new(".").to_path_buf())?)
     }
 
-    /// Populate implicit defaults from config file
-    ///
-    /// Currently assume defaults live in environment directory
-    fn implicits(&mut self, env: &str, loc: &str) -> Result<()> {
-        let cfg_dir = env::current_dir()?.join("environments");
+    /// Add implicit defaults to self
+    fn implicits(&mut self) -> Result<()> {
+        let name = self.name.clone().unwrap();
 
-        let def_pth = cfg_dir.join(format!("{}-{}.yml", env, loc));
-        debug!("Populating environment defaults using {}", def_pth.display());
-        if !def_pth.exists() {
-            bail!("Defaults file {} does not exist", def_pth.display())
+        // image name defaults to the service name
+        if self.image.is_none() {
+            self.image = Some(name.clone());
         }
-        let mut f = File::open(&def_pth)?;
+
+        // vault queries by default under
+        if self.vault.is_none() {
+            self.vault = Some(VaultOpts {
+                name: Some(name.clone()),
+                suffix: None,
+            })
+        }
+        // volumes get implicit config volume names (for k8s)
+        let mut volume_index = 1;
+        let num_volumes = self.volumes.len();
+        for vol in &mut self.volumes {
+            if vol.name.is_none() {
+                if volume_index == 1 && num_volumes == 1 {
+                    // have simpler config man names when only one volume
+                    vol.name = Some(format!("{}-config", name.clone()));
+                } else {
+                    vol.name = Some(format!("{}-config-{}", name.clone(), volume_index));
+                }
+                volume_index += 1;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Merge defaults from partial override file
+    fn merge(&mut self, pth: &PathBuf) -> Result<()> {
+        trace!("Merging {}", pth.display());
+        if !pth.exists() {
+            bail!("Defaults file {} does not exist", pth.display())
+        }
+        let name = self.name.clone().unwrap();
+        let mut f = File::open(&pth)?;
         let mut data = String::new();
         f.read_to_string(&mut data)?;
         let mf: Manifest = serde_yaml::from_str(&data)?;
 
-        if self.image.is_none() {
-            // by default image name == service name
-            self.image = Some(self.name.clone());
+
+        // TODO: deal with 3 way merges better..
+        if let Some(envs) = mf.env {
+            let mut mainmap = self.env.clone().unwrap();
+            for (k,v) in envs {
+                mainmap.entry(k).or_insert(v);
+            }
+            self.env = Some(mainmap);
         }
 
-        if self.resources.is_none() {
+        if self.resources.is_none() && mf.resources.is_some() {
             self.resources = mf.resources.clone();
         }
         if let Some(ref mut res) = self.resources {
@@ -254,34 +291,16 @@ impl Manifest {
             }
             // for now: if limits or requests are specified, you have to fill in both CPU and memory
         }
-        if self.replicas.is_none() {
+        if self.replicas.is_none() && mf.replicas.is_some() {
             self.replicas = mf.replicas;
         }
-        if self.vault.is_none() {
-            self.vault = Some(VaultOpts {
-                name: Some(self.name.clone()),
-                suffix: None,
-            })
-        }
         if self.ports.is_empty() {
-            warn!("{} exposes no ports", self.name);
+            warn!("{} exposes no ports", name.clone());
         }
-        if self.health.is_none() {
+        if self.health.is_none() && mf.health.is_some() {
             self.health = mf.health
         }
-        let mut volume_index = 1;
-        let num_volumes = self.volumes.len();
-        for vol in &mut self.volumes {
-            if vol.name.is_none() {
-                if volume_index == 1 && num_volumes == 1 {
-                    // have simpler config man names when only one volume
-                    vol.name = Some(format!("{}-config", self.name.clone()));
-                } else {
-                    vol.name = Some(format!("{}-config-{}", self.name.clone(), volume_index));
-                }
-                volume_index += 1;
-            }
-        }
+
         // only using target ports now, disabling this now
         //for s in &self.ports {
         //    self._portmaps.push(parse_ports(s)?);
@@ -290,9 +309,9 @@ impl Manifest {
     }
 
     // Populate placeholder fields with secrets from vault
-    fn secrets(&mut self, client: &mut Vault, env: &str) -> Result<()> {
-        let envmap: HashMap<&str, &str> =[
-            ("dev", "development"), // dev env uses vault secrets in development
+    fn secrets(&mut self, client: &mut Vault, env: &str, loc: &str) -> Result<()> {
+        let envmap: HashMap<&str, String> =[
+            ("dev", format!("dev-{}", loc)),
         ].iter().cloned().collect();
         // TODO: we need to use dev-uk for kube in the future
         // restructure so we don't need environment suffix
@@ -302,14 +321,10 @@ impl Manifest {
             for (key, value) in &mut envs {
                 if value == "IN_VAULT" {
                     let vopts = self.vault.clone().unwrap();
-                    let serv = vopts.name.unwrap();
-                    // TODO: we should not have to deal with environment suffix
-                    let full_key = if let Some(suffix) = vopts.suffix {
-                       format!("{}/{}/{}", serv, suffix, key)
-                    } else {
-                        format!("{}/{}", serv, key)
-                    };
-                    let secret = client.read(envmap[env], &full_key)?;
+                    let svc = vopts.name.unwrap();
+
+                    let full_key = format!("{}/{}/{}", envmap[env], svc, key);
+                    let secret = client.read(&full_key)?;
                     *value = secret;
                 }
             }
@@ -325,9 +340,26 @@ impl Manifest {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
-        mf.implicits(env, loc)?;
-        mf.secrets(client, env)?;
+        mf.implicits()?;
+        mf.secrets(client, env, loc)?;
 
+        // merge service specific env overrides if they exists
+        let envlocals = Path::new(".")
+            .join("services")
+            .join(service)
+            .join(format!("{}-{}.yml", env, loc));
+        if envlocals.is_file() {
+            debug!("Merging environment locals from {}", envlocals.display());
+            mf.merge(&envlocals)?;
+        }
+        // merge global environment defaults if they exist
+        let envglobals = Path::new(".")
+            .join("environments")
+            .join(format!("{}-{}.yml", env, loc));
+        if envglobals.is_file() {
+            debug!("Merging environment globals from {}", envglobals.display());
+            mf.merge(&envglobals)?;
+        }
         Ok(mf)
     }
 
@@ -352,9 +384,11 @@ impl Manifest {
     ///
     /// Assumes the manifest has been populated with `implicits`
     pub fn verify(&self) -> Result<()> {
-        if self.name == "" {
+        if self.name.is_none() || self.name.clone().unwrap() == "" {
             bail!("Name cannot be empty")
         }
+        let name = self.name.clone().unwrap();
+
         // 1. Verify resources
         // (We can unwrap all the values as we assume implicit called!)
         let req = self.resources.clone().unwrap().requests.unwrap().clone();
@@ -395,7 +429,7 @@ impl Manifest {
             }
         }
         if self.volumes.len() > 1 {
-            bail!("{} using more than one config volume", self.name);
+            bail!("{} using more than one config volume", name.clone());
         }
 
         // X. TODO: other keys
@@ -470,8 +504,25 @@ pub fn validate(env: &str, location: &str, service: &str) -> Result<()> {
     let pth = Path::new(".").join("services").join(service);
     trace!("Reading manifest from {}", pth.display());
     let mut mf = Manifest::read_from(&pth)?;
-    trace!("got mf for {} {}", env, service);
-    mf.implicits(env, location)?;
+    mf.implicits()?;
+
+    // merge service specific env overrides if they exists
+    let envlocals = Path::new(".")
+        .join("services")
+        .join(service)
+        .join(format!("{}-{}.yml", env, location));
+    if envlocals.is_file() {
+        debug!("Merging environment locals from {}", envlocals.display());
+        mf.merge(&envlocals)?;
+    }
+    // merge global environment defaults if they exist
+    let envglobals = Path::new(".")
+        .join("environments")
+        .join(format!("{}-{}.yml", env, location));
+    if envglobals.is_file() {
+        debug!("Merging environment globals from {}", envglobals.display());
+        mf.merge(&envglobals)?;
+    }
     mf.verify()?;
     mf.print()
 }

@@ -30,6 +30,7 @@ fn template_config(dep: &Deployment, mount: &ConfigMountedFile) -> Result<String
     // currenly a reusable context for the various templated configs
     let mut ctx = Context::new();
 
+    ctx.add("env", &dep.manifest.env); // evars always injected
     ctx.add("newrelic_license", &license); // for newrelic
     ctx.add("app", &dep.service); // for newrelic
     ctx.add("environmentlocation", &envloc); // for newrelic
@@ -62,7 +63,8 @@ pub struct Deployment {
 }
 impl Deployment {
     pub fn check(&self) -> Result<()> {
-        if self.service != self.manifest.name {
+        let name = self.manifest.name.clone();
+        if self.service != name.unwrap() {
             bail!("manifest name does not match service name");
         }
         Ok(())
@@ -96,6 +98,7 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
         }
     }
     context.add("replication_strategy", &strategy);
+    context.add("env", &dep.manifest.env); // evars always injected under env
 
     let mut mounts = vec![];
     for mount in dep.manifest.volumes.clone() {
