@@ -247,6 +247,13 @@ impl Manifest {
             }
         }
 
+        for d in &mut self.dependencies {
+            if d.api.is_none() {
+                d.api = Some("v1".to_string());
+            }
+        }
+
+
         Ok(())
     }
 
@@ -433,6 +440,7 @@ impl Manifest {
                 bail!("Service {} does not exist in services/", d.name);
             }
             // 4.b) d.api must parse as an integer
+            assert!(d.api.is_some(), "api version set by implicits");
             if let Some(ref apiv) = d.api {
                 let vstr = apiv.chars().skip_while(|ch| *ch == 'v').collect::<String>();
                 let ver : usize = vstr.parse()?;
