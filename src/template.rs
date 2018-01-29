@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::io::prelude::*;
+use std::iter;
 
 use walkdir::WalkDir;
 
@@ -9,12 +10,16 @@ use tera::{self, Value, Tera, Context};
 use serde_json;
 use super::Result;
 
-fn indent4(v: Value, _: HashMap<String, Value>) -> tera::Result<Value> {
+fn indent(v: Value, m: HashMap<String, Value>) -> tera::Result<Value> {
     let s : String = try_get_value!("indent", "value", String, v);
+    // look up indent value or use `2` as default
+    let num_spaces : u64 = m.get("spaces").map(Value::as_u64).unwrap_or(None).unwrap_or(2);
+    // create an indent string of `num_spaces` spaces
+    let indent = iter::repeat(' ').take(num_spaces as usize).collect::<String>();
+    // prefix all non-empty lines with `indent`
     let mut xs = vec![];
     for l in s.lines() {
-        // indent all non-empty lines by 4 spaces
-        xs.push(if l == "" { l.to_string() } else { format!("    {}", l) });
+        xs.push(if l == "" { l.to_string() } else { format!("{}{}", indent, l) });
     }
     Ok(serde_json::to_value(&xs.join("\n")).unwrap())
 }
@@ -66,7 +71,7 @@ fn add_templates(tera: &mut Tera, dir: &PathBuf, svc: &str, depth: usize) -> Res
 pub fn init(service: &str) -> Result<Tera> {
     let mut tera = Tera::default();
     tera.autoescape_on(vec!["html"]);
-    tera.register_filter("indent4", indent4);
+    tera.register_filter("indent", indent);
 
     let services_root = Path::new("."); // TODO: cathulk repo root evar
     // adding templates from template subfolder first
