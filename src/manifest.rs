@@ -3,7 +3,7 @@ use serde_yaml;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::{PathBuf, Path};
-use std::collections::{HashMap, BTreeMap};
+use std::collections::BTreeMap;
 
 use super::Result;
 use super::vault::Vault;
@@ -84,11 +84,7 @@ pub struct Prometheus {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VaultOpts {
     /// If Vault name differs from service name
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-    /// If the secret lives under a special suffix
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub suffix: Option<String>,
+    pub name: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -226,13 +222,6 @@ impl Manifest {
             self.image = Some(name.clone());
         }
 
-        // vault queries by default under
-        if self.vault.is_none() {
-            self.vault = Some(VaultOpts {
-                name: Some(name.clone()),
-                suffix: None,
-            })
-        }
         // volumes get implicit config volume names (for k8s)
         let mut volume_index = 1;
         let num_volumes = self.volumes.len();
@@ -304,22 +293,22 @@ impl Manifest {
 
     // Populate placeholder fields with secrets from vault
     fn secrets(&mut self, client: &mut Vault, env: &str, loc: &str) -> Result<()> {
-        let envmap: HashMap<&str, String> =[
-            ("dev", format!("dev-{}", loc)),
-        ].iter().cloned().collect();
+        // some services use keys from other services
+        let svc = if let Some(ref vopts) = self.vault {
+            vopts.name.clone()
+        } else {
+            self.name.clone().unwrap()
+        };
 
-        if let Some(mut envs) = self.env.clone() {
-            // iterate over evar key values and find the ones we need
-            for (key, value) in &mut envs {
-                if value == "IN_VAULT" {
-                    let vopts = self.vault.clone().unwrap();
-                    let svc = vopts.name.unwrap();
-                    let full_key = format!("{}/{}/{}", envmap[env], svc, key);
-                    let secret = client.read(&full_key)?;
-                    *value = secret;
+        if let Some(ref mut envs) = self.env {
+            // iterate over key value evars and replace placeholders
+            for (k, v) in envs.iter_mut() {
+                if v == "IN_VAULT" {
+                    let vkey = format!("{}-{}/{}/{}", env, loc, svc, k);
+                    let secret = client.read(&vkey)?;
+                    *v = secret;
                 }
             }
-            self.env = Some(envs); // overwrite env key with our populated one
         }
         Ok(())
     }
