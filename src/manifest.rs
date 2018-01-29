@@ -80,6 +80,14 @@ pub struct Prometheus {
     // TODO: Maybe include names of metrics?
 }
 
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct Dependency {
+    /// Name of service relied upon
+    pub name: String,
+    /// API version relied upon (v1 default)
+    pub api: Option<String>,
+    // other metadata?
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VaultOpts {
@@ -99,13 +107,7 @@ pub struct HealthCheck {
     pub wait: u32
 }
 
-//#[derive(Serialize, Clone, Default, Debug)]
-//pub struct PortMap {
-//    /// Host port
-//    pub host: u32,
-//    /// Target port
-//    pub target: u32,
-//}
+
 
 /// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -147,6 +149,10 @@ pub struct Manifest {
     /// Health check parameters
     #[serde(skip_serializing_if = "Option::is_none")]
     pub health: Option<HealthCheck>,
+    /// Service dependencies
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub dependencies: Vec<Dependency>,
 
 
     // TODO: boot time -> minReadySeconds
@@ -413,6 +419,21 @@ impl Manifest {
         }
         if self.volumes.len() > 1 {
             bail!("{} using more than one config volume", name.clone());
+        }
+
+        // 4. dependencies
+        for d in &self.dependencies {
+            // 4.a) d.name must exist in services/
+            let dpth = Path::new(".").join("services").join(d.name.clone());
+            if !dpth.is_dir() {
+                bail!("Service {} does not exist in services/", d.name);
+            }
+            // 4.b) d.api must parse as an integer
+            if let Some(ref apiv) = d.api {
+                let vstr = apiv.chars().skip_while(|ch| *ch == 'v').collect::<String>();
+                let ver : usize = vstr.parse()?;
+                trace!("Parsed api version of dependency {} as {}", d.name.clone(), ver);
+            }
         }
 
         // X. TODO: other keys
