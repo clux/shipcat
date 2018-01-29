@@ -133,7 +133,7 @@ fn main() {
 
         // Populate a complete manifest (with ALL values) early for advanced commands
         // NB: Currently reading it hackily from root of cathulk
-        let mf = conditional_exit(Manifest::completed(env, location, service, &mut vault));
+        let mf = conditional_exit(Manifest::completed(env, location, service, Some(&mut vault)));
 
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
