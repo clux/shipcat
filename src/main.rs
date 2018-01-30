@@ -3,6 +3,7 @@ extern crate clap;
 #[macro_use]
 extern crate log;
 extern crate loggerv;
+extern crate openssl_probe;
 
 extern crate shipcat;
 
@@ -120,8 +121,7 @@ fn main() {
         let location = a.value_of("location").unwrap();
 
         // clients for network related subcommands
-        // TODO: ssl cert location thingy here
-        //openssl_probe::init_ssl_cert_env_vars();
+        openssl_probe::init_ssl_cert_env_vars();
         // TODO: vault client parametrised to ENV and location here!
         let mut vault = conditional_exit(shipcat::vault::Vault::default());
 
