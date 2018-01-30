@@ -104,7 +104,6 @@ impl fmt::Display for Image {
         let prefix = self.repository.clone().map(|s| {
             if s != "" { format!("{}/", s) } else { s }
         }).unwrap_or("".into());
-        info!("prefix is {} repo is {:?}", prefix, self.repository);
         let suffix = self.tag.clone().unwrap_or("latest".to_string());
         // NB: assume image.name is always set at this point
         write!(f, "{}{}:{}", prefix, self.name.clone().unwrap(), suffix)
