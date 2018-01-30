@@ -471,6 +471,9 @@ impl Manifest {
                 bail!("Unsupported region {}", r);
             }
         }
+        if self.regions.is_empty() {
+            warn!("No regions specified for {}", name);
+        }
 
         // X. TODO: other keys
 
