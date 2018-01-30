@@ -443,7 +443,7 @@ impl Manifest {
         }
 
         // 5. regions
-        // TODO: move these tests to cathulk (babylon specific)
+        // TODO: move these tests to manifests (babylon specific)
         for r in &self.regions {
             if r != "dev-uk" && r != "dev-global" {
                 bail!("Unsupported region {}", r);

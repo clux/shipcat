@@ -73,7 +73,7 @@ pub fn init(service: &str) -> Result<Tera> {
     tera.autoescape_on(vec!["html"]);
     tera.register_filter("indent", indent);
 
-    let services_root = Path::new("."); // TODO: cathulk repo root evar
+    let services_root = Path::new("."); // TODO: manifests root evar
     // adding templates from template subfolder first
     let tdir = Path::new(&services_root).join("templates");
     add_templates(&mut tera, &tdir, service, 1)?;
