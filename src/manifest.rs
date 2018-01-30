@@ -4,6 +4,7 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::path::{PathBuf, Path};
 use std::collections::BTreeMap;
+use std::fmt;
 
 use super::Result;
 use super::vault::Vault;
@@ -93,10 +94,23 @@ pub struct Dependency {
 pub struct Image {
     /// Name of service relied upon
     pub name: Option<String>,
-    /// API version relied upon (v1 default)
+    /// Repository to fetch the image from (can be empty string)
     pub repository: Option<String>,
-    // other metadata?
+    /// Tag to fetch the image from (defaults to latest)
+    pub tag: Option<String>,
 }
+impl fmt::Display for Image {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let prefix = self.repository.clone().map(|s| {
+            if s != "" { format!("{}/", s) } else { s }
+        }).unwrap_or("".into());
+        info!("prefix is {} repo is {:?}", prefix, self.repository);
+        let suffix = self.tag.clone().unwrap_or("latest".to_string());
+        // NB: assume image.name is always set at this point
+        write!(f, "{}{}:{}", prefix, self.name.clone().unwrap(), suffix)
+    }
+}
+
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VaultOpts {
@@ -242,6 +256,7 @@ impl Manifest {
             self.image = Some(Image {
                 name: Some(name.clone()),
                 repository: None,
+                tag: None,
             });
         }
 
@@ -287,13 +302,17 @@ impl Manifest {
         }
 
         if let Some(img) = mf.image {
-            // allow overriding default repository only
-            if self.image.clone().unwrap().repository.is_none() {
-                self.image = Some(Image {
-                    name: self.image.clone().unwrap().name,
-                    repository: img.repository,
-                });
+            // allow overriding default repository and tags
+            let mut curr = self.image.clone().unwrap();
+            if curr.repository.is_none() {
+                trace!("overriding image.repository with {:?}", img.repository);
+                curr.repository = img.repository;
             }
+            if curr.tag.is_none() {
+                trace!("overriding image.tag with {:?}", img.tag);
+                curr.tag = img.tag;
+            }
+            self.image = Some(curr);
         }
 
         if self.resources.is_none() && mf.resources.is_some() {
