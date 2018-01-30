@@ -483,11 +483,15 @@ impl Manifest {
             }
         }
 
-        // 5. regions
-        // TODO: move these tests to manifests (babylon specific)
+        // 5. regions must have a defaults file in ./environments
         for r in &self.regions {
-            if r != "dev-uk" && r != "dev-global" {
-                bail!("Unsupported region {}", r);
+            let regionfile = Path::new(".")
+                .join("environments")
+                .join(format!("{}.yml", r));
+
+            if ! regionfile.is_file() {
+                bail!("Unsupported region {} without region file {}",
+                    r, regionfile.display());
             }
         }
         if self.regions.is_empty() {
