@@ -89,6 +89,15 @@ pub struct Dependency {
     // other metadata?
 }
 
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct Image {
+    /// Name of service relied upon
+    pub name: Option<String>,
+    /// API version relied upon (v1 default)
+    pub repository: Option<String>,
+    // other metadata?
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VaultOpts {
     /// If Vault name differs from service name
@@ -119,7 +128,7 @@ pub struct Manifest {
 
     /// Optional image name (if different from service name)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub image: Option<String>,
+    pub image: Option<Image>,
     /// Optional image command (if not using the default docker command)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
@@ -230,7 +239,10 @@ impl Manifest {
 
         // image name defaults to the service name
         if self.image.is_none() {
-            self.image = Some(name.clone());
+            self.image = Some(Image {
+                name: Some(name.clone()),
+                repository: None,
+            });
         }
 
         // volumes get implicit config volume names (for k8s)
@@ -272,6 +284,14 @@ impl Manifest {
 
         for (k,v) in mf.env {
             self.env.entry(k).or_insert(v);
+        }
+
+        if let Some(img) = mf.image {
+            // allow overriding default repository only
+            self.image = Some(Image {
+                name: self.image.clone().unwrap().name,
+                repository: img.repository,
+            });
         }
 
         if self.resources.is_none() && mf.resources.is_some() {
