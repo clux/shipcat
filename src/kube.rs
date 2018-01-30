@@ -8,6 +8,7 @@ pub struct RenderedMount {
     pub name: String,
     pub path: String,
     pub configs: Vec<RenderedConfig>,
+    pub distinct: bool,
 }
 /// Completely filled in `ConfigMountedFile`
 #[derive(Serialize, Clone, Default)]
@@ -103,6 +104,7 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
             name: mount.name.unwrap(), // filled in by implicits
             path: mount.mount,
             configs: files,
+            distinct: mount.distinct,
         });
     }
 

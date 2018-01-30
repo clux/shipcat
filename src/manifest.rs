@@ -60,6 +60,12 @@ pub struct ConfigMount {
     pub name: Option<String>,
     /// Container-local path where configs are available
     pub mount: String,
+    /// Mount config files as files, and not in one go under the directory
+    ///
+    /// This is a hack that we want to deprecate
+    #[serde(default)]
+    #[serde(skip_serializing)]
+    pub distinct: bool,
     /// Files from the config map to mount at this mountpath
     pub configs: Vec<ConfigMountedFile>
 }
@@ -461,6 +467,11 @@ impl Manifest {
         for v in &self.volumes {
             if v.mount == "" || v.mount == "~" {
                 bail!("Empty mountpath for {} mount ", v.name.clone().unwrap())
+            }
+            if v.distinct {
+                warn!("Using deprecated distinct file mount mode {}", v.name.clone().unwrap());
+            } else if !v.mount.ends_with("/") {
+                warn!("Mount path '{}' for {} should end with a slash", v.mount, v.name.clone().unwrap());
             }
         }
         if self.volumes.len() > 1 {
