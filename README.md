@@ -5,7 +5,7 @@
 [![Docker Repository on Quay](https://quay.io/repository/babylonhealth/kubecat/status?token=6de24c74-1576-467f-8658-ec224df9302d "Docker Repository on Quay")](https://quay.io/repository/babylonhealth/kubecat)
 
 
-A small CLI helper to manage microservice deployments running on `kubernetes` via `shipcat.yml`. Lives [on your ship](https://github.com/Babylonpartners/cathulk), catches vermin, [purrs](https://en.wikipedia.org/wiki/Ship%27s_cat).
+A small CLI helper to manage microservice deployments running on `kubernetes` via `shipcat.yml`. Lives [on your ship](https://en.wikipedia.org/wiki/Ship%27s_cat).
 
 ## Installation
 To build yourself, use [rustup](https://rustup.rs/) to get stable rust.
@@ -25,10 +25,10 @@ chmod +x shipcat
 # put it somewhere on your $PATH like /usr/local/bin/
 ```
 
-Mac users can use the [docker image](./Dockerfile) built from master. There's a [convenience invocation in cathulk](https://github.com/Babylonpartners/cathulk/blob/master/Makefile#L3) where it's designed to be used.
+Mac users should build from master.
 
 ## Usage
-In general, add keys to your `shipcat.yml` file in the [cathulk repo](https://github.com/Babylonpartners/cathulk) and make sure `shipcat validate` passes.
+In general, add keys to your `shipcat.yml` file in the [manifests repo](https://github.com/Babylonpartners/manifests) and make sure `shipcat validate` passes.
 
 If you have `vault` credentials you can generate the complete kube file.
 
@@ -51,5 +51,5 @@ If you have `slack` credentials, you can use `shipcat slack` to talk to slack:
 ```sh
 export SLACK_SHIPCAT_HOOK_URL=...
 export SLACK_SHIPCAT_CHANNEL="#kubernetes"
-shipcat slack hi eirik
+shipcat slack err, meow
 ```
