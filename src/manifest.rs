@@ -97,6 +97,7 @@ pub struct Image {
     /// Repository to fetch the image from (can be empty string)
     pub repository: Option<String>,
     /// Tag to fetch the image from (defaults to latest)
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
 }
 impl fmt::Display for Image {
