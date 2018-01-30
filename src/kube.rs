@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use tera::Context; // just a hashmap wrapper
 use super::{Result};
 use super::manifest::*;
@@ -76,12 +74,6 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
     let mut context = Context::new();
     context.add("mf", &dep.manifest);
 
-    // hm, any other version probably needs it passed in...
-    let tagmap: HashMap<&str, &str> =[
-        ("dev", "develop"), // dev env uses develop docker tags
-    ].iter().cloned().collect();
-    context.add("tag", &tagmap[&*dep.environment]);
-
     if let Some(ref h) = dep.manifest.health {
         context.add("boottime", &h.wait.to_string());
     } else {
@@ -113,18 +105,8 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
             configs: files,
         });
     }
-    // know manifest.image and manifest.image.name exists at this point
-    let image = dep.manifest.image.clone().unwrap();
-    let imgstr = if let Some(r) = image.repository {
-        // only prefix repo/ if the string is non-empty (for major images like nginx)
-        if r != "" {
-            format!("{}/{}", r, image.name.unwrap())
-        } else { image.name.unwrap() }
-    } else {
-        image.name.unwrap()
-    };
-    context.add("image", &imgstr);
 
+    context.add("image", &format!("{}", dep.manifest.image.clone().unwrap()));
     context.add("mounts", &mounts);
 
     let res = (dep.render)("deployment.yaml.j2", &context)?;
