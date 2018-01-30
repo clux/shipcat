@@ -288,10 +288,12 @@ impl Manifest {
 
         if let Some(img) = mf.image {
             // allow overriding default repository only
-            self.image = Some(Image {
-                name: self.image.clone().unwrap().name,
-                repository: img.repository,
-            });
+            if self.image.clone().unwrap().repository.is_none() {
+                self.image = Some(Image {
+                    name: self.image.clone().unwrap().name,
+                    repository: img.repository,
+                });
+            }
         }
 
         if self.resources.is_none() && mf.resources.is_some() {
