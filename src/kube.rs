@@ -113,6 +113,18 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
             configs: files,
         });
     }
+    // know manifest.image and manifest.image.name exists at this point
+    let image = dep.manifest.image.clone().unwrap();
+    let imgstr = if let Some(r) = image.repository {
+        // only prefix repo/ if the string is non-empty (for major images like nginx)
+        if r != "" {
+            format!("{}/{}", r, image.name.unwrap())
+        } else { image.name.unwrap() }
+    } else {
+        image.name.unwrap()
+    };
+    context.add("image", &imgstr);
+
     context.add("mounts", &mounts);
 
     let res = (dep.render)("deployment.yaml.j2", &context)?;
