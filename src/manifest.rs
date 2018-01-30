@@ -491,7 +491,7 @@ impl Manifest {
             }
         }
         if self.regions.is_empty() {
-            warn!("No regions specified for {}", name);
+            bail!("No regions specified for {}", name);
         }
 
         // X. TODO: other keys
