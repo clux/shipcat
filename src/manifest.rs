@@ -464,9 +464,8 @@ impl Manifest {
                 }
             }
         } else {
-            warn!("Temporarily forcing configMaps in manifest");
-            warn!("This is while transitioning from volume to config key");
-            bail!("No configs key")
+            warn!("No configs key in manifest");
+            warn!("Did you use the old volumes key?");
         }
 
         // 4. volumes
