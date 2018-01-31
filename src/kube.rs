@@ -2,23 +2,22 @@ use tera::Context; // just a hashmap wrapper
 use super::{Result};
 use super::manifest::*;
 
-/// Completely filled in `ConfigMount`
+/// Rendered `ConfigMap`
 #[derive(Serialize, Clone, Default)]
-pub struct RenderedMount {
+pub struct ConfigMapRendered {
     pub name: String,
     pub path: String,
-    pub configs: Vec<RenderedConfig>,
-    pub distinct: bool,
+    pub files: Vec<RenderedConfig>,
 }
-/// Completely filled in `ConfigMountedFile`
+/// Rendered `ConfigMappedFile`
 #[derive(Serialize, Clone, Default)]
 pub struct RenderedConfig {
     pub name: String,
-    pub value: String,
+    pub rendered: String,
 }
 
 
-fn template_config(dep: &Deployment, mount: &ConfigMountedFile) -> Result<String> {
+fn template_config(dep: &Deployment, mount: &ConfigMappedFile) -> Result<String> {
     // friendly env-loc name (used by newrelic config)
     let envloc = format!("{}-{}", dep.environment, dep.location);
 
@@ -93,23 +92,22 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
     context.add("replication_strategy", &strategy);
     context.add("env", &dep.manifest.env); // evars always injected under env
 
-    let mut mounts = vec![];
-    for mount in dep.manifest.volumes.clone() {
+    // configMap related volume parsing
+    if let Some(cfg) = dep.manifest.configs.clone() {
         let mut files = vec![];
-        for cfg in &mount.configs {
-            let res = template_config(dep, cfg)?;
-            files.push(RenderedConfig { name: cfg.dest.clone(), value: res });
+        for f in cfg.files {
+            let res = template_config(dep, &f)?;
+            files.push(RenderedConfig { name: f.dest.clone(), rendered: res });
         }
-        mounts.push(RenderedMount {
-            name: mount.name.unwrap(), // filled in by implicits
-            path: mount.mount,
-            configs: files,
-            distinct: mount.distinct,
-        });
+        let config = ConfigMapRendered {
+            name: cfg.name.unwrap(), // filled in by implicits
+            path: cfg.mount,
+            files: files,
+        };
+        context.add("config", &config);
     }
 
     context.add("image", &format!("{}", dep.manifest.image.clone().unwrap()));
-    context.add("mounts", &mounts);
 
     let res = (dep.render)("deployment.yaml.j2", &context)?;
     if to_stdout {
