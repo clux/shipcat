@@ -83,8 +83,9 @@ pub struct Prometheus {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Dependency {
-    /// Name of service relied upon
+    /// Name of service relied upon (used to goto dependent manifest)
     pub name: String,
+    // TODO: api name - should be in the dependent manifest
     /// API version relied upon (v1 default)
     pub api: Option<String>,
     // other metadata?
@@ -455,7 +456,7 @@ impl Manifest {
                 bail!("Empty mountpath for {} mount ", cfgmap.name.clone().unwrap())
             }
             if !cfgmap.mount.ends_with("/") {
-                warn!("Mount path '{}' for {} should end with a slash", cfgmap.mount, cfgmap.name.clone().unwrap());
+                bail!("Mount path '{}' for {} must end with a slash", cfgmap.mount, cfgmap.name.clone().unwrap());
             }
             for f in &cfgmap.files {
                 // TODO: verify file exists
