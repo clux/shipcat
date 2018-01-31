@@ -274,7 +274,6 @@ impl Manifest {
             }
         }
 
-
         Ok(())
     }
 
@@ -354,7 +353,6 @@ impl Manifest {
                 *v = secret;
             }
         }
-
         Ok(())
     }
 
@@ -459,10 +457,10 @@ impl Manifest {
                 bail!("Mount path '{}' for {} must end with a slash", cfgmap.mount, cfgmap.name.clone().unwrap());
             }
             for f in &cfgmap.files {
-                // TODO: verify file exists
                 if !f.name.ends_with(".j2") {
                     bail!("Only supporting templated config files atm")
                 }
+                // TODO: verify file exists? done later anyway
             }
         } else {
             warn!("No configs key in manifest");

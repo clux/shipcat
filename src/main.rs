@@ -144,9 +144,6 @@ fn main() {
         };
         conditional_exit(dep.check()); // some sanity asserts
 
-        // running validate before generate for sanity for now?
-        //conditional_exit(shipcat::validate(env, location, service));
-
         let res = shipcat::generate(&dep, false, true);
         result_exit(args.subcommand_name().unwrap(), res)
     }

@@ -17,21 +17,69 @@ pub struct RenderedConfig {
 }
 
 
-fn template_config(dep: &Deployment, mount: &ConfigMappedFile) -> Result<String> {
-    // friendly env-loc name (used by newrelic config)
-    let envloc = format!("{}-{}", dep.environment, dep.location);
+// base context with variables used by templates
+fn make_base_context(dep: &Deployment) -> Result<Context> {
+    // env-loc == region
+    let region = format!("{}-{}", dep.environment, dep.location);
 
-    // newrelic api key for dev
-    // TODO: generalize
-    let license = "007015786e56e693643ba29dcc4e59aee5e0ca42".to_string();
-
-    // currenly a reusable context for the various templated configs
     let mut ctx = Context::new();
+    ctx.add("env", &dep.manifest.env);
+    ctx.add("service", &dep.service);
+    ctx.add("region", &region);
+    Ok(ctx)
+}
 
-    ctx.add("env", &dep.manifest.env); // evars always injected
-    ctx.add("newrelic_license", &license); // for newrelic
-    ctx.add("app", &dep.service); // for newrelic
-    ctx.add("environmentlocation", &envloc); // for newrelic
+// full context modifier with all variables used by deployment templates as well
+fn make_full_deployment_context(dep: &Deployment) -> Result<Context> {
+    let mut ctx = make_base_context(dep)?;
+
+    // Files in `ConfigMap` get pre-rendered with a sanitized template context
+    if let Some(cfg) = dep.manifest.configs.clone() {
+        let mut files = vec![];
+        for f in cfg.files {
+            let res = template_config(dep, &f)?;
+            files.push(RenderedConfig { name: f.dest.clone(), rendered: res });
+        }
+        let config = ConfigMapRendered {
+            name: cfg.name.unwrap(), // filled in by implicits
+            path: cfg.mount,
+            files: files,
+        };
+        ctx.add("config", &config);
+    }
+    // Image formatted using Display trait
+    ctx.add("image", &format!("{}", dep.manifest.image.clone().unwrap()));
+
+    // Ports exposed as is
+    ctx.add("ports", &dep.manifest.ports);
+
+    // ugly heath check stuff - TODO: fix this
+    if let Some(ref h) = dep.manifest.health {
+        ctx.add("boottime", &h.wait.to_string());
+    } else {
+        ctx.add("boottime", &"30".to_string());
+    }
+    if !dep.manifest.ports.is_empty() {
+        ctx.add("healthPort", &dep.manifest.ports[0]); // TODO: health check proper
+    }
+
+    // ugly replication strategy hack - basically pointless
+    let mut strategy = None;
+    if let Some(ref rep) = dep.manifest.replicas {
+        if rep.max != rep.min {
+            strategy = Some("rolling".to_string());
+        }
+    }
+    ctx.add("replication_strategy", &strategy);
+
+    // Temporary full manifest access - don't reach into this directly
+    ctx.add("mf", &dep.manifest);
+
+    Ok(ctx)
+}
+
+fn template_config(dep: &Deployment, mount: &ConfigMappedFile) -> Result<String> {
+    let ctx = make_base_context(dep)?;
     Ok((dep.render)(&mount.name, &ctx)?)
 }
 
@@ -71,45 +119,8 @@ impl Deployment {
 
 
 pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<String> {
-    let mut context = Context::new();
-    context.add("mf", &dep.manifest);
-
-    if let Some(ref h) = dep.manifest.health {
-        context.add("boottime", &h.wait.to_string());
-    } else {
-        context.add("boottime", &"30".to_string());
-    }
-    context.add("ports", &dep.manifest.ports);
-    if !dep.manifest.ports.is_empty() {
-        context.add("healthPort", &dep.manifest.ports[0]); // TODO: health check proper
-    }
-    let mut strategy = None;
-    if let Some(ref rep) = dep.manifest.replicas {
-        if rep.max != rep.min {
-            strategy = Some("rolling".to_string());
-        }
-    }
-    context.add("replication_strategy", &strategy);
-    context.add("env", &dep.manifest.env); // evars always injected under env
-
-    // configMap related volume parsing
-    if let Some(cfg) = dep.manifest.configs.clone() {
-        let mut files = vec![];
-        for f in cfg.files {
-            let res = template_config(dep, &f)?;
-            files.push(RenderedConfig { name: f.dest.clone(), rendered: res });
-        }
-        let config = ConfigMapRendered {
-            name: cfg.name.unwrap(), // filled in by implicits
-            path: cfg.mount,
-            files: files,
-        };
-        context.add("config", &config);
-    }
-
-    context.add("image", &format!("{}", dep.manifest.image.clone().unwrap()));
-
-    let res = (dep.render)("deployment.yaml.j2", &context)?;
+    let ctx = make_full_deployment_context(dep)?;
+    let res = (dep.render)("deployment.yaml.j2", &ctx)?;
     if to_stdout {
         print!("{}", res);
     }
