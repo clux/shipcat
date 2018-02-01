@@ -21,6 +21,8 @@ extern crate slack_hook;
 #[macro_use]
 extern crate log;
 
+extern crate regex;
+
 #[macro_use]
 extern crate error_chain;
 error_chain! {
