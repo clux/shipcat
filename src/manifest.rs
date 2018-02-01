@@ -347,10 +347,25 @@ impl Manifest {
 
         // iterate over key value evars and replace placeholders
         for (k, v) in self.env.iter_mut() {
+            let kube_secret_pref = "IN_KUBE_SECRETS";
+
             if v == "IN_VAULT" {
                 let vkey = format!("{}-{}/{}/{}", env, loc, svc, k);
                 let secret = client.read(&vkey)?;
                 *v = secret;
+            } else if v.starts_with(kube_secret_pref) {
+                if v.len() > kube_secret_pref.len() && v.contains(":") {
+                    let v2 = v.clone();
+                    let parts : Vec<_> = v2.split(":").collect();
+
+                    if parts[1].len() == 0 {
+                        bail!("{} does not have a valid key path", v.clone());
+                    }
+
+                    *v = format_kube_secret(parts[1]);
+                } else {
+                    *v = format_kube_secret(k);
+                }
             }
         }
         Ok(())
@@ -554,6 +569,15 @@ fn parse_cpu(s: &str) -> Result<f64> {
     }
     trace!("Returned {} cores", res);
     Ok(res)
+}
+
+// Sanitize kube secret output
+fn format_kube_secret(path: &str) -> String {
+    let mut res = "kube-secret-".to_string();
+    let clean_path = &path.to_lowercase().replace("_", "-");
+    res.push_str(clean_path);
+    trace!("{:?}", res);
+    res
 }
 
 pub fn validate(env: &str, location: &str, service: &str) -> Result<()> {
