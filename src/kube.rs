@@ -72,6 +72,9 @@ fn make_full_deployment_context(dep: &Deployment) -> Result<Context> {
     }
     ctx.add("replication_strategy", &strategy);
 
+    // Init containers
+    ctx.add("init_containers", &dep.manifest.init_containers);
+
     // Temporary full manifest access - don't reach into this directly
     ctx.add("mf", &dep.manifest);
 
