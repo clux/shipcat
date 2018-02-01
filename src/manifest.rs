@@ -1,4 +1,5 @@
 use serde_yaml;
+use regex::Regex;
 
 use std::io::prelude::*;
 use std::fs::File;
@@ -112,6 +113,12 @@ impl fmt::Display for Image {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct InitContainer {
+    pub name: String,
+    pub image: String,
+    pub command: Vec<String>,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VaultOpts {
@@ -164,6 +171,10 @@ pub struct Manifest {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub configs: Option<ConfigMap>,
+    /// Init container intructions
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub init_containers: Vec<InitContainer>,
     /// Ports to expose
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -318,6 +329,9 @@ impl Manifest {
                 res.requests = mf.resources.clone().unwrap().requests;
             }
             // for now: if limits or requests are specified, you have to fill in both CPU and memory
+        }
+        if !self.init_containers.is_empty() && !mf.init_containers.is_empty() {
+            self.init_containers = mf.init_containers.clone();
         }
         if self.replicas.is_none() && mf.replicas.is_some() {
             self.replicas = mf.replicas;
@@ -516,7 +530,20 @@ impl Manifest {
             bail!("No regions specified for {}", name);
         }
 
-        // 7. dependencies
+        // 7. init containers - only verify syntax
+        if !self.init_containers.is_empty() {
+            for init_container in &self.init_containers {
+                let re = Regex::new(r"(?:[a-z]+/)?([a-z]+)(?::[0-9]+)?").unwrap();
+                if !re.is_match(&init_container.image) {
+                    bail!("The init container {} does not seem to match a valid image registry", init_container.name);
+                }
+                if init_container.command.is_empty() {
+                    bail!("A command must be specified for the init container {}", init_container.name);
+                }
+            }
+        }
+
+        // 8. dependencies
         // verify that auto-injected keys are not overriding
         // TODO: maybe something for another implicits like thing
         // TODO: verify dependencies exist in service repo
