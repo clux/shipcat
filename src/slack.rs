@@ -20,7 +20,7 @@ fn env_channel() -> Result<String> {
     env::var("SLACK_SHIPCAT_CHANNEL").map_err(|_| ErrorKind::MissingSlackChannel.into())
 }
 fn env_username() -> String {
-    env::var("SLACK_SHIPCAT_NAME").unwrap_or("shipcat".into())
+    env::var("SLACK_SHIPCAT_NAME").unwrap_or_else(|_| "shipcat".into())
 }
 
 pub fn message(msg: Message) -> Result<()> {

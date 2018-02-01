@@ -105,8 +105,8 @@ impl fmt::Display for Image {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let prefix = self.repository.clone().map(|s| {
             if s != "" { format!("{}/", s) } else { s }
-        }).unwrap_or("".into());
-        let suffix = self.tag.clone().unwrap_or("latest".to_string());
+        }).unwrap_or_else(|| "".into());
+        let suffix = self.tag.clone().unwrap_or_else(|| "latest".to_string());
         // NB: assume image.name is always set at this point
         write!(f, "{}{}:{}", prefix, self.name.clone().unwrap(), suffix)
     }
@@ -469,7 +469,7 @@ impl Manifest {
             if cfgmap.mount == "" || cfgmap.mount == "~" {
                 bail!("Empty mountpath for {} mount ", cfgmap.name.clone().unwrap())
             }
-            if !cfgmap.mount.ends_with("/") {
+            if !cfgmap.mount.ends_with('/') {
                 bail!("Mount path '{}' for {} must end with a slash", cfgmap.mount, cfgmap.name.clone().unwrap());
             }
             for f in &cfgmap.files {

@@ -10,6 +10,7 @@ use tera::{self, Value, Tera, Context};
 use serde_json;
 use super::Result;
 
+#[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
 fn indent(v: Value, m: HashMap<String, Value>) -> tera::Result<Value> {
     let s : String = try_get_value!("indent", "value", String, v);
     // look up indent value or use `2` as default
