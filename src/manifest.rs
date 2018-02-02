@@ -128,14 +128,18 @@ pub struct VaultOpts {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct HealthCheck {
-    // Port where the health check is located (typically first exposed port)
-    //pub port: u32,
-    // NB: maybe do ports later, currently use first exposed port
-
-    /// Where the health check is located (typically /health)
-    pub uri: String,
+     /// Where the health check is located (typically /health)
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uri: Option<String>,
     /// How long to wait after boot in seconds (typically 30s)
-    pub wait: u32
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wait: Option<u32>,
+    /// Port where the health check is located (default first exposed port)
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub port: Option<u32>,
 }
 
 
@@ -279,6 +283,20 @@ impl Manifest {
             }
         }
 
+        // health check port set if we expose ports
+        if !self.ports.is_empty() {
+            if self.health.is_none() {
+                self.health = Some(HealthCheck {
+                    port: Some(self.ports[0]),
+                    ..Default::default()
+                });
+            } else if let Some(ref mut health) = self.health {
+                if health.port.is_none() {
+                    health.port = Some(self.ports[0]);
+                }
+            }
+        }
+
         for d in &mut self.dependencies {
             if d.api.is_none() {
                 d.api = Some("v1".to_string());
@@ -339,14 +357,21 @@ impl Manifest {
         if self.ports.is_empty() {
             warn!("{} exposes no ports", name.clone());
         }
-        if self.health.is_none() && mf.health.is_some() {
-            self.health = mf.health
+
+        if let Some(rhs) = mf.health {
+            // only merge health check defaults if we already filled in the port
+            if let Some(ref mut lhs) = self.health {
+                // already have `HealthCheck` data - merge
+                if lhs.uri.is_none() {
+                    trace!("merging uri");
+                    lhs.uri = rhs.uri;
+                }
+                if lhs.wait.is_none() {
+                    lhs.wait = rhs.wait;
+                }
+            }
         }
 
-        // only using target ports now, disabling this now
-        //for s in &self.ports {
-        //    self._portmaps.push(parse_ports(s)?);
-        //}
         Ok(())
     }
 
@@ -541,6 +566,18 @@ impl Manifest {
                 if init_container.command.is_empty() {
                     bail!("A command must be specified for the init container {}", init_container.name);
                 }
+            }
+        }
+
+        // 8. health check
+        // Check that services (which have health structs) have them filled in
+        if let Some(ref health) = self.health {
+            assert!(health.port.is_some()); // filled in in implicits
+            if health.uri.is_none() {
+                bail!("Service without health check uri");
+            }
+            if health.wait.is_none() {
+                bail!("Service without health check wait time");
             }
         }
 
