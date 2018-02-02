@@ -122,20 +122,18 @@ pub struct InitContainer {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct VolumeSecretItem {
-    #[serde(default)]
+    #[serde(default = "volume_key")]
     pub key: String,
     pub path: String,
-    #[serde(default)]
+    #[serde(default = "volume_default_mode")]
     pub mode: u32,
 }
-impl Default for VolumeSecretItem {
-    fn default() -> VolumeSecretItem {
-        VolumeSecretItem {
-            key: "value".to_string(),
-            path: "/".to_string(),
-            mode: 420,
-        }
-    }
+fn volume_key() -> String {
+    "value".to_string()
+}
+fn volume_default_mode() -> u32 {
+    // Defaults to 0644
+    420
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
