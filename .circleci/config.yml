@@ -1,23 +1,23 @@
 version: 2
 workflows:
   version: 2
-  comiple_and_build:
+  shipcat_flow:
     jobs:
-      - compile_app
-      - test:
+      - musl_build
+      - cargo_test:
           filters:
             branches:
               ignore:
                 - master
-      - build_image:
+      - docker_build:
           requires:
-            - compile_app
+            - musl_build
           filters:
             branches:
               only:
                 - master
 jobs:
-  compile_app:
+  musl_build:
     docker:
       - image: clux/muslrust:stable
     working_directory: /volume
@@ -44,7 +44,7 @@ jobs:
           paths:
             - shipcat
 
-  test:
+  cargo_test:
     docker:
       - image: clux/muslrust:stable
     working_directory: /volume
@@ -58,12 +58,11 @@ jobs:
       #- run: cargo test
       - run: cargo doc --no-deps
 
-  build_image:
+  docker_build:
     machine: true
     steps:
       - checkout
       - attach_workspace:
           at: .
-      - run: ls -lah *
       - run: docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
       - run: make tag-latest
