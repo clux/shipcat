@@ -363,7 +363,6 @@ impl Manifest {
             if let Some(ref mut lhs) = self.health {
                 // already have `HealthCheck` data - merge
                 if lhs.uri.is_none() {
-                    trace!("merging uri");
                     lhs.uri = rhs.uri;
                 }
                 if lhs.wait.is_none() {
