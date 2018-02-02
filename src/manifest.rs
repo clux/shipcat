@@ -120,6 +120,52 @@ pub struct InitContainer {
     pub command: Vec<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct VolumeSecretItem {
+    #[serde(default)]
+    pub key: String,
+    pub path: String,
+    #[serde(default)]
+    pub mode: u32,
+}
+impl Default for VolumeSecretItem {
+    fn default() -> VolumeSecretItem {
+        VolumeSecretItem {
+            key: "value".to_string(),
+            path: "/".to_string(),
+            mode: 420,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct VolumeSecretDetail {
+    pub name: String,
+    pub items: Vec<VolumeSecretItem>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct VolumeSecret {
+    pub secret: Option<VolumeSecretDetail>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct ProjectedVolumeSecret {
+    pub sources: Vec<VolumeSecret>,
+    // pub default_mode: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct Volume {
+    pub name: String,
+    /// A projection combines multiple volume items
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub projected: Option<ProjectedVolumeSecret>,
+    /// The secret is fetched  from kube secrets and mounted as a volume
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secret: Option<VolumeSecretDetail>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VaultOpts {
     /// If Vault name differs from service name
@@ -193,7 +239,10 @@ pub struct Manifest {
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub regions: Vec<String>,
-
+    /// Volumes
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub volumes: Vec<Volume>,
 
     // TODO: boot time -> minReadySeconds
 
@@ -341,6 +390,9 @@ impl Manifest {
         }
         if self.health.is_none() && mf.health.is_some() {
             self.health = mf.health
+        }
+        if self.volumes.is_empty() && !mf.volumes.is_empty() {
+            self.volumes = mf.volumes;
         }
 
         // only using target ports now, disabling this now
