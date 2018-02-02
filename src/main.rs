@@ -164,6 +164,10 @@ fn main() {
         result_exit(args.subcommand_name().unwrap(), shipcat::slack::message(msg))
     }
 
+    // TODO: command to list all vault secrets depended on?
+    // can use this to verify structure of vault!
+    // simpler than generating all kubefiles for all regions
+
 
 
 
