@@ -40,6 +40,7 @@ pub fn message(msg: Message) -> Result<()> {
         }
         let desc = if split.len() == 2 { split[1].into() } else { link.clone() };
         let addr = if split.len() == 2 { split[0].into() } else { link.clone() };
+        // TODO: allow multiple links!
         p = p.text(vec![
             Text(msg.text.into()),
             Link(SlackLink::new(&addr, &desc))

@@ -285,15 +285,15 @@ impl Manifest {
 
         // health check port set if we expose ports
         if !self.ports.is_empty() {
-            if self.health.is_none() {
+            if let Some(ref mut health) = self.health {
+                if health.port.is_none() {
+                    health.port = Some(self.ports[0]);
+                }
+            } else {
                 self.health = Some(HealthCheck {
                     port: Some(self.ports[0]),
                     ..Default::default()
                 });
-            } else if let Some(ref mut health) = self.health {
-                if health.port.is_none() {
-                    health.port = Some(self.ports[0]);
-                }
             }
         }
 
