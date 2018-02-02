@@ -53,14 +53,9 @@ fn make_full_deployment_context(dep: &Deployment) -> Result<Context> {
     // Ports exposed as is
     ctx.add("ports", &dep.manifest.ports);
 
-    // ugly heath check stuff - TODO: fix this
+    // Health check
     if let Some(ref h) = dep.manifest.health {
-        ctx.add("boottime", &h.wait.to_string());
-    } else {
-        ctx.add("boottime", &"30".to_string());
-    }
-    if !dep.manifest.ports.is_empty() {
-        ctx.add("healthPort", &dep.manifest.ports[0]); // TODO: health check proper
+        ctx.add("health", h);
     }
 
     // ugly replication strategy hack - basically pointless
