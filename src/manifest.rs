@@ -120,6 +120,50 @@ pub struct InitContainer {
     pub command: Vec<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct VolumeSecretItem {
+    #[serde(default = "volume_key")]
+    pub key: String,
+    pub path: String,
+    #[serde(default = "volume_default_mode")]
+    pub mode: u32,
+}
+fn volume_key() -> String {
+    "value".to_string()
+}
+fn volume_default_mode() -> u32 {
+    // Defaults to 0644
+    420
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct VolumeSecretDetail {
+    pub name: String,
+    pub items: Vec<VolumeSecretItem>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct VolumeSecret {
+    pub secret: Option<VolumeSecretDetail>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct ProjectedVolumeSecret {
+    pub sources: Vec<VolumeSecret>,
+    // pub default_mode: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct Volume {
+    pub name: String,
+    /// A projection combines multiple volume items
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub projected: Option<ProjectedVolumeSecret>,
+    /// The secret is fetched  from kube secrets and mounted as a volume
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secret: Option<VolumeSecretDetail>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VaultOpts {
     /// If Vault name differs from service name
@@ -128,7 +172,7 @@ pub struct VaultOpts {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct HealthCheck {
-     /// Where the health check is located (typically /health)
+    /// Where the health check is located (typically /health)
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
@@ -197,7 +241,10 @@ pub struct Manifest {
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub regions: Vec<String>,
-
+    /// Volumes
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub volumes: Vec<Volume>,
 
     // TODO: boot time -> minReadySeconds
 
@@ -369,6 +416,9 @@ impl Manifest {
                     lhs.wait = rhs.wait;
                 }
             }
+        }
+        if self.volumes.is_empty() && !mf.volumes.is_empty() {
+            self.volumes = mf.volumes;
         }
 
         Ok(())

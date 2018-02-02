@@ -70,6 +70,9 @@ fn make_full_deployment_context(dep: &Deployment) -> Result<Context> {
     // Init containers
     ctx.add("init_containers", &dep.manifest.init_containers);
 
+    // Init containers
+    ctx.add("volumes", &dep.manifest.volumes);
+
     // Temporary full manifest access - don't reach into this directly
     ctx.add("mf", &dep.manifest);
 
