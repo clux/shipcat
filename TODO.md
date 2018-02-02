@@ -9,11 +9,8 @@
 
 ### post dev environment
 - generalize bdd stuff in manifests
-- untangle weird conditional ansible in [ai-deploy/better](https://github.com/Babylonpartners/ai-deploy/blob/a5f98480c37181e12be9566e314433db733d3d25/deployment/better/inventories/jenkins-dev.yml#L11)
-- osx build (laurent atm)
-- helm integration
-- shipcat to work without hardcoding it to cathulk
-- more generic use of templates
+- helm integration?
+- shipcat to work without hardcoding it to manifests repo?
 
 ## Investigation
 ### kube deploy currently via ai-deploy
