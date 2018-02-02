@@ -172,7 +172,7 @@ pub struct VaultOpts {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct HealthCheck {
-     /// Where the health check is located (typically /health)
+    /// Where the health check is located (typically /health)
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
