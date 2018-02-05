@@ -27,6 +27,7 @@ pub fn message(msg: Message) -> Result<()> {
     let hook_url : &str = &env_hook_url()?;
     let hook_chan : String = env_channel()?;
     let hook_user : String = env_username();
+    trace!("hook url: {}", hook_url);
 
     let slack = Slack::new(hook_url).unwrap();
     let mut p = PayloadBuilder::new().channel(hook_chan)
@@ -41,6 +42,9 @@ pub fn message(msg: Message) -> Result<()> {
         let desc = if split.len() == 2 { split[1].into() } else { link.clone() };
         let addr = if split.len() == 2 { split[0].into() } else { link.clone() };
         // TODO: allow multiple links!
+        trace!("slack url: {}", addr);
+        trace!("slack desc: {}", desc);
+        trace!("slack msg: {}", msg.text);
         p = p.text(vec![
             Text(msg.text.into()),
             Link(SlackLink::new(&addr, &desc))
