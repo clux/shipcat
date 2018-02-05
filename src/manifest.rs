@@ -114,6 +114,21 @@ impl fmt::Display for Image {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct VolumeMount {
+    pub name: String,
+    pub mount_path: String,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_path: Option<String>,
+    #[serde(default = "volume_mount_read_only")]
+    pub read_only: bool,
+}
+fn volume_mount_read_only() -> bool {
+    false
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct InitContainer {
     pub name: String,
     pub image: String,
@@ -219,6 +234,10 @@ pub struct Manifest {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub configs: Option<ConfigMap>,
+    /// Volumes mounts
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub volume_mounts: Vec<VolumeMount>,
     /// Init container intructions
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -394,6 +413,9 @@ impl Manifest {
                 res.requests = mf.resources.clone().unwrap().requests;
             }
             // for now: if limits or requests are specified, you have to fill in both CPU and memory
+        }
+        if self.volume_mounts.is_empty() && !mf.volume_mounts.is_empty() {
+            self.volume_mounts = mf.volume_mounts;
         }
         if !self.init_containers.is_empty() && !mf.init_containers.is_empty() {
             self.init_containers = mf.init_containers.clone();
