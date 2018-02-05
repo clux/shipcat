@@ -417,7 +417,7 @@ impl Manifest {
         if self.volume_mounts.is_empty() && !mf.volume_mounts.is_empty() {
             self.volume_mounts = mf.volume_mounts;
         }
-        if !self.init_containers.is_empty() && !mf.init_containers.is_empty() {
+        if self.init_containers.is_empty() && !mf.init_containers.is_empty() {
             self.init_containers = mf.init_containers.clone();
         }
         if self.replicas.is_none() && mf.replicas.is_some() {
