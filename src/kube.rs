@@ -67,10 +67,13 @@ fn make_full_deployment_context(dep: &Deployment) -> Result<Context> {
     }
     ctx.add("replication_strategy", &strategy);
 
+    // Volume mounts
+    ctx.add("volume_mounts", &dep.manifest.volume_mounts);
+
     // Init containers
     ctx.add("init_containers", &dep.manifest.init_containers);
 
-    // Init containers
+    // Volumes
     ctx.add("volumes", &dep.manifest.volumes);
 
     // Temporary full manifest access - don't reach into this directly
