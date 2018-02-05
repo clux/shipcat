@@ -143,13 +143,60 @@ pub fn generate(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<Stri
     Ok(res)
 }
 
+fn kubeout(args: Vec<String>) -> Result<()> {
+    use std::process::Command;
+    let s = Command::new("kubectl").args(&args).status()?;
+    if !s.success() {
+        bail!("Subprocess failure from kubectl: {}", s.code().unwrap_or(1001))
+    }
+    Ok(())
+}
 
-#[allow(unused_variables)]
-pub fn ship(dep: &Deployment, mf: &Manifest) -> Result<()> {
-    //let kubefile = generate(tera, mf)?;
-    // TODO: write kubefile
-    // TODO: kubectl apply -f kubefile
-    unimplemented!()
+// TODO: location not used
+pub fn ship(env: &str, tag: &str, mf: &Manifest) -> Result<()> {
+    // sanity
+    let confargs = vec!["config".into(), "current-context".into()];
+    kubeout(confargs)?;
+
+    let mut img = mf.image.clone().unwrap();
+    img.tag = Some(tag.into());
+
+    let args = vec![
+        "set".into(),
+        "image".into(),
+        format!("deployment/{}", mf.name.clone().unwrap()),
+        format!("{}={}", mf.name.clone().unwrap(), img),
+        "-n".into(),
+        env.into(),
+    ];
+    println!("kubectl {}", args.join(" "));
+    kubeout(args)?;
+
+    let rollargs = vec![
+        "rollout".into(),
+        "status".into(),
+        format!("deployment/{}", mf.name.clone().unwrap()),
+        "-n".into(),
+        env.into(),
+    ];
+    use std::thread::sleep;
+    use std::time::Duration;
+    let fivesecs = Duration::new(5, 0);
+
+    for _ in 1..20 {
+        match kubeout(rollargs.clone()) {
+            Err(e) => {
+                info!("Still waiting");
+                info!("{}", e);
+                sleep(fivesecs);
+            }
+            Ok(_) => {
+                info!("Rollout done!");
+                break;
+            }
+        }
+    }
+    Ok(())
 }
 // kubectl get pod -n dev -l=k8s-app=clinical-knowledge
 

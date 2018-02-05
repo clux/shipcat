@@ -67,6 +67,27 @@ fn main() {
                 .help("Service name"))
             .about("Generate kubefile from manifest"))
         .subcommand(SubCommand::with_name("ship")
+            .arg(Arg::with_name("environment")
+                .short("e")
+                .long("env")
+                .required(true)
+                .takes_value(true)
+                .help("Environment name (dev, qa, prod)"))
+            .arg(Arg::with_name("location")
+                .short("l")
+                .long("location")
+                .required(true)
+                .takes_value(true)
+                .help("Location of deployment (uk, rw, ca)"))
+            .arg(Arg::with_name("tag")
+                .short("t")
+                .long("tag")
+                .required(true)
+                .takes_value(true)
+                .help("Tag of the image (typically a hash / semver)"))
+            .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service name"))
             .about("Ship to kubernetes"))
         .subcommand(SubCommand::with_name("slack")
             .arg(Arg::with_name("url")
@@ -113,6 +134,8 @@ fn main() {
     if args.subcommand_matches("list-environments").is_some() {
         result_exit(args.subcommand_name().unwrap(), shipcat::list::environments())
     }
+    // clients for network related subcommands
+    openssl_probe::init_ssl_cert_env_vars();
 
 
     if let Some(a) = args.subcommand_matches("generate") {
@@ -120,8 +143,6 @@ fn main() {
         let service = a.value_of("service").unwrap();
         let location = a.value_of("location").unwrap();
 
-        // clients for network related subcommands
-        openssl_probe::init_ssl_cert_env_vars();
         // TODO: vault client parametrised to ENV and location here!
         let mut vault = conditional_exit(shipcat::vault::Vault::default());
 
@@ -162,6 +183,18 @@ fn main() {
         let link = a.value_of("url").map(String::from);
         let msg = shipcat::slack::Message { text, link };
         result_exit(args.subcommand_name().unwrap(), shipcat::slack::message(msg))
+    }
+
+    if let Some(a) = args.subcommand_matches("ship") {
+        let env = a.value_of("environment").unwrap();
+        let location = a.value_of("location").unwrap();
+        let service = a.value_of("service").unwrap();
+        let tag = a.value_of("tag").unwrap();
+
+        // Populate a mostly completed manifest
+        let mf = conditional_exit(Manifest::completed(env, location, service, None));
+
+        result_exit(args.subcommand_name().unwrap(), shipcat::ship(env, tag, &mf))
     }
 
     // TODO: command to list all vault secrets depended on?
