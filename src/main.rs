@@ -192,6 +192,7 @@ fn main() {
         let tag = a.value_of("tag").unwrap();
 
         // Populate a mostly completed manifest
+        // NB: this verifies region is valid for this service!
         let mf = conditional_exit(Manifest::completed(env, location, service, None));
 
         result_exit(args.subcommand_name().unwrap(), shipcat::ship(env, tag, &mf))

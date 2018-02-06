@@ -178,6 +178,7 @@ pub fn ship(env: &str, tag: &str, mf: &Manifest) -> Result<()> {
         format!("deployment/{}", mf.name.clone().unwrap()),
         "-n".into(),
         env.into(),
+        "--watch=false".into(),
     ];
     use std::thread::sleep;
     use std::time::Duration;
