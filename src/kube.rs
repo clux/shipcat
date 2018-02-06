@@ -178,13 +178,12 @@ pub fn ship(env: &str, tag: &str, mf: &Manifest) -> Result<()> {
         format!("deployment/{}", mf.name.clone().unwrap()),
         "-n".into(),
         env.into(),
-        "--watch=false".into(),
     ];
     use std::thread::sleep;
     use std::time::Duration;
     let fivesecs = Duration::new(5, 0);
 
-    for _ in 1..20 {
+    for _ in 1..1 {
         match kubeout(rollargs.clone()) {
             Err(e) => {
                 info!("Still waiting");
