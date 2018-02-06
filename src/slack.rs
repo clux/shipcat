@@ -27,6 +27,7 @@ pub fn message(msg: Message) -> Result<()> {
     let hook_url : &str = &env_hook_url()?;
     let hook_chan : String = env_channel()?;
     let hook_user : String = env_username();
+    // TODO: check hook url non-empty?
 
     let slack = Slack::new(hook_url).unwrap();
     let mut p = PayloadBuilder::new().channel(hook_chan)
