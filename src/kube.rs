@@ -179,23 +179,26 @@ pub fn ship(env: &str, tag: &str, mf: &Manifest) -> Result<()> {
         "-n".into(),
         env.into(),
     ];
-    use std::thread::sleep;
-    use std::time::Duration;
-    let fivesecs = Duration::new(5, 0);
-
-    for _ in 1..1 {
-        match kubeout(rollargs.clone()) {
-            Err(e) => {
-                info!("Still waiting");
-                info!("{}", e);
-                sleep(fivesecs);
-            }
-            Ok(_) => {
-                info!("Rollout done!");
-                break;
-            }
+    let podargs = vec![
+        "get".into(),
+        "pods".into(),
+        "-l".into(),
+        format!("-l=app={}", mf.name.clone().unwrap()),
+        "-n".into(),
+        env.into(),
+    ];
+    match kubeout(rollargs.clone()) {
+        Err(e) => {
+            warn!("Rollout seems to hang - investigating");
+            warn!("Got: {} from rollout command", e);
+            info!("Checking pod status:");
+            kubeout(podargs)?;
+            bail!("rollout failed to succeed in 5minutes");
         }
-    }
+        Ok(_) => {
+            info!("rollout done!");
+        }
+    };
     Ok(())
 }
 // kubectl get pod -n dev -l=k8s-app=clinical-knowledge
