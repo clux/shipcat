@@ -36,14 +36,15 @@ If you have `vault` credentials you can generate the complete kube file.
 export VAULT_ADDR=...
 export VAULT_TOKEN=...
 
-shipcat generate
+shipcat validate babylbot
+shipcat generate -r dev-uk babylbot
 ```
 
 If you have `kubectl` credentials, you can ship your service to the initial enviroment:
 
 ```sh
 kubectl auth can-i rollout Deployment
-shipcat ship
+shipcat ship -r dev-uk babylbot
 ```
 
 If you have `slack` credentials, you can use `shipcat slack` to talk to slack:
@@ -51,5 +52,5 @@ If you have `slack` credentials, you can use `shipcat slack` to talk to slack:
 ```sh
 export SLACK_SHIPCAT_HOOK_URL=...
 export SLACK_SHIPCAT_CHANNEL="#kubernetes"
-shipcat slack err, meow
+shipcat slack hi slack
 ```
