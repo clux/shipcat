@@ -297,19 +297,21 @@ pub struct Manifest {
 
     // Internal path of this manifest
     #[serde(skip_serializing, skip_deserializing)]
-    _location: String,
+    _path: String,
 
-//    // Parsed port map of this manifest
-//    #[serde(skip_serializing, skip_deserializing)]
-//    pub _portmaps: Vec<PortMap>
+    // Internal namespace this manifest is intended for
+    #[serde(skip_serializing, skip_deserializing)]
+    pub _namespace: String,
+    // Internal location this manifest is intended for
+    #[serde(skip_serializing, skip_deserializing)]
+    pub _location: String,
 }
-
 
 impl Manifest {
     pub fn new(name: &str, location: &PathBuf) -> Manifest {
         Manifest {
             name: Some(name.into()),
-            _location: location.to_string_lossy().into(),
+            _path: location.to_string_lossy().into(),
             ..Default::default()
         }
     }
@@ -325,9 +327,10 @@ impl Manifest {
         f.read_to_string(&mut data)?;
         let mut res: Manifest = serde_yaml::from_str(&data)?;
         // store the location internally (not serialized to disk)
-        res._location = mpath.to_string_lossy().into();
+        res._path = mpath.to_string_lossy().into();
         Ok(res)
     }
+
 
     /// Add implicit defaults to self
     fn implicits(&mut self) -> Result<()> {
@@ -447,20 +450,21 @@ impl Manifest {
     }
 
     // Populate placeholder fields with secrets from vault
-    fn secrets(&mut self, client: &mut Vault, env: &str, loc: &str) -> Result<()> {
+    fn secrets(&mut self, client: &mut Vault, region: &str) -> Result<()> {
         // some services use keys from other services
         let svc = if let Some(ref vopts) = self.vault {
             vopts.name.clone()
         } else {
             self.name.clone().unwrap()
         };
+        debug!("Injecting secrets from vault {}/{}", region, svc);
 
         // iterate over key value evars and replace placeholders
         for (k, v) in &mut self.env {
             let kube_prefix = "IN_KUBE_SECRETS";
 
             if v == "IN_VAULT" {
-                let vkey = format!("{}-{}/{}/{}", env, loc, svc, k);
+                let vkey = format!("{}/{}/{}", region, svc, k);
                 let secret = client.read(&vkey)?;
                 *v = secret;
             } else if v.starts_with(kube_prefix) {
@@ -482,53 +486,66 @@ impl Manifest {
         Ok(())
     }
 
-    // Return a completed (read, filled in, and populate secrets) manifest
-    pub fn completed(env: &str, loc: &str, service: &str, vault: Option<&mut Vault>) -> Result<Manifest> {
-        let pth = Path::new(".").join("services").join(service);
-        if !pth.exists() {
-            bail!("Service folder {} does not exist", pth.display())
-        }
-        let mut mf = Manifest::read_from(&pth)?;
-        mf.implicits()?;
+    /// Fill in env overrides and populate secrets
+    pub fn fill(&mut self, region: &str, vault: Option<&mut Vault>) -> Result<()> {
+        self.implicits()?;
         if let Some(client) = vault {
-            debug!("Injecting secrets from vault {}-{}", env, loc);
-            mf.secrets(client, env, loc)?;
+            self.secrets(client, region)?;
         }
+        let service = self.name.clone().unwrap();
 
         // merge service specific env overrides if they exists
         let envlocals = Path::new(".")
             .join("services")
             .join(service)
-            .join(format!("{}-{}.yml", env, loc));
+            .join(format!("{}.yml", region));
         if envlocals.is_file() {
             debug!("Merging environment locals from {}", envlocals.display());
-            mf.merge(&envlocals)?;
+            self.merge(&envlocals)?;
         }
         // merge global environment defaults if they exist
         let envglobals = Path::new(".")
             .join("environments")
-            .join(format!("{}-{}.yml", env, loc));
+            .join(format!("{}.yml", region));
         if envglobals.is_file() {
             debug!("Merging environment globals from {}", envglobals.display());
-            mf.merge(&envglobals)?;
+            self.merge(&envglobals)?;
         }
+        // set namespace property
+        let region_parts : Vec<_> = region.split('-').collect();
+        if region_parts.len() != 2 {
+            bail!("invalid region {} of len {}", region, region.len());
+        }
+        self._namespace = region_parts[0].into();
+        self._location = region_parts[1].into();
+        Ok(())
+    }
+
+    // Complete (filled in env overrides and populate secrets) a manifest
+    pub fn completed(region: &str, service: &str, vault: Option<&mut Vault>) -> Result<Manifest> {
+            let pth = Path::new(".").join("services").join(service);
+        if !pth.exists() {
+            bail!("Service folder {} does not exist", pth.display())
+        }
+        let mut mf = Manifest::read_from(&pth)?;
+        mf.fill(&region, vault)?;
         Ok(mf)
     }
 
     /// Update the manifest file in the current folder
     pub fn write(&self) -> Result<()> {
         let encoded = serde_yaml::to_string(self)?;
-        trace!("Writing manifest in {}", self._location);
-        let mut f = File::create(&self._location)?;
+        trace!("Writing manifest in {}", self._path);
+        let mut f = File::create(&self._path)?;
         write!(f, "{}\n", encoded)?;
-        debug!("Wrote manifest in {}: \n{}", self._location, encoded);
+        debug!("Wrote manifest in {}: \n{}", self._path, encoded);
         Ok(())
     }
 
-    /// Print manifest to stdout
+    /// Print manifest to debug output
     pub fn print(&self) -> Result<()> {
         let encoded = serde_yaml::to_string(self)?;
-        print!("{}\n", encoded);
+        debug!("{}\n", encoded);
         Ok(())
     }
 
@@ -708,8 +725,18 @@ fn parse_cpu(s: &str) -> Result<f64> {
 }
 
 
-pub fn validate(env: &str, location: &str, service: &str) -> Result<()> {
-    let mf = Manifest::completed(env, location, service, None)?;
-    mf.verify()?;
-    mf.print()
+pub fn validate(service: &str) -> Result<()> {
+    let pth = Path::new(".").join("services").join(service);
+    if !pth.exists() {
+        bail!("Service folder {} does not exist", pth.display())
+    }
+    let mf = Manifest::read_from(&pth)?;
+    for region in mf.regions.clone() {
+        let mut mfr = mf.clone();
+        mfr.fill(&region, None)?;
+        mfr.verify()?;
+        info!("validated {} for {}", service, region);
+        mfr.print()?; // print it if sufficient verbosity
+    }
+    Ok(())
 }

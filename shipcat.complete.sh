@@ -17,11 +17,6 @@ _shipcat()
         fi
     done
 
-    #local in_shipcat_repo=""
-    #if [ -f "$PWD/shipcat.yml" ] || [ -f "$PWD/shipcat.yml" ]; then
-    #    in_shipcat_repo="1"
-    #fi
-
     # global flags
     if [[ $prev = 'shipcat' && "$cur" == -* ]]; then
         COMPREPLY=( $(compgen -W '-v -h -V --version --help' -- "$cur" ) )
@@ -36,17 +31,28 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(generate|status) ]]; then
+        if [[ ${words[i]} == @(generate|validate|ship) ]]; then
             special=${words[i]}
         fi
     done
 
     if [[ -n $special ]]; then
         case $special in
-            generate)
-                if [[ $prev = "generate" ]]; then
-                    local -r envs="$(shipcat list-environments)"
-                    COMPREPLY=($(compgen -W "$envs" -- "$cur"))
+            validate)
+                if [[ $prev = "validate" ]]; then
+                    svcs=$(find "./services" -maxdepth 1 -mindepth 1 -type d -printf "%f " 2> /dev/null)
+                    COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
+                fi
+                ;;
+            generate|ship)
+                if [[ $prev = @(generate|ship) ]]; then
+                    COMPREPLY=($(compgen -W "-r --region" -- "$cur"))
+                elif [[ $prev == @(-r|--region) ]]; then
+                    local -r regions="dev-uk"
+                    COMPREPLY=($(compgen -W "$regions" -- "$cur"))
+                else
+                    svcs=$(find "./services" -maxdepth 1 -mindepth 1 -type d -printf "%f " 2> /dev/null)
+                    COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 fi
                 ;;
         esac
