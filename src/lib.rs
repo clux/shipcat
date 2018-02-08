@@ -85,5 +85,5 @@ pub mod slack;
 mod manifest;
 pub use manifest::{validate, Manifest};
 
-mod kube;
-pub use kube::{ship, generate, Deployment};
+pub mod generate;
+pub mod kube;

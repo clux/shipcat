@@ -50,35 +50,23 @@ fn main() {
             .long("debug")
             .help("Adds line numbers to log statements"))
         .subcommand(SubCommand::with_name("generate")
-            .arg(Arg::with_name("environment")
-                .short("e")
-                .long("env")
+            .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
                 .required(true)
                 .takes_value(true)
-                .help("Environment name (dev, qa, prod)"))
-            .arg(Arg::with_name("location")
-                .short("l")
-                .long("location")
-                .required(true)
-                .takes_value(true)
-                .help("Location of deployment (uk, rw, ca)"))
+                .help("Region to deploy to (dev-uk, dev-qa, prod-uk)"))
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
             .about("Generate kubefile from manifest"))
         .subcommand(SubCommand::with_name("ship")
-            .arg(Arg::with_name("environment")
-                .short("e")
-                .long("env")
+            .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
                 .required(true)
                 .takes_value(true)
-                .help("Environment name (dev, qa, prod)"))
-            .arg(Arg::with_name("location")
-                .short("l")
-                .long("location")
-                .required(true)
-                .takes_value(true)
-                .help("Location of deployment (uk, rw, ca)"))
+                .help("Region to deploy to (dev-uk, dev-qa, prod-uk)"))
             .arg(Arg::with_name("tag")
                 .short("t")
                 .long("tag")
@@ -101,19 +89,7 @@ fn main() {
                 .multiple(true))
             .about("Post message to slack"))
         .subcommand(SubCommand::with_name("validate")
-            .arg(Arg::with_name("environment")
-                .short("e")
-                .long("env")
-                .required(true)
-                .takes_value(true)
-                .help("Environment name (dev, qa, prod)"))
-            .arg(Arg::with_name("location")
-                .short("l")
-                .long("location")
-                .required(true)
-                .takes_value(true)
-                .help("Location of deployment (uk, rw, ca)"))
-            .arg(Arg::with_name("service")
+              .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
             .about("Validate the shipcat manifest"))
@@ -139,24 +115,23 @@ fn main() {
 
 
     if let Some(a) = args.subcommand_matches("generate") {
-        let env = a.value_of("environment").unwrap();
         let service = a.value_of("service").unwrap();
-        let location = a.value_of("location").unwrap();
+        let region = a.value_of("region").unwrap();
 
         // TODO: vault client parametrised to ENV and location here!
         let mut vault = conditional_exit(shipcat::vault::Vault::default());
 
         // Populate a complete manifest (with ALL values) early for advanced commands
-        let mf = conditional_exit(Manifest::completed(env, location, service, Some(&mut vault)));
+        let mf = conditional_exit(Manifest::completed(region, service, Some(&mut vault)));
 
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
 
         // All parameters for a k8s deployment
-        let dep = shipcat::Deployment {
+        let dep = shipcat::generate::Deployment {
             service: service.into(),
-            environment: env.into(),
-            location: location.into(),
+            environment: mf._namespace.clone(),
+            location: mf._location.clone(),
             manifest: mf,
             // only provide template::render as the interface (move tera into this)
             render: Box::new(move |tmpl, context| {
@@ -165,17 +140,15 @@ fn main() {
         };
         conditional_exit(dep.check()); // some sanity asserts
 
-        let res = shipcat::generate(&dep, false, true);
+        let res = shipcat::generate::deployment(&dep, false, true);
         result_exit(args.subcommand_name().unwrap(), res)
     }
 
     // Handle subcommands dumb subcommands
     if let Some(a) = args.subcommand_matches("validate") {
-        let env = a.value_of("environment").unwrap();
-        let location = a.value_of("location").unwrap();
         let service = a.value_of("service").unwrap();
 
-        result_exit(args.subcommand_name().unwrap(), shipcat::validate(env, location, service))
+        result_exit(args.subcommand_name().unwrap(), shipcat::validate(service))
     }
 
     if let Some(a) = args.subcommand_matches("slack") {
@@ -186,16 +159,15 @@ fn main() {
     }
 
     if let Some(a) = args.subcommand_matches("ship") {
-        let env = a.value_of("environment").unwrap();
-        let location = a.value_of("location").unwrap();
+        let region = a.value_of("region").unwrap();
         let service = a.value_of("service").unwrap();
         let tag = a.value_of("tag").unwrap();
 
         // Populate a mostly completed manifest
         // NB: this verifies region is valid for this service!
-        let mf = conditional_exit(Manifest::completed(env, location, service, None));
+        let mf = conditional_exit(Manifest::completed(region, service, None));
 
-        result_exit(args.subcommand_name().unwrap(), shipcat::ship(env, tag, &mf))
+        result_exit(args.subcommand_name().unwrap(), shipcat::kube::rollout(region, tag, &mf))
     }
 
     // TODO: command to list all vault secrets depended on?
