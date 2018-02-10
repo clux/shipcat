@@ -7,12 +7,12 @@ _shipcat()
     local cur prev words cword
     _init_completion || return
 
-    local -r subcommands="init help validate generate status ship shell
+    local -r subcommands="init help validate generate status ship shell logs
                           list-environments"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(init|help|validate|generate|status|ship|shell) ]]; then
+        if [[ ${words[i]} == @(init|help|validate|generate|status|ship|shell|logs) ]]; then
             has_sub=1
         fi
     done
@@ -31,7 +31,7 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(generate|validate|ship|shell) ]]; then
+        if [[ ${words[i]} == @(generate|validate|ship|shell|logs) ]]; then
             special=${words[i]}
         fi
     done
@@ -55,8 +55,8 @@ _shipcat()
                     COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 fi
                 ;;
-            shell)
-                if [[ $prev = @(shell) ]]; then
+            shell|logs)
+                if [[ $prev = @(shell|logs) ]]; then
                     COMPREPLY=($(compgen -W "-r --region -p --pod" -- "$cur"))
                 elif [[ $prev == @(-r|--region) ]]; then
                     local -r regions="dev-uk"

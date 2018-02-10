@@ -49,6 +49,9 @@ shipcat ship -r dev-uk babylbot
 
 kubectl auth can-i create pods/exec
 shipcat shell babylbot -p 1
+
+kubectl auth can-i get,list pods/logs
+shipcat logs babylbot -p 1
 ```
 
 If you have `slack` credentials, you can use `shipcat slack` to talk to slack:
