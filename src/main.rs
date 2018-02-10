@@ -60,6 +60,23 @@ fn main() {
                 .required(true)
                 .help("Service name"))
             .about("Generate kubefile from manifest"))
+        .subcommand(SubCommand::with_name("shell")
+            .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .required(true)
+                .takes_value(true)
+                .help("Region to use (dev-uk, dev-qa, prod-uk)"))
+            .arg(Arg::with_name("pod")
+                .takes_value(true)
+                .short("p")
+                .long("pod")
+                .help("Pod number - otherwise tries all"))
+            .about("Generate kubefile from manifest")
+            .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service name"))
+            .about("Generate kubefile from manifest"))
         .subcommand(SubCommand::with_name("ship")
             .arg(Arg::with_name("region")
                 .short("r")
@@ -168,6 +185,20 @@ fn main() {
         let mf = conditional_exit(Manifest::completed(region, service, None));
 
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::rollout(region, tag, &mf))
+    }
+
+
+    if let Some(a) = args.subcommand_matches("shell") {
+        let region = a.value_of("region").unwrap();
+        let service = a.value_of("service").unwrap();
+
+        let pod = value_t!(a.value_of("pod"), u32).ok();
+        //let pod = a.value_of("pod").map(|s| s.parse());
+
+        // Populate a mostly completed manifest
+        let mf = conditional_exit(Manifest::completed(region, service, None));
+
+        result_exit(args.subcommand_name().unwrap(), shipcat::kube::shell(&mf, pod))
     }
 
     // TODO: command to list all vault secrets depended on?
