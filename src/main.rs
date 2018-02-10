@@ -60,6 +60,21 @@ fn main() {
                 .required(true)
                 .help("Service name"))
             .about("Generate kubefile from manifest"))
+        .subcommand(SubCommand::with_name("logs")
+            .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Region to use (dev-uk, dev-qa, prod-uk)"))
+            .arg(Arg::with_name("pod")
+                .takes_value(true)
+                .short("p")
+                .long("pod")
+                .help("Pod number - otherwise gets all"))
+            .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service name"))
+            .about("Get logs from pods for a service described in a manifest"))
         .subcommand(SubCommand::with_name("shell")
             .arg(Arg::with_name("region")
                 .short("r")
@@ -71,11 +86,10 @@ fn main() {
                 .short("p")
                 .long("pod")
                 .help("Pod number - otherwise tries all"))
-            .about("Generate kubefile from manifest")
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
-            .about("Generate kubefile from manifest"))
+            .about("Shell into pods for a service described in a manifest"))
         .subcommand(SubCommand::with_name("ship")
             .arg(Arg::with_name("region")
                 .short("r")
@@ -92,7 +106,7 @@ fn main() {
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
-            .about("Ship to kubernetes"))
+            .about("Rollout to kubernetes"))
         .subcommand(SubCommand::with_name("slack")
             .arg(Arg::with_name("url")
                 .short("u")
@@ -188,9 +202,7 @@ fn main() {
 
 
     if let Some(a) = args.subcommand_matches("shell") {
-
         let service = a.value_of("service").unwrap();
-
         let pod = value_t!(a.value_of("pod"), u32).ok();
 
         let mf = if let Some(r) = a.value_of("region") {
@@ -199,9 +211,22 @@ fn main() {
             // infer region from kubectl current-context
             conditional_exit(Manifest::basic(service))
         };
-
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::shell(&mf, pod))
     }
+
+    if let Some(a) = args.subcommand_matches("logs") {
+        let service = a.value_of("service").unwrap();
+        let pod = value_t!(a.value_of("pod"), u32).ok();
+
+        let mf = if let Some(r) = a.value_of("region") {
+            conditional_exit(Manifest::completed(r, service, None))
+        } else {
+            // infer region from kubectl current-context
+            conditional_exit(Manifest::basic(service))
+        };
+        result_exit(args.subcommand_name().unwrap(), shipcat::kube::logs(&mf, pod))
+    }
+
 
     // TODO: command to list all vault secrets depended on?
     // can use this to verify structure of vault!

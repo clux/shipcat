@@ -80,6 +80,26 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
     Ok(())
 }
 
+
+fn get_pods(name: String, env: &str) -> Result<String> {
+    //kubectl get pods -l=app=$* -n $(ENV) -o jsonpath='{.items[*].metadata.name}'
+    let mut podargs = vec![
+        "get".into(),
+        "pods".into(),
+        format!("-l=app={}", name),
+        "-o".into(),
+        "jsonpath='{.items[*].metadata.name}'".into(),
+    ];
+    // TODO: filter out ones not running conditionally - exec wont work with this
+    if env != "" {
+        podargs.push("-n".into());
+        podargs.push(env.into());
+    }
+    let podsres = kout(podargs)?;
+    debug!("Active pods: {:?}", podsres);
+    Ok(podsres)
+}
+
 pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
     // TODO: check if access to shell in!
 
@@ -88,21 +108,8 @@ pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
     let env = mf._namespace.clone();
     //let loc = mf._location.clone();
 
-    //kubectl get pods -l=app=$* -n $(ENV) -o jsonpath='{.items[*].metadata.name}'
-    let mut podargs = vec![
-        "get".into(),
-        "pods".into(),
-        format!("-l=app={}", mf.name.clone().unwrap()),
-        "-o".into(),
-        "jsonpath='{.items[*].metadata.name}'".into(),
-    ];
-    if env != "" {
-        podargs.push("-n".into());
-        podargs.push(env.clone());
-    }
-    let podsres = kout(podargs)?;
+    let podsres = get_pods(mf.name.clone().unwrap(), &env)?;
     let pods = podsres.split(' ');
-    info!("Active pods: {:?}", podsres);
 
     let mut num = 0;
 
@@ -128,6 +135,43 @@ pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
             execargs.push(env.clone());
         }
         kexec(execargs)?;
+    }
+    Ok(())
+}
+
+pub fn logs(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
+    // TODO: check if access to get logs in!
+
+    // region might not be set for this command
+    // rely on kubectl context to work it out if unset
+    let env = mf._namespace.clone();
+    //let loc = mf._location.clone();
+
+    let podsres = get_pods(mf.name.clone().unwrap(), &env)?;
+    let pods = podsres.split(' ');
+
+    let mut num = 0;
+
+    for p in pods {
+        num += 1;
+        if let Some(pnr) = desiredpod {
+            if pnr != num {
+                trace!("Skipping pod {}", num);
+                continue;
+            }
+        }
+
+        info!("Logs for {}", p);
+        //kubectl exec -n $(ENV) -it $$pod (bash || sh) ;\
+        let mut logargs = vec![
+            "logs".into(),
+            p.into(),
+        ];
+        if env != "" {
+            logargs.push("-n".into());
+            logargs.push(env.clone());
+        }
+        kexec(logargs)?;
     }
     Ok(())
 }
