@@ -40,11 +40,15 @@ shipcat validate babylbot
 shipcat generate -r dev-uk babylbot
 ```
 
-If you have `kubectl` credentials, you can ship your service to the initial enviroment:
+
+If you have `kubectl` credentials, you can ship your service and shell into pods:
 
 ```sh
 kubectl auth can-i rollout Deployment
 shipcat ship -r dev-uk babylbot
+
+kubectl auth can-i create pods/exec
+shipcat shell babylbot -p 1
 ```
 
 If you have `slack` credentials, you can use `shipcat slack` to talk to slack:
