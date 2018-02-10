@@ -64,7 +64,6 @@ fn main() {
             .arg(Arg::with_name("region")
                 .short("r")
                 .long("region")
-                .required(true)
                 .takes_value(true)
                 .help("Region to use (dev-uk, dev-qa, prod-uk)"))
             .arg(Arg::with_name("pod")
@@ -189,14 +188,17 @@ fn main() {
 
 
     if let Some(a) = args.subcommand_matches("shell") {
-        let region = a.value_of("region").unwrap();
+
         let service = a.value_of("service").unwrap();
 
         let pod = value_t!(a.value_of("pod"), u32).ok();
-        //let pod = a.value_of("pod").map(|s| s.parse());
 
-        // Populate a mostly completed manifest
-        let mf = conditional_exit(Manifest::completed(region, service, None));
+        let mf = if let Some(r) = a.value_of("region") {
+            conditional_exit(Manifest::completed(r, service, None))
+        } else {
+            // infer region from kubectl current-context
+            conditional_exit(Manifest::basic(service))
+        };
 
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::shell(&mf, pod))
     }

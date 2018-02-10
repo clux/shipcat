@@ -521,14 +521,25 @@ impl Manifest {
         Ok(())
     }
 
-    // Complete (filled in env overrides and populate secrets) a manifest
+    /// Complete (filled in env overrides and populate secrets) a manifest
     pub fn completed(region: &str, service: &str, vault: Option<&mut Vault>) -> Result<Manifest> {
-            let pth = Path::new(".").join("services").join(service);
+        let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
         mf.fill(&region, vault)?;
+        Ok(mf)
+    }
+
+    /// A super base manifest - from an unknown region
+    pub fn basic(service: &str) -> Result<Manifest> {
+        let pth = Path::new(".").join("services").join(service);
+        if !pth.exists() {
+            bail!("Service folder {} does not exist", pth.display())
+        }
+        let mut mf = Manifest::read_from(&pth)?;
+        mf.implicits()?;
         Ok(mf)
     }
 

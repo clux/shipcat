@@ -2,6 +2,7 @@ use super::{Result, Manifest};
 
 fn kexec(args: Vec<String>) -> Result<()> {
     use std::process::Command;
+    debug!("kubectl {}", args.join(" "));
     let s = Command::new("kubectl").args(&args).status()?;
     if !s.success() {
         bail!("Subprocess failure from kubectl: {}", s.code().unwrap_or(1001))
@@ -10,6 +11,7 @@ fn kexec(args: Vec<String>) -> Result<()> {
 }
 fn kout(args: Vec<String>) -> Result<String> {
     use std::process::Command;
+    debug!("kubectl {}", args.join(" "));
     let s = Command::new("kubectl").args(&args).output()?;
     let out : String = String::from_utf8_lossy(&s.stdout).into();
     // kubectl keeps returning opening and closing apostrophes - strip them:
@@ -81,19 +83,23 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
 pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
     // TODO: check if access to shell in!
 
+    // region might not be set for this command
+    // rely on kubectl context to work it out if unset
     let env = mf._namespace.clone();
     //let loc = mf._location.clone();
 
     //kubectl get pods -l=app=$* -n $(ENV) -o jsonpath='{.items[*].metadata.name}'
-    let podargs = vec![
+    let mut podargs = vec![
         "get".into(),
         "pods".into(),
         format!("-l=app={}", mf.name.clone().unwrap()),
-        "-n".into(),
-        env.clone(),
         "-o".into(),
         "jsonpath='{.items[*].metadata.name}'".into(),
     ];
+    if env != "" {
+        podargs.push("-n".into());
+        podargs.push(env.clone());
+    }
     let podsres = kout(podargs)?;
     let pods = podsres.split(' ');
     info!("Active pods: {:?}", podsres);
@@ -104,21 +110,23 @@ pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
         num += 1;
         if let Some(pnr) = desiredpod {
             if pnr != num {
-                debug!("Skipping pod {}", num);
+                trace!("Skipping pod {}", num);
                 continue;
             }
         }
 
         info!("Shelling into {}", p);
         //kubectl exec -n $(ENV) -it $$pod (bash || sh) ;\
-        let execargs = vec![
+        let mut execargs = vec![
             "exec".into(),
-            "-n".into(),
-            env.clone(),
             "-it".into(),
             p.into(),
             "sh".into(),
         ];
+        if env != "" {
+            execargs.push("-n".into());
+            execargs.push(env.clone());
+        }
         kexec(execargs)?;
     }
     Ok(())
