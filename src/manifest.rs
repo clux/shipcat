@@ -211,6 +211,10 @@ pub struct Manifest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 
+    /// Wheter to ignore this service
+    #[serde(default)]
+    pub disabled: bool,
+
     /// Optional image name (if different from service name)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<Image>,
