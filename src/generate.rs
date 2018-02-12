@@ -124,7 +124,12 @@ impl Deployment {
 
 pub fn deployment(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<String> {
     let ctx = make_full_deployment_context(dep)?;
-    let res = (dep.render)("deployment.yaml.j2", &ctx)?;
+    let res = if dep.manifest.disabled {
+        warn!("Not generating yaml for disabled service");
+        "---".into()
+    } else {
+        (dep.render)("deployment.yaml.j2", &ctx)?
+    };
     if to_stdout {
         print!("{}", res);
     }
