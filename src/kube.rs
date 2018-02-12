@@ -123,7 +123,7 @@ pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
         }
 
         info!("Shelling into {}", p);
-        //kubectl exec -n $(ENV) -it $$pod (bash || sh) ;\
+        //kubectl exec -n $(ENV) -it $$pod sh
         let mut execargs = vec![
             "exec".into(),
             "-it".into(),
@@ -162,7 +162,7 @@ pub fn logs(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
         }
 
         info!("Logs for {}", p);
-        //kubectl exec -n $(ENV) -it $$pod (bash || sh) ;\
+        //kubectl logs -n $(ENV) $$pod
         let mut logargs = vec![
             "logs".into(),
             p.into(),
