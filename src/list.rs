@@ -4,6 +4,7 @@ use super::Result;
 
 /// Print the supported environments
 pub fn environments() -> Result<()> {
-    println!("dev");
+    // TODO: look for override files in the environments folder!
+    println!("dev-uk");
     Ok(())
 }
