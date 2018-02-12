@@ -7,7 +7,7 @@ _shipcat()
     local cur prev words cword
     _init_completion || return
 
-    local -r subcommands="init help validate generate status ship shell logs
+    local -r subcommands="help validate generate ship shell logs
                           list-environments"
 
     local has_sub
@@ -56,8 +56,9 @@ _shipcat()
                 fi
                 ;;
             shell|logs)
+                svcs=$(find "./services" -maxdepth 1 -mindepth 1 -type d -printf "%f " 2> /dev/null)
                 if [[ $prev = @(shell|logs) ]]; then
-                    COMPREPLY=($(compgen -W "-r --region -p --pod" -- "$cur"))
+                    COMPREPLY=($(compgen -W "-r --region -p --pod $svcs" -- "$cur"))
                 elif [[ $prev == @(-r|--region) ]]; then
                     local -r regions="dev-uk"
                     COMPREPLY=($(compgen -W "$regions" -- "$cur"))
@@ -65,7 +66,6 @@ _shipcat()
                     local -r pods="1 2 3 4 5 6"
                     COMPREPLY=($(compgen -W "$pods" -- "$cur"))
                 else
-                    svcs=$(find "./services" -maxdepth 1 -mindepth 1 -type d -printf "%f " 2> /dev/null)
                     COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 fi
                 ;;
