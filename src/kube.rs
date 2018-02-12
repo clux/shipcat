@@ -74,7 +74,7 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
             bail!("rollout failed to succeed in 5minutes");
         }
         Ok(_) => {
-            info!("rollout done!");
+            info!("{}@{} rolled out to {}", mf.name.clone().unwrap(), tag, region);
         }
     };
     Ok(())
