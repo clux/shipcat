@@ -108,8 +108,7 @@ impl fmt::Display for Image {
 pub struct VolumeMount {
     pub name: String,
     pub mount_path: String,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sub_path: Option<String>,
     #[serde(default = "volume_mount_read_only")]
     pub read_only: bool,
@@ -205,8 +204,7 @@ pub struct Manifest {
     pub name: String,
 
     /// Wheter to ignore this service
-    #[serde(default)]
-    #[serde(skip_serializing)]
+    #[serde(default, skip_serializing)]
     pub disabled: bool,
 
     /// Optional image name (if different from service name)
@@ -225,24 +223,19 @@ pub struct Manifest {
     #[serde(default = "replica_count_default")]
     pub replicaCount: u32,
     /// Environment variables to inject
-    #[serde(default)]
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
     /// Config files to inline in a configMap
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub configs: Option<ConfigMap>,
     /// Volumes mounts
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub volume_mounts: Vec<VolumeMount>,
     /// Init container intructions
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub init_containers: Vec<InitContainer>,
     /// Http Port to expose
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub httpPort: Option<u32>,
     /// Vault options
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -251,16 +244,13 @@ pub struct Manifest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub health: Option<HealthCheck>,
     /// Service dependencies
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<Dependency>,
     /// Regions service is deployed to
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub regions: Vec<String>,
     /// Volumes
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub volumes: Vec<Volume>,
 
     // TODO: boot time -> minReadySeconds
@@ -271,8 +261,7 @@ pub struct Manifest {
     pub prometheus: Option<Prometheus>,
 
     /// Dashboards to generate
-    #[serde(default)]
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub dashboards: BTreeMap<String, Dashboard>,
 
     // TODO: logging alerts
