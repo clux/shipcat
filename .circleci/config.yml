@@ -66,3 +66,4 @@ jobs:
           at: .
       - run: docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
       - run: make tag-latest
+      - run: make tag-semver
