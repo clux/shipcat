@@ -213,6 +213,7 @@ pub struct Manifest {
 
     /// Wheter to ignore this service
     #[serde(default)]
+    #[serde(skip_serializing)]
     pub disabled: bool,
 
     /// Optional image name (if different from service name)
