@@ -338,6 +338,9 @@ impl Manifest {
     /// Note this does not merge all keys, because not everyting makes sense to
     /// override. E.g. service name.
     ///
+    /// Currently being conservative and only allowing doing environment overrides for:
+    /// - environment variables
+    /// - image repo and default tag
     fn merge(&mut self, pth: &PathBuf) -> Result<()> {
         trace!("Merging {}", pth.display());
         if !pth.exists() {
@@ -384,16 +387,16 @@ impl Manifest {
         //    // for now: if limits or requests are specified, you have to fill in both CPU and memory
         //}
 
-        if self.volume_mounts.is_empty() && !mf.volume_mounts.is_empty() {
-            self.volume_mounts = mf.volume_mounts;
-        }
-        if self.init_containers.is_empty() && !mf.init_containers.is_empty() {
-            self.init_containers = mf.init_containers.clone();
-        }
+        //if self.volume_mounts.is_empty() && !mf.volume_mounts.is_empty() {
+        //    self.volume_mounts = mf.volume_mounts;
+        //}
+        //if self.init_containers.is_empty() && !mf.init_containers.is_empty() {
+        //    self.init_containers = mf.init_containers.clone();
+        //}
 
-        if self.volumes.is_empty() && !mf.volumes.is_empty() {
-            self.volumes = mf.volumes;
-        }
+        //if self.volumes.is_empty() && !mf.volumes.is_empty() {
+        //    self.volumes = mf.volumes;
+        //}
 
         Ok(())
     }
