@@ -107,8 +107,7 @@ pub struct Deployment {
 }
 impl Deployment {
     pub fn check(&self) -> Result<()> {
-        let name = self.manifest.name.clone();
-        if self.service != name.unwrap() {
+        if self.service != self.manifest.name {
             bail!("manifest name does not match service name");
         }
         Ok(())

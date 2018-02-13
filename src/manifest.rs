@@ -202,8 +202,7 @@ fn replica_count_default() -> u32 { 2 }
 pub struct Manifest {
     /// Name of the service
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
+    pub name: String,
 
     /// Wheter to ignore this service
     #[serde(default)]
@@ -266,33 +265,20 @@ pub struct Manifest {
 
     // TODO: boot time -> minReadySeconds
 
-// TODO: service dependencies!
 
     /// Prometheus metric options
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prometheus: Option<Prometheus>,
-//prometheus:
-//  enabled: true
-//  path: /metrics
+
     /// Dashboards to generate
     #[serde(default)]
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub dashboards: BTreeMap<String, Dashboard>,
-//dashboards:
-//  auth-python:
-//    rows:
-//      - users-connected
-//      - conversation-length
 
-// TODO: logging alerts
-//logging:
-//  alerts:
-//    error-rate-5xx:
-//      type: median
-//      threshold: 2
-//      status-code: 500
-//preStopHookPath: /die
-// newrelic options? we generate the newrelic.ini from a vault secret + manifest.name
+    // TODO: logging alerts
+
+    // TODO: stop hook
+    //preStopHookPath: /die
 
     // Internal path of this manifest
     #[serde(skip_serializing, skip_deserializing)]
@@ -309,7 +295,7 @@ pub struct Manifest {
 impl Manifest {
     pub fn new(name: &str, location: &PathBuf) -> Manifest {
         Manifest {
-            name: Some(name.into()),
+            name: name.into(),
             _path: location.to_string_lossy().into(),
             ..Default::default()
         }
@@ -333,12 +319,10 @@ impl Manifest {
 
     /// Add implicit defaults to self
     fn implicits(&mut self) -> Result<()> {
-        let name = self.name.clone().unwrap();
-
         // image name defaults to the service name
         if self.image.is_none() {
             self.image = Some(Image {
-                name: Some(name.clone()),
+                name: Some(self.name.clone()),
                 repository: None,
                 tag: None,
             });
@@ -347,7 +331,7 @@ impl Manifest {
         // config map implicit name
         if let Some(ref mut cfg) = self.configs {
             if cfg.name.is_none() {
-                cfg.name = Some(format!("{}-config", name.clone()));
+                cfg.name = Some(format!("{}-config", self.name));
             }
         }
 
@@ -361,23 +345,29 @@ impl Manifest {
     }
 
     /// Merge defaults from partial override file
+    ///
+    /// Note this does not merge all keys, because not everyting makes sense to
+    /// override. E.g. service name.
+    ///
     fn merge(&mut self, pth: &PathBuf) -> Result<()> {
         trace!("Merging {}", pth.display());
         if !pth.exists() {
             bail!("Defaults file {} does not exist", pth.display())
         }
-        let name = self.name.clone().unwrap();
         let mut f = File::open(&pth)?;
         let mut data = String::new();
         f.read_to_string(&mut data)?;
+        // Because Manifest has most things implementing Default via serde
+        // we can put this straight into a Manifest struct
         let mf: Manifest = serde_yaml::from_str(&data)?;
 
+        // merge evars (most common override)
         for (k,v) in mf.env {
             self.env.entry(k).or_insert(v);
         }
 
+        // allow overriding image repository and tags
         if let Some(img) = mf.image {
-            // allow overriding default repository and tags
             let mut curr = self.image.clone().unwrap();
             if curr.repository.is_none() {
                 trace!("overriding image.repository with {:?}", img.repository);
@@ -390,30 +380,26 @@ impl Manifest {
             self.image = Some(curr);
         }
 
-        if self.resources.is_none() && mf.resources.is_some() {
-            self.resources = mf.resources.clone();
-        }
-        if let Some(ref mut res) = self.resources {
-            if res.limits.is_none() {
-                res.limits = mf.resources.clone().unwrap().limits;
-            }
-            if res.requests.is_none() {
-                res.requests = mf.resources.clone().unwrap().requests;
-            }
-            // for now: if limits or requests are specified, you have to fill in both CPU and memory
-        }
+        // maybe environment specific resources?
+        // probably not a good idea
+        //if self.resources.is_none() && mf.resources.is_some() {
+        //    self.resources = mf.resources.clone();
+        //}
+        //if let Some(ref mut res) = self.resources {
+        //    if res.limits.is_none() {
+        //        res.limits = mf.resources.clone().unwrap().limits;
+        //    }
+        //    if res.requests.is_none() {
+        //        res.requests = mf.resources.clone().unwrap().requests;
+        //    }
+        //    // for now: if limits or requests are specified, you have to fill in both CPU and memory
+        //}
+
         if self.volume_mounts.is_empty() && !mf.volume_mounts.is_empty() {
             self.volume_mounts = mf.volume_mounts;
         }
         if self.init_containers.is_empty() && !mf.init_containers.is_empty() {
             self.init_containers = mf.init_containers.clone();
-        }
-        if self.httpPort.is_none() {
-            warn!("{} exposes no http port", name.clone());
-        }
-
-        if self.health.is_none() {
-            warn!("{} does not set a health check", name.clone())
         }
 
         if self.volumes.is_empty() && !mf.volumes.is_empty() {
@@ -429,7 +415,7 @@ impl Manifest {
         let svc = if let Some(ref vopts) = self.vault {
             vopts.name.clone()
         } else {
-            self.name.clone().unwrap()
+            self.name.clone()
         };
         debug!("Injecting secrets from vault {}/{}", region, svc);
 
@@ -466,12 +452,11 @@ impl Manifest {
         if let Some(client) = vault {
             self.secrets(client, region)?;
         }
-        let service = self.name.clone().unwrap();
 
         // merge service specific env overrides if they exists
         let envlocals = Path::new(".")
             .join("services")
-            .join(service)
+            .join(&self.name)
             .join(format!("{}.yml", region));
         if envlocals.is_file() {
             debug!("Merging environment locals from {}", envlocals.display());
@@ -538,10 +523,9 @@ impl Manifest {
     ///
     /// Assumes the manifest has been populated with `implicits`
     pub fn verify(&self) -> Result<()> {
-        if self.name.is_none() || self.name.clone().unwrap() == "" {
+        if self.name == "" {
             bail!("Name cannot be empty")
         }
-        let name = self.name.clone().unwrap();
 
         // 1. Verify resources
         // (We can unwrap all the values as we assume implicit called!)
@@ -626,26 +610,32 @@ impl Manifest {
             }
         }
         if self.regions.is_empty() {
-            bail!("No regions specified for {}", name);
+            bail!("No regions specified for {}", self.name);
         }
 
         // 7. init containers - only verify syntax
-        if !self.init_containers.is_empty() {
-            for init_container in &self.init_containers {
-                let re = Regex::new(r"(?:[a-z]+/)?([a-z]+)(?::[0-9]+)?").unwrap();
-                if !re.is_match(&init_container.image) {
-                    bail!("The init container {} does not seem to match a valid image registry", init_container.name);
-                }
-                if init_container.command.is_empty() {
-                    bail!("A command must be specified for the init container {}", init_container.name);
-                }
+        for init_container in &self.init_containers {
+            let re = Regex::new(r"(?:[a-z]+/)?([a-z]+)(?::[0-9]+)?").unwrap();
+            if !re.is_match(&init_container.image) {
+                bail!("The init container {} does not seem to match a valid image registry", init_container.name);
+            }
+            if init_container.command.is_empty() {
+                bail!("A command must be specified for the init container {}", init_container.name);
             }
         }
 
         // 8. health check
-        // every service that exposes http must have a health check
-        if self.httpPort.is_some() {
-            assert!(self.health.is_some());
+        // every service that exposes http MUST have a health check
+        if self.httpPort.is_some() && self.health.is_none() {
+            bail!("{} has an httpPort but no health check", self.name)
+        }
+
+        // add some warnigs about missing health checks and ports regardless
+        if self.httpPort.is_none() {
+            warn!("{} exposes no http port", self.name);
+        }
+        if self.health.is_none() {
+            warn!("{} does not set a health check", self.name)
         }
 
         // 8. dependencies
