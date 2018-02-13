@@ -53,6 +53,9 @@ fn make_full_deployment_context(dep: &Deployment) -> Result<Context> {
     // Ports exposed as is
     ctx.add("httpPort", &dep.manifest.httpPort);
 
+    // Replicas
+    ctx.add("replicaCount", &dep.manifest.replicaCount);
+
     // Health check
     if let Some(ref h) = dep.manifest.health {
         ctx.add("health", h);
