@@ -43,8 +43,8 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
     let args = vec![
         "set".into(),
         "image".into(),
-        format!("deployment/{}", mf.name.clone().unwrap()),
-        format!("{}={}", mf.name.clone().unwrap(), img),
+        format!("deployment/{}", mf.name),
+        format!("{}={}", mf.name, img),
         "-n".into(),
         env.clone(),
     ];
@@ -54,14 +54,14 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
     let rollargs = vec![
         "rollout".into(),
         "status".into(),
-        format!("deployment/{}", mf.name.clone().unwrap()),
+        format!("deployment/{}", mf.name),
         "-n".into(),
         env.clone(),
     ];
     let podargs = vec![
         "get".into(),
         "pods".into(),
-        format!("-l=app={}", mf.name.clone().unwrap()),
+        format!("-l=app={}", mf.name),
         "-n".into(),
         env.into(),
     ];
@@ -74,14 +74,14 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
             bail!("rollout failed to succeed in 5minutes");
         }
         Ok(_) => {
-            info!("{}@{} rolled out to {}", mf.name.clone().unwrap(), tag, region);
+            info!("{}@{} rolled out to {}", mf.name, tag, region);
         }
     };
     Ok(())
 }
 
 
-fn get_pods(name: String, env: &str) -> Result<String> {
+fn get_pods(name: &str, env: &str) -> Result<String> {
     //kubectl get pods -l=app=$* -n $(ENV) -o jsonpath='{.items[*].metadata.name}'
     let mut podargs = vec![
         "get".into(),
@@ -108,7 +108,7 @@ pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
     let env = mf._namespace.clone();
     //let loc = mf._location.clone();
 
-    let podsres = get_pods(mf.name.clone().unwrap(), &env)?;
+    let podsres = get_pods(&mf.name, &env)?;
     let pods = podsres.split(' ');
 
     let mut num = 0;
@@ -147,7 +147,7 @@ pub fn logs(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
     let env = mf._namespace.clone();
     //let loc = mf._location.clone();
 
-    let podsres = get_pods(mf.name.clone().unwrap(), &env)?;
+    let podsres = get_pods(&mf.name, &env)?;
     let pods = podsres.split(' ');
 
     let mut num = 0;

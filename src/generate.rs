@@ -51,21 +51,15 @@ fn make_full_deployment_context(dep: &Deployment) -> Result<Context> {
     ctx.add("image", &format!("{}", dep.manifest.image.clone().unwrap()));
 
     // Ports exposed as is
-    ctx.add("ports", &dep.manifest.ports);
+    ctx.add("httpPort", &dep.manifest.httpPort);
+
+    // Replicas
+    ctx.add("replicaCount", &dep.manifest.replicaCount);
 
     // Health check
     if let Some(ref h) = dep.manifest.health {
         ctx.add("health", h);
     }
-
-    // ugly replication strategy hack - basically pointless
-    let mut strategy = None;
-    if let Some(ref rep) = dep.manifest.replicas {
-        if rep.max != rep.min {
-            strategy = Some("rolling".to_string());
-        }
-    }
-    ctx.add("replication_strategy", &strategy);
 
     // Volume mounts
     ctx.add("volume_mounts", &dep.manifest.volume_mounts);
@@ -113,8 +107,7 @@ pub struct Deployment {
 }
 impl Deployment {
     pub fn check(&self) -> Result<()> {
-        let name = self.manifest.name.clone();
-        if self.service != name.unwrap() {
+        if self.service != self.manifest.name {
             bail!("manifest name does not match service name");
         }
         Ok(())

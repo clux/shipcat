@@ -1,4 +1,4 @@
-use slack_hook::{Slack, PayloadBuilder, SlackLink};
+use slack_hook::{Slack, PayloadBuilder, SlackLink, AttachmentBuilder};
 use slack_hook::SlackTextContent::{Text, Link};
 use std::env;
 
@@ -10,7 +10,10 @@ pub struct Message {
     pub text: String,
 
     /// Optional link
-    pub link: Option<String>
+    pub link: Option<String>,
+
+    /// Color
+    pub color: Option<String>,
 }
 
 fn env_hook_url() -> Result<String> {
@@ -34,6 +37,11 @@ pub fn message(msg: Message) -> Result<()> {
       .icon_emoji(":ship:")
       .username(hook_user);
 
+    let mut a = AttachmentBuilder::new(msg.text.clone());
+    if let Some(c) = msg.color {
+        a = a.color(c)
+    }
+
     if let Some(link) = msg.link {
         let split: Vec<&str> = link.split('|').collect();
         if split.len() > 2 {
@@ -42,13 +50,15 @@ pub fn message(msg: Message) -> Result<()> {
         let desc = if split.len() == 2 { split[1].into() } else { link.clone() };
         let addr = if split.len() == 2 { split[0].into() } else { link.clone() };
         // TODO: allow multiple links!
-        p = p.text(vec![
+        a = a.text(vec![
             Text(msg.text.into()),
             Link(SlackLink::new(&addr, &desc))
         ].as_slice());
     } else {
-        p = p.text(msg.text);
+        a = a.text(msg.text);
     }
+    p = p.attachments(vec![a.build()?]);
+
     slack.send(&p.build()?)?;
 
     Ok(())
