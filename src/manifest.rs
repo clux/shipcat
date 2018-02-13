@@ -38,16 +38,6 @@ pub struct Resources {
     pub limits: Option<ResourceLimit>,
 }
 
-
-#[derive(Serialize, Deserialize, Clone, Default)]
-pub struct Replicas {
-    /// Minimum replicas for k8s deployment
-    pub min: u32,
-    /// Maximum replicas for k8s deployment
-    pub max: u32,
-}
-
-
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ConfigMappedFile {
     /// Name of file to template (from service repo paths)
@@ -204,6 +194,7 @@ pub struct HealthCheck {
 
 
 /// Main manifest, serializable from shipcat.yml
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Manifest {
     /// Name of the service
@@ -229,8 +220,7 @@ pub struct Manifest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resources: Option<Resources>,
     /// Replication limits
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub replicas: Option<Replicas>,
+    pub replicaCount: Option<u32>,
     /// Environment variables to inject
     #[serde(default)]
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
@@ -428,8 +418,8 @@ impl Manifest {
         if self.init_containers.is_empty() && !mf.init_containers.is_empty() {
             self.init_containers = mf.init_containers.clone();
         }
-        if self.replicas.is_none() && mf.replicas.is_some() {
-            self.replicas = mf.replicas;
+        if self.replicaCount.is_none() && mf.replicaCount.is_some() {
+            self.replicaCount = mf.replicaCount;
         }
         if self.ports.is_empty() {
             warn!("{} exposes no ports", name.clone());
