@@ -219,7 +219,7 @@ pub struct Manifest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resources: Option<Resources>,
     /// Replication limits
-    pub replicaCount: Option<u32>,
+    pub replicaCount: u32,
     /// Environment variables to inject
     #[serde(default)]
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
@@ -402,9 +402,6 @@ impl Manifest {
         }
         if self.init_containers.is_empty() && !mf.init_containers.is_empty() {
             self.init_containers = mf.init_containers.clone();
-        }
-        if self.replicaCount.is_none() && mf.replicaCount.is_some() {
-            self.replicaCount = mf.replicaCount;
         }
         if self.httpPort.is_none() {
             warn!("{} exposes no http port", name.clone());
