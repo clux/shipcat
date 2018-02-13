@@ -177,20 +177,19 @@ pub struct VaultOpts {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct HealthCheck {
-    /// Where the health check is located (typically /health)
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub uri: Option<String>,
-    /// How long to wait after boot in seconds (typically 30s)
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub wait: Option<u32>,
-    /// Port where the health check is located (default first exposed port)
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub port: Option<u32>,
+    /// Where the health check is located
+    #[serde(default = "health_check_url_default")]
+    pub uri: String,
+    /// How long to wait after boot in seconds
+    #[serde(default = "health_check_wait_time_default")]
+    pub wait: u32,
+    /// Port name where the health check is located
+    #[serde(default = "health_port_name_default")]
+    pub port: String,
 }
-
+fn health_check_url_default() -> String { "/health".into() }
+fn health_check_wait_time_default() -> u32 { 30 }
+fn health_port_name_default() -> String { "http".into() }
 
 
 /// Main manifest, serializable from shipcat.yml
@@ -237,10 +236,10 @@ pub struct Manifest {
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub init_containers: Vec<InitContainer>,
-    /// Ports to expose
+    /// Http Port to expose
     #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub ports: Vec<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub httpPort: Option<u32>,
     /// Vault options
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vault: Option<VaultOpts>,
@@ -347,20 +346,6 @@ impl Manifest {
             }
         }
 
-        // health check port set if we expose ports
-        if !self.ports.is_empty() {
-            if let Some(ref mut health) = self.health {
-                if health.port.is_none() {
-                    health.port = Some(self.ports[0]);
-                }
-            } else {
-                self.health = Some(HealthCheck {
-                    port: Some(self.ports[0]),
-                    ..Default::default()
-                });
-            }
-        }
-
         for d in &mut self.dependencies {
             if d.api.is_none() {
                 d.api = Some("v1".to_string());
@@ -421,22 +406,14 @@ impl Manifest {
         if self.replicaCount.is_none() && mf.replicaCount.is_some() {
             self.replicaCount = mf.replicaCount;
         }
-        if self.ports.is_empty() {
-            warn!("{} exposes no ports", name.clone());
+        if self.httpPort.is_none() {
+            warn!("{} exposes no http port", name.clone());
         }
 
-        if let Some(rhs) = mf.health {
-            // only merge health check defaults if we already filled in the port
-            if let Some(ref mut lhs) = self.health {
-                // already have `HealthCheck` data - merge
-                if lhs.uri.is_none() {
-                    lhs.uri = rhs.uri;
-                }
-                if lhs.wait.is_none() {
-                    lhs.wait = rhs.wait;
-                }
-            }
+        if self.health.is_none() {
+            warn!("{} does not set a health check", name.clone())
         }
+
         if self.volumes.is_empty() && !mf.volumes.is_empty() {
             self.volumes = mf.volumes;
         }
@@ -664,15 +641,9 @@ impl Manifest {
         }
 
         // 8. health check
-        // Check that services (which have health structs) have them filled in
-        if let Some(ref health) = self.health {
-            assert!(health.port.is_some()); // filled in in implicits
-            if health.uri.is_none() {
-                bail!("Service without health check uri");
-            }
-            if health.wait.is_none() {
-                bail!("Service without health check wait time");
-            }
+        // every service that exposes http must have a health check
+        if self.httpPort.is_some() {
+            assert!(self.health.is_some());
         }
 
         // 8. dependencies

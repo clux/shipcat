@@ -51,7 +51,7 @@ fn make_full_deployment_context(dep: &Deployment) -> Result<Context> {
     ctx.add("image", &format!("{}", dep.manifest.image.clone().unwrap()));
 
     // Ports exposed as is
-    ctx.add("ports", &dep.manifest.ports);
+    ctx.add("httpPort", &dep.manifest.httpPort);
 
     // Health check
     if let Some(ref h) = dep.manifest.health {
