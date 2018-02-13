@@ -58,15 +58,6 @@ fn make_full_deployment_context(dep: &Deployment) -> Result<Context> {
         ctx.add("health", h);
     }
 
-    // ugly replication strategy hack - basically pointless
-    let mut strategy = None;
-    if let Some(ref rep) = dep.manifest.replicas {
-        if rep.max != rep.min {
-            strategy = Some("rolling".to_string());
-        }
-    }
-    ctx.add("replication_strategy", &strategy);
-
     // Volume mounts
     ctx.add("volume_mounts", &dep.manifest.volume_mounts);
 
