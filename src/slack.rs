@@ -1,4 +1,4 @@
-use slack_hook::{Slack, PayloadBuilder, SlackLink};
+use slack_hook::{Slack, PayloadBuilder, SlackLink, AttachmentBuilder};
 use slack_hook::SlackTextContent::{Text, Link};
 use std::env;
 
@@ -10,7 +10,13 @@ pub struct Message {
     pub text: String,
 
     /// Optional link
-    pub link: Option<String>
+    pub link: Option<String>,
+
+    /// Color
+    pub color: Option<String>,
+
+    /// Reason
+    pub reason: Option<String>,
 }
 
 fn env_hook_url() -> Result<String> {
@@ -48,6 +54,13 @@ pub fn message(msg: Message) -> Result<()> {
         ].as_slice());
     } else {
         p = p.text(msg.text);
+    }
+    if let Some(r) = msg.reason {
+        let mut a = AttachmentBuilder::new(r);
+        if let Some(c) = msg.color {
+            a = a.color(c)
+        }
+        p = p.attachments(vec![a.build()?]);
     }
     slack.send(&p.build()?)?;
 
