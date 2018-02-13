@@ -192,6 +192,10 @@ fn health_check_wait_time_default() -> u32 { 30 }
 fn health_port_name_default() -> String { "http".into() }
 
 
+// TODO: 1?
+fn replica_count_default() -> u32 { 2 }
+
+
 /// Main manifest, serializable from shipcat.yml
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -219,6 +223,7 @@ pub struct Manifest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resources: Option<Resources>,
     /// Replication limits
+    #[serde(default = "replica_count_default")]
     pub replicaCount: u32,
     /// Environment variables to inject
     #[serde(default)]
