@@ -38,16 +38,6 @@ pub struct Resources {
     pub limits: Option<ResourceLimit>,
 }
 
-
-#[derive(Serialize, Deserialize, Clone, Default)]
-pub struct Replicas {
-    /// Minimum replicas for k8s deployment
-    pub min: u32,
-    /// Maximum replicas for k8s deployment
-    pub max: u32,
-}
-
-
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ConfigMappedFile {
     /// Name of file to template (from service repo paths)
@@ -118,8 +108,7 @@ impl fmt::Display for Image {
 pub struct VolumeMount {
     pub name: String,
     pub mount_path: String,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sub_path: Option<String>,
     #[serde(default = "volume_mount_read_only")]
     pub read_only: bool,
@@ -187,33 +176,35 @@ pub struct VaultOpts {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct HealthCheck {
-    /// Where the health check is located (typically /health)
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub uri: Option<String>,
-    /// How long to wait after boot in seconds (typically 30s)
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub wait: Option<u32>,
-    /// Port where the health check is located (default first exposed port)
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub port: Option<u32>,
+    /// Where the health check is located
+    #[serde(default = "health_check_url_default")]
+    pub uri: String,
+    /// How long to wait after boot in seconds
+    #[serde(default = "health_check_wait_time_default")]
+    pub wait: u32,
+    /// Port name where the health check is located
+    #[serde(default = "health_port_name_default")]
+    pub port: String,
 }
+fn health_check_url_default() -> String { "/health".into() }
+fn health_check_wait_time_default() -> u32 { 30 }
+fn health_port_name_default() -> String { "http".into() }
 
+
+// TODO: 1?
+fn replica_count_default() -> u32 { 2 }
 
 
 /// Main manifest, serializable from shipcat.yml
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Manifest {
     /// Name of the service
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
+    pub name: String,
 
     /// Wheter to ignore this service
-    #[serde(default)]
-    #[serde(skip_serializing)]
+    #[serde(default, skip_serializing)]
     pub disabled: bool,
 
     /// Optional image name (if different from service name)
@@ -229,28 +220,23 @@ pub struct Manifest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resources: Option<Resources>,
     /// Replication limits
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub replicas: Option<Replicas>,
+    #[serde(default = "replica_count_default")]
+    pub replicaCount: u32,
     /// Environment variables to inject
-    #[serde(default)]
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
     /// Config files to inline in a configMap
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub configs: Option<ConfigMap>,
     /// Volumes mounts
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub volume_mounts: Vec<VolumeMount>,
     /// Init container intructions
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub init_containers: Vec<InitContainer>,
-    /// Ports to expose
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub ports: Vec<u32>,
+    /// Http Port to expose
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub httpPort: Option<u32>,
     /// Vault options
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vault: Option<VaultOpts>,
@@ -258,47 +244,30 @@ pub struct Manifest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub health: Option<HealthCheck>,
     /// Service dependencies
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<Dependency>,
     /// Regions service is deployed to
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub regions: Vec<String>,
     /// Volumes
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub volumes: Vec<Volume>,
 
     // TODO: boot time -> minReadySeconds
 
-// TODO: service dependencies!
 
     /// Prometheus metric options
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prometheus: Option<Prometheus>,
-//prometheus:
-//  enabled: true
-//  path: /metrics
-    /// Dashboards to generate
-    #[serde(default)]
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    pub dashboards: BTreeMap<String, Dashboard>,
-//dashboards:
-//  auth-python:
-//    rows:
-//      - users-connected
-//      - conversation-length
 
-// TODO: logging alerts
-//logging:
-//  alerts:
-//    error-rate-5xx:
-//      type: median
-//      threshold: 2
-//      status-code: 500
-//preStopHookPath: /die
-// newrelic options? we generate the newrelic.ini from a vault secret + manifest.name
+    /// Dashboards to generate
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub dashboards: BTreeMap<String, Dashboard>,
+
+    // TODO: logging alerts
+
+    // TODO: stop hook
+    //preStopHookPath: /die
 
     // Internal path of this manifest
     #[serde(skip_serializing, skip_deserializing)]
@@ -315,7 +284,7 @@ pub struct Manifest {
 impl Manifest {
     pub fn new(name: &str, location: &PathBuf) -> Manifest {
         Manifest {
-            name: Some(name.into()),
+            name: name.into(),
             _path: location.to_string_lossy().into(),
             ..Default::default()
         }
@@ -339,12 +308,10 @@ impl Manifest {
 
     /// Add implicit defaults to self
     fn implicits(&mut self) -> Result<()> {
-        let name = self.name.clone().unwrap();
-
         // image name defaults to the service name
         if self.image.is_none() {
             self.image = Some(Image {
-                name: Some(name.clone()),
+                name: Some(self.name.clone()),
                 repository: None,
                 tag: None,
             });
@@ -353,21 +320,7 @@ impl Manifest {
         // config map implicit name
         if let Some(ref mut cfg) = self.configs {
             if cfg.name.is_none() {
-                cfg.name = Some(format!("{}-config", name.clone()));
-            }
-        }
-
-        // health check port set if we expose ports
-        if !self.ports.is_empty() {
-            if let Some(ref mut health) = self.health {
-                if health.port.is_none() {
-                    health.port = Some(self.ports[0]);
-                }
-            } else {
-                self.health = Some(HealthCheck {
-                    port: Some(self.ports[0]),
-                    ..Default::default()
-                });
+                cfg.name = Some(format!("{}-config", self.name));
             }
         }
 
@@ -381,23 +334,32 @@ impl Manifest {
     }
 
     /// Merge defaults from partial override file
+    ///
+    /// Note this does not merge all keys, because not everyting makes sense to
+    /// override. E.g. service name.
+    ///
+    /// Currently being conservative and only allowing doing environment overrides for:
+    /// - environment variables
+    /// - image repo and default tag
     fn merge(&mut self, pth: &PathBuf) -> Result<()> {
         trace!("Merging {}", pth.display());
         if !pth.exists() {
             bail!("Defaults file {} does not exist", pth.display())
         }
-        let name = self.name.clone().unwrap();
         let mut f = File::open(&pth)?;
         let mut data = String::new();
         f.read_to_string(&mut data)?;
+        // Because Manifest has most things implementing Default via serde
+        // we can put this straight into a Manifest struct
         let mf: Manifest = serde_yaml::from_str(&data)?;
 
+        // merge evars (most common override)
         for (k,v) in mf.env {
             self.env.entry(k).or_insert(v);
         }
 
+        // allow overriding image repository and tags
         if let Some(img) = mf.image {
-            // allow overriding default repository and tags
             let mut curr = self.image.clone().unwrap();
             if curr.repository.is_none() {
                 trace!("overriding image.repository with {:?}", img.repository);
@@ -410,46 +372,31 @@ impl Manifest {
             self.image = Some(curr);
         }
 
-        if self.resources.is_none() && mf.resources.is_some() {
-            self.resources = mf.resources.clone();
-        }
-        if let Some(ref mut res) = self.resources {
-            if res.limits.is_none() {
-                res.limits = mf.resources.clone().unwrap().limits;
-            }
-            if res.requests.is_none() {
-                res.requests = mf.resources.clone().unwrap().requests;
-            }
-            // for now: if limits or requests are specified, you have to fill in both CPU and memory
-        }
-        if self.volume_mounts.is_empty() && !mf.volume_mounts.is_empty() {
-            self.volume_mounts = mf.volume_mounts;
-        }
-        if self.init_containers.is_empty() && !mf.init_containers.is_empty() {
-            self.init_containers = mf.init_containers.clone();
-        }
-        if self.replicas.is_none() && mf.replicas.is_some() {
-            self.replicas = mf.replicas;
-        }
-        if self.ports.is_empty() {
-            warn!("{} exposes no ports", name.clone());
-        }
+        // maybe environment specific resources?
+        // probably not a good idea
+        //if self.resources.is_none() && mf.resources.is_some() {
+        //    self.resources = mf.resources.clone();
+        //}
+        //if let Some(ref mut res) = self.resources {
+        //    if res.limits.is_none() {
+        //        res.limits = mf.resources.clone().unwrap().limits;
+        //    }
+        //    if res.requests.is_none() {
+        //        res.requests = mf.resources.clone().unwrap().requests;
+        //    }
+        //    // for now: if limits or requests are specified, you have to fill in both CPU and memory
+        //}
 
-        if let Some(rhs) = mf.health {
-            // only merge health check defaults if we already filled in the port
-            if let Some(ref mut lhs) = self.health {
-                // already have `HealthCheck` data - merge
-                if lhs.uri.is_none() {
-                    lhs.uri = rhs.uri;
-                }
-                if lhs.wait.is_none() {
-                    lhs.wait = rhs.wait;
-                }
-            }
-        }
-        if self.volumes.is_empty() && !mf.volumes.is_empty() {
-            self.volumes = mf.volumes;
-        }
+        //if self.volume_mounts.is_empty() && !mf.volume_mounts.is_empty() {
+        //    self.volume_mounts = mf.volume_mounts;
+        //}
+        //if self.init_containers.is_empty() && !mf.init_containers.is_empty() {
+        //    self.init_containers = mf.init_containers.clone();
+        //}
+
+        //if self.volumes.is_empty() && !mf.volumes.is_empty() {
+        //    self.volumes = mf.volumes;
+        //}
 
         Ok(())
     }
@@ -460,7 +407,7 @@ impl Manifest {
         let svc = if let Some(ref vopts) = self.vault {
             vopts.name.clone()
         } else {
-            self.name.clone().unwrap()
+            self.name.clone()
         };
         debug!("Injecting secrets from vault {}/{}", region, svc);
 
@@ -497,12 +444,11 @@ impl Manifest {
         if let Some(client) = vault {
             self.secrets(client, region)?;
         }
-        let service = self.name.clone().unwrap();
 
         // merge service specific env overrides if they exists
         let envlocals = Path::new(".")
             .join("services")
-            .join(service)
+            .join(&self.name)
             .join(format!("{}.yml", region));
         if envlocals.is_file() {
             debug!("Merging environment locals from {}", envlocals.display());
@@ -569,10 +515,9 @@ impl Manifest {
     ///
     /// Assumes the manifest has been populated with `implicits`
     pub fn verify(&self) -> Result<()> {
-        if self.name.is_none() || self.name.clone().unwrap() == "" {
+        if self.name == "" {
             bail!("Name cannot be empty")
         }
-        let name = self.name.clone().unwrap();
 
         // 1. Verify resources
         // (We can unwrap all the values as we assume implicit called!)
@@ -657,32 +602,32 @@ impl Manifest {
             }
         }
         if self.regions.is_empty() {
-            bail!("No regions specified for {}", name);
+            bail!("No regions specified for {}", self.name);
         }
 
         // 7. init containers - only verify syntax
-        if !self.init_containers.is_empty() {
-            for init_container in &self.init_containers {
-                let re = Regex::new(r"(?:[a-z]+/)?([a-z]+)(?::[0-9]+)?").unwrap();
-                if !re.is_match(&init_container.image) {
-                    bail!("The init container {} does not seem to match a valid image registry", init_container.name);
-                }
-                if init_container.command.is_empty() {
-                    bail!("A command must be specified for the init container {}", init_container.name);
-                }
+        for init_container in &self.init_containers {
+            let re = Regex::new(r"(?:[a-z]+/)?([a-z]+)(?::[0-9]+)?").unwrap();
+            if !re.is_match(&init_container.image) {
+                bail!("The init container {} does not seem to match a valid image registry", init_container.name);
+            }
+            if init_container.command.is_empty() {
+                bail!("A command must be specified for the init container {}", init_container.name);
             }
         }
 
         // 8. health check
-        // Check that services (which have health structs) have them filled in
-        if let Some(ref health) = self.health {
-            assert!(health.port.is_some()); // filled in in implicits
-            if health.uri.is_none() {
-                bail!("Service without health check uri");
-            }
-            if health.wait.is_none() {
-                bail!("Service without health check wait time");
-            }
+        // every service that exposes http MUST have a health check
+        if self.httpPort.is_some() && self.health.is_none() {
+            bail!("{} has an httpPort but no health check", self.name)
+        }
+
+        // add some warnigs about missing health checks and ports regardless
+        if self.httpPort.is_none() {
+            warn!("{} exposes no http port", self.name);
+        }
+        if self.health.is_none() {
+            warn!("{} does not set a health check", self.name)
         }
 
         // 8. dependencies
