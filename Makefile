@@ -1,6 +1,6 @@
 NAME=kubecat
 VERSION=$(shell git rev-parse HEAD)
-SEMVER_VERSION=$(shell grep version Cargo.toml | awk -F"\"" '{print $2}' | head -n 1)
+SEMVER_VERSION=$(shell grep version Cargo.toml | awk -F"\"" '{print $$2}' | head -n 1)
 REPO=quay.io/babylonhealth
 
 # NB: this make target creates the shipcat file
