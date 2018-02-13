@@ -120,11 +120,6 @@ fn main() {
             .arg(Arg::with_name("color")
                 .short("c")
                 .long("color")
-                .requires("reason")
-                .takes_value(true))
-            .arg(Arg::with_name("reason")
-                .short("r")
-                .long("reason")
                 .takes_value(true))
             .about("Post message to slack"))
         .subcommand(SubCommand::with_name("validate")
@@ -197,8 +192,7 @@ fn main() {
         let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
         let link = a.value_of("url").map(String::from);
         let color = a.value_of("color").map(String::from);
-        let reason = a.value_of("reason").map(String::from);
-        let msg = shipcat::slack::Message { text, link, color, reason };
+        let msg = shipcat::slack::Message { text, link, color };
         result_exit(args.subcommand_name().unwrap(), shipcat::slack::message(msg))
     }
 
