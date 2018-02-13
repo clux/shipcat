@@ -122,7 +122,11 @@ fn main() {
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
-            .about("Validate the shipcat manifest"))
+              .arg(Arg::with_name("secrets")
+                .short("s")
+                .long("secrets")
+                .help("Verifies secrets exist everywhere"))
+              .about("Validate the shipcat manifest"))
         .subcommand(SubCommand::with_name("list-environments")
             .setting(AppSettings::Hidden)
             .about("list supported k8s environments"));
@@ -177,8 +181,7 @@ fn main() {
     // Handle subcommands dumb subcommands
     if let Some(a) = args.subcommand_matches("validate") {
         let service = a.value_of("service").unwrap();
-
-        result_exit(args.subcommand_name().unwrap(), shipcat::validate(service))
+        result_exit(args.subcommand_name().unwrap(), shipcat::validate(service, a.is_present("secrets")))
     }
 
     if let Some(a) = args.subcommand_matches("slack") {

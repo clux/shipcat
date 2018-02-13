@@ -52,6 +52,8 @@ pub struct Vault {
     token: String,
     /// Local cache of secrets.
     secrets: BTreeMap<String, Secret>,
+    /// Whether to return a fake value for all secrets
+    mock: bool,
 }
 
 
@@ -76,7 +78,12 @@ impl Vault {
             addr: addr,
             token: token.into(),
             secrets: BTreeMap::new(),
+            mock: false,
         })
+    }
+
+    pub fn mock_secrets(&mut self) {
+        self.mock = true;
     }
 
     // The actual HTTP GET logic
@@ -125,7 +132,13 @@ impl Vault {
         secret.data
             .get("value")
             .ok_or_else(|| { ErrorKind::MissingSecret(pth).into() })
-            .map(|v| v.clone())
+            .map(|v| {
+                if self.mock {
+                    "VAULT_VALIDATED".into()
+                } else {
+                    v.clone()
+                }
+            })
     }
 }
 
