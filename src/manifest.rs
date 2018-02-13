@@ -740,7 +740,7 @@ fn parse_cpu(s: &str) -> Result<f64> {
 }
 
 
-pub fn validate(service: &str) -> Result<()> {
+pub fn validate(service: &str, secrets: bool) -> Result<()> {
     let pth = Path::new(".").join("services").join(service);
     if !pth.exists() {
         bail!("Service folder {} does not exist", pth.display())
@@ -748,7 +748,14 @@ pub fn validate(service: &str) -> Result<()> {
     let mf = Manifest::read_from(&pth)?;
     for region in mf.regions.clone() {
         let mut mfr = mf.clone();
-        mfr.fill(&region, None)?;
+        if secrets {
+            // need a new one for each region!
+            let mut vault = Vault::default().unwrap();
+            vault.mock_secrets(); // not needed for output
+            mfr.fill(&region, Some(&mut vault))?;
+        } else {
+            mfr.fill(&region, None)?;
+        }
         mfr.verify()?;
         info!("validated {} for {}", service, region);
         mfr.print()?; // print it if sufficient verbosity
