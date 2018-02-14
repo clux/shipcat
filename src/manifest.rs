@@ -515,9 +515,13 @@ impl Manifest {
     ///
     /// Assumes the manifest has been populated with `implicits`
     pub fn verify(&self) -> Result<()> {
+        // limit to 40 characters, alphanumeric, dashes for sanity.
         let re = Regex::new(r"^[0-9a-z\-]{1,40}$").unwrap();
         if !re.is_match(&self.name) {
             bail!("Please use a short, lower case service names with dashes");
+        }
+        if self.name.ends_with('-') || self.name.starts_with('-') {
+            bail!("Please use dashes to separate words only");
         }
 
         // 1. Verify resources
