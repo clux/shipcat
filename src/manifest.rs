@@ -515,11 +515,9 @@ impl Manifest {
     ///
     /// Assumes the manifest has been populated with `implicits`
     pub fn verify(&self) -> Result<()> {
-        if self.name == "" {
-            bail!("Name cannot be empty")
-        }
-        if self.name.len() > 40 {
-            bail!("Please use a shorter service name")
+        let re = Regex::new(r"^[0-9a-z\-]{1,40}$").unwrap();
+        if !re.is_match(&self.name) {
+            bail!("Please use a short, lower case service names with dashes");
         }
 
         // 1. Verify resources
@@ -695,6 +693,9 @@ pub fn validate(service: &str, secrets: bool) -> Result<()> {
         bail!("Service folder {} does not exist", pth.display())
     }
     let mf = Manifest::read_from(&pth)?;
+    if mf.name != service {
+        bail!("Service name must equal the folder name");
+    }
     for region in mf.regions.clone() {
         let mut mfr = mf.clone();
         if secrets {
