@@ -518,6 +518,9 @@ impl Manifest {
         if self.name == "" {
             bail!("Name cannot be empty")
         }
+        if self.name.len() > 40 {
+            bail!("Please use a shorter service name")
+        }
 
         // 1. Verify resources
         // (We can unwrap all the values as we assume implicit called!)
