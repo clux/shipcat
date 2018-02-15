@@ -56,6 +56,9 @@ fn main() {
                 .required(true)
                 .takes_value(true)
                 .help("Region to deploy to (dev-uk, dev-qa, prod-uk)"))
+            .arg(Arg::with_name("helm")
+                .long("helm")
+                .help("Output a helm values file"))
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
@@ -161,6 +164,10 @@ fn main() {
 
         // Populate a complete manifest (with ALL values) early for advanced commands
         let mf = conditional_exit(Manifest::completed(region, service, Some(&mut vault)));
+
+        if a.is_present("helm") {
+            result_exit("helm generate", mf.write_output())
+        }
 
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
