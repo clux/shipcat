@@ -168,7 +168,7 @@ fn main() {
         // All parameters for a k8s deployment
         let dep = shipcat::generate::Deployment {
             service: service.into(),
-            environment: mf._namespace.clone(),
+            environment: mf.namespace.clone(),
             location: mf._location.clone(),
             manifest: mf,
             // only provide template::render as the interface (move tera into this)
