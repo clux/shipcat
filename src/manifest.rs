@@ -73,6 +73,11 @@ pub struct Prometheus {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+pub struct Jaeger {
+    pub enabled: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Dependency {
     /// Name of service relied upon (used to goto dependent manifest)
     pub name: String,
@@ -182,13 +187,9 @@ pub struct HealthCheck {
     /// How long to wait after boot in seconds
     #[serde(default = "health_check_wait_time_default")]
     pub wait: u32,
-    /// Port name where the health check is located
-    #[serde(default = "health_port_name_default")]
-    pub port: String,
 }
 fn health_check_url_default() -> String { "/health".into() }
 fn health_check_wait_time_default() -> u32 { 30 }
-fn health_port_name_default() -> String { "http".into() }
 
 
 // TODO: 1?
@@ -213,6 +214,16 @@ pub struct Manifest {
     /// Optional image command (if not using the default docker command)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
+
+    /// Git repository name
+    ///
+    /// Assumed that all of them belong to one organisation
+    #[serde(default)]
+    pub repoName: String,
+
+    /// Jaeger options
+    #[serde(default)]
+    pub jaeger: Jaeger,
 
     // Kubernetes specific flags
 
@@ -331,6 +342,9 @@ impl Manifest {
             if d.api.is_none() {
                 d.api = Some("v1".to_string());
             }
+        }
+        if self.repoName.is_empty() {
+            self.repoName = self.name.clone();
         }
 
         Ok(())
@@ -557,7 +571,10 @@ impl Manifest {
             bail!("Memory limit set to more than 20 GB of memory");
         }
 
-        // 2. Ports restrictions? currently parse only
+        // 2. Replicas
+        if self.replicaCount == 0 {
+            bail!("Need replicaCount to be at least 1");
+        }
 
         // 3. configs
         // 3.1) mount paths can't be empty string
@@ -631,6 +648,7 @@ impl Manifest {
         }
 
         // add some warnigs about missing health checks and ports regardless
+        // TODO: make both mandatory once we have sidecars supported
         if self.httpPort.is_none() {
             warn!("{} exposes no http port", self.name);
         }
