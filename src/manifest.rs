@@ -510,13 +510,19 @@ impl Manifest {
         Ok(mf)
     }
 
-    /// Update the manifest file in the current folder
-    pub fn write(&self) -> Result<()> {
+    /// Temporary helm writer
+    ///
+    /// Assumes everything's been filled in!
+    pub fn write_output(&self) -> Result<()> {
+        use generate::create_output;
+        let pwd = Path::new(".");
+        create_output(&pwd.to_path_buf())?;
+        let pth = pwd.join("OUTPUT").join("helm.yml");
         let encoded = serde_yaml::to_string(self)?;
-        trace!("Writing manifest in {}", self._path);
-        let mut f = File::create(&self._path)?;
+        info!("Writing helm value to {}", pth.display());
+        let mut f = File::create(&pth)?;
         write!(f, "{}\n", encoded)?;
-        debug!("Wrote manifest in {}: \n{}", self._path, encoded);
+        debug!("Wrote helm values to {}: \n{}", pth.display(), encoded);
         Ok(())
     }
 
