@@ -23,6 +23,7 @@ fn make_base_context(dep: &Deployment) -> Result<Context> {
     let region = format!("{}-{}", dep.environment, dep.location);
 
     let mut ctx = Context::new();
+    ctx.add("namespace", &dep.manifest.namespace);
     ctx.add("env", &dep.manifest.env);
     ctx.add("service", &dep.service);
     ctx.add("region", &region);
