@@ -30,7 +30,7 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
     let confargs = vec!["config".into(), "current-context".into()];
     kexec(confargs)?;
 
-    let env = mf._namespace.clone();
+    let env = mf.namespace.clone();
     let loc = mf._location.clone();
     assert!(region.starts_with(&env));
     assert!(region.ends_with(&loc));
@@ -105,7 +105,7 @@ pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
 
     // region might not be set for this command
     // rely on kubectl context to work it out if unset
-    let env = mf._namespace.clone();
+    let env = mf.namespace.clone();
     //let loc = mf._location.clone();
 
     let podsres = get_pods(&mf.name, &env)?;
@@ -144,7 +144,7 @@ pub fn logs(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
 
     // region might not be set for this command
     // rely on kubectl context to work it out if unset
-    let env = mf._namespace.clone();
+    let env = mf.namespace.clone();
     //let loc = mf._location.clone();
 
     let podsres = get_pods(&mf.name, &env)?;

@@ -216,6 +216,10 @@ pub struct Manifest {
 
     // Kubernetes specific flags
 
+    /// Namepace - dev or internal only
+    #[serde(default = "namespace_default")]
+    pub namespace: String,
+
     /// Resource limits and requests
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resources: Option<Resources>,
@@ -273,13 +277,12 @@ pub struct Manifest {
     #[serde(skip_serializing, skip_deserializing)]
     _path: String,
 
-    // Internal namespace this manifest is intended for
-    #[serde(skip_serializing, skip_deserializing)]
-    pub _namespace: String,
     // Internal location this manifest is intended for
     #[serde(skip_serializing, skip_deserializing)]
     pub _location: String,
 }
+fn namespace_default() -> String { "dev".into() }
+
 
 impl Manifest {
     pub fn new(name: &str, location: &PathBuf) -> Manifest {
@@ -466,8 +469,7 @@ impl Manifest {
         let region_parts : Vec<_> = region.split('-').collect();
         if region_parts.len() != 2 {
             bail!("invalid region {} of len {}", region, region.len());
-        }
-        self._namespace = region_parts[0].into();
+        };
         self._location = region_parts[1].into();
         Ok(())
     }
@@ -523,6 +525,7 @@ impl Manifest {
         if self.name.ends_with('-') || self.name.starts_with('-') {
             bail!("Please use dashes to separate words only");
         }
+        // TODO: verify namespace in allowed namespaces
 
         // 1. Verify resources
         // (We can unwrap all the values as we assume implicit called!)
