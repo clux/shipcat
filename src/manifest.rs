@@ -655,8 +655,8 @@ impl Manifest {
 
         // 5. dependencies
         for d in &self.dependencies {
-            if d.name == "core-ruby" {
-                trace!("Depending on special case monolith");
+            if d.name == "core-ruby" || d.name == "php-backend-monolith" {
+                debug!("Depending on legacy {} monolith", d.name);
                 continue;
             }
             // 5.a) d.name must exist in services/
