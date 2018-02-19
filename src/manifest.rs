@@ -714,12 +714,17 @@ impl Manifest {
             warn!("{} does not set a health check", self.name)
         }
 
-        // 8. dependencies
-        // verify that auto-injected keys are not overriding
-        // TODO: maybe something for another implicits like thing
-        // TODO: verify dependencies exist in service repo
+        // 9. data handling sanity
+        // can't block on this yet
+        for d in &self.dataHandling {
+            if d.pii && !d.encrypted {
+                warn!("{} stores PII without encryption", self.name)
+            }
+            if d.spii && !d.encrypted {
+                warn!("{} stores SPII without encryption", self.name)
+            }
+        }
 
-        // X. TODO: other keys
 
         Ok(())
     }
