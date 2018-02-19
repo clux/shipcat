@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use serde_yaml;
 use regex::Regex;
 
@@ -76,6 +78,54 @@ pub struct Prometheus {
 pub struct Jaeger {
     pub enabled: bool,
 }
+
+/// What sensitive data is managed and how
+///
+/// See https://engineering.ops.babylontech.co.uk/docs/principles-security/
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct DataHandling {
+    /// Storage type (one of "MySQL", "DynamoDB", "S3", "File")
+    pub backend: String,
+    /// Service stores PII
+    #[serde(default)]
+    pub pii: bool,
+    /// Service stores SPII
+    #[serde(default)]
+    pub spii: bool,
+    /// Encryption is in use at the storage side
+    ///
+    /// If either pii or spii is true, then this must be true
+    pub encrypted: bool,
+
+    // Data is encryption strategies
+    /// Key rotator if used
+    pub keyRotator: Option<String>,
+    /// Cipher used to encrypt if used
+    pub cipher: Option<String>,
+    /// Retention period if any
+    pub retentionPeriod: Option<String>,
+
+    // Services that use this data upstream
+    // just use normal dependencies?
+    //#[serde(default, skip_serializing_if = "Vec::is_empty")]
+    //pub accessedBy: Vec<String>,
+}
+
+/// Metadata for a service
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct Metadata {
+    /// Git repository
+    pub repo: String,
+    /// Owning team
+    pub team: String,
+    /// Contact person
+    pub contact: String,
+    /// Canoncal documentation link
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docs: Option<String>,
+    // TODO: generate swagger docs url from region and service name
+}
+
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Dependency {
@@ -197,7 +247,6 @@ fn replica_count_default() -> u32 { 2 }
 
 
 /// Main manifest, serializable from shipcat.yml
-#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Manifest {
     /// Name of the service
@@ -215,11 +264,13 @@ pub struct Manifest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
 
-    /// Git repository name
-    ///
-    /// Assumed that all of them belong to one organisation
-    #[serde(default)]
-    pub repoName: String,
+    /// Canonical data sources like repo, docs, team names
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<Metadata>,
+
+    /// Data sources and handling strategies
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dataHandling: Vec<DataHandling>,
 
     /// Jaeger options
     #[serde(default)]
@@ -342,9 +393,6 @@ impl Manifest {
             if d.api.is_none() {
                 d.api = Some("v1".to_string());
             }
-        }
-        if self.repoName.is_empty() {
-            self.repoName = self.name.clone();
         }
 
         Ok(())
