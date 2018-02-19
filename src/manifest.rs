@@ -655,6 +655,10 @@ impl Manifest {
 
         // 5. dependencies
         for d in &self.dependencies {
+            if d.name == "core-ruby" {
+                trace!("Depending on special case monolith");
+                continue;
+            }
             // 5.a) d.name must exist in services/
             let dpth = Path::new(".").join("services").join(d.name.clone());
             if !dpth.is_dir() {
