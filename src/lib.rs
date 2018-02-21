@@ -77,13 +77,19 @@ error_chain! {
     }
 }
 
+/// A renderer of tera templates (jinja style)
 pub mod template;
+/// A vault HTTP client
 pub mod vault;
+/// Convenience listers
 pub mod list;
+/// A slack hook post interface
 pub mod slack;
 
 mod manifest;
 pub use manifest::{validate, Manifest};
 
+/// Main templating interface
 pub mod generate;
+/// A small CLI kubernetes interface
 pub mod kube;
