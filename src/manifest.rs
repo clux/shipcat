@@ -14,6 +14,7 @@ use super::vault::Vault;
 
 // k8s related structs
 
+/// Kubernetes resource requests
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ResourceRequest {
     /// CPU request string
@@ -23,6 +24,7 @@ pub struct ResourceRequest {
     // TODO: ephemeral-storage + extended-resources
 }
 
+/// Kubernetes resource limits
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ResourceLimit {
     /// CPU limit string
@@ -127,6 +129,10 @@ pub struct Metadata {
 }
 
 
+/// Dependency of a service
+///
+/// We inject `{NAME}_ENDPOINT_API=kubeurl_to_service/api/{api}` as environment vars.
+/// API contracts are used for testing as part of kube lifecycle hooks
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Dependency {
     /// Name of service relied upon (used to goto dependent manifest)
@@ -134,9 +140,12 @@ pub struct Dependency {
     // TODO: api name - should be in the dependent manifest
     /// API version relied upon (v1 default)
     pub api: Option<String>,
+    /// Contract name for dependency
+    pub contract: Option<String>,
     // other metadata?
 }
 
+/// Image to run in a pod
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Image {
     /// Name of service relied upon
