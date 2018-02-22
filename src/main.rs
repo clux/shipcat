@@ -216,7 +216,7 @@ fn main() {
         let link = a.value_of("url").map(String::from);
         let color = a.value_of("color").map(String::from);
         let msg = shipcat::slack::Message { text, link, color };
-        result_exit(args.subcommand_name().unwrap(), shipcat::slack::message(msg))
+        result_exit(args.subcommand_name().unwrap(), shipcat::slack::send(msg))
     }
 
     if let Some(a) = args.subcommand_matches("ship") {

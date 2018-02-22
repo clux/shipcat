@@ -1,5 +1,3 @@
-//! A very basic client for Hashicorp Vault
-
 use reqwest;
 use reqwest::header::Connection;
 use serde_json;
@@ -42,7 +40,7 @@ struct Secret {
     lease_duration: u64,
 }
 
-/// A basic Vault client.
+/// Vault client with cached data
 pub struct Vault {
     /// Our HTTP client.  This can be configured to mock out the network.
     client: reqwest::Client,
@@ -58,11 +56,6 @@ pub struct Vault {
 
 
 impl Vault {
-    /// Has the user indicated that they want to enable our Vault backend?
-    pub fn is_enabled() -> bool {
-        default_addr().is_ok()
-    }
-
     /// Initialize using the same evars or token files that the `vault` CLI uses
     pub fn default() -> Result<Vault> {
         Vault::new(reqwest::Client::new(), &default_addr()?, default_token()?)
@@ -82,6 +75,7 @@ impl Vault {
         })
     }
 
+    /// Mock all `read` calls to the http client
     pub fn mock_secrets(&mut self) {
         self.mock = true;
     }
