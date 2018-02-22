@@ -184,11 +184,11 @@ impl fmt::Display for Image {
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct VolumeMount {
     pub name: String,
-    pub mount_path: String,
+    pub mountPath: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sub_path: Option<String>,
+    pub subPath: Option<String>,
     #[serde(default = "volume_mount_read_only")]
-    pub read_only: bool,
+    pub readOnly: bool,
 }
 fn volume_mount_read_only() -> bool {
     false
@@ -494,7 +494,7 @@ impl Manifest {
         // allow overriding of host aliases
         if !mf.hostAliases.is_empty() {
             for hostAlias in &mf.hostAliases {
-                if hostAlias.ip != "" || hostAlias.hostnames.is_empty() {
+                if hostAlias.ip == "" || hostAlias.hostnames.is_empty() {
                     bail!("Host alias should have an ip and at least one hostname");
                 }
             }
@@ -673,7 +673,7 @@ impl Manifest {
         for hostAlias in &self.hostAliases {
             // Commonly accepted hostname regex from https://stackoverflow.com/questions/106179/regular-expression-to-match-dns-hostname-or-ip-address
             let ip_re = Regex::new(r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$").unwrap();
-            if hostAlias.ip != "" || !ip_re.is_match(&hostAlias.ip){
+            if hostAlias.ip == "" || !ip_re.is_match(&hostAlias.ip){
                 bail!("The ip address for the host alias is incorrect");
             }
             if hostAlias.hostnames.is_empty() {
