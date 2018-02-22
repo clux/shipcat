@@ -472,6 +472,18 @@ impl Manifest {
         //    self.volumes = mf.volumes;
         //}
 
+        // allow overriding of host aliases
+        if !mf.host_aliases.is_empty() {
+            let host_aliases = mf.host_aliases.clone();
+            for host_alias in host_aliases {
+                if host_alias.ip.to_string().is_empty() || host_alias.hostnames.is_empty() {
+                    bail!("Host alias should have an ip and at least one hostname");
+                }
+            }
+            trace!("overriding host_aliases with {:?}", mf.host_aliases);
+            self.host_aliases = mf.host_aliases;
+        }
+
         Ok(())
     }
 
