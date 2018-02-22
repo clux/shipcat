@@ -4,15 +4,18 @@ use std::env;
 
 use super::{Result, ErrorKind};
 
-
+/// Slack message options we support
+///
+/// These parameters get distilled into the attachments API.
+/// Mostly because this is the only thing API that supports colour.
 pub struct Message {
     /// Text in message
     pub text: String,
 
-    /// Optional link
+    /// Optional link to append
     pub link: Option<String>,
 
-    /// Color
+    /// Optional color for the attachment API
     pub color: Option<String>,
 }
 
@@ -26,7 +29,8 @@ fn env_username() -> String {
     env::var("SLACK_SHIPCAT_NAME").unwrap_or_else(|_| "shipcat".into())
 }
 
-pub fn message(msg: Message) -> Result<()> {
+/// Send a `Message` to a configured slack destination
+pub fn send(msg: Message) -> Result<()> {
     let hook_url : &str = &env_hook_url()?;
     let hook_chan : String = env_channel()?;
     let hook_user : String = env_username();

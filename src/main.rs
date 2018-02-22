@@ -134,6 +134,13 @@ fn main() {
                 .long("secrets")
                 .help("Verifies secrets exist everywhere"))
               .about("Validate the shipcat manifest"))
+        .subcommand(SubCommand::with_name("graph")
+              .arg(Arg::with_name("service")
+                .help("Service name to graph around"))
+              .arg(Arg::with_name("dot")
+                .long("dot")
+                .help("Generate dot output for graphviz"))
+              .about("Graph the dependencies of a service"))
         .subcommand(SubCommand::with_name("list-environments")
             .setting(AppSettings::Hidden)
             .about("list supported k8s environments"));
@@ -194,13 +201,22 @@ fn main() {
         let service = a.value_of("service").unwrap();
         result_exit(args.subcommand_name().unwrap(), shipcat::validate(service, a.is_present("secrets")))
     }
+    if let Some(a) = args.subcommand_matches("graph") {
+        let dot = a.is_present("dot");
+
+        if let Some(svc) = a.value_of("service") {
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(svc, dot))
+        } else {
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::full(dot))
+        }
+    }
 
     if let Some(a) = args.subcommand_matches("slack") {
         let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
         let link = a.value_of("url").map(String::from);
         let color = a.value_of("color").map(String::from);
         let msg = shipcat::slack::Message { text, link, color };
-        result_exit(args.subcommand_name().unwrap(), shipcat::slack::message(msg))
+        result_exit(args.subcommand_name().unwrap(), shipcat::slack::send(msg))
     }
 
     if let Some(a) = args.subcommand_matches("ship") {

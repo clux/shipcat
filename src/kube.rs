@@ -23,8 +23,10 @@ fn kout(args: Vec<String>) -> Result<String> {
 
 }
 
-// NB: location not used
-// assumed to have been sanity checked before!
+/// Rollout an image update to an existing deployment
+///
+/// This kurrently uses kubectl rollout set image under the hood.
+/// This will be replaced by `helm install` in the future
 pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
     // further sanity
     let confargs = vec!["config".into(), "current-context".into()];
@@ -58,18 +60,19 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
         "-n".into(),
         env.clone(),
     ];
-    let podargs = vec![
-        "get".into(),
-        "pods".into(),
-        format!("-l=app={}", mf.name),
-        "-n".into(),
-        env.into(),
-    ];
+    // simple check for routout status first
     match kexec(rollargs.clone()) {
         Err(e) => {
             warn!("Rollout seems to hang - investigating");
             warn!("Got: {} from rollout command", e);
             info!("Checking pod status:");
+            let podargs = vec![
+                "get".into(),
+                "pods".into(),
+                format!("-l=app={}", mf.name),
+                "-n".into(),
+                env.into(),
+            ];
             kexec(podargs)?;
             bail!("rollout failed to succeed in 5minutes");
         }
@@ -100,6 +103,9 @@ fn get_pods(name: &str, env: &str) -> Result<String> {
     Ok(podsres)
 }
 
+/// Shell into all pods associated with a service
+///
+/// Optionally specify the arbitrary pod index from kubectl get pods
 pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
     // TODO: check if access to shell in!
 
@@ -139,6 +145,9 @@ pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
     Ok(())
 }
 
+/// Get the logs for pods associated with a service
+///
+/// Optionally specify the arbitrary pod index from kubectl get pods
 pub fn logs(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
     // TODO: check if access to get logs in!
 
