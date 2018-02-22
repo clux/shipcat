@@ -8,7 +8,7 @@
 A small CLI helper to manage microservice deployments running on `kubernetes` via `shipcat.yml`. Lives [on your ship](https://en.wikipedia.org/wiki/Ship%27s_cat).
 
 ## Installation
-To build yourself, use [rustup](https://rustup.rs/) to get stable rust.
+To build yourself, use [rustup](https://rustup.rs/) to get **latest stable** rust.
 
 ```sh
 cargo build
