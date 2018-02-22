@@ -134,6 +134,14 @@ fn main() {
                 .long("secrets")
                 .help("Verifies secrets exist everywhere"))
               .about("Validate the shipcat manifest"))
+        .subcommand(SubCommand::with_name("graph")
+              .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service name"))
+              .arg(Arg::with_name("dot")
+                .long("dot")
+                .help("Generate dot output for graphviz"))
+              .about("Graph the dependencies of a service"))
         .subcommand(SubCommand::with_name("list-environments")
             .setting(AppSettings::Hidden)
             .about("list supported k8s environments"));
@@ -193,6 +201,11 @@ fn main() {
     if let Some(a) = args.subcommand_matches("validate") {
         let service = a.value_of("service").unwrap();
         result_exit(args.subcommand_name().unwrap(), shipcat::validate(service, a.is_present("secrets")))
+    }
+    if let Some(a) = args.subcommand_matches("graph") {
+        let service = a.value_of("service").unwrap();
+        let dot = a.is_present("dot");
+        result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(service, dot))
     }
 
     if let Some(a) = args.subcommand_matches("slack") {

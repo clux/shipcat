@@ -18,6 +18,9 @@ extern crate hyper;
 // notifications
 extern crate slack_hook;
 
+// graphing
+extern crate petgraph;
+
 #[macro_use]
 extern crate log;
 
@@ -87,9 +90,12 @@ pub mod list;
 pub mod slack;
 
 mod manifest;
-pub use manifest::{validate, Manifest};
+pub use manifest::{validate, Manifest, Dependency};
 
 /// Main templating interface
 pub mod generate;
 /// A small CLI kubernetes interface
 pub mod kube;
+
+/// A graph generator for manifests
+pub mod graph;

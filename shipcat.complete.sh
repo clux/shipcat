@@ -7,12 +7,12 @@ _shipcat()
     local cur prev words cword
     _init_completion || return
 
-    local -r subcommands="help validate generate ship shell logs
+    local -r subcommands="help validate generate ship shell logs graph
                           list-environments"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(init|help|validate|generate|status|ship|shell|logs) ]]; then
+        if [[ ${words[i]} == @(init|help|validate|generate|status|ship|shell|logs|graph) ]]; then
             has_sub=1
         fi
     done
@@ -31,15 +31,15 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(generate|validate|ship|shell|logs) ]]; then
+        if [[ ${words[i]} == @(generate|validate|ship|shell|logs|graph) ]]; then
             special=${words[i]}
         fi
     done
 
     if [[ -n $special ]]; then
         case $special in
-            validate)
-                if [[ $prev = "validate" ]]; then
+            validate|graph)
+                if [[ $prev = @(graph|validate) ]]; then
                     svcs=$(find "./services" -maxdepth 1 -mindepth 1 -type d -printf "%f " 2> /dev/null)
                     COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 fi
