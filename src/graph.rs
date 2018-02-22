@@ -28,13 +28,15 @@ impl ManifestNode {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DepEdge {
     pub api: String,
-    pub contract: Option<String>
+    pub contract: Option<String>,
+    pub protocol: String,
 }
 impl DepEdge {
     fn new(dep: &Dependency) -> Self {
         DepEdge {
             api: dep.api.clone().unwrap(),
             contract: dep.contract.clone(),
+            protocol: dep.protocol.clone(),
         }
     }
 }

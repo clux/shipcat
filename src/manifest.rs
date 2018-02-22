@@ -142,8 +142,13 @@ pub struct Dependency {
     pub api: Option<String>,
     /// Contract name for dependency
     pub contract: Option<String>,
-    // other metadata?
+    /// Protocol
+    #[serde(default = "dependency_protocol_default")]
+    pub protocol: String,
+    /// Intent behind dependency - for manifest level descriptiveness
+    pub intent: Option<String>,
 }
+fn dependency_protocol_default() -> String { "http".into() }
 
 /// Image to run in a pod
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -679,6 +684,9 @@ impl Manifest {
                 let vstr = apiv.chars().skip_while(|ch| *ch == 'v').collect::<String>();
                 let ver : usize = vstr.parse()?;
                 trace!("Parsed api version of dependency {} as {}", d.name.clone(), ver);
+            }
+            if d.protocol != "http" && d.protocol != "grpc" {
+                bail!("Illegal dependency protocol {}", d.protocol)
             }
         }
 
