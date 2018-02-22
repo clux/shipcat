@@ -69,10 +69,10 @@ fn make_full_deployment_context(dep: &Deployment) -> Result<Context> {
     }
 
     // Volume mounts
-    ctx.add("volume_mounts", &dep.manifest.volume_mounts);
+    ctx.add("volumeMounts", &dep.manifest.volumeMounts);
 
     // Init containers
-    ctx.add("init_containers", &dep.manifest.init_containers);
+    ctx.add("initContainers", &dep.manifest.initContainers);
 
     // Volumes
     ctx.add("volumes", &dep.manifest.volumes);
