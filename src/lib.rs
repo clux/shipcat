@@ -18,6 +18,9 @@ extern crate hyper;
 // notifications
 extern crate slack_hook;
 
+// graphing
+extern crate petgraph;
+
 #[macro_use]
 extern crate log;
 
@@ -77,13 +80,23 @@ error_chain! {
     }
 }
 
+/// A renderer of `tera` templates (jinja style)
 pub mod template;
+/// A Hashicorp Vault HTTP client using `reqwest`
 pub mod vault;
+/// Convenience listers
 pub mod list;
+/// A post interface to slack using `slack_hook`
 pub mod slack;
 
 mod manifest;
-pub use manifest::{validate, Manifest};
+pub use manifest::{validate, Manifest, Dependency};
 
+/// Templating consumer module
 pub mod generate;
+
+/// A small CLI kubernetes interface
 pub mod kube;
+
+/// A graph generator for manifests using `petgraph`
+pub mod graph;

@@ -14,6 +14,7 @@ use super::vault::Vault;
 
 // k8s related structs
 
+/// Kubernetes resource requests
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ResourceRequest {
     /// CPU request string
@@ -23,6 +24,7 @@ pub struct ResourceRequest {
     // TODO: ephemeral-storage + extended-resources
 }
 
+/// Kubernetes resource limits
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ResourceLimit {
     /// CPU limit string
@@ -133,6 +135,10 @@ pub struct Metadata {
 }
 
 
+/// Dependency of a service
+///
+/// We inject `{NAME}_ENDPOINT_API=kubeurl_to_service/api/{api}` as environment vars.
+/// API contracts are used for testing as part of kube lifecycle hooks
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Dependency {
     /// Name of service relied upon (used to goto dependent manifest)
@@ -140,9 +146,17 @@ pub struct Dependency {
     // TODO: api name - should be in the dependent manifest
     /// API version relied upon (v1 default)
     pub api: Option<String>,
-    // other metadata?
+    /// Contract name for dependency
+    pub contract: Option<String>,
+    /// Protocol
+    #[serde(default = "dependency_protocol_default")]
+    pub protocol: String,
+    /// Intent behind dependency - for manifest level descriptiveness
+    pub intent: Option<String>,
 }
+fn dependency_protocol_default() -> String { "http".into() }
 
+/// Image to run in a pod
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Image {
     /// Name of service relied upon
@@ -709,6 +723,9 @@ impl Manifest {
                 let ver : usize = vstr.parse()?;
                 trace!("Parsed api version of dependency {} as {}", d.name.clone(), ver);
             }
+            if d.protocol != "http" && d.protocol != "grpc" {
+                bail!("Illegal dependency protocol {}", d.protocol)
+            }
         }
 
         // 7. regions must have a defaults file in ./environments
@@ -812,7 +829,12 @@ fn parse_cpu(s: &str) -> Result<f64> {
     Ok(res)
 }
 
-
+/// Validate the manifest of a service in the services directory
+///
+/// This will populate the manifest for all supported environments,
+/// and `verify` their parameters.
+/// Optionally, it will also verify that all secrets are found in the corresponding
+/// vault locations serverside (which require vault credentials).
 pub fn validate(service: &str, secrets: bool) -> Result<()> {
     let pth = Path::new(".").join("services").join(service);
     if !pth.exists() {

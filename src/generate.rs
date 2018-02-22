@@ -1,3 +1,6 @@
+use std::path::PathBuf;
+use std::fs;
+
 use tera::Context; // just a hashmap wrapper
 use super::{Result};
 use super::manifest::*;
@@ -85,8 +88,7 @@ fn template_config(dep: &Deployment, mount: &ConfigMappedFile) -> Result<String>
     Ok((dep.render)(&mount.name, &ctx)?)
 }
 
-use std::path::PathBuf;
-use std::fs;
+/// Helper to create a local OUTPUT directory
 pub fn create_output(pwd: &PathBuf) -> Result<()> {
     let loc = pwd.join("OUTPUT");
     if loc.is_dir() {
@@ -119,6 +121,9 @@ impl Deployment {
 }
 
 
+/// Render `deployment.yaml.j2` from `templates/` with a `Deployment`
+///
+/// This method is meant to be deprecated for `helm install`
 pub fn deployment(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<String> {
     let ctx = make_full_deployment_context(dep)?;
     let res = if dep.manifest.disabled {
