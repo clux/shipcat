@@ -42,6 +42,15 @@ pub struct Resources {
     pub limits: Option<ResourceLimit>,
 }
 
+// HostAlias support for all pods regardless of network configuration.
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct HostAlias {
+    /// ip address string
+    pub ip: String,
+    /// add additional entries that resolve the ip address to the hosts file
+    pub hostnames: Vec<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ConfigMappedFile {
     /// Name of file to template (from service repo paths)
@@ -305,6 +314,9 @@ pub struct Manifest {
     /// Replication limits
     #[serde(default = "replica_count_default")]
     pub replicaCount: u32,
+    /// host aliases to inject in /etc/hosts
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hostAliases: Vec<HostAlias>,
     /// Environment variables to inject
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
@@ -480,6 +492,17 @@ impl Manifest {
         //    self.volumes = mf.volumes;
         //}
 
+        // allow overriding of host aliases
+        if !mf.hostAliases.is_empty() {
+            for hostAlias in &mf.hostAliases {
+                if hostAlias.ip != "" || hostAlias.hostnames.is_empty() {
+                    bail!("Host alias should have an ip and at least one hostname");
+                }
+            }
+            trace!("overriding hostAliases with {:?}", mf.hostAliases);
+            self.hostAliases = mf.hostAliases;
+        }
+
         Ok(())
     }
 
@@ -647,8 +670,27 @@ impl Manifest {
             bail!("Need replicaCount to be at least 1");
         }
 
-        // 3. configs
-        // 3.1) mount paths can't be empty string
+        // 3. host aliases - only verify syntax
+        for hostAlias in &self.hostAliases {
+            // Commonly accepted hostname regex from https://stackoverflow.com/questions/106179/regular-expression-to-match-dns-hostname-or-ip-address
+            let ip_re = Regex::new(r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$").unwrap();
+            if hostAlias.ip != "" || !ip_re.is_match(&hostAlias.ip){
+                bail!("The ip address for the host alias is incorrect");
+            }
+            if hostAlias.hostnames.is_empty() {
+                bail!("At least one hostname must be specified for the host alias");
+            }
+            for hostname in &hostAlias.hostnames {
+                // Commonly accepted ip address regex from https://stackoverflow.com/questions/106179/regular-expression-to-match-dns-hostname-or-ip-address
+                let host_re = Regex::new(r"^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$").unwrap();
+                if !host_re.is_match(&hostname) {
+                    bail!("The hostname {} is incorrect for {}", hostname, hostAlias.ip);
+                }
+            }
+        }
+
+        // 4. configs
+        // 4.1) mount paths can't be empty string
         if let Some(ref cfgmap) = self.configs {
             if cfgmap.mount == "" || cfgmap.mount == "~" {
                 bail!("Empty mountpath for {} mount ", cfgmap.name.clone().unwrap())
@@ -667,10 +709,10 @@ impl Manifest {
             warn!("Did you use the old volumes key?");
         }
 
-        // 4. volumes
+        // 5. volumes
         // TODO:
 
-        // 5. dependencies
+        // 6. dependencies
         for d in &self.dependencies {
             if d.name == "core-ruby" || d.name == "php-backend-monolith" {
                 debug!("Depending on legacy {} monolith", d.name);
@@ -693,7 +735,7 @@ impl Manifest {
             }
         }
 
-        // 6. regions must have a defaults file in ./environments
+        // 7. regions must have a defaults file in ./environments
         for r in &self.regions {
             let regionfile = Path::new(".")
                 .join("environments")
@@ -708,7 +750,7 @@ impl Manifest {
             bail!("No regions specified for {}", self.name);
         }
 
-        // 7. init containers - only verify syntax
+        // 8. init containers - only verify syntax
         for init_container in &self.init_containers {
             let re = Regex::new(r"(?:[a-z]+/)?([a-z]+)(?::[0-9]+)?").unwrap();
             if !re.is_match(&init_container.image) {
@@ -719,7 +761,7 @@ impl Manifest {
             }
         }
 
-        // 8. health check
+        // 9. health check
         // every service that exposes http MUST have a health check
         if self.httpPort.is_some() && self.health.is_none() {
             bail!("{} has an httpPort but no health check", self.name)
@@ -734,7 +776,7 @@ impl Manifest {
             warn!("{} does not set a health check", self.name)
         }
 
-        // 9. data handling sanity
+        // 10. data handling sanity
         // can't block on this yet
         for d in &self.dataHandling {
             if d.pii && !d.encrypted {
