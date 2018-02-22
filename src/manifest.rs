@@ -290,6 +290,9 @@ pub struct Manifest {
     #[serde(default)]
     pub jaeger: Jaeger,
 
+    /// Language the service is written in
+    pub language: Option<String>,
+
     // Kubernetes specific flags
 
     /// Namepace - dev or internal only
