@@ -8,14 +8,15 @@ use serde_yaml;
 
 use super::{Manifest, Dependency, Result};
 
+/// The node type in `CatGraph` representing a `Manifest`
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Node {
+pub struct ManifestNode {
     pub name: String,
     //pub image: String,
 }
-impl Node {
+impl ManifestNode {
     fn new(mf: &Manifest) -> Self {
-        Node {
+        ManifestNode {
             name: mf.name.clone(),
             // image would be nice, but requires env override atm - should be global
             //image: format!("{}", mf.image.clone().unwrap()),
@@ -23,15 +24,15 @@ impl Node {
     }
 }
 
-
+/// The edge type in `CatGraph` representing a `Dependency`
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Edge {
+pub struct DepEdge {
     pub api: String,
     pub contract: Option<String>
 }
-impl Edge {
+impl DepEdge {
     fn new(dep: &Dependency) -> Self {
-        Edge {
+        DepEdge {
             api: dep.api.clone().unwrap(),
             contract: dep.contract.clone(),
         }
@@ -39,7 +40,12 @@ impl Edge {
 }
 
 
-type CatGraph = DiGraph<Node, Edge>;
+/// Graph of simplified manifests with dependencies as edges
+///
+/// This is fully serializable because it is created with `petgraph` using the serde
+/// featurset. We use that to serialize the graph as yaml.
+/// We can also convert this to `graphviz` format via some of the `petgraph` helpers.
+pub type CatGraph = DiGraph<ManifestNode, DepEdge>;
 
 fn nodeidx_from_name(name: &str, graph: &CatGraph) -> Option<NodeIndex> {
     for id in graph.node_indices() {
@@ -63,30 +69,30 @@ fn recurse_manifest(idx: NodeIndex, mf: &Manifest, graph: &mut CatGraph) -> Resu
         // skip if node exists to avoid infinite loop
         if let Some(depidx) = nodeidx_from_name(&dep.name, &graph) {
             trace!("Linking root node {} to existing node {}", mf.name, dep.name);
-            graph.update_edge(idx, depidx, Edge::new(&dep));
+            graph.update_edge(idx, depidx, DepEdge::new(&dep));
             debug!("Stopping recursing - node {} covered", dep.name);
             continue;
         }
 
         let depmf = Manifest::basic(&dep.name)?;
 
-        let depnode = Node::new(&depmf);
+        let depnode = ManifestNode::new(&depmf);
         let depidx = graph.add_node(depnode);
 
-        graph.update_edge(idx, depidx, Edge::new(&dep));
+        graph.update_edge(idx, depidx, DepEdge::new(&dep));
         recurse_manifest(depidx, &depmf, graph)?;
     }
 
     Ok(())
 }
 
-/// Generate dependency graph from an entry point
+/// Generate dependency graph from an entry point via recursion
 pub fn generate(service: &str, dot: bool) -> Result<CatGraph> {
     let base = Manifest::basic(service)?;
 
 
     let mut graph : CatGraph = DiGraph::<_, _>::new();
-    let node = Node::new(&base);
+    let node = ManifestNode::new(&base);
     let baseidx = graph.add_node(node);
 
     recurse_manifest(baseidx, &base, &mut graph)?;
@@ -104,7 +110,10 @@ pub fn generate(service: &str, dot: bool) -> Result<CatGraph> {
 
 /// Generate dependency graph from services directory
 ///
-/// TODO: optionally filter around a node
+/// This is a better solution even if we wanted the result centered around
+/// one or more services as we could also show grahps reaching into the ecosystem.
+///
+/// But it would require: TODO: optionally filter edges around node(s)
 pub fn full(dot: bool) -> Result<CatGraph> {
     let svcsdir = Path::new(".").join("services");
     let svcs = WalkDir::new(&svcsdir)
@@ -125,7 +134,7 @@ pub fn full(dot: bool) -> Result<CatGraph> {
         debug!("Scanning service {:?}", svcname);
 
         let mf = Manifest::basic(svcname)?;
-        let node = Node::new(&mf);
+        let node = ManifestNode::new(&mf);
         let idx = graph.add_node(node);
 
         for dep in &mf.dependencies {
@@ -139,11 +148,11 @@ pub fn full(dot: bool) -> Result<CatGraph> {
             } else {
                 trace!("Found dependency new in graph: {}", dep.name);
                 let depmf = Manifest::basic(&dep.name)?;
-                let depnode = Node::new(&depmf);
+                let depnode = ManifestNode::new(&depmf);
                 let depidx = graph.add_node(depnode);
                 depidx
             };
-            graph.update_edge(idx, subidx, Edge::new(&dep));
+            graph.update_edge(idx, subidx, DepEdge::new(&dep));
         }
     }
 

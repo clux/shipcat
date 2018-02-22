@@ -80,22 +80,23 @@ error_chain! {
     }
 }
 
-/// A renderer of tera templates (jinja style)
+/// A renderer of `tera` templates (jinja style)
 pub mod template;
-/// A vault HTTP client
+/// A Hashicorp Vault HTTP client using `reqwest`
 pub mod vault;
 /// Convenience listers
 pub mod list;
-/// A slack hook post interface
+/// A post interface to slack using `slack_hook`
 pub mod slack;
 
 mod manifest;
 pub use manifest::{validate, Manifest, Dependency};
 
-/// Main templating interface
+/// Templating consumer module
 pub mod generate;
+
 /// A small CLI kubernetes interface
 pub mod kube;
 
-/// A graph generator for manifests
+/// A graph generator for manifests using `petgraph`
 pub mod graph;

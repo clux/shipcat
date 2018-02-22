@@ -67,8 +67,12 @@ fn add_templates(tera: &mut Tera, dir: &PathBuf, svc: &str, depth: usize) -> Res
     Ok(())
 }
 
-
-
+/// Initialise the `tera` templating engine with templates for a service
+///
+/// This will add global templates, and service specific templates that will be
+/// globally available (i.e. by filename as the key).
+///
+/// Thus, a `Tera` instance is only suitable for one service at a time.
 pub fn init(service: &str) -> Result<Tera> {
     let mut tera = Tera::default();
     tera.autoescape_on(vec!["html"]);
@@ -85,6 +89,7 @@ pub fn init(service: &str) -> Result<Tera> {
     Ok(tera)
 }
 
+/// Render convenience function that also trims whitespace
 pub fn render(tera: &Tera, tmpl: &str, context: &Context) -> Result<String> {
     let result = tera.render(tmpl, context)?;
     let mut xs = vec![];

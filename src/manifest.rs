@@ -783,7 +783,12 @@ fn parse_cpu(s: &str) -> Result<f64> {
     Ok(res)
 }
 
-
+/// Validate the manifest of a service in the services directory
+///
+/// This will populate the manifest for all supported environments,
+/// and `verify` their parameters.
+/// Optionally, it will also verify that all secrets are found in the corresponding
+/// vault locations serverside (which require vault credentials).
 pub fn validate(service: &str, secrets: bool) -> Result<()> {
     let pth = Path::new(".").join("services").join(service);
     if !pth.exists() {
