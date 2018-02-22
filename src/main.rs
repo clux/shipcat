@@ -136,8 +136,7 @@ fn main() {
               .about("Validate the shipcat manifest"))
         .subcommand(SubCommand::with_name("graph")
               .arg(Arg::with_name("service")
-                .required(true)
-                .help("Service name"))
+                .help("Service name to graph around"))
               .arg(Arg::with_name("dot")
                 .long("dot")
                 .help("Generate dot output for graphviz"))
@@ -203,9 +202,13 @@ fn main() {
         result_exit(args.subcommand_name().unwrap(), shipcat::validate(service, a.is_present("secrets")))
     }
     if let Some(a) = args.subcommand_matches("graph") {
-        let service = a.value_of("service").unwrap();
         let dot = a.is_present("dot");
-        result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(service, dot))
+
+        if let Some(svc) = a.value_of("service") {
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(svc, dot))
+        } else {
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::full(dot))
+        }
     }
 
     if let Some(a) = args.subcommand_matches("slack") {
