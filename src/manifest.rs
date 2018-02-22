@@ -325,10 +325,10 @@ pub struct Manifest {
     pub configs: Option<ConfigMap>,
     /// Volumes mounts
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub volume_mounts: Vec<VolumeMount>,
+    pub volumeMounts: Vec<VolumeMount>,
     /// Init container intructions
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub init_containers: Vec<InitContainer>,
+    pub initContainers: Vec<InitContainer>,
     /// Http Port to expose
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub httpPort: Option<u32>,
@@ -481,11 +481,11 @@ impl Manifest {
         //    // for now: if limits or requests are specified, you have to fill in both CPU and memory
         //}
 
-        //if self.volume_mounts.is_empty() && !mf.volume_mounts.is_empty() {
-        //    self.volume_mounts = mf.volume_mounts;
+        //if self.volumeMounts.is_empty() && !mf.volumeMounts.is_empty() {
+        //    self.volumeMounts = mf.volumeMounts;
         //}
-        //if self.init_containers.is_empty() && !mf.init_containers.is_empty() {
-        //    self.init_containers = mf.init_containers.clone();
+        //if self.initContainers.is_empty() && !mf.initContainers.is_empty() {
+        //    self.initContainers = mf.initContainers.clone();
         //}
 
         //if self.volumes.is_empty() && !mf.volumes.is_empty() {
@@ -751,13 +751,13 @@ impl Manifest {
         }
 
         // 8. init containers - only verify syntax
-        for init_container in &self.init_containers {
+        for initContainer in &self.initContainers {
             let re = Regex::new(r"(?:[a-z]+/)?([a-z]+)(?::[0-9]+)?").unwrap();
-            if !re.is_match(&init_container.image) {
-                bail!("The init container {} does not seem to match a valid image registry", init_container.name);
+            if !re.is_match(&initContainer.image) {
+                bail!("The init container {} does not seem to match a valid image registry", initContainer.name);
             }
-            if init_container.command.is_empty() {
-                bail!("A command must be specified for the init container {}", init_container.name);
+            if initContainer.command.is_empty() {
+                bail!("A command must be specified for the init container {}", initContainer.name);
             }
         }
 
