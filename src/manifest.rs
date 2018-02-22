@@ -182,7 +182,6 @@ impl fmt::Display for Image {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
 pub struct VolumeMount {
     pub name: String,
     pub mount_path: String,
