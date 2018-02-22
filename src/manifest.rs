@@ -42,9 +42,12 @@ pub struct Resources {
     pub limits: Option<ResourceLimit>,
 }
 
+// HostAlias support for all pods regardless of network configuration.
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct HostAlias {
+    /// ip address string
     pub ip: String,
+    /// add additional entries that resolve the ip address to the hosts file
     pub hostnames: Vec<String>,
 }
 
@@ -310,7 +313,7 @@ pub struct Manifest {
     pub replicaCount: u32,
     /// host aliases to inject in /etc/hosts
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub host_aliases: Vec<HostAlias>,
+    pub hostAliases: Vec<HostAlias>,
     /// Environment variables to inject
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
@@ -487,15 +490,14 @@ impl Manifest {
         //}
 
         // allow overriding of host aliases
-        if !mf.host_aliases.is_empty() {
-            let host_aliases = mf.host_aliases.clone();
-            for host_alias in host_aliases {
-                if host_alias.ip.to_string().is_empty() || host_alias.hostnames.is_empty() {
+        if !mf.hostAliases.is_empty() {
+            for hostAlias in &mf.hostAliases {
+                if hostAlias.ip != "" || hostAlias.hostnames.is_empty() {
                     bail!("Host alias should have an ip and at least one hostname");
                 }
             }
-            trace!("overriding host_aliases with {:?}", mf.host_aliases);
-            self.host_aliases = mf.host_aliases;
+            trace!("overriding hostAliases with {:?}", mf.hostAliases);
+            self.hostAliases = mf.hostAliases;
         }
 
         Ok(())
@@ -666,18 +668,20 @@ impl Manifest {
         }
 
         // 3. host aliases - only verify syntax
-        for host_alias in &self.host_aliases {
+        for hostAlias in &self.hostAliases {
+            // Commonly accepted hostname regex from https://stackoverflow.com/questions/106179/regular-expression-to-match-dns-hostname-or-ip-address
             let ip_re = Regex::new(r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$").unwrap();
-            if host_alias.ip.to_string().is_empty() || !ip_re.is_match(&host_alias.ip){
+            if hostAlias.ip != "" || !ip_re.is_match(&hostAlias.ip){
                 bail!("The ip address for the host alias is incorrect");
             }
-            if host_alias.hostnames.is_empty() {
+            if hostAlias.hostnames.is_empty() {
                 bail!("At least one hostname must be specified for the host alias");
             }
-            for hostname in &host_alias.hostnames {
+            for hostname in &hostAlias.hostnames {
+                // Commonly accepted ip address regex from https://stackoverflow.com/questions/106179/regular-expression-to-match-dns-hostname-or-ip-address
                 let host_re = Regex::new(r"^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$").unwrap();
                 if !host_re.is_match(&hostname) {
-                    bail!("The hostname {} is incorrect for {}", hostname, host_alias.ip);
+                    bail!("The hostname {} is incorrect for {}", hostname, hostAlias.ip);
                 }
             }
         }

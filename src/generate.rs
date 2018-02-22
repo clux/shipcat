@@ -55,7 +55,7 @@ fn make_full_deployment_context(dep: &Deployment) -> Result<Context> {
     ctx.add("image", &format!("{}", dep.manifest.image.clone().unwrap()));
 
     // Host aliases
-    ctx.add("host_aliases", &dep.manifest.host_aliases);
+    ctx.add("hostAliases", &dep.manifest.hostAliases);
 
     // Ports exposed as is
     ctx.add("httpPort", &dep.manifest.httpPort);
