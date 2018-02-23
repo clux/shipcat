@@ -57,6 +57,11 @@ pub struct ConfigMappedFile {
     pub name: String,
     /// Name of file inside container
     pub dest: String,
+    /// Config value inlined
+    ///
+    /// This is usually filled in internally by to help out Helm a bit
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
 }
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ConfigMap {
@@ -595,22 +600,6 @@ impl Manifest {
         let mut mf = Manifest::read_from(&pth)?;
         mf.implicits()?;
         Ok(mf)
-    }
-
-    /// Temporary helm writer
-    ///
-    /// Assumes everything's been filled in!
-    pub fn write_output(&self) -> Result<()> {
-        use generate::create_output;
-        let pwd = Path::new(".");
-        create_output(&pwd.to_path_buf())?;
-        let pth = pwd.join("OUTPUT").join("helm.yml");
-        let encoded = serde_yaml::to_string(self)?;
-        info!("Writing helm value to {}", pth.display());
-        let mut f = File::create(&pth)?;
-        write!(f, "{}\n", encoded)?;
-        debug!("Wrote helm values to {}: \n{}", pth.display(), encoded);
-        Ok(())
     }
 
     /// Print manifest to debug output

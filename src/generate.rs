@@ -1,5 +1,8 @@
-use std::path::PathBuf;
-use std::fs;
+use std::path::{Path, PathBuf};
+use std::fs::{self, File};
+use std::io::prelude::*;
+
+use serde_yaml;
 
 use tera::Context; // just a hashmap wrapper
 use super::{Result};
@@ -118,6 +121,32 @@ impl Deployment {
         }
         Ok(())
     }
+}
+
+/// Helm values writer
+///
+/// Fills in service specific config files into config to help helm out
+pub fn helm(dep: &Deployment) -> Result<String> {
+    let pwd = Path::new(".");
+    create_output(&pwd.to_path_buf())?;
+    let pth = pwd.join("OUTPUT").join("helm.yml");
+
+    let mut mf = dep.manifest.clone();
+
+    // Files in `ConfigMap` get pre-rendered for helm for now
+    if let Some(ref mut cfg) = mf.configs {
+        for f in &mut cfg.files {
+            let res = template_config(dep, &f)?;
+            f.value = Some(res);
+        }
+    }
+
+    let encoded = serde_yaml::to_string(&mf)?;
+    info!("Writing helm value to {}", pth.display());
+    let mut f = File::create(&pth)?;
+    write!(f, "{}\n", encoded)?;
+    debug!("Wrote helm values to {}: \n{}", pth.display(), encoded);
+    Ok(encoded)
 }
 
 

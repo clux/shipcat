@@ -33,7 +33,7 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
     kexec(confargs)?;
 
     let env = mf.namespace.clone();
-    let loc = mf._location.clone();
+    //let loc = mf._location.clone();
     //assert!(region.starts_with(&env));
     //assert!(region.ends_with(&loc));
 

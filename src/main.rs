@@ -172,10 +172,6 @@ fn main() {
         // Populate a complete manifest (with ALL values) early for advanced commands
         let mf = conditional_exit(Manifest::completed(region, service, Some(&mut vault)));
 
-        if a.is_present("helm") {
-            result_exit("helm generate", mf.write_output())
-        }
-
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
 
@@ -192,7 +188,11 @@ fn main() {
         };
         conditional_exit(dep.check()); // some sanity asserts
 
-        let res = shipcat::generate::deployment(&dep, false, true);
+        let res = if a.is_present("helm") {
+            shipcat::generate::helm(&dep)
+        } else {
+            shipcat::generate::deployment(&dep, false, true)
+        };
         result_exit(args.subcommand_name().unwrap(), res)
     }
 
