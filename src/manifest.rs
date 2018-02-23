@@ -151,7 +151,6 @@ pub struct Metadata {
 pub struct Dependency {
     /// Name of service relied upon (used to goto dependent manifest)
     pub name: String,
-    // TODO: api name - should be in the dependent manifest
     /// API version relied upon (v1 default)
     pub api: Option<String>,
     /// Contract name for dependency
