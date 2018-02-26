@@ -1,0 +1,6 @@
+hostAliases:
+  - ip: "10.10.10.201"
+    hostnames:
+    - "alias.blah.uk"
+env:
+  RAILS_ENV: development

@@ -1,0 +1,31 @@
+name: fake-ask
+dataHandling:
+- backend: MySQL
+  spii: true
+  encrypted: false
+resources:
+  limits:
+    cpu: 2
+    memory: 2Gi
+  requests:
+    cpu: 250m
+    memory: 1Gi
+replicaCount: 2
+health:
+  uri: /health
+  wait: 30
+httpPort: 8080
+regions:
+- dev-uk
+env:
+  JAVA_OPTS: "-Xms256m -Xmx2048m"
+  ENDPOINTS_ENABLED: "true"
+  OAUTH_CLIENT_ID: "IN_VAULT"
+configs:
+  mount: /config/
+  files:
+  - name: config.yml.j2
+    dest: config.yml
+dependencies:
+- name: fake-storage
+  intent: "testing graph module"

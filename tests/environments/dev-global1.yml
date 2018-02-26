@@ -1,0 +1,5 @@
+image:
+  repository: "quay.io/babylonhealth"
+  tag: develop
+env:
+  GLOBAL_EVAR: yup

@@ -100,3 +100,18 @@ pub mod kube;
 
 /// A graph generator for manifests using `petgraph`
 pub mod graph;
+
+// Test helpers
+#[cfg(test)]
+mod tests {
+    /// Set cwd to tests directory to be able to test manifest functionality
+    ///
+    /// The tests directory provides a couple of fake services for verification
+    pub fn use_manifests() {
+        use std::fs;
+        use std::path::Path;
+        use std::env;
+        let testdir = fs::canonicalize(Path::new(".").join("tests")).unwrap();
+        assert!(env::set_current_dir(testdir).is_ok());
+    }
+}
