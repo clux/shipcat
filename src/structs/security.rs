@@ -1,3 +1,6 @@
+use super::traits::Verify;
+use super::Result;
+
 /// What sensitive data is managed and how
 ///
 /// See https://engineering.ops.babylontech.co.uk/docs/principles-security/
@@ -28,4 +31,17 @@ pub struct DataHandling {
     // just use normal dependencies?
     //#[serde(default, skip_serializing_if = "Vec::is_empty")]
     //pub accessedBy: Vec<String>,
+}
+
+impl Verify for DataHandling {
+    fn verify(&self) -> Result<()> {
+        // can't block on this yet - so just warn a lot
+        if self.pii && !self.encrypted {
+            warn!("{} stores PII without encryption", self.backend)
+        }
+        if self.spii && !self.encrypted {
+            warn!("{} stores SPII without encryption", self.backend)
+        }
+        Ok(())
+    }
 }

@@ -12,7 +12,9 @@ use super::Result;
 use super::vault::Vault;
 
 // All structs come from the structs directory
+use super::structs::traits::Verify;
 use super::structs::kube::*;
+use super::structs::resources::*;
 use super::structs::{Metadata, DataHandling, VaultOpts, Jaeger, Dependency, Image};
 use super::structs::prometheus::{Prometheus, Dashboard};
 
@@ -367,109 +369,34 @@ impl Manifest {
         if self.name.ends_with('-') || self.name.starts_with('-') {
             bail!("Please use dashes to separate words only");
         }
-        // TODO: verify namespace in allowed namespaces
 
-        // 1. Verify resources
-        // (We can unwrap all the values as we assume implicit called!)
-        let req = self.resources.clone().unwrap().requests.unwrap().clone();
-        let lim = self.resources.clone().unwrap().limits.unwrap().clone();
-        let req_memory = parse_memory(&req.memory)?;
-        let lim_memory = parse_memory(&lim.memory)?;
-        let req_cpu = parse_cpu(&req.cpu)?;
-        let lim_cpu = parse_cpu(&lim.cpu)?;
+        // run the `Verify` trait on all imported structs
+        // mandatory structs first:
+        self.resources.clone().unwrap().verify()?;
 
-        // 1.1 limits >= requests
-        if req_cpu > lim_cpu {
-            bail!("Requested more CPU than what was limited");
+        // optional/vectorised entries
+        for d in &self.dependencies {
+            d.verify()?;
         }
-        if req_memory > lim_memory {
-            bail!("Requested more memory than what was limited");
+        for ha in &self.hostAliases {
+            ha.verify()?;
         }
-        // 1.2 sanity numbers
-        if req_cpu > 10.0 {
-            bail!("Requested more than 10 cores");
+        for ic in &self.initContainers {
+            ic.verify()?;
         }
-        if req_memory > 10.0*1024.0*1024.0*1024.0 {
-            bail!("Requested more than 10 GB of memory");
+        for d in &self.dataHandling {
+            d.verify()?;
         }
-        if lim_cpu > 20.0 {
-            bail!("CPU limit set to more than 20 cores");
-        }
-        if lim_memory > 20.0*1024.0*1024.0*1024.0 {
-            bail!("Memory limit set to more than 20 GB of memory");
+        if let Some(ref cmap) = self.configs {
+            cmap.verify()?;
         }
 
-        // 2. Replicas
+        // misc minor properties
         if self.replicaCount == 0 {
             bail!("Need replicaCount to be at least 1");
         }
 
-        // 3. host aliases - only verify syntax
-        for hostAlias in &self.hostAliases {
-            // Commonly accepted hostname regex from https://stackoverflow.com/questions/106179/regular-expression-to-match-dns-hostname-or-ip-address
-            let ip_re = Regex::new(r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$").unwrap();
-            if hostAlias.ip == "" || !ip_re.is_match(&hostAlias.ip){
-                bail!("The ip address for the host alias is incorrect");
-            }
-            if hostAlias.hostnames.is_empty() {
-                bail!("At least one hostname must be specified for the host alias");
-            }
-            for hostname in &hostAlias.hostnames {
-                // Commonly accepted ip address regex from https://stackoverflow.com/questions/106179/regular-expression-to-match-dns-hostname-or-ip-address
-                let host_re = Regex::new(r"^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$").unwrap();
-                if !host_re.is_match(&hostname) {
-                    bail!("The hostname {} is incorrect for {}", hostname, hostAlias.ip);
-                }
-            }
-        }
-
-        // 4. configs
-        // 4.1) mount paths can't be empty string
-        if let Some(ref cfgmap) = self.configs {
-            if cfgmap.mount == "" || cfgmap.mount == "~" {
-                bail!("Empty mountpath for {} mount ", cfgmap.name.clone().unwrap())
-            }
-            if !cfgmap.mount.ends_with('/') {
-                bail!("Mount path '{}' for {} must end with a slash", cfgmap.mount, cfgmap.name.clone().unwrap());
-            }
-            for f in &cfgmap.files {
-                if !f.name.ends_with(".j2") {
-                    bail!("Only supporting templated config files atm")
-                }
-                // TODO: verify file exists? done later anyway
-            }
-        } else {
-            warn!("No configs key in manifest");
-            warn!("Did you use the old volumes key?");
-        }
-
-        // 5. volumes
-        // TODO:
-
-        // 6. dependencies
-        for d in &self.dependencies {
-            if d.name == "core-ruby" || d.name == "php-backend-monolith" {
-                debug!("Depending on legacy {} monolith", d.name);
-                continue;
-            }
-            // 5.a) d.name must exist in services/
-            let dpth = Path::new(".").join("services").join(d.name.clone());
-            if !dpth.is_dir() {
-                bail!("Service {} does not exist in services/", d.name);
-            }
-            // 5.b) d.api must parse as an integer
-            assert!(d.api.is_some(), "api version set by implicits");
-            if let Some(ref apiv) = d.api {
-                let vstr = apiv.chars().skip_while(|ch| *ch == 'v').collect::<String>();
-                let ver : usize = vstr.parse()?;
-                trace!("Parsed api version of dependency {} as {}", d.name.clone(), ver);
-            }
-            if d.protocol != "http" && d.protocol != "grpc" {
-                bail!("Illegal dependency protocol {}", d.protocol)
-            }
-        }
-
-        // 7. regions must have a defaults file in ./environments
+        // regions must have a defaults file in ./environments
         for r in &self.regions {
             let regionfile = Path::new(".")
                 .join("environments")
@@ -484,18 +411,8 @@ impl Manifest {
             bail!("No regions specified for {}", self.name);
         }
 
-        // 8. init containers - only verify syntax
-        for initContainer in &self.initContainers {
-            let re = Regex::new(r"(?:[a-z]+/)?([a-z]+)(?::[0-9]+)?").unwrap();
-            if !re.is_match(&initContainer.image) {
-                bail!("The init container {} does not seem to match a valid image registry", initContainer.name);
-            }
-            if initContainer.command.is_empty() {
-                bail!("A command must be specified for the init container {}", initContainer.name);
-            }
-        }
 
-        // 9. health check
+        // health check
         // every service that exposes http MUST have a health check
         if self.httpPort.is_some() && self.health.is_none() {
             bail!("{} has an httpPort but no health check", self.name)
@@ -510,65 +427,12 @@ impl Manifest {
             warn!("{} does not set a health check", self.name)
         }
 
-        // 10. data handling sanity
-        // can't block on this yet
-        for d in &self.dataHandling {
-            if d.pii && !d.encrypted {
-                warn!("{} stores PII without encryption", self.name)
-            }
-            if d.spii && !d.encrypted {
-                warn!("{} stores SPII without encryption", self.name)
-            }
-        }
-
+        // TODO: verify namespace in allowed namespaces
 
         Ok(())
     }
 }
 
-// Parse normal k8s memory resource value into floats
-fn parse_memory(s: &str) -> Result<f64> {
-    let digits = s.chars().take_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
-    let unit = s.chars().skip_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
-    let mut res : f64 = digits.parse()?;
-    trace!("Parsed {} ({})", digits, unit);
-    if unit == "Ki" {
-        res *= 1024.0;
-    } else if unit == "Mi" {
-        res *= 1024.0*1024.0;
-    } else if unit == "Gi" {
-        res *= 1024.0*1024.0*1024.0;
-    } else if unit == "k" {
-        res *= 1000.0;
-    } else if unit == "M" {
-        res *= 1000.0*1000.0;
-    } else if unit == "G" {
-        res *= 1000.0*1000.0*1000.0;
-    } else if unit != "" {
-        bail!("Unknown unit {}", unit);
-    }
-    trace!("Returned {} bytes", res);
-    Ok(res)
-}
-
-// Parse normal k8s cpu resource values into floats
-// We don't allow power of two variants here
-fn parse_cpu(s: &str) -> Result<f64> {
-    let digits = s.chars().take_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
-    let unit = s.chars().skip_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
-    let mut res : f64 = digits.parse()?;
-
-    trace!("Parsed {} ({})", digits, unit);
-    if unit == "m" {
-        res /= 1000.0;
-    } else if unit == "k" {
-        res *= 1000.0;
-    } else if unit != "" {
-        bail!("Unknown unit {}", unit);
-    }
-    trace!("Returned {} cores", res);
-    Ok(res)
-}
 
 /// Validate the manifest of a service in the services directory
 ///
