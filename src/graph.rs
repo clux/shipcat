@@ -6,7 +6,8 @@ use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::dot::{Dot, Config};
 use serde_yaml;
 
-use super::{Manifest, Dependency, Result};
+use super::structs::Dependency;
+use super::{Manifest, Result};
 
 /// The node type in `CatGraph` representing a `Manifest`
 #[derive(Serialize, Deserialize, Clone, Debug)]
