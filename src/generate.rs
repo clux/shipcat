@@ -5,6 +5,7 @@ use std::io::prelude::*;
 use serde_yaml;
 
 use tera::Context; // just a hashmap wrapper
+use super::structs::kube::ConfigMappedFile;
 use super::{Result};
 use super::manifest::*;
 

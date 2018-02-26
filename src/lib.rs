@@ -89,8 +89,11 @@ pub mod list;
 /// A post interface to slack using `slack_hook`
 pub mod slack;
 
+/// Structs for the manifest
+pub mod structs;
+
 mod manifest;
-pub use manifest::{validate, Manifest, Dependency};
+pub use manifest::{validate, Manifest};
 
 /// Templating consumer module
 pub mod generate;
