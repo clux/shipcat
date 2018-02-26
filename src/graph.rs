@@ -30,6 +30,7 @@ pub struct DepEdge {
     pub api: String,
     pub contract: Option<String>,
     pub protocol: String,
+    pub intent: Option<String>,
 }
 impl DepEdge {
     fn new(dep: &Dependency) -> Self {
@@ -37,6 +38,7 @@ impl DepEdge {
             api: dep.api.clone().unwrap(),
             contract: dep.contract.clone(),
             protocol: dep.protocol.clone(),
+            intent: dep.intent.clone(),
         }
     }
 }
@@ -167,4 +169,22 @@ pub fn full(dot: bool) -> Result<CatGraph> {
     io::stdout().flush()?; // allow piping stdout elsewhere
 
     Ok(graph)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{generate, nodeidx_from_name};
+    use tests::use_manifests;
+
+    #[test]
+    fn graph_generate() {
+        use_manifests();
+        let graph = generate("fake-ask", true).unwrap();
+        assert!(graph.edge_count() > 0);
+        let askidx = nodeidx_from_name("fake-ask", &graph).unwrap();
+        let strgidx = nodeidx_from_name("fake-storage", &graph).unwrap();
+        let edgeidx = graph.find_edge(askidx, strgidx).unwrap();
+        let edge = graph.edge_weight(edgeidx).unwrap();
+        assert_eq!(edge.intent, Some("testing graph module".into()));
+    }
 }

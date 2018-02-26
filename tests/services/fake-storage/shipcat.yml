@@ -1,0 +1,43 @@
+name: fake-storage
+image:
+  name: storage
+resources:
+  limits:
+    cpu: 1
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 512Mi
+replicaCount: 2
+command: ./start-app.sh
+health:
+  uri: /health
+  wait: 30
+httpPort: 3000
+regions:
+- dev-uk
+env:
+  INSTANCE_TYPE: web
+  AUTH_USERNAME: IN_KUBE_SECRETS
+initContainers:
+- name: init-mysql
+  image: gophernet/netcat
+  command: ['sh', '-c', 'until nc -z some.rds.amazonaws.com 3306; do echo waiting for mysql; sleep 2; done;']
+volumeMounts:
+- name: secrets-conf
+  mountPath: "/app/config/secrets.yml"
+  subPath: secrets.yml
+  readOnly: true
+configs:
+  mount: /newrelic/
+  files:
+  - name: newrelic-java.yml.j2
+    dest: newrelic.yml
+volumes:
+- name: secrets-conf
+  secret:
+    name: secrets-conf
+    items:
+    - key: file
+      path: secrets.yml
+      mode: 256
