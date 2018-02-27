@@ -54,8 +54,7 @@ jobs:
           key: cargo.registry
       - restore_cache:
           key: target-{{ checksum "Cargo.lock" }}
-      # Do this later (currently needs some low-grade vault evars)
-      #- run: cargo test
+      - run: cargo test
       - run: cargo doc --no-deps
 
   docker_build:
