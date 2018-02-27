@@ -17,15 +17,17 @@ health:
 httpPort: 8080
 regions:
 - dev-uk
+vault:
+  name: test-shipcat
 env:
   JAVA_OPTS: "-Xms256m -Xmx2048m"
   ENDPOINTS_ENABLED: "true"
-  OAUTH_CLIENT_ID: "IN_VAULT"
+  FAKE_SECRET: "IN_VAULT"
 configs:
   mount: /config/
   files:
-  - name: config.yml.j2
-    dest: config.yml
+  - name: config.ini.j2
+    dest: config.ini
 dependencies:
 - name: fake-storage
   intent: "testing graph module"

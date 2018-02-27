@@ -179,3 +179,35 @@ pub fn deployment(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<St
     }
     Ok(res)
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::{helm, Deployment};
+    use super::super::Manifest;
+    use super::super::template;
+    use tests::use_manifests;
+
+    #[test]
+    fn helm_create() {
+        use_manifests();
+        let tera = template::init("fake-ask".into()).unwrap();
+        let dep = Deployment {
+            service: "fake-ask".into(),
+            environment: "dev".into(),
+            location: "uk".into(),
+            manifest: Manifest::basic("fake-ask").unwrap(),
+            // only provide template::render as the interface (move tera into this)
+            render: Box::new(move |tmpl, context| {
+                template::render(&tera, tmpl, context)
+            }),
+        };
+        if let Err(e) = helm(&dep) {
+            println!("Failed to create helm values for fake-ask");
+            print!("{}", e);
+            assert!(false);
+        }
+        // can verify output here matches what we want if we wanted to,
+        // but type safety proves 99% of that anyway
+    }
+}
