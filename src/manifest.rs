@@ -491,3 +491,19 @@ pub fn validate(service: &str, secrets: bool) -> Result<()> {
     }
     Ok(())
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::{validate};
+    use tests::use_manifests;
+
+    #[test]
+    fn graph_generate() {
+        use_manifests();
+        let res = validate("fake-ask", true);
+        assert!(res.is_ok());
+        let res2 = validate("fake-storage", false);
+        assert!(res2.is_ok())
+    }
+}
