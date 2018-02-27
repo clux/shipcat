@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn graph_generate() {
         use_manifests();
-        let graph = generate("fake-ask", false).unwrap();
+        let graph = generate("fake-ask", true).unwrap();
         assert!(graph.edge_count() > 0);
         let askidx = nodeidx_from_name("fake-ask", &graph).unwrap();
         let strgidx = nodeidx_from_name("fake-storage", &graph).unwrap();
