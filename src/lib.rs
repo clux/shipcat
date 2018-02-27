@@ -129,6 +129,7 @@ mod tests {
                 .line_numbers(true)
                 .init()
                 .unwrap();
+            // TODO: stop creating multiple reqwest clients in tests, might not be safe
             let pwd = env::current_dir().unwrap();
             let testdir = fs::canonicalize(Path::new(&pwd).join("tests")).unwrap();
             info!("Initializing tests - using testdir {}", testdir.display());
