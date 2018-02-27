@@ -144,7 +144,7 @@ mod tests {
     #[test]
     fn get_dev_secret() {
         let mut client = Vault::default().unwrap();
-        let secret = client.read("dev-uk/amphora-svc/ASK_SECRET").unwrap();
-        assert_eq!(secret, "catdog");
+        let secret = client.read("dev-uk/test-shipcat/FAKE_SECRET").unwrap();
+        assert_eq!(secret, "hello");
     }
 }
