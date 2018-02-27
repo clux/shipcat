@@ -8,6 +8,6 @@ path "secret/*" {
 }
 
 # Only allow read access to the test variables
-path "secret/dev-uk/fake-shipcat/*" {
+path "secret/dev-uk/test-shipcat/*" {
   policy = "read"
 }
