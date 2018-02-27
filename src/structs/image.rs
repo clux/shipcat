@@ -1,5 +1,8 @@
 use std::fmt;
 
+use super::traits::Verify;
+use super::Result;
+
 /// Image to run in a pod
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Image {
@@ -19,5 +22,12 @@ impl fmt::Display for Image {
         let suffix = self.tag.clone().unwrap_or_else(|| "latest".to_string());
         // NB: assume image.name is always set at this point
         write!(f, "{}{}:{}", prefix, self.name.clone().unwrap(), suffix)
+    }
+}
+
+impl Verify for Image {
+    fn verify(&self) -> Result<()> {
+        // TODO: warn if it doesn't start with default docker repository
+        Ok(())
     }
 }

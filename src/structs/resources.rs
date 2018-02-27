@@ -35,7 +35,6 @@ pub struct Resources {
 
 impl Verify for Resources {
     fn verify(&self) -> Result<()> {
-        // 1. Verify resources
         // (We can unwrap all the values as we assume implicit called!)
         let req = self.clone().requests.unwrap();
         let lim = self.clone().limits.unwrap();
