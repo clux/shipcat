@@ -14,8 +14,11 @@ use super::vault::Vault;
 
 // All structs come from the structs directory
 use super::structs::traits::Verify;
-use super::structs::kube::*;
-use super::structs::resources::*;
+use super::structs::kube::{HealthCheck, ConfigMap};
+use super::structs::initcontainer::InitContainer;
+use super::structs::resources::Resources;
+use super::structs::hostalias::HostAlias;
+use super::structs::volume::{Volume, VolumeMount};
 use super::structs::{Metadata, DataHandling, VaultOpts, Jaeger, Dependency, Image};
 use super::structs::prometheus::{Prometheus, Dashboard};
 
@@ -397,6 +400,7 @@ impl Manifest {
         // run the `Verify` trait on all imported structs
         // mandatory structs first:
         self.resources.clone().unwrap().verify()?;
+        self.image.clone().unwrap().verify()?;
 
         // optional/vectorised entries
         for d in &self.dependencies {

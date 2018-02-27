@@ -14,10 +14,18 @@ pub use self::image::Image;
 mod jaeger;
 pub use self::jaeger::Jaeger;
 
-/// Kubernetes structs
+// Kubernetes
+/// Kube abstractions (not straight translations)
 pub mod kube;
+
 /// Kubernetes resource structs
 pub mod resources;
+/// Kubernetes volumes
+pub mod volume;
+/// Kubernetes host aliases
+pub mod hostalias;
+/// Kubernetes init containers
+pub mod initcontainer;
 
 mod metadata;
 pub use self::metadata::Metadata;
