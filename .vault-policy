@@ -1,0 +1,13 @@
+path "sys/*" {
+  policy = "deny"
+}
+
+# Default deny
+path "secret/*" {
+  policy = "deny"
+}
+
+# Only allow read access to the test variables
+path "secret/dev-uk/fake-shipcat/*" {
+  policy = "read"
+}
