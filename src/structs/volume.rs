@@ -1,6 +1,8 @@
 use super::traits::Verify;
 use super::Result;
 
+// These structs contain a straight translation of kubernetes volumes
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct VolumeSecretItem {
     #[serde(default = "volume_key")]
