@@ -1,4 +1,4 @@
-![Shipcat](.doc/shipcat-babylon.png)
+![Shipcat](shipcat.png)
 
 [![CircleCI](https://circleci.com/gh/Babylonpartners/shipcat.svg?style=shield&circle-token=1e5d93bf03a4c9d9c7f895d7de7bb21055d431ef)](https://circleci.com/gh/Babylonpartners/shipcat)
 
