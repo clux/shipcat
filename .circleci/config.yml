@@ -24,7 +24,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: cargo.registry
+          key: cargo.registry-{{ checksum "Cargo.lock" }}
       - restore_cache:
           key: target-{{ checksum "Cargo.lock" }}
       - run: cargo build --release
@@ -36,7 +36,7 @@ jobs:
           path: target/x86_64-unknown-linux-musl/release/shipcat
           destination: shipcat
       - save_cache:
-          key: cargo.registry
+          key: cargo.registry-{{ checksum "Cargo.lock" }}
           paths:
             - /root/.cargo
       - persist_to_workspace:
@@ -48,13 +48,15 @@ jobs:
     docker:
       - image: clux/muslrust:stable
     working_directory: /volume
+    environment:
+      - RUST_BACKTRACE: "full"
     steps:
       - checkout
       - restore_cache:
-          key: cargo.registry
+          key: cargo.registry-{{ checksum "Cargo.lock" }}
       - restore_cache:
           key: target-{{ checksum "Cargo.lock" }}
-      - run: cargo test
+      - run: cargo test -- --nocapture
       - run: cargo doc --no-deps
 
   docker_build:
