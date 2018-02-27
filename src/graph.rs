@@ -159,18 +159,24 @@ pub fn full(dot: bool) -> Result<CatGraph> {
 
 #[cfg(test)]
 mod tests {
+    use serde_yaml;
     use super::{generate, nodeidx_from_name};
-    use tests::use_manifests;
+    use tests::setup;
 
     #[test]
     fn graph_generate() {
-        use_manifests();
+        setup();
         let graph = generate("fake-ask", true).unwrap();
         assert!(graph.edge_count() > 0);
+        print!("got struct: \n{:?}\n", serde_yaml::to_string(&graph));
         let askidx = nodeidx_from_name("fake-ask", &graph).unwrap();
+        debug!("ask idx {:?}", askidx);
         let strgidx = nodeidx_from_name("fake-storage", &graph).unwrap();
+        debug!("strg idx {:?}", strgidx);
         let edgeidx = graph.find_edge(askidx, strgidx).unwrap();
+        debug!("edge idx {:?}", edgeidx);
         let edge = graph.edge_weight(edgeidx).unwrap();
+        debug!("edge: {:?}", edge);
         assert_eq!(edge.intent, Some("testing graph module".into()));
     }
 }
