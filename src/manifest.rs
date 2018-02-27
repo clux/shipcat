@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use serde_yaml;
+use walkdir::WalkDir;
 use regex::Regex;
 
 use std::io::prelude::*;
@@ -135,6 +136,29 @@ impl Manifest {
             ..Default::default()
         }
     }
+
+    /// Walk the services directory and return the available services
+    pub fn available() -> Result<Vec<String>> {
+        let svcsdir = Path::new(".").join("services");
+        let svcs = WalkDir::new(&svcsdir)
+            .min_depth(1)
+            .min_depth(1)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_dir());
+
+        let mut xs = vec![];
+        for e in svcs {
+            let mut cmps = e.path().components();
+            cmps.next(); // .
+            cmps.next(); // services
+            let svccomp = cmps.next().unwrap();
+            let svcname = svccomp.as_os_str().to_str().unwrap();
+            xs.push(svcname.into());
+        }
+        Ok(xs)
+    }
+
     /// Read a manifest file in an arbitrary path
     fn read_from(pwd: &PathBuf) -> Result<Manifest> {
         let mpath = pwd.join("shipcat.yml");

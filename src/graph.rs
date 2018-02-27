@@ -1,7 +1,5 @@
-use std::path::Path;
 use std::io::{self, Write};
 
-use walkdir::WalkDir;
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::dot::{Dot, Config};
 use serde_yaml;
@@ -120,25 +118,12 @@ pub fn generate(service: &str, dot: bool) -> Result<CatGraph> {
 ///
 /// But it would require: TODO: optionally filter edges around node(s)
 pub fn full(dot: bool) -> Result<CatGraph> {
-    let svcsdir = Path::new(".").join("services");
-    let svcs = WalkDir::new(&svcsdir)
-        .min_depth(1)
-        .min_depth(1)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_dir());
-
     let mut graph : CatGraph = DiGraph::<_, _>::new();
-    for e in svcs {
-        let mut cmps = e.path().components();
-        cmps.next(); // .
-        cmps.next(); // services
-        let svccomp = cmps.next().unwrap();
-        let svcname = svccomp.as_os_str().to_str().unwrap();
+    let services = Manifest::available()?;
+    for svc in services {
+        debug!("Scanning service {:?}", svc);
 
-        debug!("Scanning service {:?}", svcname);
-
-        let mf = Manifest::basic(svcname)?;
+        let mf = Manifest::basic(&svc)?;
         let node = ManifestNode::new(&mf);
         let idx = graph.add_node(node);
 
