@@ -186,11 +186,11 @@ mod tests {
     use super::{helm, Deployment};
     use super::super::Manifest;
     use super::super::template;
-    use tests::use_manifests;
+    use tests::setup;
 
     #[test]
     fn helm_create() {
-        use_manifests();
+        setup();
         let tera = template::init("fake-ask".into()).unwrap();
         let dep = Deployment {
             service: "fake-ask".into(),

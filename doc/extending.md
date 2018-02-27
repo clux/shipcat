@@ -112,11 +112,11 @@ Work with the fake manifests in shipcat's `tests/` directory to lock down functi
 #[cfg(test)]
 mod tests {
     use super::generate;
-    use tests::use_manifests;
+    use tests::setup;
 
     #[test]
     fn graph_generate() {
-        use_manifests();
+        setup();
         let res = generate("fake-ask", true).unwrap();
         assert!(res.edge_count() > 0);
         // test output properly here -  unwrap or assert! on assumptions
