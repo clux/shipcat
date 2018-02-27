@@ -14,12 +14,10 @@ use super::vault::Vault;
 
 // All structs come from the structs directory
 use super::structs::traits::Verify;
-use super::structs::kube::{HealthCheck, ConfigMap};
-use super::structs::initcontainer::InitContainer;
-use super::structs::resources::Resources;
-use super::structs::hostalias::HostAlias;
+use super::structs::{HealthCheck, ConfigMap, Image};
+use super::structs::{InitContainer, Resources, HostAlias};
 use super::structs::volume::{Volume, VolumeMount};
-use super::structs::{Metadata, DataHandling, VaultOpts, Jaeger, Dependency, Image};
+use super::structs::{Metadata, DataHandling, VaultOpts, Jaeger, Dependency};
 use super::structs::prometheus::{Prometheus, Dashboard};
 
 

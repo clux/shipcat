@@ -14,24 +14,37 @@ pub use self::image::Image;
 mod jaeger;
 pub use self::jaeger::Jaeger;
 
-// Kubernetes
-/// Kube abstractions (not straight translations)
-pub mod kube;
+// Kubernetes - first are abstractions latter ones are straight translations
 
+// abstractions - these have special handling
+/// Templated configmap abstractions
+mod config;
+pub use self::config::{ConfigMap, ConfigMappedFile};
+/// Healthcheck abstraction
+mod healthcheck;
+pub use self::healthcheck::HealthCheck;
+
+// translations - these are typically inlined in templates as yaml
 /// Kubernetes resource structs
-pub mod resources;
+mod resources;
+pub use self::resources::Resources;
 /// Kubernetes volumes
 pub mod volume;
+pub use self::volume::{Volume, VolumeMount};
 /// Kubernetes host aliases
-pub mod hostalias;
+mod hostalias;
+pub use self::hostalias::HostAlias;
 /// Kubernetes init containers
-pub mod initcontainer;
+mod initcontainer;
+pub use self::initcontainer::InitContainer;
+
 
 mod metadata;
 pub use self::metadata::Metadata;
 
 /// Prometheus structs
 pub mod prometheus;
+
 
 mod security;
 pub use self::security::DataHandling;
