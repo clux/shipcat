@@ -183,8 +183,7 @@ impl Manifest {
         if self.image.is_none() {
             self.image = Some(Image {
                 name: Some(self.name.clone()),
-                repository: None,
-                tag: None,
+                ..Default::default()
             });
         }
 

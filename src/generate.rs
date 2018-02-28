@@ -141,6 +141,10 @@ pub fn helm(dep: &Deployment) -> Result<String> {
             f.value = Some(res);
         }
     }
+    // attach the full image string
+    if let Some(ref mut img) = mf.image {
+        img.value = Some(format!("{}", img));
+    }
 
     let encoded = serde_yaml::to_string(&mf)?;
     info!("Writing helm value to {}", pth.display());

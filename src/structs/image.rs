@@ -13,6 +13,10 @@ pub struct Image {
     /// Tag to fetch the image from (defaults to latest)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
+
+    /// Filled in display value
+    #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
 }
 impl fmt::Display for Image {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
