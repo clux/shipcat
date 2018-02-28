@@ -1,6 +1,7 @@
 FROM alpine:3.6
 
 ENV KUBEVER=1.9.1 \
+    HELMVER=2.8.1 \
     HOME=/config \
     SSL_CERT_DIR=/etc/ssl/certs/
 
@@ -13,15 +14,24 @@ ADD https://storage.googleapis.com/kubernetes-release/release/v${KUBEVER}/bin/li
 RUN set -x && \
     apk add --no-cache curl ca-certificates make bash && \
     chmod +x /usr/local/bin/kubectl && \
+    curl https://storage.googleapis.com/kubernetes-helm/helm-v${HELMVER}-linux-amd64.tar.gz | tar xz -C /usr/local/bin --strip-components=1 && \
     \
     # Create non-root user
     adduser kubectl -Du 1000 -h /config && \
     \
     # Basic check it works.
     kubectl version --client && \
-    shipcat --version
+    shipcat --version && \
+    helm version -c
 
-# Add yamllint as well for convenience
+# Setup helm and plugins
+RUN set x && \
+    apk add --no-cache git && \
+    helm init -c && \
+    helm plugin install https://github.com/databus23/helm-diff && \
+    apk del git
+
+# Add yamllint as well for convenience - can be removed soon
 RUN apk add --no-cache python3 && pip3 install yamllint
 
 USER kubectl
