@@ -26,14 +26,11 @@ pub struct RenderedConfig {
 
 // base context with variables used by templates
 fn make_base_context(dep: &Deployment) -> Result<Context> {
-    // env-loc == region
-    let region = format!("{}-{}", dep.environment, dep.location);
-
     let mut ctx = Context::new();
     ctx.add("namespace", &dep.manifest.namespace);
     ctx.add("env", &dep.manifest.env);
     ctx.add("service", &dep.service);
-    ctx.add("region", &region);
+    ctx.add("region", &dep.region);
     Ok(ctx)
 }
 
@@ -106,10 +103,8 @@ pub fn create_output(pwd: &PathBuf) -> Result<()> {
 pub struct Deployment {
     /// Service name (same as manifest.name)
     pub service: String,
-    /// Environment folder (one of: dev / qa / preprod / prod )
-    pub environment: String,
-    /// Location parameter (one of: uk )
-    pub location: String,
+    /// Region parameter
+    pub region: String,
     /// Manifest
     pub manifest: Manifest,
     /// Context bound template render function
