@@ -198,8 +198,7 @@ mod tests {
         let tera = template::init("fake-ask".into()).unwrap();
         let dep = Deployment {
             service: "fake-ask".into(),
-            environment: "dev".into(),
-            location: "uk".into(),
+            region: "dev-uk".into(),
             manifest: Manifest::basic("fake-ask").unwrap(),
             // only provide template::render as the interface (move tera into this)
             render: Box::new(move |tmpl, context| {
