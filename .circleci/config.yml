@@ -66,5 +66,7 @@ jobs:
       - attach_workspace:
           at: .
       - run: docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
+      - run: ls -lah **
+      - run: make build
       - run: make tag-latest
       - run: make tag-semver
