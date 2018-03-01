@@ -56,9 +56,13 @@ pub struct Manifest {
 
     // Kubernetes specific flags
 
-    /// Namepace - dev or internal only
+    /// Namepace
     #[serde(default = "namespace_default")]
     pub namespace: String,
+
+    /// Chart to use for the service
+    #[serde(default = "chart_default")]
+    pub chart: String,
 
     /// Resource limits and requests
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -100,6 +104,12 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub volumes: Vec<Volume>,
 
+
+
+    /// Service annotations (for internal services only)
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub serviceAnnotations: BTreeMap<String, String>,
+
     // TODO: boot time -> minReadySeconds
 
 
@@ -124,6 +134,7 @@ pub struct Manifest {
     #[serde(skip_serializing, skip_deserializing)]
     pub _location: String,
 }
+fn chart_default() -> String { "base".into() }
 fn namespace_default() -> String { "dev".into() }
 fn replica_count_default() -> u32 { 2 } // TODO: 1?
 
@@ -343,12 +354,6 @@ impl Manifest {
             debug!("Merging environment globals from {}", envglobals.display());
             self.merge(&envglobals)?;
         }
-        // set namespace property
-        let region_parts : Vec<_> = region.split('-').collect();
-        if region_parts.len() != 2 {
-            bail!("invalid region {} of len {}", region, region.len());
-        };
-        self._location = region_parts[1].into();
         Ok(())
     }
 
@@ -431,6 +436,11 @@ impl Manifest {
                 bail!("Unsupported region {} without region file {}",
                     r, regionfile.display());
             }
+            let region_parts : Vec<_> = r.split('-').collect();
+            if region_parts.len() != 2 {
+                bail!("invalid region {} of len {}", r, r.len());
+            };
+            // TODO: verify allowed namespaces per region
         }
         if self.regions.is_empty() {
             bail!("No regions specified for {}", self.name);
@@ -452,7 +462,9 @@ impl Manifest {
             warn!("{} does not set a health check", self.name)
         }
 
-        // TODO: verify namespace in allowed namespaces
+        if !self.serviceAnnotations.is_empty() {
+            warn!("serviceAnnotation is an experimental/temporary feature")
+        }
 
         Ok(())
     }
