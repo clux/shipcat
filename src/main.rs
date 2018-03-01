@@ -141,7 +141,7 @@ fn main() {
                 .long("dot")
                 .help("Generate dot output for graphviz"))
               .about("Graph the dependencies of a service"))
-        .subcommand(SubCommand::with_name("list-environments")
+        .subcommand(SubCommand::with_name("list-regions")
             .setting(AppSettings::Hidden)
             .about("list supported k8s environments"));
 
@@ -155,8 +155,8 @@ fn main() {
         .init()
         .unwrap();
 
-    if args.subcommand_matches("list-environments").is_some() {
-        result_exit(args.subcommand_name().unwrap(), shipcat::list::environments())
+    if args.subcommand_matches("list-regions").is_some() {
+        result_exit(args.subcommand_name().unwrap(), shipcat::list::regions())
     }
     // clients for network related subcommands
     openssl_probe::init_ssl_cert_env_vars();
