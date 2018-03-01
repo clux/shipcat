@@ -354,12 +354,6 @@ impl Manifest {
             debug!("Merging environment globals from {}", envglobals.display());
             self.merge(&envglobals)?;
         }
-        // set namespace property
-        let region_parts : Vec<_> = region.split('-').collect();
-        if region_parts.len() != 2 {
-            bail!("invalid region {} of len {}", region, region.len());
-        };
-        self._location = region_parts[1].into();
         Ok(())
     }
 
@@ -442,6 +436,11 @@ impl Manifest {
                 bail!("Unsupported region {} without region file {}",
                     r, regionfile.display());
             }
+            let region_parts : Vec<_> = r.split('-').collect();
+            if region_parts.len() != 2 {
+                bail!("invalid region {} of len {}", r, r.len());
+            };
+            // TODO: verify allowed namespaces per region
         }
         if self.regions.is_empty() {
             bail!("No regions specified for {}", self.name);
@@ -462,8 +461,6 @@ impl Manifest {
         if self.health.is_none() {
             warn!("{} does not set a health check", self.name)
         }
-
-        // TODO: verify namespace in allowed namespaces
 
         if !self.serviceAnnotations.is_empty() {
             warn!("serviceAnnotation is an experimental/temporary feature")
