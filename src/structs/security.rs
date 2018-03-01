@@ -17,6 +17,7 @@ pub struct DataHandling {
     /// Encryption is in use at the storage side
     ///
     /// If either pii or spii is true, then this must be true
+    #[serde(default)]
     pub encrypted: bool,
 
     // Data is encryption strategies
