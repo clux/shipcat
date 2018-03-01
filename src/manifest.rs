@@ -100,6 +100,12 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub volumes: Vec<Volume>,
 
+
+
+    /// Service annotations (for internal services only)
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub serviceAnnotations: BTreeMap<String, String>,
+
     // TODO: boot time -> minReadySeconds
 
 
@@ -453,6 +459,10 @@ impl Manifest {
         }
 
         // TODO: verify namespace in allowed namespaces
+
+        if !self.serviceAnnotations.is_empty() {
+            warn!("serviceAnnotation is an experimental/temporary feature")
+        }
 
         Ok(())
     }
