@@ -8,7 +8,7 @@ _shipcat()
     _init_completion || return
 
     local -r subcommands="help validate generate ship shell logs graph
-                          list-environments"
+                          list-regions"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
@@ -48,7 +48,7 @@ _shipcat()
                 if [[ $prev = @(generate|ship) ]]; then
                     COMPREPLY=($(compgen -W "-r --region" -- "$cur"))
                 elif [[ $prev == @(-r|--region) ]]; then
-                    local -r regions="dev-uk"
+                    local -r regions="$(shipcat list-regions)"
                     COMPREPLY=($(compgen -W "$regions" -- "$cur"))
                 else
                     svcs=$(find "./services" -maxdepth 1 -mindepth 1 -type d -printf "%f " 2> /dev/null)
@@ -60,7 +60,7 @@ _shipcat()
                 if [[ $prev = @(shell|logs) ]]; then
                     COMPREPLY=($(compgen -W "-r --region -p --pod $svcs" -- "$cur"))
                 elif [[ $prev == @(-r|--region) ]]; then
-                    local -r regions="dev-uk"
+                    local -r regions="$(shipcat list-regions)"
                     COMPREPLY=($(compgen -W "$regions" -- "$cur"))
                 elif [[ $prev == @(-p|--pod) ]]; then
                     local -r pods="1 2 3 4 5 6"

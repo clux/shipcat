@@ -2,8 +2,8 @@
 
 use super::Result;
 
-/// Print the supported environments
-pub fn environments() -> Result<()> {
+/// Print the supported regions
+pub fn regions() -> Result<()> {
     // TODO: look for override files in the environments folder!
     println!("dev-uk");
     println!("dev-global1");
