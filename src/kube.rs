@@ -25,6 +25,7 @@ fn kout(args: Vec<String>) -> Result<String> {
 
 /// Rollout an image update to an existing deployment
 ///
+/// Deprecated.
 /// This kurrently uses kubectl rollout set image under the hood.
 /// This will be replaced by `helm install` in the future
 pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
@@ -32,11 +33,7 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
     let confargs = vec!["config".into(), "current-context".into()];
     kexec(confargs)?;
 
-    let env = mf.namespace.clone();
-    //let loc = mf._location.clone();
-    //assert!(region.starts_with(&env));
-    //assert!(region.ends_with(&loc));
-
+    let ns = mf.namespace.clone();
     // TODO: check if access to roll out deployment!
 
     let mut img = mf.image.clone().unwrap();
@@ -48,7 +45,7 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
         format!("deployment/{}", mf.name),
         format!("{}={}", mf.name, img),
         "-n".into(),
-        env.clone(),
+        ns.clone(),
     ];
     println!("kubectl {}", args.join(" "));
     kexec(args)?;
@@ -58,7 +55,7 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
         "status".into(),
         format!("deployment/{}", mf.name),
         "-n".into(),
-        env.clone(),
+        ns.clone(),
     ];
     // simple check for routout status first
     match kexec(rollargs.clone()) {
@@ -71,7 +68,7 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
                 "pods".into(),
                 format!("-l=app={}", mf.name),
                 "-n".into(),
-                env.into(),
+                ns.into(),
             ];
             kexec(podargs)?;
             bail!("rollout failed to succeed in 5minutes");
@@ -84,8 +81,8 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
 }
 
 
-fn get_pods(name: &str, env: &str) -> Result<String> {
-    //kubectl get pods -l=app=$* -n $(ENV) -o jsonpath='{.items[*].metadata.name}'
+fn get_pods(name: &str, ns: &str) -> Result<String> {
+    //kubectl get pods -l=app=$* -n $ns -o jsonpath='{.items[*].metadata.name}'
     let mut podargs = vec![
         "get".into(),
         "pods".into(),
@@ -94,9 +91,9 @@ fn get_pods(name: &str, env: &str) -> Result<String> {
         "jsonpath='{.items[*].metadata.name}'".into(),
     ];
     // TODO: filter out ones not running conditionally - exec wont work with this
-    if env != "" {
+    if ns != "" {
         podargs.push("-n".into());
-        podargs.push(env.into());
+        podargs.push(ns.into());
     }
     let podsres = kout(podargs)?;
     debug!("Active pods: {:?}", podsres);
@@ -111,10 +108,9 @@ pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
 
     // region might not be set for this command
     // rely on kubectl context to work it out if unset
-    let env = mf.namespace.clone();
-    //let loc = mf._location.clone();
+    let ns = mf.namespace.clone();
 
-    let podsres = get_pods(&mf.name, &env)?;
+    let podsres = get_pods(&mf.name, &ns)?;
     let pods = podsres.split(' ');
 
     let mut num = 0;
@@ -129,16 +125,16 @@ pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
         }
 
         info!("Shelling into {}", p);
-        //kubectl exec -n $(ENV) -it $$pod sh
+        //kubectl exec -n $ns -it $$pod sh
         let mut execargs = vec![
             "exec".into(),
             "-it".into(),
             p.into(),
             "sh".into(),
         ];
-        if env != "" {
+        if ns != "" {
             execargs.push("-n".into());
-            execargs.push(env.clone());
+            execargs.push(ns.clone());
         }
         kexec(execargs)?;
     }
@@ -153,10 +149,9 @@ pub fn logs(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
 
     // region might not be set for this command
     // rely on kubectl context to work it out if unset
-    let env = mf.namespace.clone();
-    //let loc = mf._location.clone();
+    let ns = mf.namespace.clone();
 
-    let podsres = get_pods(&mf.name, &env)?;
+    let podsres = get_pods(&mf.name, &ns)?;
     let pods = podsres.split(' ');
 
     let mut num = 0;
@@ -176,9 +171,9 @@ pub fn logs(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
             "logs".into(),
             p.into(),
         ];
-        if env != "" {
+        if ns != "" {
             logargs.push("-n".into());
-            logargs.push(env.clone());
+            logargs.push(ns.clone());
         }
         kexec(logargs)?;
     }

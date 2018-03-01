@@ -26,14 +26,11 @@ pub struct RenderedConfig {
 
 // base context with variables used by templates
 fn make_base_context(dep: &Deployment) -> Result<Context> {
-    // env-loc == region
-    let region = format!("{}-{}", dep.environment, dep.location);
-
     let mut ctx = Context::new();
     ctx.add("namespace", &dep.manifest.namespace);
     ctx.add("env", &dep.manifest.env);
     ctx.add("service", &dep.service);
-    ctx.add("region", &region);
+    ctx.add("region", &dep.region);
     Ok(ctx)
 }
 
@@ -106,10 +103,8 @@ pub fn create_output(pwd: &PathBuf) -> Result<()> {
 pub struct Deployment {
     /// Service name (same as manifest.name)
     pub service: String,
-    /// Environment folder (one of: dev / qa / preprod / prod )
-    pub environment: String,
-    /// Location parameter (one of: uk )
-    pub location: String,
+    /// Region parameter
+    pub region: String,
     /// Manifest
     pub manifest: Manifest,
     /// Context bound template render function
@@ -120,6 +115,10 @@ impl Deployment {
         if self.service != self.manifest.name {
             bail!("manifest name does not match service name");
         }
+        if !self.manifest.regions.contains(&self.region) {
+            warn!("Using region '{}', but supported regions: {:?}", self.region, self.manifest.regions);
+            bail!("manifest does not contain specified region");
+        }
         Ok(())
     }
 }
@@ -128,6 +127,7 @@ impl Deployment {
 ///
 /// Fills in service specific config files into config to help helm out
 pub fn helm(dep: &Deployment) -> Result<String> {
+    dep.check()?; // sanity check on deployment
     let pwd = Path::new(".");
     create_output(&pwd.to_path_buf())?;
     let pth = pwd.join("OUTPUT").join("helm.yml");
@@ -198,8 +198,7 @@ mod tests {
         let tera = template::init("fake-ask".into()).unwrap();
         let dep = Deployment {
             service: "fake-ask".into(),
-            environment: "dev".into(),
-            location: "uk".into(),
+            region: "dev-uk".into(),
             manifest: Manifest::basic("fake-ask").unwrap(),
             // only provide template::render as the interface (move tera into this)
             render: Box::new(move |tmpl, context| {

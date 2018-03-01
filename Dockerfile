@@ -12,7 +12,7 @@ ADD shipcat /usr/local/bin/shipcat
 ADD https://storage.googleapis.com/kubernetes-release/release/v${KUBEVER}/bin/linux/amd64/kubectl /usr/local/bin/kubectl
 
 RUN set -x && \
-    apk add --no-cache curl ca-certificates make bash && \
+    apk add --no-cache curl ca-certificates make bash jq && \
     chmod +x /usr/local/bin/kubectl && \
     curl https://storage.googleapis.com/kubernetes-helm/helm-v${HELMVER}-linux-amd64.tar.gz | tar xz -C /usr/local/bin --strip-components=1 && \
     \
@@ -31,7 +31,7 @@ RUN set x && \
     helm plugin install https://github.com/databus23/helm-diff && \
     apk del git
 
-# Add yamllint as well for convenience - can be removed soon
-RUN apk add --no-cache python3 && pip3 install yamllint
+# Add yamllint+yq for convenience
+RUN apk add --no-cache python3 && pip3 install yamllint yq
 
 USER kubectl
