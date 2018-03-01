@@ -56,9 +56,13 @@ pub struct Manifest {
 
     // Kubernetes specific flags
 
-    /// Namepace - dev or internal only
+    /// Namepace
     #[serde(default = "namespace_default")]
     pub namespace: String,
+
+    /// Chart to use for the service
+    #[serde(default = "chart_default")]
+    pub chart: String,
 
     /// Resource limits and requests
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -130,6 +134,7 @@ pub struct Manifest {
     #[serde(skip_serializing, skip_deserializing)]
     pub _location: String,
 }
+fn chart_default() -> String { "base".into() }
 fn namespace_default() -> String { "dev".into() }
 fn replica_count_default() -> u32 { 2 } // TODO: 1?
 
