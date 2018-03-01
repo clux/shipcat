@@ -115,6 +115,10 @@ impl Deployment {
         if self.service != self.manifest.name {
             bail!("manifest name does not match service name");
         }
+        if !self.manifest.regions.contains(&self.region) {
+            warn!("Using region '{}', but supported regions: {:?}", self.region, self.manifest.regions);
+            bail!("manifest does not contain specified region");
+        }
         Ok(())
     }
 }
@@ -123,6 +127,7 @@ impl Deployment {
 ///
 /// Fills in service specific config files into config to help helm out
 pub fn helm(dep: &Deployment) -> Result<String> {
+    dep.check()?; // sanity check on deployment
     let pwd = Path::new(".");
     create_output(&pwd.to_path_buf())?;
     let pth = pwd.join("OUTPUT").join("helm.yml");
