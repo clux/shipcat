@@ -4,7 +4,7 @@ Our `shipcat` CLI aims to provide a declarative interface to complex services vi
 The [shipcat manifests guide](https://engineering.ops.babylontech.co.uk/docs/cicd-shipcat-manifests/) has an introduction, and explanations of the data currently supported.
 
 # Extending the manifests
-The procedure for adding automation to `shipcat` is to write a little bit of [rust](/docs/languages-rust/) in the following way:
+The procedure for adding automation to `shipcat` is to write a little bit of [rust](https://engineering.ops.babylontech.co.uk/docs/languages-rust/) in the following way:
 
 ## 1. Define Structs
 This is done in shipcat's [structs directory](https://github.com/Babylonpartners/shipcat/tree/master/src/structs) by defining your new structs. Here's the recently added `Dependency` struct (which was used to add `graph` functionality later on).
