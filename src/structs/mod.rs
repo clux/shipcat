@@ -54,3 +54,8 @@ pub use self::vault::VaultOpts;
 
 /// Traits that the structs can implement
 pub mod traits;
+
+/// Cron Jobs
+pub mod cronjob;
+pub use self::cronjob::CronJob;
+
