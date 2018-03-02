@@ -5,10 +5,11 @@ use petgraph::dot::{Dot, Config};
 use serde_yaml;
 
 use super::structs::Dependency;
+use std::fmt::{self, Debug};
 use super::{Manifest, Result};
 
 /// The node type in `CatGraph` representing a `Manifest`
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ManifestNode {
     pub name: String,
     //pub image: String,
@@ -20,6 +21,11 @@ impl ManifestNode {
             // image would be nice, but requires env override atm - should be global
             //image: format!("{}", mf.image.clone().unwrap()),
         }
+    }
+}
+impl Debug for ManifestNode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
     }
 }
 
