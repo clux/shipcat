@@ -2,7 +2,7 @@
 authors = ["Eirik Albrigtsen <eirik.albrigtsen@babylonhealth.com>"]
 name = "shipcat"
 readme = "README.md"
-version = "0.9.0"
+version = "0.9.1"
 
 [[bin]]
 doc = false
