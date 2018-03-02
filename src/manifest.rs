@@ -19,6 +19,7 @@ use super::structs::{InitContainer, Resources, HostAlias};
 use super::structs::volume::{Volume, VolumeMount};
 use super::structs::{Metadata, DataHandling, VaultOpts, Jaeger, Dependency};
 use super::structs::prometheus::{Prometheus, Dashboard};
+use super::structs::{CronJob};
 
 
 /// Main manifest, serializable from shipcat.yml
@@ -103,6 +104,9 @@ pub struct Manifest {
     /// Volumes
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub volumes: Vec<Volume>,
+    /// CronJobs
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cronJobs: Vec<CronJob>,
 
 
 
