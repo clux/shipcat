@@ -481,7 +481,7 @@ impl Manifest {
 /// and `verify` their parameters.
 /// Optionally, it will also verify that all secrets are found in the corresponding
 /// vault locations serverside (which require vault credentials).
-pub fn validate(service: &str, secrets: bool) -> Result<()> {
+pub fn validate(service: &str, region: Option<String>, secrets: bool) -> Result<()> {
     let pth = Path::new(".").join("services").join(service);
     if !pth.exists() {
         bail!("Service folder {} does not exist", pth.display())
@@ -490,19 +490,38 @@ pub fn validate(service: &str, secrets: bool) -> Result<()> {
     if mf.name != service {
         bail!("Service name must equal the folder name");
     }
-    for region in mf.regions.clone() {
+    if let Some(r) = region {
         let mut mfr = mf.clone();
+        if !mf.regions.contains(&r) {
+            bail!("{} is not configured to be deployed in {}", service, r)
+        }
         if secrets {
             // need a new one for each region!
             let mut vault = Vault::default().unwrap();
             vault.mock_secrets(); // not needed for output
-            mfr.fill(&region, Some(&mut vault))?;
+            mfr.fill(&r, Some(&mut vault))?;
         } else {
-            mfr.fill(&region, None)?;
+            mfr.fill(&r, None)?;
         }
         mfr.verify()?;
-        info!("validated {} for {}", service, region);
+        info!("validated {} for specific {}", service, r);
         mfr.print()?; // print it if sufficient verbosity
+    }
+    else {
+        for r in mf.regions.clone() {
+            let mut mfr = mf.clone();
+            if secrets {
+                // need a new one for each region!
+                let mut vault = Vault::default().unwrap();
+                vault.mock_secrets(); // not needed for output
+                mfr.fill(&r, Some(&mut vault))?;
+            } else {
+                mfr.fill(&r, None)?;
+            }
+            mfr.verify()?;
+            info!("validated {} for {}", service, r);
+            mfr.print()?; // print it if sufficient verbosity
+        }
     }
     Ok(())
 }
@@ -516,9 +535,9 @@ mod tests {
     #[test]
     fn graph_generate() {
         setup();
-        let res = validate("fake-ask", true);
+        let res = validate("fake-ask", Some("dev-uk".into()), true);
         assert!(res.is_ok());
-        let res2 = validate("fake-storage", false);
+        let res2 = validate("fake-storage", None, false);
         assert!(res2.is_ok())
     }
 }

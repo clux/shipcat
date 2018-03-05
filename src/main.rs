@@ -129,6 +129,11 @@ fn main() {
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
+              .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Specific region to check"))
               .arg(Arg::with_name("secrets")
                 .short("s")
                 .long("secrets")
@@ -198,7 +203,8 @@ fn main() {
     // Handle subcommands dumb subcommands
     if let Some(a) = args.subcommand_matches("validate") {
         let service = a.value_of("service").unwrap();
-        result_exit(args.subcommand_name().unwrap(), shipcat::validate(service, a.is_present("secrets")))
+        let region = a.value_of("region").map(String::from);
+        result_exit(args.subcommand_name().unwrap(), shipcat::validate(service, region, a.is_present("secrets")))
     }
     if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");
