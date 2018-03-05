@@ -148,7 +148,13 @@ fn main() {
               .about("Graph the dependencies of a service"))
         .subcommand(SubCommand::with_name("list-regions")
             .setting(AppSettings::Hidden)
-            .about("list supported k8s environments"));
+            .about("list supported regions/clusters"))
+        .subcommand(SubCommand::with_name("list-services")
+            .setting(AppSettings::Hidden)
+            .arg(Arg::with_name("region")
+                .required(true)
+                .help("Region to filter on"))
+            .about("list supported services for a specified"));
 
     let args = app.get_matches();
 
@@ -162,6 +168,10 @@ fn main() {
 
     if args.subcommand_matches("list-regions").is_some() {
         result_exit(args.subcommand_name().unwrap(), shipcat::list::regions())
+    }
+    if let Some(a) = args.subcommand_matches("list-services") {
+        let r = a.value_of("region").unwrap().into();
+        result_exit(args.subcommand_name().unwrap(), shipcat::list::services(r))
     }
     // clients for network related subcommands
     openssl_probe::init_ssl_cert_env_vars();
