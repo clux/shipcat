@@ -1,5 +1,6 @@
 use super::traits::Verify;
 use super::Result;
+use std::collections::BTreeMap;
 
 // These structs contain a straight translation of kubernetes volumes
 
@@ -40,6 +41,10 @@ pub struct Volume {
     /// The secret is fetched  from kube secrets and mounted as a volume
     #[serde(skip_serializing_if = "Option::is_none")]
     pub secret: Option<VolumeSecretDetail>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub emptyDir: Option<BTreeMap<String, String>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub persistentVolumeClaim: BTreeMap<String, String>,
 }
 
 impl Verify for Volume {
