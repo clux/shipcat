@@ -17,7 +17,6 @@ use std::process;
 
 fn result_exit<T>(name: &str, x: Result<T>) {
     let _ = x.map_err(|e| {
-        println!(); // add a separator
         error!("{} error: {}", name, e);
         debug!("{}: {:?}", name, e); // in the off-chance that Debug is useful
         process::exit(1);

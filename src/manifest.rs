@@ -386,7 +386,7 @@ impl Manifest {
     /// Print manifest to debug output
     pub fn print(&self) -> Result<()> {
         let encoded = serde_yaml::to_string(self)?;
-        debug!("{}\n", encoded);
+        trace!("{}\n", encoded);
         Ok(())
     }
 
