@@ -7,12 +7,12 @@ _shipcat()
     local cur prev words cword
     _init_completion || return
 
-    local -r subcommands="help validate generate ship shell logs graph
-                          list-regions"
+    local -r subcommands="help validate generate shell logs graph
+                          list-regions list-services"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(init|help|validate|generate|status|ship|shell|logs|graph) ]]; then
+        if [[ ${words[i]} == @(help|validate|generate|status|shell|logs|graph) ]]; then
             has_sub=1
         fi
     done
@@ -31,21 +31,38 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(generate|validate|ship|shell|logs|graph) ]]; then
+        if [[ ${words[i]} == @(generate|validate|shell|logs|graph|list-services) ]]; then
             special=${words[i]}
         fi
     done
 
     if [[ -n $special ]]; then
         case $special in
+            list-services)
+                local -r regions="$(shipcat list-regions)"
+                COMPREPLY=($(compgen -W "$regions" -- "$cur"))
+                ;;
             validate|graph)
+                local -r regions="$(shipcat list-regions)"
                 if [[ $prev = @(graph|validate) ]]; then
                     svcs=$(find "./services" -maxdepth 1 -mindepth 1 -type d -printf "%f " 2> /dev/null)
+                    COMPREPLY=($(compgen -W "$svcs -r --region" -- "$cur"))
+                elif [[ $prev == @(-r|--region) ]]; then
+                    COMPREPLY=($(compgen -W "$regions" -- "$cur"))
+                else
+                    # Identify which region we used
+                    local region i
+                    for (( i=2; i < ${#words[@]}-1; i++ )); do
+                        if [[ ${words[i]} != -* ]] && echo "$regions" | grep -q "${words[i]}"; then
+                            region=${words[i]}
+                        fi
+                    done
+                    local -r svcs="$(shipcat list-services "$region")"
                     COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 fi
                 ;;
-            generate|ship)
-                if [[ $prev = @(generate|ship) ]]; then
+            generate)
+                if [[ $prev = generate ]]; then
                     COMPREPLY=($(compgen -W "-r --region" -- "$cur"))
                 elif [[ $prev == @(-r|--region) ]]; then
                     local -r regions="$(shipcat list-regions)"
