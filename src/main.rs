@@ -17,7 +17,6 @@ use std::process;
 
 fn result_exit<T>(name: &str, x: Result<T>) {
     let _ = x.map_err(|e| {
-        println!(); // add a separator
         error!("{} error: {}", name, e);
         debug!("{}: {:?}", name, e); // in the off-chance that Debug is useful
         process::exit(1);
@@ -129,6 +128,11 @@ fn main() {
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
+              .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Specific region to check"))
               .arg(Arg::with_name("secrets")
                 .short("s")
                 .long("secrets")
@@ -143,7 +147,13 @@ fn main() {
               .about("Graph the dependencies of a service"))
         .subcommand(SubCommand::with_name("list-regions")
             .setting(AppSettings::Hidden)
-            .about("list supported k8s environments"));
+            .about("list supported regions/clusters"))
+        .subcommand(SubCommand::with_name("list-services")
+            .setting(AppSettings::Hidden)
+            .arg(Arg::with_name("region")
+                .required(true)
+                .help("Region to filter on"))
+            .about("list supported services for a specified"));
 
     let args = app.get_matches();
 
@@ -157,6 +167,10 @@ fn main() {
 
     if args.subcommand_matches("list-regions").is_some() {
         result_exit(args.subcommand_name().unwrap(), shipcat::list::regions())
+    }
+    if let Some(a) = args.subcommand_matches("list-services") {
+        let r = a.value_of("region").unwrap().into();
+        result_exit(args.subcommand_name().unwrap(), shipcat::list::services(r))
     }
     // clients for network related subcommands
     openssl_probe::init_ssl_cert_env_vars();
@@ -198,7 +212,8 @@ fn main() {
     // Handle subcommands dumb subcommands
     if let Some(a) = args.subcommand_matches("validate") {
         let service = a.value_of("service").unwrap();
-        result_exit(args.subcommand_name().unwrap(), shipcat::validate(service, a.is_present("secrets")))
+        let region = a.value_of("region").map(String::from);
+        result_exit(args.subcommand_name().unwrap(), shipcat::validate(service, region, a.is_present("secrets")))
     }
     if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");

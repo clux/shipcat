@@ -23,6 +23,7 @@ impl ManifestNode {
         }
     }
 }
+// Debug is used for the `dot` interface - nice to have a minimal output for that
 impl Debug for ManifestNode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name)
