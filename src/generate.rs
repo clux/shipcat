@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::fs::{self, File};
 use std::io::prelude::*;
+use std::io;
 
 use serde_yaml;
 
@@ -145,13 +146,14 @@ pub fn helm(dep: &Deployment, output: Option<String>) -> Result<String> {
     let encoded = serde_yaml::to_string(&mf)?;
     if let Some(o) = output {
         let pth = Path::new(".").join(o);
-        info!("Writing helm value to {}", pth.display());
+        info!("Writing helm values for {} to {}", dep.service, pth.display());
         let mut f = File::create(&pth)?;
         write!(f, "{}\n", encoded)?;
-        debug!("Wrote helm values to {}: \n{}", pth.display(), encoded);
+        debug!("Wrote helm values for {} to {}: \n{}", dep.service, pth.display(), encoded);
     } else {
         // stdout only
         print!("{}", encoded);
+        io::stdout().flush()?; // allow piping stdout elsewhere
     }
     Ok(encoded)
 }
