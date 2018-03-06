@@ -61,6 +61,11 @@ fn main() {
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
+            .arg(Arg::with_name("output")
+                .short("o")
+                .long("output")
+                .takes_value(true)
+                .help("Output file to save to"))
             .about("Generate kubefile from manifest"))
         .subcommand(SubCommand::with_name("logs")
             .arg(Arg::with_name("region")
@@ -201,8 +206,9 @@ fn main() {
         };
         conditional_exit(dep.check()); // some sanity asserts
 
+        let output = a.value_of("output").map(String::from);
         let res = if a.is_present("helm") {
-            shipcat::generate::helm(&dep)
+            shipcat::generate::helm(&dep, output)
         } else {
             shipcat::generate::deployment(&dep, false, true)
         };
