@@ -5,7 +5,7 @@
 [![Docker Repository on Quay](https://quay.io/repository/babylonhealth/kubecat/status?token=6de24c74-1576-467f-8658-ec224df9302d "Docker Repository on Quay")](https://quay.io/repository/babylonhealth/kubecat)
 
 
-A small CLI helper to manage microservice deployments running on `kubernetes` via `shipcat.yml`. Lives [on your ship](https://en.wikipedia.org/wiki/Ship%27s_cat).
+A small CLI automation tool to help manage microservice deployments running on `kubernetes` via `shipcat.yml`. Lives [on your ship](https://en.wikipedia.org/wiki/Ship%27s_cat).
 
 ## Installation
 To build yourself, use [rustup](https://rustup.rs/) to get latest stable rust.
@@ -18,7 +18,7 @@ echo "source $PWD/shipcat.complete.sh" >> ~/.bash_completion
 ```
 
 ## Usage
-In general, add keys to your `shipcat.yml` file in the [manifests repo](https://github.com/Babylonpartners/manifests) and make sure `shipcat validate` passes.
+In general, define your `shipcat.yml` file in the [manifests repo](https://github.com/Babylonpartners/manifests) and make sure `shipcat validate` passes.
 
 If you have `vault` credentials you can generate the complete kube file.
 
@@ -26,8 +26,7 @@ If you have `vault` credentials you can generate the complete kube file.
 export VAULT_ADDR=...
 export VAULT_TOKEN=...
 
-shipcat validate babylbot
-shipcat generate -r dev-uk babylbot
+shipcat validate -r dev-uk babylbot --secrets
 ```
 
 
