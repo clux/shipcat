@@ -13,12 +13,14 @@ use shipcat::*;
 #[allow(unused_imports)]
 use clap::{Arg, App, AppSettings, SubCommand, ArgMatches};
 use std::process;
+use std::io::{self, Write};
 
 
 fn result_exit<T>(name: &str, x: Result<T>) {
     let _ = x.map_err(|e| {
         error!("{} error: {}", name, e);
         debug!("{}: {:?}", name, e); // in the off-chance that Debug is useful
+        io::stdout().flush().unwrap(); // allow piping stdout elsewhere even if it crashes
         process::exit(1);
     });
     process::exit(0);
