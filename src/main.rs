@@ -61,6 +61,28 @@ fn main() {
                 .short("q")
                 .long("short")
                 .help("Output short resource format")))
+        .subcommand(SubCommand::with_name("helm")
+            .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .required(true)
+                .takes_value(true)
+                .help("Region to deploy to (dev-uk, dev-qa, prod-uk)"))
+            .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service name"))
+            .subcommand(SubCommand::with_name("template")
+                .arg(Arg::with_name("output")
+                    .short("o")
+                    .long("output")
+                    .takes_value(true)
+                    .help("Output file to save to")))
+            .subcommand(SubCommand::with_name("upgrade")
+                .arg(Arg::with_name("output")
+                    .short("o")
+                    .long("output")
+                    .takes_value(true)
+                    .help("Output file to save to"))))
         .subcommand(SubCommand::with_name("generate")
             .arg(Arg::with_name("region")
                 .short("r")
@@ -194,11 +216,43 @@ fn main() {
     openssl_probe::init_ssl_cert_env_vars();
 
 
+    if let Some(a) = args.subcommand_matches("helm") {
+        let service = a.value_of("service").unwrap();
+        let region = a.value_of("region").unwrap(); // TODO: infer if possible!
+
+        // templating engine
+        let tera = conditional_exit(shipcat::template::init(service));
+        let mut vault = conditional_exit(shipcat::vault::Vault::default());
+        let mf = conditional_exit(Manifest::completed(region, service, Some(&mut vault)));
+
+
+        // All parameters for a k8s deployment
+        let dep = shipcat::generate::Deployment {
+            service: service.into(),
+            region: region.into(),
+            manifest: mf,
+            version: None,
+            // only provide template::render as the interface (move tera into this)
+            render: Box::new(move |tmpl, context| {
+                template::render(&tera, tmpl, context)
+            }),
+        };
+        if let Some(b) = a.subcommand_matches("template") {
+            let output = b.value_of("output").map(String::from);
+            let res = shipcat::helm::template(&dep, output);
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
+        if let Some(_) = a.subcommand_matches("upgrade") {
+            let res = shipcat::helm::upgrade(&dep);
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
+
+    }
+
     if let Some(a) = args.subcommand_matches("generate") {
         let service = a.value_of("service").unwrap();
         let region = a.value_of("region").unwrap();
 
-        // TODO: vault client parametrised to ENV and location here!
         let mut vault = conditional_exit(shipcat::vault::Vault::default());
 
         // Populate a complete manifest (with ALL values) early for advanced commands
@@ -212,6 +266,7 @@ fn main() {
             service: service.into(),
             region: region.into(),
             manifest: mf,
+            version: None,
             // only provide template::render as the interface (move tera into this)
             render: Box::new(move |tmpl, context| {
                 template::render(&tera, tmpl, context)
