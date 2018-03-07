@@ -103,6 +103,9 @@ pub mod generate;
 /// A small CLI kubernetes interface
 pub mod kube;
 
+/// A small CLI helm interface
+pub mod helm;
+
 /// A graph generator for manifests using `petgraph`
 pub mod graph;
 
