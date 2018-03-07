@@ -13,14 +13,12 @@ use shipcat::*;
 #[allow(unused_imports)]
 use clap::{Arg, App, AppSettings, SubCommand, ArgMatches};
 use std::process;
-use std::io::{self, Write};
 
 
 fn result_exit<T>(name: &str, x: Result<T>) {
     let _ = x.map_err(|e| {
         error!("{} error: {}", name, e);
         debug!("{}: {:?}", name, e); // in the off-chance that Debug is useful
-        io::stdout().flush().unwrap(); // allow piping stdout elsewhere even if it crashes
         process::exit(1);
     });
     process::exit(0);
@@ -50,6 +48,19 @@ fn main() {
             .short("d")
             .long("debug")
             .help("Adds line numbers to log statements"))
+        .subcommand(SubCommand::with_name("get")
+            .arg(Arg::with_name("resource")
+                .required(true)
+                .help("Name of manifest resource to retrieve"))
+            .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Region to use (dev-uk, dev-qa, prod-uk)"))
+            .arg(Arg::with_name("short")
+                .short("q")
+                .long("short")
+                .help("Output short resource format")))
         .subcommand(SubCommand::with_name("generate")
             .arg(Arg::with_name("region")
                 .short("r")
@@ -278,6 +289,13 @@ fn main() {
             conditional_exit(Manifest::basic(service))
         };
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::logs(&mf, pod))
+    }
+
+    if let Some(a) = args.subcommand_matches("get") {
+        let rsrc = a.value_of("resource").unwrap();
+        let quiet = a.is_present("short");
+        let region = a.value_of("region").unwrap().into();
+        result_exit(args.subcommand_name().unwrap(), shipcat::get::table(rsrc, quiet, region))
     }
 
 
