@@ -139,7 +139,7 @@ pub struct Manifest {
     pub _location: String,
 }
 fn chart_default() -> String { "base".into() }
-fn namespace_default() -> String { "dev".into() }
+fn namespace_default() -> String { "dev".into() } // TODO: from a config file!
 fn replica_count_default() -> u32 { 2 } // TODO: 1?
 
 

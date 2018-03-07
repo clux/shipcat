@@ -7,12 +7,12 @@ _shipcat()
     local cur prev words cword
     _init_completion || return
 
-    local -r subcommands="help validate generate shell logs graph get
+    local -r subcommands="help validate generate shell logs graph get helm
                           list-regions list-services"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|generate|status|shell|logs|get|graph) ]]; then
+        if [[ ${words[i]} == @(help|validate|generate|status|shell|logs|get|graph|helm) ]]; then
             has_sub=1
         fi
     done
@@ -31,7 +31,7 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(generate|validate|shell|logs|graph|get|list-services) ]]; then
+        if [[ ${words[i]} == @(generate|validate|shell|logs|graph|get|helm|list-services) ]]; then
             special=${words[i]}
         fi
     done
@@ -40,7 +40,7 @@ _shipcat()
         case $special in
             get)
                 local -r regions="$(shipcat list-regions)"
-                local -r resources="versions ver"
+                local -r resources="versions ver image"
                 if [[ $prev = "get" ]]; then
                     COMPREPLY=($(compgen -W "-r --region" -- "$cur"))
                 elif [[ $prev == @(-r|--region) ]]; then
@@ -70,6 +70,42 @@ _shipcat()
                     done
                     local -r svcs="$(shipcat list-services "$region")"
                     COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
+                fi
+                ;;
+            helm)
+                local -r regions="$(shipcat list-regions)"
+                local helm_sub has_region i
+                for (( i=2; i < ${#words[@]}-1; i++ )); do
+                    if [[ ${words[i]} = "template" ]]; then
+                        helm_sub=${words[i]}
+                    fi
+                    if [[ ${words[i]} == @(-r|--region) ]]; then
+                        has_region=1
+                    fi
+                done
+
+                if [[ $prev = "helm" ]]; then
+                    COMPREPLY=($(compgen -W "-r --region" -- "$cur"))
+                elif [[ $prev == @(-r|--region) ]]; then
+                    COMPREPLY=($(compgen -W "$regions" -- "$cur"))
+                # TODO: this test is insufficient
+                # need to present this only if no service has been chosen..
+                elif [[ $has_region ]] && [ -z "${helm_sub}" ]; then
+                    # Identify which region we used
+                    local region i
+                    for (( i=2; i < ${#words[@]}-1; i++ )); do
+                        if [[ ${words[i]} != -* ]] && echo "$regions" | grep -q "${words[i]}"; then
+                            region=${words[i]}
+                        fi
+                    done
+                    local -r svcs="$(shipcat list-services "$region")"
+                    COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
+                elif [ -n "${helm_sub}" ]; then
+                    # TODO; helm sub command specific flags here
+                    COMPREPLY=($(compgen -W "-o" -- "$cur"))
+                else
+                    # Suggest subcommands of helm and global flags
+                    COMPREPLY=($(compgen -W "-r --region upgrade template" -- "$cur"))
                 fi
                 ;;
             generate)

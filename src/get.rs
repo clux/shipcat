@@ -7,28 +7,34 @@ use super::{Result, Manifest};
 #[derive(Debug)]
 pub enum ResourceType {
     VERSION,
+    IMAGE,
 }
 
 pub fn table(rsrc: &str, quiet: bool, region: String) -> Result<()> {
     let resource = match rsrc {
         "version"|"ver" => ResourceType::VERSION,
+        "image" => ResourceType::IMAGE,
         _ => {
-            warn!("Supported resource types are: version");
+            warn!("Supported resource types are: version, image");
             bail!("Unsupported resource {}", rsrc)
         }
     };
 
     let services = Manifest::available()?;
     if !quiet {
-        println!("{0: <30} {1:?}", "NAME", resource);
+        println!("{0: <40} {1:?}", "NAME", resource);
     }
     for svc in services {
         let mf = Manifest::completed(&region, &svc, None)?;
         if mf.regions.contains(&region) {
-            match &resource {
-                _VERSION => {
-                    println!("{0: <30} {1}", mf.name, mf.image.unwrap().tag.unwrap());
-                }
+            match resource {
+                ResourceType::VERSION => {
+                    println!("{0: <40} {1}", mf.name, mf.image.unwrap().tag.unwrap());
+                },
+                ResourceType::IMAGE => {
+                    let img = format!("{}", mf.image.unwrap());
+                    println!("{0: <40} {1}", mf.name, img);
+                },
             }
         }
     }

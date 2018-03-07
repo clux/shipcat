@@ -1,6 +1,6 @@
 use super::{Result, Manifest};
 
-fn kexec(args: Vec<String>) -> Result<()> {
+pub fn kexec(args: Vec<String>) -> Result<()> {
     use std::process::Command;
     debug!("kubectl {}", args.join(" "));
     let s = Command::new("kubectl").args(&args).status()?;
@@ -9,7 +9,7 @@ fn kexec(args: Vec<String>) -> Result<()> {
     }
     Ok(())
 }
-fn kout(args: Vec<String>) -> Result<String> {
+pub fn kout(args: Vec<String>) -> Result<String> {
     use std::process::Command;
     debug!("kubectl {}", args.join(" "));
     let s = Command::new("kubectl").args(&args).output()?;
@@ -20,7 +20,6 @@ fn kout(args: Vec<String>) -> Result<String> {
         return Ok(res.into());
     }
     Ok(out)
-
 }
 
 /// Rollout an image update to an existing deployment
