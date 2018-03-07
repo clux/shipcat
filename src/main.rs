@@ -68,6 +68,11 @@ fn main() {
                 .required(true)
                 .takes_value(true)
                 .help("Region to deploy to (dev-uk, dev-qa, prod-uk)"))
+            .arg(Arg::with_name("tag")
+                .long("tag")
+                .short("t")
+                .takes_value(true)
+                .help("Image version to deploy"))
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
@@ -219,19 +224,19 @@ fn main() {
     if let Some(a) = args.subcommand_matches("helm") {
         let service = a.value_of("service").unwrap();
         let region = a.value_of("region").unwrap(); // TODO: infer if possible!
+        let tag = a.value_of("tag").map(String::from);
 
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
         let mut vault = conditional_exit(shipcat::vault::Vault::default());
         let mf = conditional_exit(Manifest::completed(region, service, Some(&mut vault)));
 
-
         // All parameters for a k8s deployment
         let dep = shipcat::generate::Deployment {
             service: service.into(),
             region: region.into(),
             manifest: mf,
-            version: None,
+            version: tag,
             // only provide template::render as the interface (move tera into this)
             render: Box::new(move |tmpl, context| {
                 template::render(&tera, tmpl, context)
