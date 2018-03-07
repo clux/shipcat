@@ -86,6 +86,8 @@ pub mod template;
 pub mod vault;
 /// Convenience listers
 pub mod list;
+/// Convenience getters
+pub mod get;
 /// A post interface to slack using `slack_hook`
 pub mod slack;
 
