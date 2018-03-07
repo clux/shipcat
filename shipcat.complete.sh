@@ -7,12 +7,12 @@ _shipcat()
     local cur prev words cword
     _init_completion || return
 
-    local -r subcommands="help validate generate shell logs graph
+    local -r subcommands="help validate generate shell logs graph get
                           list-regions list-services"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|generate|status|shell|logs|graph) ]]; then
+        if [[ ${words[i]} == @(help|validate|generate|status|shell|logs|get|graph) ]]; then
             has_sub=1
         fi
     done
@@ -31,13 +31,24 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(generate|validate|shell|logs|graph|list-services) ]]; then
+        if [[ ${words[i]} == @(generate|validate|shell|logs|graph|get|list-services) ]]; then
             special=${words[i]}
         fi
     done
 
     if [[ -n $special ]]; then
         case $special in
+            get)
+                local -r regions="$(shipcat list-regions)"
+                local -r resources="versions ver"
+                if [[ $prev = "get" ]]; then
+                    COMPREPLY=($(compgen -W "-r --region" -- "$cur"))
+                elif [[ $prev == @(-r|--region) ]]; then
+                    COMPREPLY=($(compgen -W "$regions" -- "$cur"))
+                else
+                    COMPREPLY=($(compgen -W "$resources" -- "$cur"))
+                fi
+                ;;
             list-services)
                 local -r regions="$(shipcat list-regions)"
                 COMPREPLY=($(compgen -W "$regions" -- "$cur"))

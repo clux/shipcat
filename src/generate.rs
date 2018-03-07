@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::fs::{self, File};
 use std::io::prelude::*;
+use std::io;
 
 use serde_yaml;
 
@@ -126,12 +127,8 @@ impl Deployment {
 /// Helm values writer
 ///
 /// Fills in service specific config files into config to help helm out
-pub fn helm(dep: &Deployment) -> Result<String> {
+pub fn helm(dep: &Deployment, output: Option<String>) -> Result<String> {
     dep.check()?; // sanity check on deployment
-    let pwd = Path::new(".");
-    create_output(&pwd.to_path_buf())?;
-    let pth = pwd.join("OUTPUT").join("helm.yml");
-
     let mut mf = dep.manifest.clone();
 
     // Files in `ConfigMap` get pre-rendered for helm for now
@@ -147,10 +144,17 @@ pub fn helm(dep: &Deployment) -> Result<String> {
     }
 
     let encoded = serde_yaml::to_string(&mf)?;
-    info!("Writing helm value to {}", pth.display());
-    let mut f = File::create(&pth)?;
-    write!(f, "{}\n", encoded)?;
-    debug!("Wrote helm values to {}: \n{}", pth.display(), encoded);
+    if let Some(o) = output {
+        let pth = Path::new(".").join(o);
+        info!("Writing helm values for {} to {}", dep.service, pth.display());
+        let mut f = File::create(&pth)?;
+        write!(f, "{}\n", encoded)?;
+        debug!("Wrote helm values for {} to {}: \n{}", dep.service, pth.display(), encoded);
+    } else {
+        // stdout only
+        print!("{}", encoded);
+        io::stdout().flush()?; // allow piping stdout elsewhere
+    }
     Ok(encoded)
 }
 
@@ -205,7 +209,7 @@ mod tests {
                 template::render(&tera, tmpl, context)
             }),
         };
-        if let Err(e) = helm(&dep) {
+        if let Err(e) = helm(&dep, None) {
             println!("Failed to create helm values for fake-ask");
             print!("{}", e);
             assert!(false);

@@ -48,6 +48,19 @@ fn main() {
             .short("d")
             .long("debug")
             .help("Adds line numbers to log statements"))
+        .subcommand(SubCommand::with_name("get")
+            .arg(Arg::with_name("resource")
+                .required(true)
+                .help("Name of manifest resource to retrieve"))
+            .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Region to use (dev-uk, dev-qa, prod-uk)"))
+            .arg(Arg::with_name("short")
+                .short("q")
+                .long("short")
+                .help("Output short resource format")))
         .subcommand(SubCommand::with_name("generate")
             .arg(Arg::with_name("region")
                 .short("r")
@@ -61,6 +74,11 @@ fn main() {
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
+            .arg(Arg::with_name("output")
+                .short("o")
+                .long("output")
+                .takes_value(true)
+                .help("Output file to save to"))
             .about("Generate kubefile from manifest"))
         .subcommand(SubCommand::with_name("logs")
             .arg(Arg::with_name("region")
@@ -201,8 +219,9 @@ fn main() {
         };
         conditional_exit(dep.check()); // some sanity asserts
 
+        let output = a.value_of("output").map(String::from);
         let res = if a.is_present("helm") {
-            shipcat::generate::helm(&dep)
+            shipcat::generate::helm(&dep, output)
         } else {
             shipcat::generate::deployment(&dep, false, true)
         };
@@ -270,6 +289,13 @@ fn main() {
             conditional_exit(Manifest::basic(service))
         };
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::logs(&mf, pod))
+    }
+
+    if let Some(a) = args.subcommand_matches("get") {
+        let rsrc = a.value_of("resource").unwrap();
+        let quiet = a.is_present("short");
+        let region = a.value_of("region").unwrap().into();
+        result_exit(args.subcommand_name().unwrap(), shipcat::get::table(rsrc, quiet, region))
     }
 
 
