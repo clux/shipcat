@@ -108,6 +108,8 @@ pub struct Deployment {
     pub region: String,
     /// Manifest
     pub manifest: Manifest,
+    /// Optional semver version
+    pub version: Option<String>,
     /// Context bound template render function
     pub render: Box<Fn(&str, &Context) -> Result<(String)>>,
 }
@@ -203,6 +205,7 @@ mod tests {
         let dep = Deployment {
             service: "fake-ask".into(),
             region: "dev-uk".into(),
+            version: None,
             manifest: Manifest::basic("fake-ask").unwrap(),
             // only provide template::render as the interface (move tera into this)
             render: Box::new(move |tmpl, context| {
