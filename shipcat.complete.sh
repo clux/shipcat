@@ -1,6 +1,6 @@
-# shellcheck disable=2148
-# shipcat(1) completion
+#!/usr/bin/env bash
 
+# shipcat(1) completion
 _shipcat()
 {
     # shellcheck disable=2034
