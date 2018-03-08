@@ -71,7 +71,7 @@ fn nodeidx_from_name(name: &str, graph: &CatGraph) -> Option<NodeIndex> {
 fn recurse_manifest(idx: NodeIndex, mf: &Manifest, graph: &mut CatGraph) -> Result<()> {
     for dep in &mf.dependencies {
         debug!("Recursing into {}", dep.name);
-        if dep.name == "core-ruby" || dep.name == "php-backend-monolith" {
+        if dep.name == "php-backend-monolith" {
             debug!("Ignoring dependencies for non-shipcat monolith");
             continue;
         }
@@ -135,7 +135,7 @@ pub fn full(dot: bool) -> Result<CatGraph> {
         let idx = graph.add_node(node);
 
         for dep in &mf.dependencies {
-            if dep.name == "core-ruby" || dep.name == "php-backend-monolith" {
+            if dep.name == "php-backend-monolith" {
                 debug!("Ignoring dependencies for non-shipcat monolith");
                 continue;
             }

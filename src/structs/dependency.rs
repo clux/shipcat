@@ -26,7 +26,7 @@ fn dependency_protocol_default() -> String { "http".into() }
 
 impl Verify for Dependency {
     fn verify(&self) -> Result<()> {
-        if self.name == "core-ruby" || self.name == "php-backend-monolith" {
+        if self.name == "php-backend-monolith" {
             debug!("Depending on legacy {} monolith", self.name);
             return Ok(())
         }
