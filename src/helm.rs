@@ -65,12 +65,15 @@ pub fn upgrade(dep: &Deployment) -> Result<()> {
 
     // diff against current running
     //helm diff $* charts/$$(yq -r ".chart" helm.yml) -f helm.yml -q
+    // TODO: fix output here! need to ALWAYS see this
     let diffvec = vec![
         "diff".into(),
         dep.service.clone(),
         format!("charts/{}", dep.manifest.chart),
         "-f".into(),
         file.clone(),
+        "--set".into(),
+        format!("version={}", version),
     ];
     debug!("helm {}", diffvec.join(" "));
     hexec(diffvec)?; // just for logs
@@ -84,7 +87,7 @@ pub fn upgrade(dep: &Deployment) -> Result<()> {
         "-f".into(),
         file,
         "--set".into(),
-        format!("image.tag={}", version), // TODO: swap to version toplevel
+        format!("version={}", version),
     ];
     debug!("helm {}", upgradevec.join(" "));
     hexec(upgradevec)?;

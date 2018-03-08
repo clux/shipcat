@@ -8,9 +8,6 @@ pub use super::Result;
 mod dependency;
 pub use self::dependency::Dependency;
 
-mod image;
-pub use self::image::Image;
-
 mod jaeger;
 pub use self::jaeger::Jaeger;
 
