@@ -29,7 +29,7 @@ pub fn table(rsrc: &str, quiet: bool, region: String) -> Result<()> {
         if mf.regions.contains(&region) {
             match resource {
                 ResourceType::VERSION => {
-                    println!("{0: <40} {1}", mf.name, mf.image.unwrap().tag.unwrap());
+                    println!("{0: <40} {1}", mf.name, mf.version.unwrap());
                 },
                 ResourceType::IMAGE => {
                     let img = format!("{}", mf.image.unwrap());
