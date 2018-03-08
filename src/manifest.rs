@@ -14,7 +14,7 @@ use super::vault::Vault;
 
 // All structs come from the structs directory
 use super::structs::traits::Verify;
-use super::structs::{HealthCheck, ConfigMap, Image};
+use super::structs::{HealthCheck, ConfigMap};
 use super::structs::{InitContainer, Resources, HostAlias};
 use super::structs::volume::{Volume, VolumeMount};
 use super::structs::{Metadata, DataHandling, VaultOpts, Jaeger, Dependency};
@@ -33,9 +33,13 @@ pub struct Manifest {
     #[serde(default, skip_serializing)]
     pub disabled: bool,
 
-    /// Optional image name (if different from service name)
+    /// Optional image name
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub image: Option<Image>,
+    pub image: Option<String>,
+    /// Optional version/tag of docker image
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+
     /// Optional image command (if not using the default docker command)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
@@ -196,10 +200,7 @@ impl Manifest {
     fn implicits(&mut self) -> Result<()> {
         // image name defaults to the service name
         if self.image.is_none() {
-            self.image = Some(Image {
-                name: Some(self.name.clone()),
-                ..Default::default()
-            });
+            self.image = Some(format!("quay.io/babylonhealth/{}", self.name))
         }
 
         // config map implicit name
@@ -243,18 +244,12 @@ impl Manifest {
             self.env.entry(k).or_insert(v);
         }
 
-        // allow overriding image repository and tags
-        if let Some(img) = mf.image {
-            let mut curr = self.image.clone().unwrap();
-            if curr.repository.is_none() {
-                trace!("overriding image.repository with {:?}", img.repository);
-                curr.repository = img.repository;
-            }
-            if curr.tag.is_none() {
-                trace!("overriding image.tag with {:?}", img.tag);
-                curr.tag = img.tag;
-            }
-            self.image = Some(curr);
+        // allow overriding tags
+        if let Some(tag) = mf.version {
+            if self.version.is_none() {
+                trace!("overriding image.version with {:?}", tag);
+                self.version = Some(tag);
+            };
         }
 
         // maybe environment specific resources?
@@ -406,7 +401,6 @@ impl Manifest {
         // run the `Verify` trait on all imported structs
         // mandatory structs first:
         self.resources.clone().unwrap().verify()?;
-        self.image.clone().unwrap().verify()?;
 
         // optional/vectorised entries
         for d in &self.dependencies {

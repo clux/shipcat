@@ -53,8 +53,10 @@ fn make_full_deployment_context(dep: &Deployment) -> Result<Context> {
         };
         ctx.add("config", &config);
     }
-    // Image formatted using Display trait
-    ctx.add("image", &format!("{}", dep.manifest.image.clone().unwrap()));
+    // whatever, this is going away:
+    let ver = dep.manifest.version.clone().unwrap();
+    let img = dep.manifest.image.clone().unwrap();
+    ctx.add("image", &format!("{}:{}", img, ver));
 
     // Host aliases
     ctx.add("hostAliases", &dep.manifest.hostAliases);
@@ -140,9 +142,9 @@ pub fn helm(dep: &Deployment, output: Option<String>) -> Result<String> {
             f.value = Some(res);
         }
     }
-    // attach the full image string
-    if let Some(ref mut img) = mf.image {
-        img.value = Some(format!("{}", img));
+    // pass overridden version into manifest
+    if let Some(v) = dep.version.clone() {
+        mf.version = Some(v);
     }
 
     let encoded = serde_yaml::to_string(&mf)?;
