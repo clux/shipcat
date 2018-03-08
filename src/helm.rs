@@ -78,8 +78,8 @@ pub fn upgrade(dep: &Deployment) -> Result<()> {
     debug!("helm {}", diffvec.join(" "));
     hexec(diffvec)?; // just for logs
 
-    // wait for as long as at most we have to 2 * bootTime * replicas
-    let waittime = dep.manifest.health.clone().unwrap().wait * dep.manifest.replicaCount;
+    // wait for at most 2 * bootTime * replicas
+    let waittime = 2 * dep.manifest.health.clone().unwrap().wait * dep.manifest.replicaCount;
     // then upgrade it!
     //helm upgrade $* charts/$$(yq -r ".chart" helm.yml) -f helm.yml -q
     let upgradevec = vec![
