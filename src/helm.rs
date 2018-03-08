@@ -82,7 +82,9 @@ pub fn upgrade(dep: &Deployment) -> Result<()> {
         dep.service.clone(),
         format!("charts/{}", dep.manifest.chart),
         "-f".into(),
-        file
+        file,
+        "--set".into(),
+        format!("image.tag={}", version), // TODO: swap to version toplevel
     ];
     debug!("helm {}", upgradevec.join(" "));
     hexec(upgradevec)?;
