@@ -1,6 +1,5 @@
 name: fake-storage
-image:
-  name: storage
+image: nginx
 resources:
   limits:
     cpu: 1
