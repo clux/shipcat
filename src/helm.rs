@@ -1,3 +1,5 @@
+use std::fs;
+
 use super::kube::kout;
 use super::generate::{self, Deployment};
 use super::{Result};
@@ -12,6 +14,34 @@ pub fn hexec(args: Vec<String>) -> Result<()> {
     Ok(())
 }
 
+fn infer_version(service: &str, ns: &str, image: &str) -> Result<String> {
+    // else use the current deployed sha (reconciliation)
+    let imgvec = vec![
+        "get".into(),
+        "deploy".into(),
+        "-n".into(),
+        ns.into(),
+        format!("-l=app={}", service),
+        "-o=jsonpath='{$.items[:1].spec.template.spec.containers[:].image}'".into(),
+    ];
+    // NB: could do containers[:] and search for `img` as well
+    debug!("kubectl {}", imgvec.join(" "));
+    let imagestr = kout(imgvec)?;
+    // first split into a vector of images
+    debug!("Found images {}", imagestr);
+    for i in imagestr.split(' ') {
+        trace!("Looking for {} in {}", image, i);
+        if i.contains(image) {
+            let split: Vec<&str> = i.split(':').collect();
+            if split.len() != 2 {
+                bail!("Image '{}' for service {} did not have a tag from kubectl", image, service)
+            }
+            return Ok(split[1].into()) // last element is the tag;
+        }
+    }
+    bail!("Failed to find {} in spec.containers to infer image", image)
+}
+
 /// Upgrade an an existing deployment if needed
 ///
 /// This can be given an explicit semver version (on trigger)
@@ -22,7 +52,7 @@ pub fn hexec(args: Vec<String>) -> Result<()> {
 /// # missing kubectl step to inject previous version into helm.yml optionally
 /// helm diff {service} charts/{chartname} -f helm.yml
 /// helm upgrade {service} charts/{chartname} -f helm.yml
-pub fn upgrade(dep: &Deployment) -> Result<()> {
+pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
     // TODO: check if access to roll out deployment!
 
     // region sanity
@@ -33,31 +63,18 @@ pub fn upgrade(dep: &Deployment) -> Result<()> {
     }
 
     let ns = dep.manifest.namespace.clone();
+    let img = dep.manifest.image.clone().unwrap();
 
     // either we deploy with an explicit sha (build triggers from repos)
     let version = if let Some(v) = dep.version.clone() {
         v
     } else {
-        // else use the current deployed sha (reconciliation)
-        let imgvec = vec![
-            "get".into(),
-            "deploy".into(),
-            "-n".into(),
-            ns,
-            format!("-l=app={}", dep.service),
-            "-o=jsonpath='{$.items[:1].spec.template.spec.containers[:1].image}'".into(),
-        ];
-        debug!("kubectl {}", imgvec.join(" "));
-        let image = kout(imgvec)?;
-        let split: Vec<&str> = image.split(':').collect();
-        if split.len() != 2 {
-            bail!("Invalid image '{}' returned from kubectl for {}", image, dep.service)
-        }
-        split[1].into() // last element is the tag;
+        infer_version(&dep.service, &ns, &img)?
     };
-    info!("Using version {}", version);
     if dep.version.is_none() {
-        info!("Inferred from current running {}", dep.service);
+        info!("Using version {} (inferred from kubectl for current running version)", version);
+    } else {
+        info!("Using default {} version", version);
     }
     // now create helm values
     let file = format!("{}.helm.gen.yml", dep.service);
@@ -77,24 +94,30 @@ pub fn upgrade(dep: &Deployment) -> Result<()> {
     info!("helm {}", diffvec.join(" "));
     hexec(diffvec)?; // just for logs
 
-    // upgrade it using the same command
-    // wait for at most 2 * bootTime * replicas
-    let waittime = 2 * dep.manifest.health.clone().unwrap().wait * dep.manifest.replicaCount;
-    let upgradevec = vec![
-        "upgrade".into(),
-        dep.service.clone(),
-        format!("charts/{}", dep.manifest.chart),
-        "-f".into(),
-        file,
-        "--set".into(),
-        format!("version={}", version),
-        "--wait".into(),
-        format!("--timeout={}", waittime),
-    ];
-    info!("helm {}", upgradevec.join(" "));
-    hexec(upgradevec)?;
-
+    if !dryrun {
+        // upgrade it using the same command
+        // wait for at most 2 * bootTime * replicas
+        let waittime = 2 * dep.manifest.health.clone().unwrap().wait * dep.manifest.replicaCount;
+        let upgradevec = vec![
+            "upgrade".into(),
+            dep.service.clone(),
+            format!("charts/{}", dep.manifest.chart),
+            "-f".into(),
+            file.clone(),
+            "--set".into(),
+            format!("version={}", version),
+            "--wait".into(),
+            format!("--timeout={}", waittime),
+        ];
+        info!("helm {}", upgradevec.join(" "));
+        hexec(upgradevec)?;
+    }
+    fs::remove_file(file)?; // remove temporary file
     Ok(())
+}
+
+pub fn diff(dep: &Deployment) -> Result<()> {
+    upgrade(dep, true)
 }
 
 /// Analogoue of helm template

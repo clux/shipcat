@@ -82,12 +82,12 @@ fn main() {
                     .long("output")
                     .takes_value(true)
                     .help("Output file to save to")))
+            .subcommand(SubCommand::with_name("diff")
+                .about("Diff kubeernetes configs with local state"))
             .subcommand(SubCommand::with_name("upgrade")
-                .arg(Arg::with_name("output")
-                    .short("o")
-                    .long("output")
-                    .takes_value(true)
-                    .help("Output file to save to"))))
+                .arg(Arg::with_name("dryrun")
+                    .long("dry-run")
+                    .help("Show the diff only"))))
         .subcommand(SubCommand::with_name("generate")
             .arg(Arg::with_name("region")
                 .short("r")
@@ -247,9 +247,14 @@ fn main() {
             let res = shipcat::helm::template(&dep, output);
             result_exit(a.subcommand_name().unwrap(), res)
         }
-        if let Some(_) = a.subcommand_matches("upgrade") {
-            let res = shipcat::helm::upgrade(&dep);
+        if let Some(b) = a.subcommand_matches("upgrade") {
+            let dryrun = b.is_present("dryrun");
+            let res = shipcat::helm::upgrade(&dep, dryrun);
             result_exit(a.subcommand_name().unwrap(), res)
+        }
+        if let Some(_) = a.subcommand_matches("diff") {
+            let res = shipcat::helm::diff(&dep);
+            result_exit(a.subcommand_name().unwrap(), res);
         }
 
     }
