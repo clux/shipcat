@@ -96,9 +96,7 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
 
     if !dryrun {
         // upgrade it using the same command
-        // wait for at most 2 * bootTime * replicas
-        let waittime = 2 * dep.manifest.health.clone().unwrap().wait * dep.manifest.replicaCount;
-        let upgradevec = vec![
+        let mut upgradevec = vec![
             "upgrade".into(),
             dep.service.clone(),
             format!("charts/{}", dep.manifest.chart),
@@ -106,9 +104,15 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
             file.clone(),
             "--set".into(),
             format!("version={}", version),
-            "--wait".into(),
-            format!("--timeout={}", waittime),
         ];
+        if let Some(ref hc) = dep.manifest.health {
+            // wait for at most 2 * bootTime * replicas
+            let waittime = 2 * hc.wait * dep.manifest.replicaCount;
+            upgradevec.extend_from_slice(&[
+                "--wait".into(),
+                format!("--timeout={}", waittime),
+            ]);
+        }
         info!("helm {}", upgradevec.join(" "));
         hexec(upgradevec)?;
     }
