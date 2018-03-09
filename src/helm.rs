@@ -116,11 +116,13 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
     } else {
         infer_version(&dep.service, &ns, &img)?
     };
-    if dep.version.is_none() {
+    let action = if dep.version.is_none() {
         info!("Using version {} (inferred from kubectl for current running version)", version);
+        "reconcile"
     } else {
         info!("Using default {} version", version);
-    }
+        "update"
+    };
     // now create helm values
     let file = format!("{}.helm.gen.yml", dep.service);
     generate::helm(dep, Some(file.clone()))?;
@@ -138,10 +140,9 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
     ];
     info!("helm {}", diffvec.join(" "));
     let helmdiff = hout(diffvec)?;
-    trace!("{}", helmdiff); // for logs
+    print!("{}", helmdiff); // full diff for logs
 
     let smalldiff = diff_format(helmdiff.clone());
-    print!("diff: {}", smalldiff);
 
     if !dryrun && !helmdiff.is_empty() {
         // upgrade it using the same command
@@ -167,7 +168,7 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
             Err(e) => {
                 error!("{}", e);
                 slack::send(slack::Message {
-                    text: format!("Failed to reconcile {} in {}", &dep.service, dep.region),
+                    text: format!("Failed to {} {} in {}", action, &dep.service, dep.region),
                     color: Some("danger".into()),
                     link: infer_jenkins_link(),
                     code: Some(smalldiff),
@@ -175,7 +176,7 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
             },
             Ok(_) => {
                 slack::send(slack::Message {
-                    text: format!("Reconciled an existing diff of {} in {}", &dep.service, dep.region),
+                    text: format!("{}d an existing diff of {} in {}", action, &dep.service, dep.region),
                     color: Some("good".into()),
                     link: infer_jenkins_link(),
                     code: Some(smalldiff),
