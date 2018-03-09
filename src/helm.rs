@@ -64,7 +64,6 @@ pub fn upgrade(dep: &Deployment) -> Result<()> {
     generate::helm(dep, Some(file.clone()))?;
 
     // diff against current running
-    //helm diff $* charts/$$(yq -r ".chart" helm.yml) -f helm.yml -q
     // TODO: fix output here! need to ALWAYS see this
     let diffvec = vec![
         "diff".into(),
@@ -75,13 +74,12 @@ pub fn upgrade(dep: &Deployment) -> Result<()> {
         "--set".into(),
         format!("version={}", version),
     ];
-    debug!("helm {}", diffvec.join(" "));
+    info!("helm {}", diffvec.join(" "));
     hexec(diffvec)?; // just for logs
 
+    // upgrade it using the same command
     // wait for at most 2 * bootTime * replicas
     let waittime = 2 * dep.manifest.health.clone().unwrap().wait * dep.manifest.replicaCount;
-    // then upgrade it!
-    //helm upgrade $* charts/$$(yq -r ".chart" helm.yml) -f helm.yml -q
     let upgradevec = vec![
         "upgrade".into(),
         dep.service.clone(),
@@ -93,7 +91,7 @@ pub fn upgrade(dep: &Deployment) -> Result<()> {
         "--wait".into(),
         format!("--timeout={}", waittime),
     ];
-    debug!("helm {}", upgradevec.join(" "));
+    info!("helm {}", upgradevec.join(" "));
     hexec(upgradevec)?;
 
     Ok(())
