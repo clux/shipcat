@@ -83,9 +83,14 @@ fn diff_format(diff: String) -> String {
     use regex::Regex;
 
     let diff_re = Regex::new(r"has changed|\[\d{2,3}m").unwrap();
+    // try to strip ansi coloring - this "seems" to work
+    // \e doesn't seem to work so using \W (not word character instead)
+    let ansi_re = Regex::new(r"\W\[\d+m").unwrap();
     // filter out lines that doesn't contain "has changed" or a unix color instruction
     diff.split("\n").filter(|l| {
         diff_re.is_match(l)
+    }).map(|l| {
+        ansi_re.replace_all(l, "")
     }).collect::<Vec<_>>().join("\n")
 }
 
@@ -189,7 +194,14 @@ pub fn diff(dep: &Deployment) -> Result<()> {
     upgrade(dep, true)
 }
 
-
+pub fn harmonise() {
+    unimplemented!()
+}
+/*pub fn last_change(dep: &Deployment) -> Result<()> {
+    // helm history dep.service --max=5
+    // get number from last coloumn
+    // diff
+}*/
 
 /// Analogoue of helm template
 ///
