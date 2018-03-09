@@ -105,7 +105,7 @@ _shipcat()
                     COMPREPLY=($(compgen -W "-o" -- "$cur"))
                 else
                     # Suggest subcommands of helm and global flags
-                    COMPREPLY=($(compgen -W "-r --region upgrade template" -- "$cur"))
+                    COMPREPLY=($(compgen -W "-r --region upgrade template diff" -- "$cur"))
                 fi
                 ;;
             generate)
