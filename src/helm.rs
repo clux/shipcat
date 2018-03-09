@@ -1,5 +1,6 @@
 use std::fs;
 
+use super::slack;
 use super::kube::kout;
 use super::generate::{self, Deployment};
 use super::{Result};
@@ -13,6 +14,14 @@ pub fn hexec(args: Vec<String>) -> Result<()> {
     }
     Ok(())
 }
+pub fn hout(args: Vec<String>) -> Result<String> {
+    use std::process::Command;
+    debug!("helm {}", args.join(" "));
+    let s = Command::new("helm").args(&args).output()?;
+    let out : String = String::from_utf8_lossy(&s.stdout).into();
+    Ok(out)
+}
+
 
 fn infer_version(service: &str, ns: &str, image: &str) -> Result<String> {
     // else use the current deployed sha (reconciliation)
@@ -42,6 +51,49 @@ fn infer_version(service: &str, ns: &str, image: &str) -> Result<String> {
     bail!("Failed to find {} in spec.containers to infer image", image)
 }
 
+fn infer_jenkins_link() -> Option<String> {
+    use std::env;
+    if let (Ok(url), Ok(name), Ok(nr)) = (env::var("BUILD_URL"),
+                                          env::var("JOB_NAME"),
+                                          env::var("BUILD_NUMBER")) {
+        Some(format!("{}|{} #{}", url, name, nr))
+    } else {
+        None
+    }
+}
+
+fn pre_upgrade_sanity(dep: &Deployment) -> Result<()> {
+    // TODO: kubectl auth can-i rollout Deployment
+
+    // region sanity
+    let kctx = kout(vec!["config".into(), "current-context".into()])?;
+    assert_eq!(format!("{}\n", dep.region), kctx); // TODO: fix newline issues from kout
+    if !dep.manifest.regions.contains(&dep.region) {
+        bail!("This service cannot be deployed in this region")
+    }
+
+    // slack stuff must also be set:
+    slack::env_channel()?;
+    slack::env_hook_url()?;
+
+    Ok(())
+}
+
+fn diff_format(diff: String) -> String {
+    use regex::Regex;
+
+    let diff_re = Regex::new(r"has changed|\[\d{2,3}m").unwrap();
+    // try to strip ansi coloring - this "seems" to work
+    // \e doesn't seem to work so using \W (not word character instead)
+    let ansi_re = Regex::new(r"\W\[\d+m").unwrap();
+    // filter out lines that doesn't contain "has changed" or a unix color instruction
+    diff.split("\n").filter(|l| {
+        diff_re.is_match(l)
+    }).map(|l| {
+        ansi_re.replace_all(l, "")
+    }).collect::<Vec<_>>().join("\n")
+}
+
 /// Upgrade an an existing deployment if needed
 ///
 /// This can be given an explicit semver version (on trigger)
@@ -53,14 +105,7 @@ fn infer_version(service: &str, ns: &str, image: &str) -> Result<String> {
 /// helm diff {service} charts/{chartname} -f helm.yml
 /// helm upgrade {service} charts/{chartname} -f helm.yml
 pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
-    // TODO: check if access to roll out deployment!
-
-    // region sanity
-    let kctx = kout(vec!["config".into(), "current-context".into()])?;
-    assert_eq!(format!("{}\n", dep.region), kctx); // TODO: fix newline issues from kout
-    if !dep.manifest.regions.contains(&dep.region) {
-        bail!("This service cannot be deployed in this region")
-    }
+    pre_upgrade_sanity(dep)?;
 
     let ns = dep.manifest.namespace.clone();
     let img = dep.manifest.image.clone().unwrap();
@@ -92,9 +137,13 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
         format!("version={}", version),
     ];
     info!("helm {}", diffvec.join(" "));
-    hexec(diffvec)?; // just for logs
+    let helmdiff = hout(diffvec)?;
+    trace!("{}", helmdiff); // for logs
 
-    if !dryrun {
+    let smalldiff = diff_format(helmdiff.clone());
+    print!("diff: {}", smalldiff);
+
+    if !dryrun && !helmdiff.is_empty() {
         // upgrade it using the same command
         let mut upgradevec = vec![
             "upgrade".into(),
@@ -114,7 +163,26 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
             ]);
         }
         info!("helm {}", upgradevec.join(" "));
-        hexec(upgradevec)?;
+        match hexec(upgradevec) {
+            Err(e) => {
+                error!("{}", e);
+                slack::send(slack::Message {
+                    text: format!("Failed to reconcile {} in {}", &dep.service, dep.region),
+                    color: Some("danger".into()),
+                    link: infer_jenkins_link(),
+                    code: Some(smalldiff),
+                })?;
+            },
+            Ok(_) => {
+                slack::send(slack::Message {
+                    text: format!("Reconciled an existing diff of {} in {}", &dep.service, dep.region),
+                    color: Some("good".into()),
+                    link: infer_jenkins_link(),
+                    code: Some(smalldiff),
+                })?;
+            }
+        };
+
     }
     fs::remove_file(file)?; // remove temporary file
     Ok(())

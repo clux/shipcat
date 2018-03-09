@@ -8,6 +8,7 @@ use super::{Result, ErrorKind};
 ///
 /// These parameters get distilled into the attachments API.
 /// Mostly because this is the only thing API that supports colour.
+#[derive(Default)]
 pub struct Message {
     /// Text in message
     pub text: String,
@@ -17,12 +18,15 @@ pub struct Message {
 
     /// Optional color for the attachment API
     pub color: Option<String>,
+
+    /// Optional code input
+    pub code: Option<String>,
 }
 
-fn env_hook_url() -> Result<String> {
+pub fn env_hook_url() -> Result<String> {
     env::var("SLACK_SHIPCAT_HOOK_URL").map_err(|_| ErrorKind::MissingSlackUrl.into())
 }
-fn env_channel() -> Result<String> {
+pub fn env_channel() -> Result<String> {
     env::var("SLACK_SHIPCAT_CHANNEL").map_err(|_| ErrorKind::MissingSlackChannel.into())
 }
 fn env_username() -> String {
@@ -61,7 +65,15 @@ pub fn send(msg: Message) -> Result<()> {
     } else {
         a = a.text(msg.text);
     }
-    p = p.attachments(vec![a.build()?]);
+    let mut ax = vec![a.build()?];
+    if let Some(code) = msg.code {
+        let a2 = AttachmentBuilder::new(code.clone())
+            .color("warning")
+            .text(vec![Text(code.into())].as_slice())
+            .build()?;
+        ax.push(a2);
+    }
+    p = p.attachments(ax);
 
     slack.send(&p.build()?)?;
 
