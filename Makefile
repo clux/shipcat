@@ -20,3 +20,9 @@ tag-semver:
 tag-latest:
 	docker tag  $(REPO)/$(NAME):$(VERSION) $(REPO)/$(NAME):latest
 	docker push $(REPO)/$(NAME):latest
+
+doc:
+	cargo doc
+	xdg-open target/doc/shipcat/index.html
+
+.PHONY: doc
