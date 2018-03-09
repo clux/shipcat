@@ -82,15 +82,10 @@ fn pre_upgrade_sanity(dep: &Deployment) -> Result<()> {
 fn diff_format(diff: String) -> String {
     use regex::Regex;
 
-    let diff_re = Regex::new(r"has changed|\[\d{2,3}m").unwrap();
-    // try to strip ansi coloring - this "seems" to work
-    // \e doesn't seem to work so using \W (not word character instead)
-    let ansi_re = Regex::new(r"\W\[\d+m").unwrap();
-    // filter out lines that doesn't contain "has changed" or a unix color instruction
+    let diff_re = Regex::new(r"has changed|^\-|^\+").unwrap();
+    // filter out lines that doesn't contain "has changed" or starting with + or -
     diff.split("\n").filter(|l| {
         diff_re.is_match(l)
-    }).map(|l| {
-        ansi_re.replace_all(l, "")
     }).collect::<Vec<_>>().join("\n")
 }
 
@@ -128,9 +123,9 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
     generate::helm(dep, Some(file.clone()))?;
 
     // diff against current running
-    // TODO: fix output here! need to ALWAYS see this
     let diffvec = vec![
         "diff".into(),
+        "--no-color".into(),
         dep.service.clone(),
         format!("charts/{}", dep.manifest.chart),
         "-f".into(),
@@ -140,9 +135,9 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
     ];
     info!("helm {}", diffvec.join(" "));
     let helmdiff = hout(diffvec)?;
-    print!("{}", helmdiff); // full diff for logs
-
+    debug!("{}\n", helmdiff); // full diff for logs
     let smalldiff = diff_format(helmdiff.clone());
+    print!("{}\n", smalldiff);
 
     if !dryrun && !helmdiff.is_empty() {
         // upgrade it using the same command
