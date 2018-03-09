@@ -171,7 +171,6 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
                     color: Some("danger".into()),
                     link: infer_jenkins_link(),
                     code: Some(smalldiff),
-                    ..Default::default()
                 })?;
             },
             Ok(_) => {
@@ -180,7 +179,6 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
                     color: Some("good".into()),
                     link: infer_jenkins_link(),
                     code: Some(smalldiff),
-                    ..Default::default()
                 })?;
             }
         };
@@ -193,15 +191,6 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
 pub fn diff(dep: &Deployment) -> Result<()> {
     upgrade(dep, true)
 }
-
-pub fn harmonise() {
-    unimplemented!()
-}
-/*pub fn last_change(dep: &Deployment) -> Result<()> {
-    // helm history dep.service --max=5
-    // get number from last coloumn
-    // diff
-}*/
 
 /// Analogoue of helm template
 ///
