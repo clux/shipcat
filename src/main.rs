@@ -313,7 +313,7 @@ fn main() {
         let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
         let link = a.value_of("url").map(String::from);
         let color = a.value_of("color").map(String::from);
-        let msg = shipcat::slack::Message { text, link, color };
+        let msg = shipcat::slack::Message { text, link, color, ..Default::default() };
         result_exit(args.subcommand_name().unwrap(), shipcat::slack::send(msg))
     }
 

@@ -17,6 +17,8 @@ ln -sf $PWD/target/debug/shipcat /usr/local/bin/shipcat
 echo "source $PWD/shipcat.complete.sh" >> ~/.bash_completion
 ```
 
+The embedded `kubecat` image does come with `shipcat` + `kubectl` + `helm` + `helm diff` plugin + `kubeval`, which might be easier to use together. Bring a valid `~/.kube/config` and `VAULT_*` evars.
+
 ## Usage
 In general, define your `shipcat.yml` file in the [manifests repo](https://github.com/Babylonpartners/manifests) and make sure `shipcat validate` passes.
 
