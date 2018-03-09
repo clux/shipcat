@@ -48,6 +48,7 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
     println!("kubectl {}", args.join(" "));
     kexec(args)?;
 
+    // NB: can't control how long to wait here
     let rollargs = vec![
         "rollout".into(),
         "status".into(),
