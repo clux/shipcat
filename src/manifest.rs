@@ -141,6 +141,10 @@ pub struct Manifest {
     // Internal location this manifest is intended for
     #[serde(skip_serializing, skip_deserializing)]
     pub _location: String,
+
+    // Decoded secrets
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub _decoded_secrets: BTreeMap<String, String>,
 }
 fn chart_default() -> String { "base".into() }
 fn namespace_default() -> String { "dev".into() } // TODO: from a config file!
@@ -309,7 +313,8 @@ impl Manifest {
             if v == "IN_VAULT" {
                 let vkey = format!("{}/{}/{}", region, svc, k);
                 let secret = client.read(&vkey)?;
-                *v = secret;
+                *v = secret.clone();
+                self._decoded_secrets.insert(vkey, secret);
             } else if v.starts_with(kube_prefix) {
                 let res = if v == kube_prefix {
                     // no extra info -> assume same kube secret name as evar name

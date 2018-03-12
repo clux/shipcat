@@ -131,7 +131,7 @@ impl Deployment {
 /// Helm values writer
 ///
 /// Fills in service specific config files into config to help helm out
-pub fn helm(dep: &Deployment, output: Option<String>) -> Result<String> {
+pub fn helm(dep: &Deployment, output: Option<String>) -> Result<Manifest> {
     dep.check()?; // sanity check on deployment
     let mut mf = dep.manifest.clone();
 
@@ -159,7 +159,7 @@ pub fn helm(dep: &Deployment, output: Option<String>) -> Result<String> {
         print!("{}", encoded);
         io::stdout().flush()?; // allow piping stdout elsewhere
     }
-    Ok(encoded)
+    Ok(mf)
 }
 
 
