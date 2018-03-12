@@ -297,7 +297,7 @@ impl Manifest {
     }
 
     // Populate placeholder fields with secrets from vault
-    fn secrets(&mut self, client: &mut Vault, region: &str) -> Result<()> {
+    fn secrets(&mut self, client: &Vault, region: &str) -> Result<()> {
         // some services use keys from other services
         let svc = if let Some(ref vopts) = self.vault {
             vopts.name.clone()
@@ -335,10 +335,10 @@ impl Manifest {
     }
 
     /// Fill in env overrides and populate secrets
-    pub fn fill(&mut self, region: &str, vault: Option<&mut Vault>) -> Result<()> {
+    pub fn fill(&mut self, region: &str, vault: &Option<Vault>) -> Result<()> {
         self.implicits()?;
-        if let Some(client) = vault {
-            self.secrets(client, region)?;
+        if let &Some(ref client) = vault {
+            self.secrets(&client, region)?;
         }
 
         // merge service specific env overrides if they exists
@@ -362,13 +362,13 @@ impl Manifest {
     }
 
     /// Complete (filled in env overrides and populate secrets) a manifest
-    pub fn completed(region: &str, service: &str, vault: Option<&mut Vault>) -> Result<Manifest> {
+    pub fn completed(region: &str, service: &str, vault: Option<Vault>) -> Result<Manifest> {
         let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
-        mf.fill(&region, vault)?;
+        mf.fill(&region, &vault)?;
         Ok(mf)
     }
 
@@ -483,16 +483,12 @@ impl Manifest {
 /// and `verify` their parameters.
 /// Optionally, it will also verify that all secrets are found in the corresponding
 /// vault locations serverside (which require vault credentials).
-pub fn validate(services: Vec<String>, region: String, secrets: bool) -> Result<()> {
-    // vault client (if needed)
-    let mut v = Vault::default().unwrap(); // any set evars will succeed here
-    v.mock_secrets(); // not needed for output
-
+pub fn validate(services: Vec<String>, region: String, vault: Option<Vault>) -> Result<()> {
     for svc in services {
         let mut mf = Manifest::basic(&svc)?;
         if mf.regions.contains(&region) {
             info!("validating {} for {}", svc, region);
-            mf.fill(&region, if secrets { Some(&mut v) } else { None })?;
+            mf.fill(&region, &vault)?;
             mf.verify()?;
             info!("validated {} for {}", svc, region);
             mf.print()?; // print it if sufficient verbosity
@@ -503,6 +499,9 @@ pub fn validate(services: Vec<String>, region: String, secrets: bool) -> Result<
     Ok(())
 }
 
+//pub fn validate(services: Vec<String>, region: String, vault: bool) -> Result<()> {
+//}
+
 #[cfg(test)]
 mod tests {
     use super::{validate};
@@ -511,7 +510,8 @@ mod tests {
     #[test]
     fn graph_generate() {
         setup();
-        let res = validate(vec!["fake-ask".into()], "dev-uk".into(), true);
+        let client = Vault::default().unwrap();
+        let res = validate(vec!["fake-ask".into()], "dev-uk".into(), Some(client));
         assert!(res.is_ok());
         let res2 = validate(vec!["fake-storage".into(), "fake-ask".into()], "dev-uk".into(), false);
         assert!(res2.is_ok())
