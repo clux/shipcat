@@ -17,7 +17,6 @@ regions:
 - dev-uk
 env:
   INSTANCE_TYPE: web
-  AUTH_USERNAME: IN_KUBE_SECRETS
 initContainers:
 - name: init-mysql
   image: gophernet/netcat
@@ -27,6 +26,9 @@ volumeMounts:
   mountPath: "/app/config/secrets.yml"
   subPath: secrets.yml
   readOnly: true
+- name: combined-secret-conf
+  mountPath: "/conf/combined-secret/"
+  readOnly: true
 configs:
   mount: /newrelic/
   files:
@@ -35,8 +37,21 @@ configs:
 volumes:
 - name: secrets-conf
   secret:
-    name: secrets-conf
+    secretName: secrets-conf
     items:
     - key: file
       path: secrets.yml
       mode: 256
+- name: combined-secret-conf
+  projected:
+    sources:
+    - secret:
+        name: combined-secret-conf1
+        items:
+        - key: file
+          path: combined-secret1.yaml
+    - secret:
+        name: combined-secret-conf2
+        items:
+        - key: file
+          path: combined-secret2.yaml
