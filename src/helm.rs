@@ -3,7 +3,7 @@ use std::fs;
 use super::slack;
 use super::kube::kout;
 use super::generate::{self, Deployment};
-use super::{Result};
+use super::{Result, Manifest};
 
 pub fn hexec(args: Vec<String>) -> Result<()> {
     use std::process::Command;
@@ -89,6 +89,19 @@ fn diff_format(diff: String) -> String {
     }).collect::<Vec<_>>().join("\n")
 }
 
+fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
+    let mut out = input.clone();
+    for s in secrets {
+        // If your secret is less than 8 characters, we won't obfuscate it
+        // Mostly for fear of clashing with other parts of the output,
+        // but also because it's an insecure secret anyway
+        if s.len() >= 8 {
+            out = out.replace(&s, "************");
+        }
+    }
+    out
+}
+
 /// Upgrade an an existing deployment if needed
 ///
 /// This can be given an explicit semver version (on trigger)
@@ -109,6 +122,7 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
     let version = if let Some(v) = dep.version.clone() {
         v
     } else {
+        // TODO: this may fail if the service is down
         infer_version(&dep.service, &ns, &img)?
     };
     let action = if dep.version.is_none() {
@@ -120,7 +134,7 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
     };
     // now create helm values
     let file = format!("{}.helm.gen.yml", dep.service);
-    generate::helm(dep, Some(file.clone()))?;
+    let mf = generate::helm(dep, Some(file.clone()))?;
 
     // diff against current running
     let diffvec = vec![
@@ -134,7 +148,11 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
         format!("version={}", version),
     ];
     info!("helm {}", diffvec.join(" "));
-    let helmdiff = hout(diffvec)?;
+    let helmdiff = obfuscate_secrets(
+        hout(diffvec)?,
+        mf._decoded_secrets.values().cloned().collect()
+    );
+
     debug!("{}\n", helmdiff); // full diff for logs
     let smalldiff = diff_format(helmdiff.clone());
     print!("{}\n", smalldiff);
@@ -191,6 +209,6 @@ pub fn diff(dep: &Deployment) -> Result<()> {
 /// Analogoue of helm template
 ///
 /// Defers to `generate::helm` for now
-pub fn template(dep: &Deployment, output: Option<String>) -> Result<String> {
+pub fn template(dep: &Deployment, output: Option<String>) -> Result<Manifest> {
     generate::helm(dep, output)
 }
