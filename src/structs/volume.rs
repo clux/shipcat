@@ -17,6 +17,12 @@ fn volume_default_mode() -> u32 { 420 } // 0644
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct VolumeSecretDetail {
+    pub secretName: String,
+    pub items: Vec<VolumeSecretItem>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct ProjectedVolumeSecretSourceDetail {
     pub name: String,
     pub items: Vec<VolumeSecretItem>,
 }
@@ -27,8 +33,13 @@ pub struct VolumeSecret {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+pub struct ProjectedVolumeSecretSource {
+    pub secret: Option<ProjectedVolumeSecretSourceDetail>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ProjectedVolumeSecret {
-    pub sources: Vec<VolumeSecret>,
+    pub sources: Vec<ProjectedVolumeSecretSource>,
     // pub default_mode: u32,
 }
 
@@ -53,7 +64,6 @@ impl Verify for Volume {
         Ok(())
     }
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct VolumeMount {
