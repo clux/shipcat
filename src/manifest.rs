@@ -499,13 +499,11 @@ pub fn validate(services: Vec<String>, region: String, vault: Option<Vault>) -> 
     Ok(())
 }
 
-//pub fn validate(services: Vec<String>, region: String, vault: bool) -> Result<()> {
-//}
-
 #[cfg(test)]
 mod tests {
     use super::{validate};
     use tests::setup;
+    use super::Vault;
 
     #[test]
     fn graph_generate() {
@@ -513,7 +511,7 @@ mod tests {
         let client = Vault::default().unwrap();
         let res = validate(vec!["fake-ask".into()], "dev-uk".into(), Some(client));
         assert!(res.is_ok());
-        let res2 = validate(vec!["fake-storage".into(), "fake-ask".into()], "dev-uk".into(), false);
+        let res2 = validate(vec!["fake-storage".into(), "fake-ask".into()], "dev-uk".into(), None);
         assert!(res2.is_ok())
     }
 }
