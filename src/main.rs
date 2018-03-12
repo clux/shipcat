@@ -285,12 +285,13 @@ fn main() {
         conditional_exit(dep.check()); // some sanity asserts
 
         let output = a.value_of("output").map(String::from);
-        let res = if a.is_present("helm") {
-            shipcat::generate::helm(&dep, output)
+        if a.is_present("helm") {
+            let res = shipcat::generate::helm(&dep, output);
+            result_exit(args.subcommand_name().unwrap(), res)
         } else {
-            shipcat::generate::deployment(&dep, false, true)
+            let res = shipcat::generate::deployment(&dep, false, true);
+            result_exit(args.subcommand_name().unwrap(), res)
         };
-        result_exit(args.subcommand_name().unwrap(), res)
     }
 
     // Handle subcommands dumb subcommands
