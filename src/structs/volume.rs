@@ -22,13 +22,24 @@ pub struct VolumeSecretDetail {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+pub struct ProjectedVolumeSecretSourceDetail {
+    pub name: String,
+    pub items: Vec<VolumeSecretItem>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct VolumeSecret {
     pub secret: Option<VolumeSecretDetail>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+pub struct ProjectedVolumeSecretSource {
+    pub secret: Option<VolumeSecretSourceDetail>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ProjectedVolumeSecret {
-    pub sources: Vec<VolumeSecret>,
+    pub sources: Vec<ProjectedVolumeSecretSource>,
     // pub default_mode: u32,
 }
 
