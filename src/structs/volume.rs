@@ -17,7 +17,7 @@ fn volume_default_mode() -> u32 { 420 } // 0644
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct VolumeSecretDetail {
-    pub name: String,
+    pub secretName: String,
     pub items: Vec<VolumeSecretItem>,
 }
 
