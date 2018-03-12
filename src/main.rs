@@ -231,7 +231,7 @@ fn main() {
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
         let mut vault = conditional_exit(shipcat::vault::Vault::default());
-        let mf = conditional_exit(Manifest::completed(region, service, Some(&mut vault)));
+        let mf = conditional_exit(Manifest::completed(region, service, Some(vault)));
 
         // All parameters for a k8s deployment
         let dep = shipcat::generate::Deployment {
@@ -268,7 +268,7 @@ fn main() {
         let mut vault = conditional_exit(shipcat::vault::Vault::default());
 
         // Populate a complete manifest (with ALL values) early for advanced commands
-        let mf = conditional_exit(Manifest::completed(region, service, Some(&mut vault)));
+        let mf = conditional_exit(Manifest::completed(region, service, Some(vault)));
 
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
@@ -300,7 +300,12 @@ fn main() {
     if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
         let region = a.value_of("region").map(String::from).unwrap();
-        let res = shipcat::validate(services, region, a.is_present("secrets"));
+        let res = if a.is_present("secrets") {
+            let vault = shipcat::vault::Vault::mocked().unwrap();
+            shipcat::validate(services, region, Some(vault))
+        } else {
+            shipcat::validate(services, region, None)
+        };
         result_exit(args.subcommand_name().unwrap(), res)
     }
     if let Some(a) = args.subcommand_matches("graph") {

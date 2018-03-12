@@ -48,8 +48,6 @@ pub struct Vault {
     addr: reqwest::Url,
     /// The token which we'll use to access Vault.
     token: String,
-    /// Local cache of secrets.
-    secrets: BTreeMap<String, Secret>,
     /// Whether to return a fake value for all secrets
     mock: bool,
 }
@@ -58,10 +56,14 @@ pub struct Vault {
 impl Vault {
     /// Initialize using the same evars or token files that the `vault` CLI uses
     pub fn default() -> Result<Vault> {
-        Vault::new(reqwest::Client::new(), &default_addr()?, default_token()?)
+        Vault::new(reqwest::Client::new(), &default_addr()?, default_token()?, false)
+    }
+    /// Initialize using vault evars, but mock return values
+    pub fn mocked() -> Result<Vault> {
+        Vault::new(reqwest::Client::new(), &default_addr()?, default_token()?, true)
     }
 
-    fn new<U, S>(client: reqwest::Client, addr: U, token: S) -> Result<Vault>
+    fn new<U, S>(client: reqwest::Client, addr: U, token: S, mock: bool) -> Result<Vault>
         where U: reqwest::IntoUrl,
               S: Into<String>
     {
@@ -70,14 +72,8 @@ impl Vault {
             client: client,
             addr: addr,
             token: token.into(),
-            secrets: BTreeMap::new(),
-            mock: false,
+            mock: mock,
         })
-    }
-
-    /// Mock all `read` calls to the http client
-    pub fn mock_secrets(&mut self) {
-        self.mock = true;
     }
 
     // The actual HTTP GET logic
@@ -108,18 +104,15 @@ impl Vault {
     }
 
     /// Read secret from a Vault via an authenticated HTTP GET (or memory cache)
-    pub fn read(&mut self, key: &str) -> Result<String> {
+    pub fn read(&self, key: &str) -> Result<String> {
         let pth = format!("secret/{}", key);
-
-        // Check cache for secret first
-        if !self.secrets.contains_key(&pth) {
-            // Nope. Do the request, then cache the result.
-            let secret = self.get_secret(&pth)?;
-            self.secrets.insert(pth.to_owned(), secret);
-        }
-
-        // Retrieve secret from cache (now that it exists)
-        let secret = &self.secrets[&pth];
+        let secret = match self.get_secret(&pth) {
+            Ok(s) => s,
+            Err(e) => {
+                error!("{}", e);
+                return Err(ErrorKind::MissingSecret(pth).into())
+            }
+        };
 
         // NB: Currently assume each path in vault has a single `value`
         // Read the value key (which should exist)
@@ -143,7 +136,7 @@ mod tests {
 
     #[test]
     fn get_dev_secret() {
-        let mut client = Vault::default().unwrap();
+        let client = Vault::default().unwrap();
         let secret = client.read("dev-uk/test-shipcat/FAKE_SECRET").unwrap();
         assert_eq!(secret, "hello");
     }
