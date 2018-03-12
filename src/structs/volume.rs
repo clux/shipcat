@@ -34,7 +34,7 @@ pub struct VolumeSecret {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ProjectedVolumeSecretSource {
-    pub secret: Option<VolumeSecretSourceDetail>,
+    pub secret: Option<ProjectedVolumeSecretSourceDetail>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
