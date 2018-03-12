@@ -96,7 +96,6 @@ fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
         // Mostly for fear of clashing with other parts of the output,
         // but also because it's an insecure secret anyway
         if s.len() >= 8 {
-            info!("obfuscating {}", s);
             out = out.replace(&s, "************");
         }
     }
