@@ -181,7 +181,7 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
             Err(e) => {
                 error!("{}", e);
                 slack::send(slack::Message {
-                    text: format!("Failed to {} {} in {}", action, &dep.service, dep.region),
+                    text: format!("failed to {} {} in {}", action, &dep.service, dep.region),
                     color: Some("danger".into()),
                     link: infer_jenkins_link(),
                     code: Some(smalldiff),
@@ -189,7 +189,7 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
             },
             Ok(_) => {
                 slack::send(slack::Message {
-                    text: format!("{}d an existing diff of {} in {}", action, &dep.service, dep.region),
+                    text: format!("{}d {} in {}", action, &dep.service, dep.region),
                     color: Some("good".into()),
                     link: infer_jenkins_link(),
                     code: Some(smalldiff),
