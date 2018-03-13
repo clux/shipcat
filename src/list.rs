@@ -14,14 +14,15 @@ pub fn regions() -> Result<()> {
 pub fn services(region: String) -> Result<()> {
     let services = Manifest::available()?;
     for svc in services {
-        // Don't error handle heavily in here - used for autocomplete
         match Manifest::basic(&svc) {
             Ok(mf) => {
                 if mf.regions.contains(&region) {
                     println!("{}", svc);
                 }
             }
-            Err(e) => warn!("Failed to examine manifest for {}: {}", svc, e)
+            Err(e) => {
+                bail!("Failed to examine manifest for {}: {}", svc, e)
+            }
         }
     }
     Ok(())

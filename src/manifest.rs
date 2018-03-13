@@ -297,7 +297,7 @@ impl Manifest {
     }
 
     // Populate placeholder fields with secrets from vault
-    fn secrets(&mut self, client: &mut Vault, region: &str) -> Result<()> {
+    fn secrets(&mut self, client: &Vault, region: &str) -> Result<()> {
         // some services use keys from other services
         let svc = if let Some(ref vopts) = self.vault {
             vopts.name.clone()
@@ -335,10 +335,10 @@ impl Manifest {
     }
 
     /// Fill in env overrides and populate secrets
-    pub fn fill(&mut self, region: &str, vault: Option<&mut Vault>) -> Result<()> {
+    pub fn fill(&mut self, region: &str, vault: &Option<Vault>) -> Result<()> {
         self.implicits()?;
-        if let Some(client) = vault {
-            self.secrets(client, region)?;
+        if let &Some(ref client) = vault {
+            self.secrets(&client, region)?;
         }
 
         // merge service specific env overrides if they exists
@@ -362,13 +362,13 @@ impl Manifest {
     }
 
     /// Complete (filled in env overrides and populate secrets) a manifest
-    pub fn completed(region: &str, service: &str, vault: Option<&mut Vault>) -> Result<Manifest> {
+    pub fn completed(region: &str, service: &str, vault: Option<Vault>) -> Result<Manifest> {
         let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
-        mf.fill(&region, vault)?;
+        mf.fill(&region, &vault)?;
         Ok(mf)
     }
 
@@ -379,6 +379,9 @@ impl Manifest {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
+        if mf.name != service {
+            bail!("Service name must equal the folder name");
+        }
         mf.implicits()?;
         Ok(mf)
     }
@@ -480,63 +483,35 @@ impl Manifest {
 /// and `verify` their parameters.
 /// Optionally, it will also verify that all secrets are found in the corresponding
 /// vault locations serverside (which require vault credentials).
-pub fn validate(service: &str, region: Option<String>, secrets: bool) -> Result<()> {
-    let pth = Path::new(".").join("services").join(service);
-    if !pth.exists() {
-        bail!("Service folder {} does not exist", pth.display())
-    }
-    let mf = Manifest::read_from(&pth)?;
-    if mf.name != service {
-        bail!("Service name must equal the folder name");
-    }
-    if let Some(r) = region {
-        let mut mfr = mf.clone();
-        if !mf.regions.contains(&r) {
-            bail!("{} is not configured to be deployed in {}", service, r)
-        }
-        if secrets {
-            // need a new one for each region!
-            let mut vault = Vault::default().unwrap();
-            vault.mock_secrets(); // not needed for output
-            mfr.fill(&r, Some(&mut vault))?;
+pub fn validate(services: Vec<String>, region: String, vault: Option<Vault>) -> Result<()> {
+    for svc in services {
+        let mut mf = Manifest::basic(&svc)?;
+        if mf.regions.contains(&region) {
+            info!("validating {} for {}", svc, region);
+            mf.fill(&region, &vault)?;
+            mf.verify()?;
+            info!("validated {} for {}", svc, region);
+            mf.print()?; // print it if sufficient verbosity
         } else {
-            mfr.fill(&r, None)?;
-        }
-        mfr.verify()?;
-        info!("validated {} for specific {}", service, r);
-        mfr.print()?; // print it if sufficient verbosity
-    }
-    else {
-        for r in mf.regions.clone() {
-            let mut mfr = mf.clone();
-            if secrets {
-                // need a new one for each region!
-                let mut vault = Vault::default().unwrap();
-                vault.mock_secrets(); // not needed for output
-                mfr.fill(&r, Some(&mut vault))?;
-            } else {
-                mfr.fill(&r, None)?;
-            }
-            mfr.verify()?;
-            info!("validated {} for {}", service, r);
-            mfr.print()?; // print it if sufficient verbosity
+            bail!("{} is not configured to be deployed in {}", svc, region)
         }
     }
     Ok(())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::{validate};
     use tests::setup;
+    use super::Vault;
 
     #[test]
     fn graph_generate() {
         setup();
-        let res = validate("fake-ask", Some("dev-uk".into()), true);
+        let client = Vault::default().unwrap();
+        let res = validate(vec!["fake-ask".into()], "dev-uk".into(), Some(client));
         assert!(res.is_ok());
-        let res2 = validate("fake-storage", None, false);
+        let res2 = validate(vec!["fake-storage".into(), "fake-ask".into()], "dev-uk".into(), None);
         assert!(res2.is_ok())
     }
 }
