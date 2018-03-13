@@ -35,7 +35,7 @@ pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
     let ns = mf.namespace.clone();
     // TODO: check if access to roll out deployment!
 
-    let img = format!("{}:{}", mf.image.clone().unwrap(), mf.version.clone().unwrap());
+    let img = format!("{}:{}", mf.image.clone().unwrap(), tag);
 
     let args = vec![
         "set".into(),

@@ -170,12 +170,14 @@ fn main() {
                 .takes_value(true))
             .about("Post message to slack"))
         .subcommand(SubCommand::with_name("validate")
-              .arg(Arg::with_name("service")
+              .arg(Arg::with_name("services")
                 .required(true)
-                .help("Service name"))
+                .multiple(true)
+                .help("Service names to validate"))
               .arg(Arg::with_name("region")
                 .short("r")
                 .long("region")
+                .required(true)
                 .takes_value(true)
                 .help("Specific region to check"))
               .arg(Arg::with_name("secrets")
@@ -229,7 +231,7 @@ fn main() {
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
         let mut vault = conditional_exit(shipcat::vault::Vault::default());
-        let mf = conditional_exit(Manifest::completed(region, service, Some(&mut vault)));
+        let mf = conditional_exit(Manifest::completed(region, service, Some(vault)));
 
         // All parameters for a k8s deployment
         let dep = shipcat::generate::Deployment {
@@ -266,7 +268,7 @@ fn main() {
         let mut vault = conditional_exit(shipcat::vault::Vault::default());
 
         // Populate a complete manifest (with ALL values) early for advanced commands
-        let mf = conditional_exit(Manifest::completed(region, service, Some(&mut vault)));
+        let mf = conditional_exit(Manifest::completed(region, service, Some(vault)));
 
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
@@ -296,9 +298,15 @@ fn main() {
 
     // Handle subcommands dumb subcommands
     if let Some(a) = args.subcommand_matches("validate") {
-        let service = a.value_of("service").unwrap();
-        let region = a.value_of("region").map(String::from);
-        result_exit(args.subcommand_name().unwrap(), shipcat::validate(service, region, a.is_present("secrets")))
+        let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
+        let region = a.value_of("region").map(String::from).unwrap();
+        let res = if a.is_present("secrets") {
+            let vault = shipcat::vault::Vault::mocked().unwrap();
+            shipcat::validate(services, region, Some(vault))
+        } else {
+            shipcat::validate(services, region, None)
+        };
+        result_exit(args.subcommand_name().unwrap(), res)
     }
     if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");
