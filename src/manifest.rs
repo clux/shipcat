@@ -407,8 +407,13 @@ impl Manifest {
         }
 
         // run the `Verify` trait on all imported structs
-        // mandatory structs first:
-        self.resources.clone().unwrap().verify()?;
+        // mandatory structs first
+        if let Some(ref r) = self.resources {
+            r.verify()?;
+        } else {
+            // TODO: maybe not for external services
+            bail!("Resources is mandatory");
+        }
 
         // optional/vectorised entries
         for d in &self.dependencies {
