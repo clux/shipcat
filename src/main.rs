@@ -123,6 +123,7 @@ fn main() {
                 .help("Service name"))
             .about("Get logs from pods for a service described in a manifest"))
         .subcommand(SubCommand::with_name("shell")
+            .about("Shell into pods for a service described in a manifest")
             .arg(Arg::with_name("region")
                 .short("r")
                 .long("region")
@@ -136,7 +137,8 @@ fn main() {
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
-            .about("Shell into pods for a service described in a manifest"))
+            .setting(AppSettings::TrailingVarArg)
+            .arg(Arg::with_name("cmd").multiple(true)))
         .subcommand(SubCommand::with_name("ship")
             .arg(Arg::with_name("region")
                 .short("r")
@@ -342,14 +344,18 @@ fn main() {
     if let Some(a) = args.subcommand_matches("shell") {
         let service = a.value_of("service").unwrap();
         let pod = value_t!(a.value_of("pod"), u32).ok();
-
+        let cmd = if a.is_present("cmd") {
+            Some(a.values_of("cmd").unwrap().collect::<Vec<_>>())
+        } else {
+            None
+        };
         let mf = if let Some(r) = a.value_of("region") {
             conditional_exit(Manifest::completed(r, service, None))
         } else {
             // infer region from kubectl current-context
             conditional_exit(Manifest::basic(service))
         };
-        result_exit(args.subcommand_name().unwrap(), shipcat::kube::shell(&mf, pod))
+        result_exit(args.subcommand_name().unwrap(), shipcat::kube::shell(&mf, pod, cmd))
     }
 
     if let Some(a) = args.subcommand_matches("logs") {
