@@ -102,7 +102,7 @@ fn get_pods(name: &str, ns: &str) -> Result<String> {
 /// Shell into all pods associated with a service
 ///
 /// Optionally specify the arbitrary pod index from kubectl get pods
-pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
+pub fn shell(mf: &Manifest, desiredpod: Option<u32>, cmd: Option<Vec<&str>>) -> Result<()> {
     // TODO: check if access to shell in!
 
     // region might not be set for this command
@@ -123,18 +123,25 @@ pub fn shell(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
             }
         }
 
-        info!("Shelling into {}", p);
+        debug!("Shelling into {}", p);
         //kubectl exec -n $ns -it $$pod sh
         let mut execargs = vec![
             "exec".into(),
             "-it".into(),
             p.into(),
-            "sh".into(),
         ];
         if ns != "" {
             execargs.push("-n".into());
             execargs.push(ns.clone());
         }
+        if let Some(cmdu) = cmd.clone() {
+            for c in cmdu {
+                execargs.push(c.into())
+            }
+        } else {
+            execargs.push("sh".into())
+        }
+
         kexec(execargs)?;
     }
     Ok(())
