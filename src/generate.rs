@@ -35,57 +35,6 @@ fn make_base_context(dep: &Deployment) -> Result<Context> {
     Ok(ctx)
 }
 
-// full context modifier with all variables used by deployment templates as well
-fn make_full_deployment_context(dep: &Deployment) -> Result<Context> {
-    let mut ctx = make_base_context(dep)?;
-
-    // Files in `ConfigMap` get pre-rendered with a sanitized template context
-    if let Some(cfg) = dep.manifest.configs.clone() {
-        let mut files = vec![];
-        for f in cfg.files {
-            let res = template_config(dep, &f)?;
-            files.push(RenderedConfig { name: f.dest.clone(), rendered: res });
-        }
-        let config = ConfigMapRendered {
-            name: cfg.name.unwrap(), // filled in by implicits
-            path: cfg.mount,
-            files: files,
-        };
-        ctx.add("config", &config);
-    }
-    // whatever, this is going away:
-    let ver = dep.manifest.version.clone().unwrap();
-    let img = dep.manifest.image.clone().unwrap();
-    ctx.add("image", &format!("{}:{}", img, ver));
-
-    // Host aliases
-    ctx.add("hostAliases", &dep.manifest.hostAliases);
-
-    // Ports exposed as is
-    ctx.add("httpPort", &dep.manifest.httpPort);
-
-    // Replicas
-    ctx.add("replicaCount", &dep.manifest.replicaCount);
-
-    // Health check
-    if let Some(ref h) = dep.manifest.health {
-        ctx.add("health", h);
-    }
-
-    // Volume mounts
-    ctx.add("volumeMounts", &dep.manifest.volumeMounts);
-
-    // Init containers
-    ctx.add("initContainers", &dep.manifest.initContainers);
-
-    // Volumes
-    ctx.add("volumes", &dep.manifest.volumes);
-
-    // Temporary full manifest access - don't reach into this directly
-    ctx.add("mf", &dep.manifest);
-
-    Ok(ctx)
-}
 
 fn template_config(dep: &Deployment, mount: &ConfigMappedFile) -> Result<String> {
     let ctx = make_base_context(dep)?;
@@ -161,37 +110,6 @@ pub fn helm(dep: &Deployment, output: Option<String>) -> Result<Manifest> {
     }
     Ok(mf)
 }
-
-
-/// Render `deployment.yaml.j2` from `templates/` with a `Deployment`
-///
-/// This method is meant to be deprecated for `helm install`
-pub fn deployment(dep: &Deployment, to_stdout: bool, to_file: bool) -> Result<String> {
-    let ctx = make_full_deployment_context(dep)?;
-    let res = if dep.manifest.disabled {
-        warn!("Not generating yaml for disabled service");
-        "---".into()
-    } else {
-        (dep.render)("deployment.yaml.j2", &ctx)?
-    };
-    if to_stdout {
-        print!("{}", res);
-    }
-    if to_file {
-        use std::path::Path;
-        use std::fs::File;
-        use std::io::prelude::*;
-
-        let loc = Path::new(".");
-        create_output(&loc.to_path_buf())?;
-        let full_pth = loc.join("OUTPUT").join("values.yaml");
-        let mut f = File::create(&full_pth)?;
-        write!(f, "{}\n", res)?;
-        info!("Wrote kubefiles for {} in {}", dep.service, full_pth.to_string_lossy());
-    }
-    Ok(res)
-}
-
 
 #[cfg(test)]
 mod tests {

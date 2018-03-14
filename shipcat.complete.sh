@@ -7,12 +7,12 @@ _shipcat()
     local cur prev words cword
     _init_completion || return
 
-    local -r subcommands="help validate generate shell logs graph get helm
+    local -r subcommands="help validate shell logs graph get helm
                           list-regions list-services"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|generate|status|shell|logs|get|graph|helm) ]]; then
+        if [[ ${words[i]} == @(help|validate|status|shell|logs|get|graph|helm) ]]; then
             has_sub=1
         fi
     done
@@ -31,7 +31,7 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(generate|validate|shell|logs|graph|get|helm|list-services) ]]; then
+        if [[ ${words[i]} == @(validate|shell|logs|graph|get|helm|list-services) ]]; then
             special=${words[i]}
         fi
     done
@@ -106,17 +106,6 @@ _shipcat()
                 else
                     # Suggest subcommands of helm and global flags
                     COMPREPLY=($(compgen -W "-r --region upgrade template diff" -- "$cur"))
-                fi
-                ;;
-            generate)
-                if [[ $prev = generate ]]; then
-                    COMPREPLY=($(compgen -W "-r --region" -- "$cur"))
-                elif [[ $prev == @(-r|--region) ]]; then
-                    local -r regions="$(shipcat list-regions)"
-                    COMPREPLY=($(compgen -W "$regions" -- "$cur"))
-                else
-                    svcs=$(find "./services" -maxdepth 1 -mindepth 1 -type d -printf "%f " 2> /dev/null)
-                    COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 fi
                 ;;
             shell|logs)
