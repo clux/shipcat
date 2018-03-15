@@ -168,14 +168,17 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
             "--set".into(),
             format!("version={}", version),
         ];
-        if let Some(ref hc) = dep.manifest.health {
+        let waittime = if let Some(ref hc) = dep.manifest.health {
             // wait for at most 2 * bootTime * replicas
-            let waittime = 2 * hc.wait * dep.manifest.replicaCount;
-            upgradevec.extend_from_slice(&[
-                "--wait".into(),
-                format!("--timeout={}", waittime),
-            ]);
-        }
+            2 * hc.wait * dep.manifest.replicaCount
+        } else {
+            // sensible guess for boot time
+            2 * 30 * dep.manifest.replicaCount
+        };
+        upgradevec.extend_from_slice(&[
+            "--wait".into(),
+            format!("--timeout={}", waittime),
+        ]);
         info!("helm {}", upgradevec.join(" "));
         match hexec(upgradevec) {
             Err(e) => {
