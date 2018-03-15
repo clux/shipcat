@@ -308,27 +308,11 @@ impl Manifest {
 
         // iterate over key value evars and replace placeholders
         for (k, v) in &mut self.env {
-            let kube_prefix = "IN_KUBE_SECRETS";
-
             if v == "IN_VAULT" {
                 let vkey = format!("{}/{}/{}", region, svc, k);
                 let secret = client.read(&vkey)?;
                 *v = secret.clone();
                 self._decoded_secrets.insert(vkey, secret);
-            } else if v.starts_with(kube_prefix) {
-                let res = if v == kube_prefix {
-                    // no extra info -> assume same kube secret name as evar name
-                    k.to_string()
-                } else {
-                    // key after :, split and return second half
-                    assert!(v.contains(':'));
-                    let parts : Vec<_> = v.split(':').collect();
-                    if parts[1].is_empty() {
-                        bail!("{} does not have a valid key path", v.clone());
-                    }
-                    parts[1].to_string()
-                };
-                *v = format!("kube-secret-{}", res.to_lowercase().replace("_", "-"));
             }
         }
         Ok(())
