@@ -41,8 +41,8 @@ pub struct Manifest {
     pub version: Option<String>,
 
     /// Optional image command (if not using the default docker command)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub command: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub command: Vec<String>,
 
     /// Canonical data sources like repo, docs, team names
     #[serde(default, skip_serializing_if = "Option::is_none")]
