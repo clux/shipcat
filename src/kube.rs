@@ -22,63 +22,6 @@ pub fn kout(args: Vec<String>) -> Result<String> {
     Ok(out)
 }
 
-/// Rollout an image update to an existing deployment
-///
-/// Deprecated.
-/// This kurrently uses kubectl rollout set image under the hood.
-/// This will be replaced by `helm install` in the future
-pub fn rollout(region: &str, tag: &str, mf: &Manifest) -> Result<()> {
-    // further sanity
-    let confargs = vec!["config".into(), "current-context".into()];
-    kexec(confargs)?;
-
-    let ns = mf.namespace.clone();
-    // TODO: check if access to roll out deployment!
-
-    let img = format!("{}:{}", mf.image.clone().unwrap(), tag);
-
-    let args = vec![
-        "set".into(),
-        "image".into(),
-        format!("deployment/{}", mf.name),
-        format!("{}={}", mf.name, img),
-        "-n".into(),
-        ns.clone(),
-    ];
-    println!("kubectl {}", args.join(" "));
-    kexec(args)?;
-
-    // NB: can't control how long to wait here
-    let rollargs = vec![
-        "rollout".into(),
-        "status".into(),
-        format!("deployment/{}", mf.name),
-        "-n".into(),
-        ns.clone(),
-    ];
-    // simple check for routout status first
-    match kexec(rollargs.clone()) {
-        Err(e) => {
-            warn!("Rollout seems to hang - investigating");
-            warn!("Got: {} from rollout command", e);
-            info!("Checking pod status:");
-            let podargs = vec![
-                "get".into(),
-                "pods".into(),
-                format!("-l=app={}", mf.name),
-                "-n".into(),
-                ns.into(),
-            ];
-            kexec(podargs)?;
-            bail!("rollout failed to succeed in 5minutes");
-        }
-        Ok(_) => {
-            info!("{}@{} rolled out to {}", mf.name, tag, region);
-        }
-    };
-    Ok(())
-}
-
 
 fn get_pods(name: &str, ns: &str) -> Result<String> {
     //kubectl get pods -l=app=$* -n $ns -o jsonpath='{.items[*].metadata.name}'
@@ -103,7 +46,6 @@ fn get_pods(name: &str, ns: &str) -> Result<String> {
 ///
 /// Optionally specify the arbitrary pod index from kubectl get pods
 pub fn shell(mf: &Manifest, desiredpod: Option<u32>, cmd: Option<Vec<&str>>) -> Result<()> {
-    // TODO: check if access to shell in!
 
     // region might not be set for this command
     // rely on kubectl context to work it out if unset
