@@ -30,7 +30,7 @@ export VAULT_ADDR=...
 export VAULT_TOKEN=...
 
 # Verify manifests secrets exist
-shipcat validate -r dev-uk babylbot --secrets
+shipcat validate babylbot --secrets
 ```
 
 If you have `kubectl` read only credentials you can also create your helm values, template and diff a deployment against a current running one:
