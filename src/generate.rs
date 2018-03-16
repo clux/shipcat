@@ -135,7 +135,7 @@ mod tests {
                 template::render(&tera, tmpl, context)
             }),
         };
-        if let Err(e) = helm(&dep, None) {
+        if let Err(e) = helm(&dep, None, false) {
             println!("Failed to create helm values for fake-ask");
             print!("{}", e);
             assert!(false);
