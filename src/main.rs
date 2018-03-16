@@ -120,23 +120,6 @@ fn main() {
                 .help("Service name"))
             .setting(AppSettings::TrailingVarArg)
             .arg(Arg::with_name("cmd").multiple(true)))
-        .subcommand(SubCommand::with_name("ship")
-            .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .required(true)
-                .takes_value(true)
-                .help("Region to deploy to (dev-uk, dev-qa, prod-uk)"))
-            .arg(Arg::with_name("tag")
-                .short("t")
-                .long("tag")
-                .required(true)
-                .takes_value(true)
-                .help("Tag of the image (typically a hash / semver)"))
-            .arg(Arg::with_name("service")
-                .required(true)
-                .help("Service name"))
-            .about("Rollout to kubernetes"))
         .subcommand(SubCommand::with_name("slack")
             .arg(Arg::with_name("url")
                 .short("u")
@@ -258,7 +241,6 @@ fn main() {
     }
     if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");
-
         if let Some(svc) = a.value_of("service") {
             result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(svc, dot))
         } else {
@@ -273,19 +255,6 @@ fn main() {
         let msg = shipcat::slack::Message { text, link, color, ..Default::default() };
         result_exit(args.subcommand_name().unwrap(), shipcat::slack::send(msg))
     }
-
-    if let Some(a) = args.subcommand_matches("ship") {
-        let region = a.value_of("region").unwrap();
-        let service = a.value_of("service").unwrap();
-        let tag = a.value_of("tag").unwrap();
-
-        // Populate a mostly completed manifest
-        // NB: this verifies region is valid for this service!
-        let mf = conditional_exit(Manifest::completed(region, service, None));
-
-        result_exit(args.subcommand_name().unwrap(), shipcat::kube::rollout(region, tag, &mf))
-    }
-
 
     if let Some(a) = args.subcommand_matches("shell") {
         let service = a.value_of("service").unwrap();
