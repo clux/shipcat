@@ -46,7 +46,6 @@ fn get_pods(name: &str, ns: &str) -> Result<String> {
 ///
 /// Optionally specify the arbitrary pod index from kubectl get pods
 pub fn shell(mf: &Manifest, desiredpod: Option<u32>, cmd: Option<Vec<&str>>) -> Result<()> {
-    // TODO: check if access to shell in!
 
     // region might not be set for this command
     // rely on kubectl context to work it out if unset
