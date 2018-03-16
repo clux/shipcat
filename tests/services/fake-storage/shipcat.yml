@@ -8,7 +8,7 @@ resources:
     cpu: 100m
     memory: 512Mi
 replicaCount: 2
-command: [./start-app.sh]
+command: ['./start-app.sh']
 health:
   uri: /health
   wait: 30
