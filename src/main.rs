@@ -62,12 +62,6 @@ fn main() {
                 .long("short")
                 .help("Output short resource format")))
         .subcommand(SubCommand::with_name("helm")
-            .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .required(true)
-                .takes_value(true)
-                .help("Region to deploy to (dev-uk, dev-qa, prod-uk)"))
             .arg(Arg::with_name("tag")
                 .long("tag")
                 .short("t")
@@ -81,7 +75,15 @@ fn main() {
                     .short("o")
                     .long("output")
                     .takes_value(true)
-                    .help("Output file to save to")))
+                    .help("Output file to save to"))
+                .about("Generate helm template from a manifest"))
+            .subcommand(SubCommand::with_name("values")
+                .arg(Arg::with_name("output")
+                    .short("o")
+                    .long("output")
+                    .takes_value(true)
+                    .help("Output file to save to"))
+                .about("Generate helm values from a manifest"))
             .subcommand(SubCommand::with_name("diff")
                 .about("Diff kubeernetes configs with local state"))
             .subcommand(SubCommand::with_name("upgrade")
@@ -143,7 +145,6 @@ fn main() {
               .arg(Arg::with_name("region")
                 .short("r")
                 .long("region")
-                .required(true)
                 .takes_value(true)
                 .help("Specific region to check"))
               .arg(Arg::with_name("secrets")
@@ -191,13 +192,14 @@ fn main() {
 
     if let Some(a) = args.subcommand_matches("helm") {
         let service = a.value_of("service").unwrap();
-        let region = a.value_of("region").unwrap(); // TODO: infer if possible!
+
+        let region = kube::current_context().unwrap();
         let tag = a.value_of("tag").map(String::from);
 
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
         let mut vault = conditional_exit(shipcat::vault::Vault::default());
-        let mf = conditional_exit(Manifest::completed(region, service, Some(vault)));
+        let mf = conditional_exit(Manifest::completed(&region, service, Some(vault)));
 
         // All parameters for a k8s deployment
         let dep = shipcat::generate::Deployment {
@@ -210,6 +212,11 @@ fn main() {
                 template::render(&tera, tmpl, context)
             }),
         };
+        if let Some(b) = a.subcommand_matches("values") {
+            let output = b.value_of("output").map(String::from);
+            let res = shipcat::helm::values(&dep, output);
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
         if let Some(b) = a.subcommand_matches("template") {
             let output = b.value_of("output").map(String::from);
             let res = shipcat::helm::template(&dep, output);
@@ -230,7 +237,9 @@ fn main() {
     // Handle subcommands dumb subcommands
     if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
-        let region = a.value_of("region").map(String::from).unwrap();
+        let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
+            kube::current_context().unwrap()
+        });
         let res = if a.is_present("secrets") {
             let vault = shipcat::vault::Vault::mocked().unwrap();
             shipcat::validate(services, region, Some(vault))
@@ -298,13 +307,6 @@ fn main() {
     // can use this to verify structure of vault!
     // simpler than generating all kubefiles for all regions
 
-
-
-
-    //if let Some(_) = args.subcommand_matches("ship") {
-    //    let res = shipcat::ship(&tera, &mf);
-    //    result_exit(args.subcommand_name().unwrap(), res)
-    //}
 
     unreachable!("Subcommand valid, but not implemented");
 }

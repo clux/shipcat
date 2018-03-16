@@ -1,9 +1,20 @@
 use std::fs;
+use serde_yaml;
+
+use std::fs::File;
+use std::path::{Path};
+use std::io::{self, Write};
 
 use super::slack;
-use super::kube::kout;
+use super::kube;
 use super::generate::{self, Deployment};
 use super::{Result, Manifest};
+
+// Struct parsed into from `helm get values {service}`
+#[derive(Deserialize)]
+struct HelmVals {
+    version: String,
+}
 
 pub fn hexec(args: Vec<String>) -> Result<()> {
     use std::process::Command;
@@ -23,32 +34,17 @@ pub fn hout(args: Vec<String>) -> Result<String> {
 }
 
 
-fn infer_version(service: &str, ns: &str, image: &str) -> Result<String> {
+fn infer_version(service: &str) -> Result<String> {
     // else use the current deployed sha (reconciliation)
     let imgvec = vec![
         "get".into(),
-        "deploy".into(),
-        "-n".into(),
-        ns.into(),
-        format!("-l=app={}", service),
-        "-o=jsonpath='{$.items[:1].spec.template.spec.containers[:].image}'".into(),
+        "values".into(),
+        service.into(),
     ];
-    // NB: could do containers[:] and search for `img` as well
-    debug!("kubectl {}", imgvec.join(" "));
-    let imagestr = kout(imgvec)?;
-    // first split into a vector of images
-    debug!("Found images {}", imagestr);
-    for i in imagestr.split(' ') {
-        trace!("Looking for {} in {}", image, i);
-        if i.contains(image) {
-            let split: Vec<&str> = i.split(':').collect();
-            if split.len() != 2 {
-                bail!("Image '{}' for service {} did not have a tag from kubectl", image, service)
-            }
-            return Ok(split[1].into()) // last element is the tag;
-        }
-    }
-    bail!("Failed to find {} in spec.containers to infer image", image)
+    debug!("helm {}", imgvec.join(" "));
+    let valuestr = hout(imgvec)?.to_string();
+    let values : HelmVals = serde_yaml::from_str(&valuestr)?;
+    Ok(values.version)
 }
 
 fn infer_jenkins_link() -> Option<String> {
@@ -66,8 +62,8 @@ fn pre_upgrade_sanity(dep: &Deployment) -> Result<()> {
     // TODO: kubectl auth can-i rollout Deployment
 
     // region sanity
-    let kctx = kout(vec!["config".into(), "current-context".into()])?;
-    assert_eq!(format!("{}\n", dep.region), kctx); // TODO: fix newline issues from kout
+    let kctx = kube::current_context()?;
+    assert_eq!(dep.region, kctx);
     if !dep.manifest.regions.contains(&dep.region) {
         bail!("This service cannot be deployed in this region")
     }
@@ -115,15 +111,12 @@ fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
 pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
     pre_upgrade_sanity(dep)?;
 
-    let ns = dep.manifest.namespace.clone();
-    let img = dep.manifest.image.clone().unwrap();
-
     // either we deploy with an explicit sha (build triggers from repos)
     let version = if let Some(v) = dep.version.clone() {
         v
     } else {
         // TODO: this may fail if the service is down
-        infer_version(&dep.service, &ns, &img)?
+        infer_version(&dep.service)?
     };
     let action = if dep.version.is_none() {
         info!("Using version {} (inferred from kubectl for current running version)", version);
@@ -134,7 +127,7 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
     };
     // now create helm values
     let file = format!("{}.helm.gen.yml", dep.service);
-    let mf = generate::helm(dep, Some(file.clone()))?;
+    let mf = generate::helm(dep, Some(file.clone()), false)?;
 
     // diff against current running
     let diffvec = vec![
@@ -209,9 +202,39 @@ pub fn diff(dep: &Deployment) -> Result<()> {
     upgrade(dep, true)
 }
 
-/// Analogoue of helm template
+/// Create helm values file for a service
 ///
 /// Defers to `generate::helm` for now
-pub fn template(dep: &Deployment, output: Option<String>) -> Result<Manifest> {
-    generate::helm(dep, output)
+pub fn values(dep: &Deployment, output: Option<String>) -> Result<Manifest> {
+    generate::helm(dep, output, false)
+}
+
+
+/// Analogoue of helm template
+///
+/// Generates helm values to disk, then passes it to helm template
+pub fn template(dep: &Deployment, output: Option<String>) -> Result<String> {
+    let tmpfile = format!("{}.helm.gen.yml", dep.service);
+    let _mf = generate::helm(dep, Some(tmpfile.clone()), true)?;
+
+    // helm template with correct params
+    let tplvec = vec![
+        "template".into(),
+        format!("charts/{}", dep.manifest.chart),
+        "-f".into(),
+        tmpfile.clone(),
+    ];
+    let tpl = hout(tplvec)?;
+    if let Some(o) = output {
+        let pth = Path::new(".").join(o);
+        info!("Writing helm template for {} to {}", dep.service, pth.display());
+        let mut f = File::create(&pth)?;
+        write!(f, "{}\n", tpl)?;
+        debug!("Wrote helm template for {} to {}: \n{}", dep.service, pth.display(), tpl);
+    } else {
+        //stdout only
+        let _ = io::stdout().write(tpl.as_bytes());
+    }
+    fs::remove_file(tmpfile)?;
+    Ok(tpl)
 }

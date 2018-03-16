@@ -80,7 +80,7 @@ impl Deployment {
 /// Helm values writer
 ///
 /// Fills in service specific config files into config to help helm out
-pub fn helm(dep: &Deployment, output: Option<String>) -> Result<Manifest> {
+pub fn helm(dep: &Deployment, output: Option<String>, silent: bool) -> Result<Manifest> {
     dep.check()?; // sanity check on deployment
     let mut mf = dep.manifest.clone();
 
@@ -99,14 +99,17 @@ pub fn helm(dep: &Deployment, output: Option<String>) -> Result<Manifest> {
     let encoded = serde_yaml::to_string(&mf)?;
     if let Some(o) = output {
         let pth = Path::new(".").join(o);
-        info!("Writing helm values for {} to {}", dep.service, pth.display());
+        if silent {
+            debug!("Writing helm values for {} to {}", dep.service, pth.display());
+        } else {
+            info!("Writing helm values for {} to {}", dep.service, pth.display());
+        }
         let mut f = File::create(&pth)?;
         write!(f, "{}\n", encoded)?;
         debug!("Wrote helm values for {} to {}: \n{}", dep.service, pth.display(), encoded);
     } else {
         // stdout only
-        print!("{}", encoded);
-        io::stdout().flush()?; // allow piping stdout elsewhere
+        let _ = io::stdout().write(encoded.as_bytes());
     }
     Ok(mf)
 }

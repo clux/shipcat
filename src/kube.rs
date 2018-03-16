@@ -22,6 +22,16 @@ pub fn kout(args: Vec<String>) -> Result<String> {
     Ok(out)
 }
 
+pub fn current_context() -> Result<String> {
+    let mut res = kout(vec!["config".into(), "current-context".into()])?;
+    let len = res.len();
+    if res.ends_with('\n') {
+        res.truncate(len - 1);
+    }
+    // TODO: sanity check regions in allowed regions first
+    Ok(res)
+}
+
 
 fn get_pods(name: &str, ns: &str) -> Result<String> {
     //kubectl get pods -l=app=$* -n $ns -o jsonpath='{.items[*].metadata.name}'
@@ -46,6 +56,7 @@ fn get_pods(name: &str, ns: &str) -> Result<String> {
 ///
 /// Optionally specify the arbitrary pod index from kubectl get pods
 pub fn shell(mf: &Manifest, desiredpod: Option<u32>, cmd: Option<Vec<&str>>) -> Result<()> {
+    // TODO: kubectl auth can-i create pods/exec
 
     // region might not be set for this command
     // rely on kubectl context to work it out if unset
@@ -93,7 +104,7 @@ pub fn shell(mf: &Manifest, desiredpod: Option<u32>, cmd: Option<Vec<&str>>) -> 
 ///
 /// Optionally specify the arbitrary pod index from kubectl get pods
 pub fn logs(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
-    // TODO: check if access to get logs in!
+    // TODO: kubectl auth can-i get,list pods/logs
 
     // region might not be set for this command
     // rely on kubectl context to work it out if unset
