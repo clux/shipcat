@@ -271,16 +271,10 @@ impl Manifest {
         //    // for now: if limits or requests are specified, you have to fill in both CPU and memory
         //}
 
-        //if self.volumeMounts.is_empty() && !mf.volumeMounts.is_empty() {
-        //    self.volumeMounts = mf.volumeMounts;
-        //}
-        //if self.initContainers.is_empty() && !mf.initContainers.is_empty() {
-        //    self.initContainers = mf.initContainers.clone();
-        //}
-
-        //if self.volumes.is_empty() && !mf.volumes.is_empty() {
-        //    self.volumes = mf.volumes;
-        //}
+        // allow overriding of init containers
+        if !mf.initContainers.is_empty() {
+            self.initContainers = mf.initContainers.clone();
+        }
 
         // allow overriding of host aliases
         if !mf.hostAliases.is_empty() {
