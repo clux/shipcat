@@ -134,10 +134,6 @@ pub struct Manifest {
     // TODO: stop hook
     //preStopHookPath: /die
 
-    // Internal path of this manifest
-    #[serde(skip_serializing, skip_deserializing)]
-    _path: String,
-
     // Internal location this manifest is intended for
     #[serde(skip_serializing, skip_deserializing)]
     pub _location: String,
@@ -153,10 +149,9 @@ fn replica_count_default() -> u32 { 2 } // TODO: 1?
 
 
 impl Manifest {
-    pub fn new(name: &str, location: &PathBuf) -> Manifest {
+    pub fn new(name: &str) -> Manifest {
         Manifest {
             name: name.into(),
-            _path: location.to_string_lossy().into(),
             ..Default::default()
         }
     }
@@ -193,10 +188,7 @@ impl Manifest {
         let mut f = File::open(&mpath)?;
         let mut data = String::new();
         f.read_to_string(&mut data)?;
-        let mut res: Manifest = serde_yaml::from_str(&data)?;
-        // store the location internally (not serialized to disk)
-        res._path = mpath.to_string_lossy().into();
-        Ok(res)
+        Ok(serde_yaml::from_str(&data)?)
     }
 
 
