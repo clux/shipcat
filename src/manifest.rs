@@ -134,10 +134,6 @@ pub struct Manifest {
     // TODO: stop hook
     //preStopHookPath: /die
 
-    // Internal location this manifest is intended for
-    #[serde(skip_serializing, skip_deserializing)]
-    pub _location: String,
-
     // Decoded secrets
     #[serde(default, skip_serializing, skip_deserializing)]
     pub _decoded_secrets: BTreeMap<String, String>,
