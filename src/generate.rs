@@ -110,16 +110,18 @@ mod tests {
     use super::super::Manifest;
     use super::super::template;
     use tests::setup;
+    use super::super::Config;
 
     #[test]
     fn helm_create() {
         setup();
         let tera = template::init("fake-ask".into()).unwrap();
+        let conf = Config::read().unwrap();
         let dep = Deployment {
             service: "fake-ask".into(),
             region: "dev-uk".into(),
             version: None,
-            manifest: Manifest::basic("fake-ask").unwrap(),
+            manifest: Manifest::basic("fake-ask", &conf, Some("dev-uk".into())).unwrap(),
             // only provide template::render as the interface (move tera into this)
             render: Box::new(move |tmpl, context| {
                 template::render(&tera, tmpl, context)

@@ -119,7 +119,7 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
         infer_version(&dep.service)?
     };
     let action = if dep.version.is_none() {
-        info!("Using version {} (inferred from kubectl for current running version)", version);
+        info!("Using version {} (inferred from current helm revision)", version);
         "reconcile"
     } else {
         info!("Using default {} version", version);
@@ -163,10 +163,10 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
         ];
         let waittime = if let Some(ref hc) = dep.manifest.health {
             // wait for at most 2 * bootTime * replicas
-            2 * hc.wait * dep.manifest.replicaCount
+            2 * hc.wait * dep.manifest.replicaCount.unwrap()
         } else {
             // sensible guess for boot time
-            2 * 30 * dep.manifest.replicaCount
+            2 * 30 * dep.manifest.replicaCount.unwrap()
         };
         upgradevec.extend_from_slice(&[
             "--wait".into(),

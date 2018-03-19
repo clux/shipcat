@@ -40,10 +40,8 @@ _shipcat()
         case $special in
             get)
                 local -r regions="$(shipcat list-regions)"
-                local -r resources="versions ver image"
-                if [[ $prev = "get" ]]; then
-                    COMPREPLY=($(compgen -W "-r --region" -- "$cur"))
-                elif [[ $prev == @(-r|--region) ]]; then
+                local -r resources="version ver image"
+                if [[ $prev == @(-r|--region) ]]; then
                     COMPREPLY=($(compgen -W "$regions" -- "$cur"))
                 else
                     COMPREPLY=($(compgen -W "$resources" -- "$cur"))

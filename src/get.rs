@@ -1,16 +1,16 @@
 #![allow(non_snake_case)]
 /// This file contains the `shipcat get` subcommand
 use std::io::{self, Write};
-use super::{Result, Manifest};
+use super::{Result, Manifest, Config};
 
 
 #[derive(Debug)]
 pub enum ResourceType {
-    VERSION,
+    VERSION, // TODO: fetch from helm?
     IMAGE,
 }
 
-pub fn table(rsrc: &str, quiet: bool, region: String) -> Result<()> {
+pub fn table(rsrc: &str, conf: &Config, quiet: bool, region: String) -> Result<()> {
     let resource = match rsrc {
         "version"|"ver" => ResourceType::VERSION,
         "image" => ResourceType::IMAGE,
@@ -25,7 +25,7 @@ pub fn table(rsrc: &str, quiet: bool, region: String) -> Result<()> {
         println!("{0: <40} {1:?}", "NAME", resource);
     }
     for svc in services {
-        let mf = Manifest::completed(&region, &svc, None)?;
+        let mf = Manifest::completed(&region, &conf, &svc, None)?;
         if mf.regions.contains(&region) {
             match resource {
                 ResourceType::VERSION => {
