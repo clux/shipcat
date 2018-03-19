@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
-use std::fs::{self, File};
+use std::path::Path;
+use std::fs::File;
 use std::io::prelude::*;
 use std::io;
 
@@ -39,16 +39,6 @@ fn make_base_context(dep: &Deployment) -> Result<Context> {
 fn template_config(dep: &Deployment, mount: &ConfigMappedFile) -> Result<String> {
     let ctx = make_base_context(dep)?;
     Ok((dep.render)(&mount.name, &ctx)?)
-}
-
-/// Helper to create a local OUTPUT directory
-pub fn create_output(pwd: &PathBuf) -> Result<()> {
-    let loc = pwd.join("OUTPUT");
-    if loc.is_dir() {
-        fs::remove_dir_all(&loc)?;
-    }
-    fs::create_dir(&loc)?;
-    Ok(())
 }
 
 /// Deployment parameters and context bound helpers
