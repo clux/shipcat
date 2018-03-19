@@ -86,7 +86,10 @@ fn main() {
                 .about("Generate helm values from a manifest"))
             .subcommand(SubCommand::with_name("diff")
                 .about("Diff kubeernetes configs with local state"))
+            .subcommand(SubCommand::with_name("install")
+                .about("Install a service as a helm release from a manifest"))
             .subcommand(SubCommand::with_name("upgrade")
+                .about("Upgrade a helm release from a manifest")
                 .arg(Arg::with_name("dryrun")
                     .long("dry-run")
                     .help("Show the diff only"))))
@@ -228,6 +231,10 @@ fn main() {
         if let Some(b) = a.subcommand_matches("upgrade") {
             let dryrun = b.is_present("dryrun");
             let res = shipcat::helm::upgrade(&dep, dryrun);
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
+        if let Some(_) = a.subcommand_matches("install") {
+            let res = shipcat::helm::install(&dep, &conf);
             result_exit(a.subcommand_name().unwrap(), res)
         }
         if let Some(_) = a.subcommand_matches("diff") {

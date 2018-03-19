@@ -8,7 +8,7 @@ use std::io::{self, Write};
 use super::slack;
 use super::kube;
 use super::generate::{self, Deployment};
-use super::{Result, Manifest};
+use super::{Result, Manifest, Config};
 
 // Struct parsed into from `helm get values {service}`
 #[derive(Deserialize)]
@@ -49,12 +49,22 @@ fn infer_version(service: &str) -> Result<String> {
 
 fn infer_jenkins_link() -> Option<String> {
     use std::env;
+    use std::process::Command;
     if let (Ok(url), Ok(name), Ok(nr)) = (env::var("BUILD_URL"),
                                           env::var("JOB_NAME"),
                                           env::var("BUILD_NUMBER")) {
         Some(format!("{}|{} #{}", url, name, nr))
     } else {
-        None
+        match Command::new("whoami").output() {
+            Ok(s) => {
+                let out : String = String::from_utf8_lossy(&s.stdout).into();
+                return Some(out)
+            }
+            Err(e) => {
+                warn!("Could not retrieve user from shell {}", e);
+                return None
+            }
+        }
     }
 }
 
@@ -96,6 +106,57 @@ fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
         }
     }
     out
+}
+
+/// Install a deployment first time
+pub fn install(dep: &Deployment, conf: &Config) -> Result<()> {
+    pre_upgrade_sanity(dep)?;
+    let version = dep.version.clone().unwrap_or_else(|| {
+        let r = &conf.regions[&dep.region];
+        r.clone().defaults.version
+    });
+
+    // create helm values
+    let file = format!("{}.helm.gen.yml", dep.service);
+    let _ = generate::helm(dep, Some(file.clone()), false)?;
+
+    // install
+    let mut installvec = vec![
+        "install".into(),
+        format!("charts/{}", dep.manifest.chart),
+        "-f".into(),
+        file.clone(),
+        format!("--name={}", dep.service.clone()),
+        "--verify".into(),
+        "--set".into(),
+        format!("version={}", version),
+    ];
+    let waittime = if let Some(ref hc) = dep.manifest.health {
+        // wait for at most 2 * bootTime * replicas
+        2 * hc.wait * dep.manifest.replicaCount.unwrap()
+    } else {
+        // sensible guess for boot time
+        2 * 30 * dep.manifest.replicaCount.unwrap()
+    };
+    installvec.extend_from_slice(&[
+        "--wait".into(),
+        format!("--timeout={}", waittime),
+    ]);
+    match hexec(installvec) {
+        Err(e) => {
+            error!("{}", e);
+            return Err(e);
+        },
+        Ok(_) => {
+            slack::send(slack::Message {
+                text: format!("installed {} in {}", &dep.service, dep.region),
+                color: Some("good".into()),
+                link: infer_jenkins_link(),
+                ..Default::default()
+            })?;
+        }
+    };
+    Ok(())
 }
 
 /// Upgrade an an existing deployment if needed
