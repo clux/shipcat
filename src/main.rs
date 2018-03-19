@@ -179,12 +179,15 @@ fn main() {
         .init()
         .unwrap();
 
+    let conf = conditional_exit(Config::read());
+    conditional_exit(conf.verify()); // may as well block on this
+
     if args.subcommand_matches("list-regions").is_some() {
-        result_exit(args.subcommand_name().unwrap(), shipcat::list::regions())
+        result_exit(args.subcommand_name().unwrap(), shipcat::list::regions(&conf))
     }
     if let Some(a) = args.subcommand_matches("list-services") {
         let r = a.value_of("region").unwrap().into();
-        result_exit(args.subcommand_name().unwrap(), shipcat::list::services(r))
+        result_exit(args.subcommand_name().unwrap(), shipcat::list::services(&conf, r))
     }
     // clients for network related subcommands
     openssl_probe::init_ssl_cert_env_vars();
@@ -199,7 +202,7 @@ fn main() {
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
         let mut vault = conditional_exit(shipcat::vault::Vault::default());
-        let mf = conditional_exit(Manifest::completed(&region, service, Some(vault)));
+        let mf = conditional_exit(Manifest::completed(&region, &conf, service, Some(vault)));
 
         // All parameters for a k8s deployment
         let dep = shipcat::generate::Deployment {
@@ -242,18 +245,18 @@ fn main() {
         });
         let res = if a.is_present("secrets") {
             let vault = shipcat::vault::Vault::mocked().unwrap();
-            shipcat::validate(services, region, Some(vault))
+            shipcat::validate(services, &conf, region, Some(vault))
         } else {
-            shipcat::validate(services, region, None)
+            shipcat::validate(services, &conf, region, None)
         };
         result_exit(args.subcommand_name().unwrap(), res)
     }
     if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");
         if let Some(svc) = a.value_of("service") {
-            result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(svc, dot))
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(svc, &conf, dot))
         } else {
-            result_exit(args.subcommand_name().unwrap(), shipcat::graph::full(dot))
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::full(dot, &conf))
         }
     }
 
@@ -274,10 +277,10 @@ fn main() {
             None
         };
         let mf = if let Some(r) = a.value_of("region") {
-            conditional_exit(Manifest::completed(r, service, None))
+            conditional_exit(Manifest::completed(r, &conf, service, None))
         } else {
             // infer region from kubectl current-context
-            conditional_exit(Manifest::basic(service))
+            conditional_exit(Manifest::basic(service, &conf, None))
         };
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::shell(&mf, pod, cmd))
     }
@@ -287,10 +290,10 @@ fn main() {
         let pod = value_t!(a.value_of("pod"), u32).ok();
 
         let mf = if let Some(r) = a.value_of("region") {
-            conditional_exit(Manifest::completed(r, service, None))
+            conditional_exit(Manifest::completed(r, &conf, service, None))
         } else {
             // infer region from kubectl current-context
-            conditional_exit(Manifest::basic(service))
+            conditional_exit(Manifest::basic(service, &conf, None))
         };
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::logs(&mf, pod))
     }
@@ -298,8 +301,10 @@ fn main() {
     if let Some(a) = args.subcommand_matches("get") {
         let rsrc = a.value_of("resource").unwrap();
         let quiet = a.is_present("short");
-        let region = a.value_of("region").unwrap().into();
-        result_exit(args.subcommand_name().unwrap(), shipcat::get::table(rsrc, quiet, region))
+         let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
+            kube::current_context().unwrap()
+        });
+        result_exit(args.subcommand_name().unwrap(), shipcat::get::table(rsrc, &conf, quiet, region))
     }
 
 

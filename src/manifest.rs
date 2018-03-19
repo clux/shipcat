@@ -9,7 +9,7 @@ use std::fs::File;
 use std::path::{PathBuf, Path};
 use std::collections::BTreeMap;
 
-use super::Result;
+use super::{Result, Config};
 use super::vault::Vault;
 
 // All structs come from the structs directory
@@ -32,6 +32,9 @@ pub struct Manifest {
     /// Wheter to ignore this service
     #[serde(default, skip_serializing)]
     pub disabled: bool,
+    /// Wheter the service is externally managed
+    #[serde(default)]
+    pub external: bool,
 
     /// Optional image name
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -62,19 +65,19 @@ pub struct Manifest {
     // Kubernetes specific flags
 
     /// Namepace
-    #[serde(default = "namespace_default")]
+    #[serde(default)]
     pub namespace: String,
 
     /// Chart to use for the service
-    #[serde(default = "chart_default")]
+    #[serde(default)]
     pub chart: String,
 
     /// Resource limits and requests
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resources: Option<Resources>,
     /// Replication limits
-    #[serde(default = "replica_count_default")]
-    pub replicaCount: u32,
+    #[serde(default)]
+    pub replicaCount: Option<u32>,
     /// host aliases to inject in /etc/hosts
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hostAliases: Vec<HostAlias>,
@@ -138,11 +141,6 @@ pub struct Manifest {
     #[serde(default, skip_serializing, skip_deserializing)]
     pub _decoded_secrets: BTreeMap<String, String>,
 }
-fn chart_default() -> String { "base".into() }
-fn namespace_default() -> String { "dev".into() } // TODO: from a config file!
-fn replica_count_default() -> u32 { 2 } // TODO: 1?
-
-
 
 impl Manifest {
     pub fn new(name: &str) -> Manifest {
@@ -189,10 +187,31 @@ impl Manifest {
 
 
     /// Add implicit defaults to self
-    fn implicits(&mut self) -> Result<()> {
-        // image name defaults to the service name
+    fn implicits(&mut self, conf: &Config, region: Option<String>) -> Result<()> {
         if self.image.is_none() {
-            self.image = Some(format!("quay.io/babylonhealth/{}", self.name))
+            // image name defaults to some prefixed version of the service name
+            self.image = Some(format!("{}/{}", conf.defaults.imagePrefix, self.name))
+        }
+
+        if let Some(r) = region {
+            let reg = conf.regions[&r].clone(); // must exist
+            // allow overriding tags
+            if self.version.is_none() {
+                trace!("overriding image.version with {:?}", reg.defaults.version);
+                self.version = Some(reg.defaults.version);
+            }
+            if self.namespace == "" {
+                self.namespace = reg.defaults.namespace;
+            }
+            for (k, v) in reg.env {
+                self.env.insert(k, v);
+            }
+        }
+        if self.chart == "" {
+            self.chart = conf.defaults.chart.clone();
+        }
+        if self.replicaCount.is_none() {
+            self.replicaCount = Some(conf.defaults.replicaCount)
         }
 
         // config map implicit name
@@ -234,14 +253,6 @@ impl Manifest {
         // merge evars (most common override)
         for (k,v) in mf.env {
             self.env.entry(k).or_insert(v);
-        }
-
-        // allow overriding tags
-        if let Some(tag) = mf.version {
-            if self.version.is_none() {
-                trace!("overriding image.version with {:?}", tag);
-                self.version = Some(tag);
-            };
         }
 
         // maybe environment specific resources?
@@ -301,8 +312,8 @@ impl Manifest {
     }
 
     /// Fill in env overrides and populate secrets
-    pub fn fill(&mut self, region: &str, vault: &Option<Vault>) -> Result<()> {
-        self.implicits()?;
+    pub fn fill(&mut self, conf: &Config, region: &str, vault: &Option<Vault>) -> Result<()> {
+        self.implicits(conf, Some(region.into()))?;
         if let &Some(ref client) = vault {
             self.secrets(&client, region)?;
         }
@@ -316,30 +327,22 @@ impl Manifest {
             debug!("Merging environment locals from {}", envlocals.display());
             self.merge(&envlocals)?;
         }
-        // merge global environment defaults if they exist
-        let envglobals = Path::new(".")
-            .join("environments")
-            .join(format!("{}.yml", region));
-        if envglobals.is_file() {
-            debug!("Merging environment globals from {}", envglobals.display());
-            self.merge(&envglobals)?;
-        }
         Ok(())
     }
 
     /// Complete (filled in env overrides and populate secrets) a manifest
-    pub fn completed(region: &str, service: &str, vault: Option<Vault>) -> Result<Manifest> {
+    pub fn completed(region: &str, conf: &Config, service: &str, vault: Option<Vault>) -> Result<Manifest> {
         let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
-        mf.fill(&region, &vault)?;
+        mf.fill(conf, &region, &vault)?;
         Ok(mf)
     }
 
     /// A super base manifest - from an unknown region
-    pub fn basic(service: &str) -> Result<Manifest> {
+    pub fn basic(service: &str, conf: &Config, region: Option<String>) -> Result<Manifest> {
         let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
@@ -348,7 +351,7 @@ impl Manifest {
         if mf.name != service {
             bail!("Service name must equal the folder name");
         }
-        mf.implicits()?;
+        mf.implicits(conf, region)?;
         Ok(mf)
     }
 
@@ -362,7 +365,7 @@ impl Manifest {
     /// Verify assumptions about manifest
     ///
     /// Assumes the manifest has been populated with `implicits`
-    pub fn verify(&self) -> Result<()> {
+    pub fn verify(&self, conf: &Config) -> Result<()> {
         // limit to 40 characters, alphanumeric, dashes for sanity.
         let re = Regex::new(r"^[0-9a-z\-]{1,40}$").unwrap();
         if !re.is_match(&self.name) {
@@ -370,6 +373,15 @@ impl Manifest {
         }
         if self.name.ends_with('-') || self.name.starts_with('-') {
             bail!("Please use dashes to separate words only");
+        }
+
+        for d in &self.dataHandling {
+            d.verify()?;
+        }
+
+        if self.external {
+            warn!("Ignoring most validation for kube-external service {}", self.name);
+            return Ok(());
         }
 
         // run the `Verify` trait on all imported structs
@@ -391,33 +403,22 @@ impl Manifest {
         for ic in &self.initContainers {
             ic.verify()?;
         }
-        for d in &self.dataHandling {
-            d.verify()?;
-        }
         if let Some(ref cmap) = self.configs {
             cmap.verify()?;
         }
 
         // misc minor properties
-        if self.replicaCount == 0 {
+        if self.replicaCount.unwrap() == 0 {
             bail!("Need replicaCount to be at least 1");
         }
 
+        // TODO: verify self.image exists!
+
         // regions must have a defaults file in ./environments
         for r in &self.regions {
-            let regionfile = Path::new(".")
-                .join("environments")
-                .join(format!("{}.yml", r));
-
-            if ! regionfile.is_file() {
-                bail!("Unsupported region {} without region file {}",
-                    r, regionfile.display());
+            if conf.regions.get(r).is_none() {
+                bail!("Unsupported region {} without entry in config", r);
             }
-            let region_parts : Vec<_> = r.split('-').collect();
-            if region_parts.len() != 2 {
-                bail!("invalid region {} of len {}", r, r.len());
-            };
-            // TODO: verify allowed namespaces per region
         }
         if self.regions.is_empty() {
             bail!("No regions specified for {}", self.name);
@@ -454,15 +455,17 @@ impl Manifest {
 /// and `verify` their parameters.
 /// Optionally, it will also verify that all secrets are found in the corresponding
 /// vault locations serverside (which require vault credentials).
-pub fn validate(services: Vec<String>, region: String, vault: Option<Vault>) -> Result<()> {
+pub fn validate(services: Vec<String>, conf: &Config, region: String, vault: Option<Vault>) -> Result<()> {
     for svc in services {
-        let mut mf = Manifest::basic(&svc)?;
+        let mut mf = Manifest::basic(&svc, conf, Some(region.clone()))?;
         if mf.regions.contains(&region) {
             info!("validating {} for {}", svc, region);
-            mf.fill(&region, &vault)?;
-            mf.verify()?;
+            mf.fill(&conf, &region, &vault)?;
+            mf.verify(&conf)?;
             info!("validated {} for {}", svc, region);
             mf.print()?; // print it if sufficient verbosity
+        } else if mf.external {
+             mf.verify(&conf)?; // exits early - but will verify some stuff
         } else {
             bail!("{} is not configured to be deployed in {}", svc, region)
         }
@@ -475,14 +478,16 @@ mod tests {
     use super::{validate};
     use tests::setup;
     use super::Vault;
+    use super::Config;
 
     #[test]
     fn graph_generate() {
         setup();
         let client = Vault::default().unwrap();
-        let res = validate(vec!["fake-ask".into()], "dev-uk".into(), Some(client));
+        let conf = Config::read().unwrap();
+        let res = validate(vec!["fake-ask".into()], &conf, "dev-uk".into(), Some(client));
         assert!(res.is_ok());
-        let res2 = validate(vec!["fake-storage".into(), "fake-ask".into()], "dev-uk".into(), None);
+        let res2 = validate(vec!["fake-storage".into(), "fake-ask".into()], &conf, "dev-uk".into(), None);
         assert!(res2.is_ok())
     }
 }

@@ -91,6 +91,10 @@ pub mod get;
 /// A post interface to slack using `slack_hook`
 pub mod slack;
 
+/// Master config for manifests repositories
+mod config;
+pub use config::{Config};
+
 /// Structs for the manifest
 pub mod structs;
 
