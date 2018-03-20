@@ -1,20 +1,19 @@
 /// This file contains all the hidden `shipcat list-*` subcommands
 use std::io::{self, Write};
-use super::{Result, Manifest};
+use super::{Result, Manifest, Config};
 
 /// Print the supported regions
-pub fn regions() -> Result<()> {
-    // TODO: look for override files in the environments folder!
-    let _ = io::stdout().write(b"dev-uk\n");
-    let _ = io::stdout().write(b"dev-global1\n");
-    let _ = io::stdout().write(b"dev-ops\n");
+pub fn regions(conf: &Config) -> Result<()> {
+    for (r, _) in &conf.regions {
+        let _ = io::stdout().write(format!("{}\n", r).as_bytes());
+    }
     Ok(())
 }
 
-pub fn services(region: String) -> Result<()> {
+pub fn services(conf: &Config, region: String) -> Result<()> {
     let services = Manifest::available()?;
     for svc in services {
-        match Manifest::basic(&svc) {
+        match Manifest::basic(&svc, conf, Some(region.clone())) {
             Ok(mf) => {
                 if mf.regions.contains(&region) {
                     let _ = io::stdout().write(&format!("{}\n", svc).as_bytes());

@@ -1,12 +1,12 @@
 use std::io::{self, Write};
 
 use petgraph::graph::{DiGraph, NodeIndex};
-use petgraph::dot::{Dot, Config};
+use petgraph::dot;
 use serde_yaml;
 
 use super::structs::Dependency;
 use std::fmt::{self, Debug};
-use super::{Manifest, Result};
+use super::{Manifest, Result, Config};
 
 /// The node type in `CatGraph` representing a `Manifest`
 #[derive(Serialize, Deserialize, Clone)]
@@ -68,14 +68,9 @@ fn nodeidx_from_name(name: &str, graph: &CatGraph) -> Option<NodeIndex> {
     None
 }
 
-fn recurse_manifest(idx: NodeIndex, mf: &Manifest, graph: &mut CatGraph) -> Result<()> {
+fn recurse_manifest(idx: NodeIndex, mf: &Manifest, conf: &Config, graph: &mut CatGraph) -> Result<()> {
     for dep in &mf.dependencies {
         debug!("Recursing into {}", dep.name);
-        if dep.name == "php-backend-monolith" {
-            debug!("Ignoring dependencies for non-shipcat monolith");
-            continue;
-        }
-
         // skip if node exists to avoid infinite loop
         if let Some(depidx) = nodeidx_from_name(&dep.name, &graph) {
             trace!("Linking root node {} to existing node {}", mf.name, dep.name);
@@ -84,31 +79,31 @@ fn recurse_manifest(idx: NodeIndex, mf: &Manifest, graph: &mut CatGraph) -> Resu
             continue;
         }
 
-        let depmf = Manifest::basic(&dep.name)?;
+        let depmf = Manifest::basic(&dep.name, conf, None)?;
 
         let depnode = ManifestNode::new(&depmf);
         let depidx = graph.add_node(depnode);
 
         graph.update_edge(idx, depidx, DepEdge::new(&dep));
-        recurse_manifest(depidx, &depmf, graph)?;
+        recurse_manifest(depidx, &depmf, conf, graph)?;
     }
 
     Ok(())
 }
 
 /// Generate dependency graph from an entry point via recursion
-pub fn generate(service: &str, dot: bool) -> Result<CatGraph> {
-    let base = Manifest::basic(service)?;
+pub fn generate(service: &str, conf: &Config, dot: bool) -> Result<CatGraph> {
+    let base = Manifest::basic(service, conf, None)?;
 
 
     let mut graph : CatGraph = DiGraph::<_, _>::new();
     let node = ManifestNode::new(&base);
     let baseidx = graph.add_node(node);
 
-    recurse_manifest(baseidx, &base, &mut graph)?;
+    recurse_manifest(baseidx, &base, conf, &mut graph)?;
 
     if dot {
-        println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
+        println!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel]));
     }
     else {
         println!("{}", serde_yaml::to_string(&graph)?);
@@ -124,27 +119,23 @@ pub fn generate(service: &str, dot: bool) -> Result<CatGraph> {
 /// one or more services as we could also show grahps reaching into the ecosystem.
 ///
 /// But it would require: TODO: optionally filter edges around node(s)
-pub fn full(dot: bool) -> Result<CatGraph> {
+pub fn full(dot: bool, conf: &Config) -> Result<CatGraph> {
     let mut graph : CatGraph = DiGraph::<_, _>::new();
     let services = Manifest::available()?;
     for svc in services {
         debug!("Scanning service {:?}", svc);
 
-        let mf = Manifest::basic(&svc)?;
+        let mf = Manifest::basic(&svc, conf, None)?;
         let node = ManifestNode::new(&mf);
         let idx = graph.add_node(node);
 
         for dep in &mf.dependencies {
-            if dep.name == "php-backend-monolith" {
-                debug!("Ignoring dependencies for non-shipcat monolith");
-                continue;
-            }
             let subidx = if let Some(id) = nodeidx_from_name(&dep.name, &graph) {
                 trace!("Found dependency with existing node: {}", dep.name);
                 id
             } else {
                 trace!("Found dependency new in graph: {}", dep.name);
-                let depmf = Manifest::basic(&dep.name)?;
+                let depmf = Manifest::basic(&dep.name, conf, None)?;
                 let depnode = ManifestNode::new(&depmf);
                 let depidx = graph.add_node(depnode);
                 depidx
@@ -154,7 +145,7 @@ pub fn full(dot: bool) -> Result<CatGraph> {
     }
 
     if dot {
-        println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
+        println!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel]));
     }
     else {
         println!("{}", serde_yaml::to_string(&graph)?);
@@ -169,11 +160,13 @@ mod tests {
     use serde_yaml;
     use super::{generate, nodeidx_from_name};
     use tests::setup;
+    use super::Config;
 
     #[test]
     fn graph_generate() {
         setup();
-        let graph = generate("fake-ask", true).unwrap();
+        let conf = Config::read().unwrap();
+        let graph = generate("fake-ask", &conf, true).unwrap();
         assert!(graph.edge_count() > 0);
         print!("got struct: \n{:?}\n", serde_yaml::to_string(&graph));
         let askidx = nodeidx_from_name("fake-ask", &graph).unwrap();
