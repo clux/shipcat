@@ -26,11 +26,7 @@ fn dependency_protocol_default() -> String { "http".into() }
 
 impl Verify for Dependency {
     fn verify(&self) -> Result<()> {
-        if self.name == "php-backend-monolith" {
-            debug!("Depending on legacy {} monolith", self.name);
-            return Ok(())
-        }
-        // 5.a) self.name must exist in services/
+        // self.name must exist in services/
         let dpth = Path::new(".").join("services").join(self.name.clone());
         if !dpth.is_dir() {
             bail!("Service {} does not exist in services/", self.name);

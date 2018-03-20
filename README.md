@@ -4,8 +4,9 @@
 
 [![Docker Repository on Quay](https://quay.io/repository/babylonhealth/kubecat/status?token=6de24c74-1576-467f-8658-ec224df9302d "Docker Repository on Quay")](https://quay.io/repository/babylonhealth/kubecat)
 
+A standardisation tool sitting in front of `helm` to help control deployments on `kubernetes` via `shipcat.yml` manifest files.
 
-A small CLI automation tool to help manage microservice deployments running on `kubernetes` via `shipcat.yml`. Lives [on your ship](https://en.wikipedia.org/wiki/Ship%27s_cat).
+Lives [on your ship](https://en.wikipedia.org/wiki/Ship%27s_cat).
 
 ## Installation
 To build yourself, use [rustup](https://rustup.rs/) to get latest stable rust.
@@ -19,33 +20,45 @@ echo "source $PWD/shipcat.complete.sh" >> ~/.bash_completion
 
 The embedded `kubecat` image does come with `shipcat` + `kubectl` + `helm` + `helm diff` plugin + `kubeval`, which might be easier to use together. Bring a valid `~/.kube/config` and `VAULT_*` evars.
 
-## Usage
+## Usage - Read Access
 In general, define your `shipcat.yml` file in the [manifests repo](https://github.com/Babylonpartners/manifests) and make sure `shipcat validate` passes.
 
-If you have `vault` credentials you can generate the complete kube file.
+If you have `vault` read credentials you can validate secret existence; and generate the complete helm template:
 
 ```sh
 export VAULT_ADDR=...
 export VAULT_TOKEN=...
 
-shipcat validate -r dev-uk babylbot --secrets
+# Verify manifests secrets exist
+shipcat validate babylbot --secrets
 ```
 
-
-If you have `kubectl` credentials, you can shell into pods and ship your service:
+If you have `kubectl` read only credentials you can also create your helm values, template and diff a deployment against a current running one:
 
 ```sh
-kubectl auth can-i create pods/exec
-shipcat shell babylbot -p 1
+# Generate helm values for your chart
+shipcat helm babylbot values
 
-kubectl auth can-i get,list pods/logs
-shipcat logs babylbot -p 1
+# Pass the generated values through helm template
+shipcat helm babylbot template
 
-kubectl auth can-i rollout Deployment
-shipcat ship -r dev-uk babylbot
+# Diff the helm template against the live deployment
+shipcat helm babylbot diff
 ```
 
-If you have `slack` credentials, you can use `shipcat slack` to talk to slack:
+Note that this requires `helm` + [helm diff](https://github.com/databus23/helm-diff) installed to work, and it will work against the region in your context (`kubectl config current-context`).
+
+## Usage - Write Access
+With rollout access (`kubectl auth can-i rollout Deployment`) you can also perform upgrades:
+
+```sh
+# helm upgrade corresponding service (check your context first)
+shipcat helm babylbot upgrade
+```
+
+This requires slack credentials for success notifications.
+
+If you have `slack` credentials, you can also use `shipcat slack` to talk to slack directly:
 
 ```sh
 export SLACK_SHIPCAT_HOOK_URL=...

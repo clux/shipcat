@@ -40,10 +40,8 @@ _shipcat()
         case $special in
             get)
                 local -r regions="$(shipcat list-regions)"
-                local -r resources="versions ver image"
-                if [[ $prev = "get" ]]; then
-                    COMPREPLY=($(compgen -W "-r --region" -- "$cur"))
-                elif [[ $prev == @(-r|--region) ]]; then
+                local -r resources="version ver image"
+                if [[ $prev == @(-r|--region) ]]; then
                     COMPREPLY=($(compgen -W "$regions" -- "$cur"))
                 else
                     COMPREPLY=($(compgen -W "$resources" -- "$cur"))
@@ -74,38 +72,23 @@ _shipcat()
                 ;;
             helm)
                 local -r regions="$(shipcat list-regions)"
-                local helm_sub has_region i
+                local helm_sub i
                 for (( i=2; i < ${#words[@]}-1; i++ )); do
-                    if [[ ${words[i]} = "template" ]]; then
+                    if [[ ${words[i]} = @(values|template|diff|upgrade|install) ]]; then
                         helm_sub=${words[i]}
-                    fi
-                    if [[ ${words[i]} == @(-r|--region) ]]; then
-                        has_region=1
                     fi
                 done
 
                 if [[ $prev = "helm" ]]; then
-                    COMPREPLY=($(compgen -W "-r --region" -- "$cur"))
-                elif [[ $prev == @(-r|--region) ]]; then
-                    COMPREPLY=($(compgen -W "$regions" -- "$cur"))
-                # TODO: this test is insufficient
-                # need to present this only if no service has been chosen..
-                elif [[ $has_region ]] && [ -z "${helm_sub}" ]; then
-                    # Identify which region we used
-                    local region i
-                    for (( i=2; i < ${#words[@]}-1; i++ )); do
-                        if [[ ${words[i]} != -* ]] && echo "$regions" | grep -q "${words[i]}"; then
-                            region=${words[i]}
-                        fi
-                    done
+                    local -r region=$(kubectl config current-context)
                     local -r svcs="$(shipcat list-services "$region")"
                     COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 elif [ -n "${helm_sub}" ]; then
                     # TODO; helm sub command specific flags here
-                    COMPREPLY=($(compgen -W "-o" -- "$cur"))
+                    COMPREPLY=($(compgen -W "-o --output --dry-run" -- "$cur"))
                 else
                     # Suggest subcommands of helm and global flags
-                    COMPREPLY=($(compgen -W "-r --region upgrade template diff" -- "$cur"))
+                    COMPREPLY=($(compgen -W "values template diff upgrade install" -- "$cur"))
                 fi
                 ;;
             shell|logs)

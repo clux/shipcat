@@ -62,12 +62,6 @@ fn main() {
                 .long("short")
                 .help("Output short resource format")))
         .subcommand(SubCommand::with_name("helm")
-            .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .required(true)
-                .takes_value(true)
-                .help("Region to deploy to (dev-uk, dev-qa, prod-uk)"))
             .arg(Arg::with_name("tag")
                 .long("tag")
                 .short("t")
@@ -81,10 +75,21 @@ fn main() {
                     .short("o")
                     .long("output")
                     .takes_value(true)
-                    .help("Output file to save to")))
+                    .help("Output file to save to"))
+                .about("Generate helm template from a manifest"))
+            .subcommand(SubCommand::with_name("values")
+                .arg(Arg::with_name("output")
+                    .short("o")
+                    .long("output")
+                    .takes_value(true)
+                    .help("Output file to save to"))
+                .about("Generate helm values from a manifest"))
             .subcommand(SubCommand::with_name("diff")
                 .about("Diff kubeernetes configs with local state"))
+            .subcommand(SubCommand::with_name("install")
+                .about("Install a service as a helm release from a manifest"))
             .subcommand(SubCommand::with_name("upgrade")
+                .about("Upgrade a helm release from a manifest")
                 .arg(Arg::with_name("dryrun")
                     .long("dry-run")
                     .help("Show the diff only"))))
@@ -143,7 +148,6 @@ fn main() {
               .arg(Arg::with_name("region")
                 .short("r")
                 .long("region")
-                .required(true)
                 .takes_value(true)
                 .help("Specific region to check"))
               .arg(Arg::with_name("secrets")
@@ -178,12 +182,15 @@ fn main() {
         .init()
         .unwrap();
 
+    let conf = conditional_exit(Config::read());
+    conditional_exit(conf.verify()); // may as well block on this
+
     if args.subcommand_matches("list-regions").is_some() {
-        result_exit(args.subcommand_name().unwrap(), shipcat::list::regions())
+        result_exit(args.subcommand_name().unwrap(), shipcat::list::regions(&conf))
     }
     if let Some(a) = args.subcommand_matches("list-services") {
         let r = a.value_of("region").unwrap().into();
-        result_exit(args.subcommand_name().unwrap(), shipcat::list::services(r))
+        result_exit(args.subcommand_name().unwrap(), shipcat::list::services(&conf, r))
     }
     // clients for network related subcommands
     openssl_probe::init_ssl_cert_env_vars();
@@ -191,13 +198,14 @@ fn main() {
 
     if let Some(a) = args.subcommand_matches("helm") {
         let service = a.value_of("service").unwrap();
-        let region = a.value_of("region").unwrap(); // TODO: infer if possible!
+
+        let region = kube::current_context().unwrap();
         let tag = a.value_of("tag").map(String::from);
 
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
         let mut vault = conditional_exit(shipcat::vault::Vault::default());
-        let mf = conditional_exit(Manifest::completed(region, service, Some(vault)));
+        let mf = conditional_exit(Manifest::completed(&region, &conf, service, Some(vault)));
 
         // All parameters for a k8s deployment
         let dep = shipcat::generate::Deployment {
@@ -210,6 +218,11 @@ fn main() {
                 template::render(&tera, tmpl, context)
             }),
         };
+        if let Some(b) = a.subcommand_matches("values") {
+            let output = b.value_of("output").map(String::from);
+            let res = shipcat::helm::values(&dep, output);
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
         if let Some(b) = a.subcommand_matches("template") {
             let output = b.value_of("output").map(String::from);
             let res = shipcat::helm::template(&dep, output);
@@ -218,6 +231,10 @@ fn main() {
         if let Some(b) = a.subcommand_matches("upgrade") {
             let dryrun = b.is_present("dryrun");
             let res = shipcat::helm::upgrade(&dep, dryrun);
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
+        if let Some(_) = a.subcommand_matches("install") {
+            let res = shipcat::helm::install(&dep, &conf);
             result_exit(a.subcommand_name().unwrap(), res)
         }
         if let Some(_) = a.subcommand_matches("diff") {
@@ -230,21 +247,23 @@ fn main() {
     // Handle subcommands dumb subcommands
     if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
-        let region = a.value_of("region").map(String::from).unwrap();
+        let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
+            kube::current_context().unwrap()
+        });
         let res = if a.is_present("secrets") {
             let vault = shipcat::vault::Vault::mocked().unwrap();
-            shipcat::validate(services, region, Some(vault))
+            shipcat::validate(services, &conf, region, Some(vault))
         } else {
-            shipcat::validate(services, region, None)
+            shipcat::validate(services, &conf, region, None)
         };
         result_exit(args.subcommand_name().unwrap(), res)
     }
     if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");
         if let Some(svc) = a.value_of("service") {
-            result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(svc, dot))
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(svc, &conf, dot))
         } else {
-            result_exit(args.subcommand_name().unwrap(), shipcat::graph::full(dot))
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::full(dot, &conf))
         }
     }
 
@@ -265,10 +284,10 @@ fn main() {
             None
         };
         let mf = if let Some(r) = a.value_of("region") {
-            conditional_exit(Manifest::completed(r, service, None))
+            conditional_exit(Manifest::completed(r, &conf, service, None))
         } else {
             // infer region from kubectl current-context
-            conditional_exit(Manifest::basic(service))
+            conditional_exit(Manifest::basic(service, &conf, None))
         };
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::shell(&mf, pod, cmd))
     }
@@ -278,10 +297,10 @@ fn main() {
         let pod = value_t!(a.value_of("pod"), u32).ok();
 
         let mf = if let Some(r) = a.value_of("region") {
-            conditional_exit(Manifest::completed(r, service, None))
+            conditional_exit(Manifest::completed(r, &conf, service, None))
         } else {
             // infer region from kubectl current-context
-            conditional_exit(Manifest::basic(service))
+            conditional_exit(Manifest::basic(service, &conf, None))
         };
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::logs(&mf, pod))
     }
@@ -289,8 +308,10 @@ fn main() {
     if let Some(a) = args.subcommand_matches("get") {
         let rsrc = a.value_of("resource").unwrap();
         let quiet = a.is_present("short");
-        let region = a.value_of("region").unwrap().into();
-        result_exit(args.subcommand_name().unwrap(), shipcat::get::table(rsrc, quiet, region))
+         let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
+            kube::current_context().unwrap()
+        });
+        result_exit(args.subcommand_name().unwrap(), shipcat::get::table(rsrc, &conf, quiet, region))
     }
 
 
@@ -298,13 +319,6 @@ fn main() {
     // can use this to verify structure of vault!
     // simpler than generating all kubefiles for all regions
 
-
-
-
-    //if let Some(_) = args.subcommand_matches("ship") {
-    //    let res = shipcat::ship(&tera, &mf);
-    //    result_exit(args.subcommand_name().unwrap(), res)
-    //}
 
     unreachable!("Subcommand valid, but not implemented");
 }

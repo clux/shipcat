@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
-use std::fs::{self, File};
+use std::path::Path;
+use std::fs::File;
 use std::io::prelude::*;
 use std::io;
 
@@ -41,16 +41,6 @@ fn template_config(dep: &Deployment, mount: &ConfigMappedFile) -> Result<String>
     Ok((dep.render)(&mount.name, &ctx)?)
 }
 
-/// Helper to create a local OUTPUT directory
-pub fn create_output(pwd: &PathBuf) -> Result<()> {
-    let loc = pwd.join("OUTPUT");
-    if loc.is_dir() {
-        fs::remove_dir_all(&loc)?;
-    }
-    fs::create_dir(&loc)?;
-    Ok(())
-}
-
 /// Deployment parameters and context bound helpers
 pub struct Deployment {
     /// Service name (same as manifest.name)
@@ -80,7 +70,7 @@ impl Deployment {
 /// Helm values writer
 ///
 /// Fills in service specific config files into config to help helm out
-pub fn helm(dep: &Deployment, output: Option<String>) -> Result<Manifest> {
+pub fn helm(dep: &Deployment, output: Option<String>, silent: bool) -> Result<Manifest> {
     dep.check()?; // sanity check on deployment
     let mut mf = dep.manifest.clone();
 
@@ -99,14 +89,17 @@ pub fn helm(dep: &Deployment, output: Option<String>) -> Result<Manifest> {
     let encoded = serde_yaml::to_string(&mf)?;
     if let Some(o) = output {
         let pth = Path::new(".").join(o);
-        info!("Writing helm values for {} to {}", dep.service, pth.display());
+        if silent {
+            debug!("Writing helm values for {} to {}", dep.service, pth.display());
+        } else {
+            info!("Writing helm values for {} to {}", dep.service, pth.display());
+        }
         let mut f = File::create(&pth)?;
         write!(f, "{}\n", encoded)?;
         debug!("Wrote helm values for {} to {}: \n{}", dep.service, pth.display(), encoded);
     } else {
         // stdout only
-        print!("{}", encoded);
-        io::stdout().flush()?; // allow piping stdout elsewhere
+        let _ = io::stdout().write(encoded.as_bytes());
     }
     Ok(mf)
 }
@@ -117,22 +110,24 @@ mod tests {
     use super::super::Manifest;
     use super::super::template;
     use tests::setup;
+    use super::super::Config;
 
     #[test]
     fn helm_create() {
         setup();
         let tera = template::init("fake-ask".into()).unwrap();
+        let conf = Config::read().unwrap();
         let dep = Deployment {
             service: "fake-ask".into(),
             region: "dev-uk".into(),
             version: None,
-            manifest: Manifest::basic("fake-ask").unwrap(),
+            manifest: Manifest::basic("fake-ask", &conf, Some("dev-uk".into())).unwrap(),
             // only provide template::render as the interface (move tera into this)
             render: Box::new(move |tmpl, context| {
                 template::render(&tera, tmpl, context)
             }),
         };
-        if let Err(e) = helm(&dep, None) {
+        if let Err(e) = helm(&dep, None, false) {
             println!("Failed to create helm values for fake-ask");
             print!("{}", e);
             assert!(false);
