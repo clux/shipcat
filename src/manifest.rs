@@ -194,6 +194,9 @@ impl Manifest {
         }
 
         if let Some(r) = region {
+            if conf.regions.get(&r).is_none() {
+                bail!("Unknown region {} in regions in config", r);
+            }
             let reg = conf.regions[&r].clone(); // must exist
             // allow overriding tags
             if self.version.is_none() {
