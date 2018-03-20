@@ -108,6 +108,17 @@ fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
     out
 }
 
+fn helm_wait_time(mf: &Manifest) -> u32 {
+    let rcount = mf.replicaCount.unwrap(); // this is set by defaults!
+    if let Some(ref hc) = mf.health {
+        // wait for at most 2 * bootTime * replicas
+        2 * hc.wait * rcount
+    } else {
+        // sensible guess for boot time
+        2 * 30 * rcount
+    }
+}
+
 /// Install a deployment first time
 pub fn install(dep: &Deployment, conf: &Config) -> Result<()> {
     pre_upgrade_sanity(dep)?;
@@ -131,16 +142,10 @@ pub fn install(dep: &Deployment, conf: &Config) -> Result<()> {
         "--set".into(),
         format!("version={}", version),
     ];
-    let waittime = if let Some(ref hc) = dep.manifest.health {
-        // wait for at most 2 * bootTime * replicas
-        2 * hc.wait * dep.manifest.replicaCount.unwrap()
-    } else {
-        // sensible guess for boot time
-        2 * 30 * dep.manifest.replicaCount.unwrap()
-    };
+
     installvec.extend_from_slice(&[
         "--wait".into(),
-        format!("--timeout={}", waittime),
+        format!("--timeout={}", helm_wait_time(&dep.manifest)),
     ]);
     match hexec(installvec) {
         Err(e) => {
@@ -222,16 +227,9 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
             "--set".into(),
             format!("version={}", version),
         ];
-        let waittime = if let Some(ref hc) = dep.manifest.health {
-            // wait for at most 2 * bootTime * replicas
-            2 * hc.wait * dep.manifest.replicaCount.unwrap()
-        } else {
-            // sensible guess for boot time
-            2 * 30 * dep.manifest.replicaCount.unwrap()
-        };
         upgradevec.extend_from_slice(&[
             "--wait".into(),
-            format!("--timeout={}", waittime),
+            format!("--timeout={}", helm_wait_time(&dep.manifest)),
         ]);
         info!("helm {}", upgradevec.join(" "));
         match hexec(upgradevec) {
