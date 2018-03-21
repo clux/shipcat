@@ -33,9 +33,9 @@ pub fn current_context() -> Result<String> {
 }
 
 
-fn get_pods(name: &str, ns: &str) -> Result<String> {
+fn get_pods(name: &str) -> Result<String> {
     //kubectl get pods -l=app=$* -n $ns -o jsonpath='{.items[*].metadata.name}'
-    let mut podargs = vec![
+    let podargs = vec![
         "get".into(),
         "pods".into(),
         format!("-l=app={}", name),
@@ -43,10 +43,6 @@ fn get_pods(name: &str, ns: &str) -> Result<String> {
         "jsonpath='{.items[*].metadata.name}'".into(),
     ];
     // TODO: filter out ones not running conditionally - exec wont work with this
-    if ns != "" {
-        podargs.push("-n".into());
-        podargs.push(ns.into());
-    }
     let podsres = kout(podargs)?;
     debug!("Active pods: {:?}", podsres);
     Ok(podsres)
@@ -58,11 +54,7 @@ fn get_pods(name: &str, ns: &str) -> Result<String> {
 pub fn shell(mf: &Manifest, desiredpod: Option<u32>, cmd: Option<Vec<&str>>) -> Result<()> {
     // TODO: kubectl auth can-i create pods/exec
 
-    // region might not be set for this command
-    // rely on kubectl context to work it out if unset
-    let ns = mf.namespace.clone();
-
-    let podsres = get_pods(&mf.name, &ns)?;
+    let podsres = get_pods(&mf.name)?;
     let pods = podsres.split(' ');
 
     let mut num = 0;
@@ -83,10 +75,6 @@ pub fn shell(mf: &Manifest, desiredpod: Option<u32>, cmd: Option<Vec<&str>>) -> 
             "-it".into(),
             p.into(),
         ];
-        if ns != "" {
-            execargs.push("-n".into());
-            execargs.push(ns.clone());
-        }
         if let Some(cmdu) = cmd.clone() {
             for c in cmdu {
                 execargs.push(c.into())
@@ -106,11 +94,8 @@ pub fn shell(mf: &Manifest, desiredpod: Option<u32>, cmd: Option<Vec<&str>>) -> 
 pub fn logs(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
     // TODO: kubectl auth can-i get,list pods/logs
 
-    // region might not be set for this command
-    // rely on kubectl context to work it out if unset
-    let ns = mf.namespace.clone();
 
-    let podsres = get_pods(&mf.name, &ns)?;
+    let podsres = get_pods(&mf.name)?;
     let pods = podsres.split(' ');
 
     let mut num = 0;
@@ -126,14 +111,10 @@ pub fn logs(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
 
         info!("Logs for {}", p);
         //kubectl logs -n $(ENV) $$pod
-        let mut logargs = vec![
+        let logargs = vec![
             "logs".into(),
             p.into(),
         ];
-        if ns != "" {
-            logargs.push("-n".into());
-            logargs.push(ns.clone());
-        }
         kexec(logargs)?;
     }
     Ok(())

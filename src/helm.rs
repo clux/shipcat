@@ -138,7 +138,7 @@ pub fn install(dep: &Deployment, conf: &Config) -> Result<()> {
         "-f".into(),
         file.clone(),
         format!("--name={}", dep.service.clone()),
-        "--verify".into(),
+        //"--verify".into(), (doesn't work while chart is a directory)
         "--set".into(),
         format!("version={}", version),
     ];
