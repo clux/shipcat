@@ -64,10 +64,6 @@ pub struct Manifest {
 
     // Kubernetes specific flags
 
-    /// Namepace
-    #[serde(default)]
-    pub namespace: String,
-
     /// Chart to use for the service
     #[serde(default)]
     pub chart: String,
@@ -202,9 +198,6 @@ impl Manifest {
             if self.version.is_none() {
                 trace!("overriding image.version with {:?}", reg.defaults.version);
                 self.version = Some(reg.defaults.version);
-            }
-            if self.namespace == "" {
-                self.namespace = reg.defaults.namespace;
             }
             for (k, v) in reg.env {
                 self.env.insert(k, v);

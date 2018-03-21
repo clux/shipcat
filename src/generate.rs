@@ -28,7 +28,6 @@ pub struct RenderedConfig {
 // base context with variables used by templates
 fn make_base_context(dep: &Deployment) -> Result<Context> {
     let mut ctx = Context::new();
-    ctx.add("namespace", &dep.manifest.namespace);
     ctx.add("env", &dep.manifest.env);
     ctx.add("service", &dep.service);
     ctx.add("region", &dep.region);
