@@ -211,10 +211,14 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
         hout(diffvec)?,
         mf._decoded_secrets.values().cloned().collect()
     );
-
-    debug!("{}\n", helmdiff); // full diff for logs
     let smalldiff = diff_format(helmdiff.clone());
-    print!("{}\n", smalldiff);
+
+    if !helmdiff.is_empty() {
+        debug!("{}\n", helmdiff); // full diff for logs
+        print!("{}\n", smalldiff);
+    } else {
+        info!("{} is up to date", dep.service);
+    }
 
     if !dryrun && !helmdiff.is_empty() {
         // upgrade it using the same command
