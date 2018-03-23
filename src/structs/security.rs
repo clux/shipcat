@@ -41,8 +41,19 @@ pub struct DataStore {
 /// Canonical names for data fields
 #[derive(Serialize, Deserialize, Clone)]
 pub enum DataFieldType {
-    Address,
+    FullName,
+    HomeAddress,
+    DateOfBirth,
     EmailAddress,
+    BabylonUserId,
+    FacebookUserId,
+    FacebookAuthToken,
+    PrescriptionHistory,
+    AppointmentHistory,
+    ReferralHistory,
+    ChatHistory,
+    FutureAppointments,
+    ConsultationNotes,
 }
 
 
