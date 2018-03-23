@@ -7,6 +7,20 @@ resources:
   requests:
     cpu: 100m
     memory: 512Mi
+dataHandling:
+  stores:
+  - backend: S3
+    pii: true
+    spii: false
+    encrypted: true
+    fields:
+    - name: EmailAddress
+      cipher: AES256
+  - backend: MySQL
+    fields: []
+  processes:
+  - field: EmailAddress
+    source: fake-ask
 replicaCount: 2
 command: ['./start-app.sh']
 health:
