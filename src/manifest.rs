@@ -52,8 +52,8 @@ pub struct Manifest {
     pub metadata: Option<Metadata>,
 
     /// Data sources and handling strategies
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub dataHandling: Vec<DataHandling>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dataHandling: Option<DataHandling>,
 
     /// Jaeger options
     #[serde(default)]
