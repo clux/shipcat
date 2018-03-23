@@ -94,11 +94,11 @@ pub mod graph;
 Create `graph.rs` with your generation logic. Typically this involves using a specific manifest by service name (via either `Manifest::basic(svcname)` or `Manifest::completed`). You can loop over all the available manifests using the `available` helper from `Manifest`:
 
 ```rust
-pub fn generate() -> Result<MyReturnType>
+pub fn generate(conf: &Config) -> Result<MyReturnType>
     let services = Manifest::available()?;
     for svc in services {
         // read the manifest for the service:
-        let mf = Manifest::basic(&svc)?;
+        let mf = Manifest::basic(&svc, conf, None)?;
         // TODO: do something with the manifests
     }
     unimplemented!()
