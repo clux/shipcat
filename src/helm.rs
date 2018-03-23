@@ -147,6 +147,7 @@ pub fn install(dep: &Deployment, conf: &Config) -> Result<()> {
         "--wait".into(),
         format!("--timeout={}", helm_wait_time(&dep.manifest)),
     ]);
+    info!("helm {}", installvec.join(" "));
     match hexec(installvec) {
         Err(e) => {
             error!("{}", e);

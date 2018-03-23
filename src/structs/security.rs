@@ -27,11 +27,6 @@ pub struct DataHandling {
     pub cipher: Option<String>,
     /// Retention period if any
     pub retentionPeriod: Option<String>,
-
-    // Services that use this data upstream
-    // just use normal dependencies?
-    //#[serde(default, skip_serializing_if = "Vec::is_empty")]
-    //pub accessedBy: Vec<String>,
 }
 
 impl Verify for DataHandling {
