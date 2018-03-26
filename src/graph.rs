@@ -4,7 +4,7 @@ use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::dot;
 use serde_yaml;
 
-use super::structs::Dependency;
+use super::structs::{Dependency, DependencyProtocol};
 use std::fmt::{self, Debug};
 use super::{Manifest, Result, Config};
 
@@ -35,7 +35,7 @@ impl Debug for ManifestNode {
 pub struct DepEdge {
     pub api: String,
     pub contract: Option<String>,
-    pub protocol: String,
+    pub protocol: DependencyProtocol,
     pub intent: Option<String>,
 }
 impl DepEdge {

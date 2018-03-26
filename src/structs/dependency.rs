@@ -3,6 +3,30 @@ use std::path::Path;
 use super::traits::Verify;
 use super::Result;
 
+
+/// Supported dependency protocols
+///
+/// Forces lowercase values of this enum to be used
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum DependencyProtocol {
+    /// HTTP REST dependency
+    Http,
+    /// GRPC dependency
+    Grpc,
+    /// Kafka communication based dependency
+    Kafka,
+    /// RabbitMQ style dependency
+    Amqp,
+    /// Amazon SQS style dependency
+    Sqs,
+}
+impl Default for DependencyProtocol {
+    fn default() -> DependencyProtocol {
+        DependencyProtocol::Http
+    }
+}
+
 /// Dependency of a service
 ///
 /// We inject `{NAME}_ENDPOINT_API=kubeurl_to_service/api/{api}` as environment vars.
@@ -15,14 +39,12 @@ pub struct Dependency {
     pub api: Option<String>,
     /// Contract name for dependency
     pub contract: Option<String>,
-    /// Protocol
-    #[serde(default = "dependency_protocol_default")]
-    pub protocol: String,
+    /// Protocol/message passing service used to depend on a service
+    #[serde(default)]
+    pub protocol: DependencyProtocol,
     /// Intent behind dependency - for manifest level descriptiveness
     pub intent: Option<String>,
 }
-fn dependency_protocol_default() -> String { "http".into() }
-
 
 impl Verify for Dependency {
     fn verify(&self) -> Result<()> {
@@ -31,15 +53,12 @@ impl Verify for Dependency {
         if !dpth.is_dir() {
             bail!("Service {} does not exist in services/", self.name);
         }
-        // 5.b) self.api must parse as an integer
+        // self.api must parse as an integer
         assert!(self.api.is_some(), "api version set by implicits");
         if let Some(ref apiv) = self.api {
             let vstr = apiv.chars().skip_while(|ch| *ch == 'v').collect::<String>();
             let ver : usize = vstr.parse()?;
             trace!("Parsed api version of dependency {} as {}", self.name.clone(), ver);
-        }
-        if self.protocol != "http" && self.protocol != "grpc" {
-            bail!("Illegal dependency protocol {}", self.protocol)
         }
         Ok(())
     }
