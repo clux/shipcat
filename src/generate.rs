@@ -98,7 +98,7 @@ pub fn helm(dep: &Deployment, output: Option<String>, silent: bool) -> Result<Ma
         debug!("Wrote helm values for {} to {}: \n{}", dep.service, pth.display(), encoded);
     } else {
         // stdout only
-        let _ = io::stdout().write(encoded.as_bytes());
+        let _ = io::stdout().write(format!("{}\n", encoded).as_bytes());
     }
     Ok(mf)
 }
