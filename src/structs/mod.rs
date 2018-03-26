@@ -6,7 +6,7 @@ pub use super::Result;
 // Structs that exist in the manifest
 
 mod dependency;
-pub use self::dependency::Dependency;
+pub use self::dependency::{Dependency, DependencyProtocol};
 
 mod jaeger;
 pub use self::jaeger::Jaeger;
