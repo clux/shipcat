@@ -246,6 +246,7 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
                     link: infer_jenkins_link(),
                     code: Some(smalldiff),
                 })?;
+                return Err(e);
             },
             Ok(_) => {
                 slack::send(slack::Message {
