@@ -10,8 +10,6 @@ resources:
 dataHandling:
   stores:
   - backend: S3
-    pii: true
-    spii: false
     fields:
     - name: email_address
       encrypted: true
