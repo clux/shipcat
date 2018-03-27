@@ -13,14 +13,14 @@ dataHandling:
     pii: true
     spii: false
     fields:
-    - name: EmailAddress
+    - name: email_address
       encrypted: true
       cipher: AES256
-    - name: DateOfBirth
+    - name: date_of_birth
   - backend: MySQL
     fields: []
   processes:
-  - field: EmailAddress
+  - field: email_address
     source: fake-ask
 replicaCount: 2
 command: ['./start-app.sh']

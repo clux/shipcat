@@ -21,12 +21,6 @@ pub struct DataHandling {
 pub struct DataStore {
     /// Storage type (one of "MySQL", "DynamoDB", "S3", "File")
     pub backend: String,
-    /// Service stores PII: TODO: replace with DataFieldType inference
-    #[serde(default)]
-    pub pii: bool,
-    /// Service stores SPII: TODO: ditto ^^
-    #[serde(default)]
-    pub spii: bool,
 
     /// Fields stored in this backend
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -34,7 +28,12 @@ pub struct DataStore {
 }
 
 /// Canonical names for data fields
+///
+/// Rust enums are PascalCase, but database fields are more often snake_case
+/// Note that they still may not correspond to the actual database field name.
+/// This is to indicate the canonical data type, not the actual field names.
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum DataFieldType {
     FullName,
     HomeAddress,
@@ -45,10 +44,31 @@ pub enum DataFieldType {
     FacebookAuthToken,
     PrescriptionHistory,
     AppointmentHistory,
+    TransactionHistory,
     ReferralHistory,
     ChatHistory,
     FutureAppointments,
     ConsultationNotes,
+    HealthCheck,
+}
+
+impl DataFieldType {
+    fn is_pii(&self) -> bool {
+        // Matching by exclusion by default
+        match self {
+            &DataFieldType::HealthCheck => false,
+            _ => true
+        }
+    }
+    fn is_spii(&self) -> bool {
+        // Matching by exclusion by default
+        match self {
+            &DataFieldType::FullName => false,
+            &DataFieldType::HomeAddress => false,
+            &DataFieldType::DateOfBirth => false,
+            _ => true
+        }
+    }
 }
 
 
@@ -88,10 +108,10 @@ impl Verify for DataHandling {
         for s in &self.stores {
             for f in &s.fields {
                 // can't block on this yet - so just warn a lot
-                if s.pii && !f.encrypted {
+                if f.name.is_pii() && !f.encrypted {
                     warn!("{} stores PII ({:?}) without encryption", s.backend, f.name)
                 }
-                if s.spii && !f.encrypted {
+                if f.name.is_spii() && !f.encrypted {
                     warn!("{} stores SPII without encryption", s.backend)
                 }
             }
