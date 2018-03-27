@@ -11,14 +11,14 @@ dataHandling:
   stores:
   - backend: S3
     fields:
-    - name: email_address
+    - name: EmailAddress
       encrypted: true
       cipher: AES256
-    - name: date_of_birth
+    - name: DateOfBirth
   - backend: MySQL
     fields: []
   processes:
-  - field: email_address
+  - field: EmailAddress
     source: fake-ask
 replicaCount: 2
 command: ['./start-app.sh']

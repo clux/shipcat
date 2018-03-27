@@ -29,11 +29,8 @@ pub struct DataStore {
 
 /// Canonical names for data fields
 ///
-/// Rust enums are PascalCase, but database fields are more often snake_case
-/// Note that they still may not correspond to the actual database field name.
 /// This is to indicate the canonical data type, not the actual field names.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "snake_case")]
 pub enum DataFieldType {
     FullName,
     HomeAddress,
