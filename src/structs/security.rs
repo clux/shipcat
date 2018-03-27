@@ -39,6 +39,7 @@ pub enum DataFieldType {
     BabylonUserId,
     FacebookUserId,
     FacebookAuthToken,
+    PaymentDetails,
     PrescriptionHistory,
     AppointmentHistory,
     TransactionHistory,
@@ -46,6 +47,11 @@ pub enum DataFieldType {
     ChatHistory,
     FutureAppointments,
     ConsultationNotes,
+    ConsultationVideoRecordings,
+    ConsultationAudioRecordings,
+    ChatbotRawUserString,
+    DeviceHistory,
+    /// Internal babylon health check metric
     HealthCheck,
 }
 
