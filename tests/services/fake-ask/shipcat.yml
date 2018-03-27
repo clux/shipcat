@@ -1,8 +1,4 @@
 name: fake-ask
-dataHandling:
-- backend: MySQL
-  spii: true
-  encrypted: false
 resources:
   limits:
     cpu: 2
