@@ -55,6 +55,7 @@ pub enum DataFieldType {
     HealthCheck,
 }
 
+// https://engineering.ops.babylontech.co.uk/docs/principles-security/#what-is-sensitive-personally-identifiable-information
 impl DataFieldType {
     fn is_pii(&self) -> bool {
         // Matching by exclusion by default
@@ -64,12 +65,12 @@ impl DataFieldType {
         }
     }
     fn is_spii(&self) -> bool {
-        // Matching by exclusion by default
         match self {
             &DataFieldType::FullName => false,
             &DataFieldType::HomeAddress => false,
             &DataFieldType::DateOfBirth => false,
-            _ => true
+            // Otherwise fall back to the weaker PII
+            _ => self.is_pii()
         }
     }
 }
