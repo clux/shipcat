@@ -12,10 +12,11 @@ dataHandling:
   - backend: S3
     pii: true
     spii: false
-    encrypted: true
     fields:
     - name: EmailAddress
+      encrypted: true
       cipher: AES256
+    - name: DateOfBirth
   - backend: MySQL
     fields: []
   processes:
