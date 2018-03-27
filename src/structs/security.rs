@@ -70,6 +70,8 @@ impl DataFieldType {
             &DataFieldType::HomeAddress => false,
             &DataFieldType::DateOfBirth => false,
             // Otherwise fall back to the weaker PII
+            // because: not PII implies not SPII
+            // slightly more sensible default than just `true`
             _ => self.is_pii()
         }
     }
