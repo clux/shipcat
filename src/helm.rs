@@ -1,6 +1,5 @@
 use std::fs;
 use serde_yaml;
-use tera::Tera;
 
 use std::fs::File;
 use std::path::{Path};
@@ -243,17 +242,17 @@ pub fn diff(mf: &Manifest, hfile: &str) -> Result<(Manifest, String)> {
 /// Create helm values file for a service
 ///
 /// Defers to `generate::helm` for now
-pub fn values(dep: &Deployment, output: Option<String>, tera: &Tera, silent: bool) -> Result<Manifest> {
-    generate::helm(dep, output, tera, silent)
+pub fn values(dep: &Deployment, output: Option<String>, silent: bool) -> Result<Manifest> {
+    generate::helm(dep, output, silent)
 }
 
 
-/// Analogoue of helm template
+/// Analogue of helm template
 ///
 /// Generates helm values to disk, then passes it to helm template
-pub fn template(dep: &Deployment, tera: &Tera, output: Option<String>) -> Result<String> {
+pub fn template(dep: &Deployment, output: Option<String>) -> Result<String> {
     let tmpfile = format!("{}.helm.gen.yml", dep.service);
-    let _mf = generate::helm(dep, Some(tmpfile.clone()), tera, true)?;
+    let _mf = generate::helm(dep, Some(tmpfile.clone()), true)?;
 
     // helm template with correct params
     let tplvec = vec![
@@ -299,10 +298,13 @@ pub fn reconcile_cluster(conf: &Config, region: String) -> Result<()> {
                 service: svc.into(),
                 region: region.clone(),
                 manifest: compmf,
+                render: Box::new(move |tmpl, context| {
+                    template::render(&tera, tmpl, context)
+                }),
             };
             // create all the values first
             let hfile = format!("{}.helm.gen.yml", dep.service);
-            let mfrender = values(&dep, Some(hfile.clone()), &tera, false)?;
+            let mfrender = values(&dep, Some(hfile.clone()), false)?;
             manifests.push(mfrender);
         }
     }
