@@ -224,21 +224,24 @@ fn main() {
             service: service.into(),
             region: region.into(),
             manifest: mf.clone(),
+            render: Box::new(move |tmpl, context| {
+                template::render(&tera, tmpl, context)
+            }),
         };
         if let Some(b) = a.subcommand_matches("values") {
             let output = b.value_of("output").map(String::from);
-            let res = shipcat::helm::values(&dep, output, &tera, false);
+            let res = shipcat::helm::values(&dep, output, false);
             result_exit(a.subcommand_name().unwrap(), res)
         }
         if let Some(b) = a.subcommand_matches("template") {
             let output = b.value_of("output").map(String::from);
-            let res = shipcat::helm::template(&dep, &tera, output);
+            let res = shipcat::helm::template(&dep, output);
             result_exit(a.subcommand_name().unwrap(), res)
         }
         // remaining subcommands need a temporary helm values file generated
         // store it under a {svc}.helm.gen.yml in pwd
         let hfile = format!("{}.helm.gen.yml", dep.service);
-        conditional_exit(shipcat::helm::values(&dep, Some(hfile.clone()), &tera, true));
+        conditional_exit(shipcat::helm::values(&dep, Some(hfile.clone()), true));
 
         let res = if let Some(b) = a.subcommand_matches("upgrade") {
             let dryrun = b.is_present("dryrun");
