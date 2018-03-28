@@ -26,6 +26,8 @@ extern crate log;
 
 extern crate regex;
 
+extern crate threadpool;
+
 #[macro_use]
 extern crate error_chain;
 error_chain! {

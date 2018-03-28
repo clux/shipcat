@@ -5,10 +5,11 @@ use std::io;
 
 use serde_yaml;
 
-use tera::Context; // just a hashmap wrapper
+use tera::{Context, Tera};
 use super::structs::ConfigMappedFile;
 use super::{Result};
 use super::manifest::*;
+use super::template;
 
 /// Rendered `ConfigMap`
 #[derive(Serialize, Clone, Default)]
@@ -25,19 +26,12 @@ pub struct RenderedConfig {
 }
 
 
-// base context with variables used by templates
-fn make_base_context(dep: &Deployment) -> Result<Context> {
+fn template_config(dep: &Deployment, tera: &Tera, mount: &ConfigMappedFile) -> Result<String> {
     let mut ctx = Context::new();
     ctx.add("env", &dep.manifest.env);
     ctx.add("service", &dep.service);
     ctx.add("region", &dep.region);
-    Ok(ctx)
-}
-
-
-fn template_config(dep: &Deployment, mount: &ConfigMappedFile) -> Result<String> {
-    let ctx = make_base_context(dep)?;
-    Ok((dep.render)(&mount.name, &ctx)?)
+    template::render(tera, &mount.name, &ctx)
 }
 
 /// Deployment parameters and context bound helpers
@@ -48,10 +42,6 @@ pub struct Deployment {
     pub region: String,
     /// Manifest
     pub manifest: Manifest,
-    /// Optional semver version
-    pub version: Option<String>,
-    /// Context bound template render function
-    pub render: Box<Fn(&str, &Context) -> Result<(String)>>,
 }
 impl Deployment {
     pub fn check(&self) -> Result<()> {
@@ -69,20 +59,16 @@ impl Deployment {
 /// Helm values writer
 ///
 /// Fills in service specific config files into config to help helm out
-pub fn helm(dep: &Deployment, output: Option<String>, silent: bool) -> Result<Manifest> {
+pub fn helm(dep: &Deployment, output: Option<String>, tera: &Tera, silent: bool) -> Result<Manifest> {
     dep.check()?; // sanity check on deployment
     let mut mf = dep.manifest.clone();
 
     // Files in `ConfigMap` get pre-rendered for helm for now
     if let Some(ref mut cfg) = mf.configs {
         for f in &mut cfg.files {
-            let res = template_config(dep, &f)?;
+            let res = template_config(dep, tera, &f)?;
             f.value = Some(res);
         }
-    }
-    // pass overridden version into manifest
-    if let Some(v) = dep.version.clone() {
-        mf.version = Some(v);
     }
 
     let encoded = serde_yaml::to_string(&mf)?;
@@ -119,14 +105,9 @@ mod tests {
         let dep = Deployment {
             service: "fake-ask".into(),
             region: "dev-uk".into(),
-            version: None,
             manifest: Manifest::basic("fake-ask", &conf, Some("dev-uk".into())).unwrap(),
-            // only provide template::render as the interface (move tera into this)
-            render: Box::new(move |tmpl, context| {
-                template::render(&tera, tmpl, context)
-            }),
         };
-        if let Err(e) = helm(&dep, None, false) {
+        if let Err(e) = helm(&dep, None, &tera, false) {
             println!("Failed to create helm values for fake-ask");
             print!("{}", e);
             assert!(false);
