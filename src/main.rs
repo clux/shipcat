@@ -293,7 +293,7 @@ fn main() {
 
     if let Some(_) = args.subcommand_matches("reconcile") {
         let region = kube::current_context().unwrap();
-        let res = shipcat::helm::reconcile_cluster(&conf, region);
+        let res = shipcat::cluster::helm_diff(&conf, region);
         result_exit(args.subcommand_name().unwrap(), res)
     }
 
