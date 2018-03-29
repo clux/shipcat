@@ -93,6 +93,8 @@ fn main() {
                 .about("Recreate pods and reconcile helm config for a service"))
             .subcommand(SubCommand::with_name("upgrade")
                 .about("Upgrade a helm release from a manifest")
+                .arg(Arg::with_name("auto-rollback")
+                    .long("auto-rollback"))
                 .arg(Arg::with_name("dryrun")
                     .long("dry-run")
                     .help("Show the diff only"))))
@@ -165,7 +167,10 @@ fn main() {
                 .long("dot")
                 .help("Generate dot output for graphviz"))
               .about("Graph the dependencies of a service"))
-        .subcommand(SubCommand::with_name("reconcile"))
+        .subcommand(SubCommand::with_name("cluster")
+            .subcommand(SubCommand::with_name("helm")
+                .subcommand(SubCommand::with_name("diff")
+                    .about("Diff kubeernetes configs with local state"))))
         .subcommand(SubCommand::with_name("list-regions")
             .setting(AppSettings::Hidden)
             .about("list supported regions/clusters"))
@@ -217,11 +222,7 @@ fn main() {
         mf.version = if let Some(tag) = a.value_of("tag") {
             Some(tag.into())
         } else {
-            match shipcat::helm::infer_version(service, &regdefaults) {
-                Ok(t) => Some(t),
-                // temporary:
-                Err(_) => Some(regdefaults.version.clone()),
-            }
+            Some(conditional_exit(shipcat::helm::infer_version(service, &regdefaults)))
         };
         assert!(mf.version.is_some());
 
@@ -252,6 +253,9 @@ fn main() {
         let res = if let Some(b) = a.subcommand_matches("upgrade") {
             let umode = if b.is_present("dryrun") {
                 shipcat::helm::UpgradeMode::DiffOnly
+            }
+            else if b.is_present("auto-rollback") {
+                shipcat::helm::UpgradeMode::UpgradeWaitMaybeRollback
             }
             else {
                 shipcat::helm::UpgradeMode::UpgradeWait
@@ -291,10 +295,14 @@ fn main() {
         result_exit(args.subcommand_name().unwrap(), res)
     }
 
-    if let Some(_) = args.subcommand_matches("reconcile") {
+    if let Some(a) = args.subcommand_matches("cluster") {
         let region = kube::current_context().unwrap();
-        let res = shipcat::cluster::helm_diff(&conf, region);
-        result_exit(args.subcommand_name().unwrap(), res)
+        if let Some(b) = a.subcommand_matches("helm") {
+            if let Some(_) = b.subcommand_matches("diff") {
+                let res = shipcat::cluster::helm_diff(&conf, region);
+                result_exit(args.subcommand_name().unwrap(), res)
+            }
+        }
     }
 
     if let Some(a) = args.subcommand_matches("graph") {
