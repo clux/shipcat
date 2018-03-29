@@ -12,7 +12,10 @@ use super::generate::{self, Deployment};
 use super::{Result, Manifest};
 use super::config::{RegionDefaults};
 
-// Struct parsed into from `helm get values {service}`
+/// Values parsed from `helm get values {service}`
+///
+/// This is the completed manifests including templates, but we only need one key
+/// Just parsing this key also makes it more forwards compatible
 #[derive(Deserialize)]
 struct HelmVals {
     version: String,
@@ -128,6 +131,7 @@ fn helm_wait_time(mf: &Manifest) -> u32 {
     }
 }
 
+/// The different modes we allow `helm upgrade` to run in
 #[derive(PartialEq)]
 pub enum UpgradeMode {
     /// Upgrade dry-run
@@ -208,16 +212,15 @@ fn rollback(mf: &Manifest) -> Result<()> {
 }
 
 
-/// Upgrade an an existing deployment if needed
+/// Helm upgrade a service in one of various modes
 ///
-/// This can be given an explicit semver version (on trigger)
-/// or be used be a reconciliation job (in which case the current version is reused).
+/// This will use the explicit version set in the manifest (at this point).
+/// It assumes that the helm values has been written to the `hfile`.
 ///
-/// This essentially wraps command sequences like:
-/// shipcat helm -r {region} {service} template > helm.yml
-/// # missing kubectl step to inject previous version into helm.yml optionally
-/// helm diff {service} charts/{chartname} -f helm.yml
-/// helm upgrade {service} charts/{chartname} -f helm.yml
+/// It then figures out the correct chart, and upgrade in the correct way.
+/// See the `UpgradeMode` enum for more info.
+/// In the `UpgradeWaitMaybeRollback` we also will roll back if helm upgrade failed,
+/// but only after some base level debug has been output to console.
 pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifest, String)> {
     if mode != UpgradeMode::DiffOnly {
         pre_upgrade_sanity()?;
