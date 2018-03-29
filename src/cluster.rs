@@ -14,7 +14,7 @@ pub fn helm_diff(conf: &Config, region: String) -> Result<()> {
     for svc in services {
         debug!("Scanning service {:?}", svc);
         let mf = Manifest::basic(&svc, conf, None)?;
-        if !mf.disabled && mf.regions.contains(&region) {
+        if !mf.disabled && !mf.external && mf.regions.contains(&region) {
             // need a tera per service (special folder handling)
             let tera = template::init(&svc)?;
             let v = vault::Vault::default()?;
@@ -55,7 +55,7 @@ pub fn helm_diff(conf: &Config, region: String) -> Result<()> {
     }
     let _ = rx.iter().take(n_jobs).map(|r| {
         match &r {
-            &Ok((ref mf, _)) => info!("Diffed {}", mf.name), // TODO: s/Diffed/Reconciled once !dryrun
+            &Ok((ref mf, _)) => debug!("diffed {}", mf.name), // TODO: s/Diffed/Reconciled once !dryrun
             &Err(ref e) => error!("Failed to reconcile {}", e)
         }
         r

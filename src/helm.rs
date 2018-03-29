@@ -1,11 +1,13 @@
 use std::fs;
 use serde_yaml;
 
+use std::fmt;
 use std::fs::File;
 use std::path::{Path};
 use std::io::{self, Write};
 
 use super::slack;
+use super::kube;
 use super::generate::{self, Deployment};
 use super::{Result, Manifest};
 use super::config::{RegionDefaults};
@@ -25,12 +27,12 @@ pub fn hexec(args: Vec<String>) -> Result<()> {
     }
     Ok(())
 }
-pub fn hout(args: Vec<String>) -> Result<String> {
+pub fn hout(args: Vec<String>) -> Result<(String, bool)> {
     use std::process::Command;
     debug!("helm {}", args.join(" "));
     let s = Command::new("helm").args(&args).output()?;
     let out : String = String::from_utf8_lossy(&s.stdout).into();
-    Ok(out)
+    Ok((out, s.status.success()))
 }
 
 
@@ -41,16 +43,20 @@ pub fn infer_version(service: &str, reg: &RegionDefaults) -> Result<String> {
         "values".into(),
         service.into(),
     ];
-    // TODO: need to catch non-zero exit code here :(
     debug!("helm {}", imgvec.join(" "));
-    if let Ok(vstr) = hout(imgvec) {
-        // if we got this far, release was found
-        // it should work to parse the HelmVals subset of the values:
-        let values : HelmVals = serde_yaml::from_str(&vstr.to_owned())?;
-        return Ok(values.version)
+    match hout(imgvec) {
+        // got a result from helm + rc was 0:
+        Ok((vstr, true)) => {
+            // if we got this far, release was found
+            // it should work to parse the HelmVals subset of the values:
+            let values : HelmVals = serde_yaml::from_str(&vstr.to_owned())?;
+            Ok(values.version)
+        },
+        _ => {
+            // nothing from helm, fallback to region defaults from config
+            Ok(reg.version.clone())
+        }
     }
-    // nothing from helm, fallback to region defaults from config
-    Ok(reg.version.clone())
 }
 
 fn infer_jenkins_link() -> Option<String> {
@@ -128,12 +134,13 @@ pub enum UpgradeMode {
     DiffOnly,
     /// Normal Upgrade waiting for the calculated amount of time
     UpgradeWait,
+    /// Upgrade and wait, but also debug and rollback if helm returned 1
+    UpgradeWaitMaybeRollback,
     /// Upgrade with force recreate pods
     UpgradeRecreateWait,
     /// Upgrade with install flag set
     UpgradeInstall,
 }
-use std::fmt;
 impl fmt::Display for UpgradeMode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -141,6 +148,61 @@ impl fmt::Display for UpgradeMode {
             &UpgradeMode::UpgradeWait => write!(f, "upgrade"),
             &UpgradeMode::UpgradeRecreateWait => write!(f, "recreate"),
             &UpgradeMode::UpgradeInstall => write!(f, "install"),
+            &UpgradeMode::UpgradeWaitMaybeRollback => write!(f, "tryupgrade"),
+        }
+    }
+}
+
+
+// debugging when helm upgrade fails
+fn kube_debug(mf: &Manifest) -> Result<()> {
+    for pod in kube::get_broken_pods(&mf.name)? {
+        warn!("Debugging non-running pod {}", pod);
+        warn!("Last 20 log lines:");
+        let logvec = vec![
+            "logs".into(),
+            pod.clone(),
+            format!("--tail=20").into(), // last 20 lines
+        ];
+        match kube::kout(logvec) {
+            Ok(l) => {
+                print!("{}\n", l);
+            },
+            Err(e) => {
+                warn!("Failed to get logs from {}: {}", pod, e)
+            }
+        }
+    }
+    Ok(())
+}
+
+fn rollback(mf: &Manifest) -> Result<()> {
+    let rollbackvec = vec![
+        "rollback".into(),
+        mf.name.clone(),
+        "0".into(), // magic helm string for previous
+    ];
+    info!("helm {}", rollbackvec.join(" "));
+    match hexec(rollbackvec) {
+        Err(e) => {
+            error!("{}", e);
+            // this would be super weird, since we are not waiting for it:
+            let _ = slack::send(slack::Message {
+                text: format!("failed to rollback {} in {}", &mf.name, &mf._region),
+                color: Some("danger".into()),
+                link: infer_jenkins_link(),
+                ..Default::default()
+            });
+            Err(e)
+        },
+        Ok(_) => {
+            slack::send(slack::Message {
+                text: format!("rolling back {} in {}",  &mf.name, &mf._region),
+                color: Some("good".into()),
+                link: infer_jenkins_link(),
+                ..Default::default()
+            })?;
+            Ok(())
         }
     }
 }
@@ -167,7 +229,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
 
     let ver = mf.version.clone().unwrap(); // must be set outside
 
-    if mode == UpgradeMode::UpgradeRecreateWait || mode == UpgradeMode::UpgradeInstall || !helmdiff.is_empty() {
+    if true || mode == UpgradeMode::UpgradeRecreateWait || mode == UpgradeMode::UpgradeInstall || !helmdiff.is_empty() {
         // upgrade it using the same command
         let mut upgradevec = vec![
             "upgrade".into(),
@@ -197,6 +259,13 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
                     "--install".into(),
                 ]);
             },
+            UpgradeMode::UpgradeWaitMaybeRollback => {
+                upgradevec.extend_from_slice(&[
+                    "--recreate-pods".into(),
+                    "--wait".into(),
+                    format!("--timeout={}", helm_wait_time(mf)),
+                ]);
+            }
             _ => {
                 unimplemented!("Somehow got an uncovered upgrade mode");
             }
@@ -211,6 +280,10 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
                     link: infer_jenkins_link(),
                     code: Some(helmdiff.clone()),
                 })?;
+                if mode == UpgradeMode::UpgradeWaitMaybeRollback {
+                    kube_debug(mf)?;
+                    rollback(mf)?;
+                }
                 return Err(e);
             },
             Ok(_) => {
@@ -244,7 +317,7 @@ pub fn diff(mf: &Manifest, hfile: &str) -> Result<String> {
     ];
     info!("helm {}", diffvec.join(" "));
     let helmdiff = obfuscate_secrets(
-        hout(diffvec)?,
+        hout(diffvec)?.0,
         mf._decoded_secrets.values().cloned().collect()
     );
     let smalldiff = diff_format(helmdiff.clone());
@@ -280,7 +353,10 @@ pub fn template(dep: &Deployment, output: Option<String>) -> Result<String> {
         "-f".into(),
         tmpfile.clone(),
     ];
-    let tpl = hout(tplvec)?;
+    let (tpl, success) = hout(tplvec)?;
+    if !success {
+        bail!("helm template failed");
+    }
     if let Some(o) = output {
         let pth = Path::new(".").join(o);
         info!("Writing helm template for {} to {}", dep.service, pth.display());
