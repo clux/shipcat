@@ -88,7 +88,7 @@ _shipcat()
                     COMPREPLY=($(compgen -W "-o --output --dry-run" -- "$cur"))
                 else
                     # Suggest subcommands of helm and global flags
-                    COMPREPLY=($(compgen -W "values template diff upgrade install" -- "$cur"))
+                    COMPREPLY=($(compgen -W "values template diff upgrade install recreate" -- "$cur"))
                 fi
                 ;;
             shell|logs)
