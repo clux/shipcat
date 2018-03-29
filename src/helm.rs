@@ -244,13 +244,13 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
             format!("version={}", ver),
         ];
         match mode {
-            UpgradeMode::UpgradeWait => {
+            UpgradeMode::UpgradeWaitMaybeRollback | UpgradeMode::UpgradeWait => {
                 upgradevec.extend_from_slice(&[
                     "--wait".into(),
                     format!("--timeout={}", helm_wait_time(mf)),
                 ]);
             },
-            UpgradeMode::UpgradeWaitMaybeRollback | UpgradeMode::UpgradeRecreateWait => {
+            UpgradeMode::UpgradeRecreateWait => {
                 upgradevec.extend_from_slice(&[
                     "--recreate-pods".into(),
                     "--wait".into(),
