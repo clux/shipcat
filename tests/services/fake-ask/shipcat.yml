@@ -11,6 +11,10 @@ health:
   uri: /health
   wait: 30
 httpPort: 8080
+metadata:
+  team: devops
+  contact: "@clux"
+  repo: https://github.com/Babylonpartners/shipcat
 regions:
 - dev-uk
 vault:
