@@ -7,12 +7,12 @@ _shipcat()
     local cur prev words cword
     _init_completion || return
 
-    local -r subcommands="help validate shell logs graph get helm
+    local -r subcommands="help validate shell logs graph get helm cluster
                           list-regions list-services"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|status|shell|logs|get|graph|helm) ]]; then
+        if [[ ${words[i]} == @(help|validate|status|shell|logs|get|graph|cluster|helm) ]]; then
             has_sub=1
         fi
     done
@@ -31,10 +31,11 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(validate|shell|logs|graph|get|helm|list-services) ]]; then
+        if [[ ${words[i]} == @(validate|shell|logs|graph|get|cluster|helm|list-services) ]]; then
             special=${words[i]}
         fi
     done
+    # TODO: fix cluster -> helm swap :(
 
     if [[ -n $special ]]; then
         case $special in
@@ -70,6 +71,21 @@ _shipcat()
                     COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 fi
                 ;;
+            cluster)
+                local clustr_sub i
+                for (( i=2; i < ${#words[@]}-1; i++ )); do
+                    if [[ ${words[i]} = @(helm) ]]; then
+                        clustr_sub=${words[i]}
+                    fi
+                done
+
+                if [[ $prev = "cluster" ]]; then
+                    COMPREPLY=($(compgen -W "helm" -- "$cur"))
+                elif [[ $clustr_sub = "helm" ]]; then
+                    # Suggest subcommands of helm and global flags
+                    COMPREPLY=($(compgen -W "diff reconcile install" -- "$cur"))
+                fi
+                ;;
             helm)
                 local -r regions="$(shipcat list-regions)"
                 local helm_sub i
@@ -88,7 +104,7 @@ _shipcat()
                     COMPREPLY=($(compgen -W "-o --output --dry-run" -- "$cur"))
                 else
                     # Suggest subcommands of helm and global flags
-                    COMPREPLY=($(compgen -W "values template diff upgrade install" -- "$cur"))
+                    COMPREPLY=($(compgen -W "values template diff upgrade install recreate" -- "$cur"))
                 fi
                 ;;
             shell|logs)

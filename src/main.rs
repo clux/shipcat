@@ -13,6 +13,7 @@ use shipcat::*;
 #[allow(unused_imports)]
 use clap::{Arg, App, AppSettings, SubCommand, ArgMatches};
 use std::process;
+use std::fs;
 
 
 fn result_exit<T>(name: &str, x: Result<T>) {
@@ -88,8 +89,12 @@ fn main() {
                 .about("Diff kubeernetes configs with local state"))
             .subcommand(SubCommand::with_name("install")
                 .about("Install a service as a helm release from a manifest"))
+            .subcommand(SubCommand::with_name("recreate")
+                .about("Recreate pods and reconcile helm config for a service"))
             .subcommand(SubCommand::with_name("upgrade")
                 .about("Upgrade a helm release from a manifest")
+                .arg(Arg::with_name("auto-rollback")
+                    .long("auto-rollback"))
                 .arg(Arg::with_name("dryrun")
                     .long("dry-run")
                     .help("Show the diff only"))))
@@ -162,6 +167,10 @@ fn main() {
                 .long("dot")
                 .help("Generate dot output for graphviz"))
               .about("Graph the dependencies of a service"))
+        .subcommand(SubCommand::with_name("cluster")
+            .subcommand(SubCommand::with_name("helm")
+                .subcommand(SubCommand::with_name("diff")
+                    .about("Diff kubeernetes configs with local state"))))
         .subcommand(SubCommand::with_name("list-regions")
             .setting(AppSettings::Hidden)
             .about("list supported regions/clusters"))
@@ -200,27 +209,35 @@ fn main() {
         let service = a.value_of("service").unwrap();
 
         let region = kube::current_context().unwrap();
-        let tag = a.value_of("tag").map(String::from);
+        let regdefaults = conf.regions.get(&region).unwrap().defaults.clone();
 
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
         let mut vault = conditional_exit(shipcat::vault::Vault::default());
-        let mf = conditional_exit(Manifest::completed(&region, &conf, service, Some(vault)));
+
+        // manifest with region specific secrets
+        let mut mf = conditional_exit(Manifest::completed(&region, &conf, service, Some(vault)));
+        conditional_exit(mf.verify(&conf)); // sanity (non-secret verify
+
+        mf.version = if let Some(tag) = a.value_of("tag") {
+            Some(tag.into())
+        } else {
+            Some(conditional_exit(shipcat::helm::infer_version(service, &regdefaults)))
+        };
+        assert!(mf.version.is_some());
 
         // All parameters for a k8s deployment
         let dep = shipcat::generate::Deployment {
             service: service.into(),
             region: region.into(),
-            manifest: mf,
-            version: tag,
-            // only provide template::render as the interface (move tera into this)
+            manifest: mf.clone(),
             render: Box::new(move |tmpl, context| {
                 template::render(&tera, tmpl, context)
             }),
         };
         if let Some(b) = a.subcommand_matches("values") {
             let output = b.value_of("output").map(String::from);
-            let res = shipcat::helm::values(&dep, output);
+            let res = shipcat::helm::values(&dep, output, false);
             result_exit(a.subcommand_name().unwrap(), res)
         }
         if let Some(b) = a.subcommand_matches("template") {
@@ -228,23 +245,42 @@ fn main() {
             let res = shipcat::helm::template(&dep, output);
             result_exit(a.subcommand_name().unwrap(), res)
         }
-        if let Some(b) = a.subcommand_matches("upgrade") {
-            let dryrun = b.is_present("dryrun");
-            let res = shipcat::helm::upgrade(&dep, dryrun);
-            result_exit(a.subcommand_name().unwrap(), res)
-        }
-        if let Some(_) = a.subcommand_matches("install") {
-            let res = shipcat::helm::install(&dep, &conf);
-            result_exit(a.subcommand_name().unwrap(), res)
-        }
-        if let Some(_) = a.subcommand_matches("diff") {
-            let res = shipcat::helm::diff(&dep);
-            result_exit(a.subcommand_name().unwrap(), res);
-        }
+        // remaining subcommands need a temporary helm values file generated
+        // store it under a {svc}.helm.gen.yml in pwd
+        let hfile = format!("{}.helm.gen.yml", dep.service);
+        conditional_exit(shipcat::helm::values(&dep, Some(hfile.clone()), true));
 
+        let res = if let Some(b) = a.subcommand_matches("upgrade") {
+            let umode = if b.is_present("dryrun") {
+                shipcat::helm::UpgradeMode::DiffOnly
+            }
+            else if b.is_present("auto-rollback") {
+                shipcat::helm::UpgradeMode::UpgradeWaitMaybeRollback
+            }
+            else {
+                shipcat::helm::UpgradeMode::UpgradeWait
+            };
+            shipcat::helm::upgrade(&mf, &hfile.clone(), umode).map(|_| ())
+        }
+        else if let Some(_) = a.subcommand_matches("install") {
+            let umode = shipcat::helm::UpgradeMode::UpgradeInstall;
+            shipcat::helm::upgrade(&mf, &hfile.clone(), umode).map(|_| ())
+        }
+        else if let Some(_) = a.subcommand_matches("diff") {
+            shipcat::helm::diff(&mf, &hfile.clone()).map(|_| ())
+        }
+        else if let Some(_) = a.subcommand_matches("recreate") {
+            let umode = shipcat::helm::UpgradeMode::UpgradeRecreateWait;
+            shipcat::helm::upgrade(&mf, &hfile.clone(), umode).map(|_| ())
+        }
+        else {
+            unreachable!("Helm Subcommand valid, but not implemented")
+        };
+        let _ = fs::remove_file(hfile); // remove temporary file
+        result_exit(&format!("helm {}", a.subcommand_name().unwrap()), res);
     }
 
-    // Handle subcommands dumb subcommands
+    // Handle subcommands
     if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
         let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
@@ -258,6 +294,17 @@ fn main() {
         };
         result_exit(args.subcommand_name().unwrap(), res)
     }
+
+    if let Some(a) = args.subcommand_matches("cluster") {
+        let region = kube::current_context().unwrap();
+        if let Some(b) = a.subcommand_matches("helm") {
+            if let Some(_) = b.subcommand_matches("diff") {
+                let res = shipcat::cluster::helm_diff(&conf, region);
+                result_exit(args.subcommand_name().unwrap(), res)
+            }
+        }
+    }
+
     if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");
         if let Some(svc) = a.value_of("service") {

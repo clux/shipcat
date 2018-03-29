@@ -1,6 +1,7 @@
 use std::fs;
 use serde_yaml;
 
+use std::fmt;
 use std::fs::File;
 use std::path::{Path};
 use std::io::{self, Write};
@@ -8,7 +9,8 @@ use std::io::{self, Write};
 use super::slack;
 use super::kube;
 use super::generate::{self, Deployment};
-use super::{Result, Manifest, Config};
+use super::{Result, Manifest};
+use super::config::{RegionDefaults};
 
 // Struct parsed into from `helm get values {service}`
 #[derive(Deserialize)]
@@ -25,26 +27,36 @@ pub fn hexec(args: Vec<String>) -> Result<()> {
     }
     Ok(())
 }
-pub fn hout(args: Vec<String>) -> Result<String> {
+pub fn hout(args: Vec<String>) -> Result<(String, bool)> {
     use std::process::Command;
     debug!("helm {}", args.join(" "));
     let s = Command::new("helm").args(&args).output()?;
     let out : String = String::from_utf8_lossy(&s.stdout).into();
-    Ok(out)
+    Ok((out, s.status.success()))
 }
 
 
-fn infer_version(service: &str) -> Result<String> {
-    // else use the current deployed sha (reconciliation)
+pub fn infer_version(service: &str, reg: &RegionDefaults) -> Result<String> {
+    // fetch current version from helm
     let imgvec = vec![
         "get".into(),
         "values".into(),
         service.into(),
     ];
     debug!("helm {}", imgvec.join(" "));
-    let valuestr = hout(imgvec)?.to_string();
-    let values : HelmVals = serde_yaml::from_str(&valuestr)?;
-    Ok(values.version)
+    match hout(imgvec) {
+        // got a result from helm + rc was 0:
+        Ok((vstr, true)) => {
+            // if we got this far, release was found
+            // it should work to parse the HelmVals subset of the values:
+            let values : HelmVals = serde_yaml::from_str(&vstr.to_owned())?;
+            Ok(values.version)
+        },
+        _ => {
+            // nothing from helm, fallback to region defaults from config
+            Ok(reg.version.clone())
+        }
+    }
 }
 
 fn infer_jenkins_link() -> Option<String> {
@@ -57,7 +69,11 @@ fn infer_jenkins_link() -> Option<String> {
     } else {
         match Command::new("whoami").output() {
             Ok(s) => {
-                let out : String = String::from_utf8_lossy(&s.stdout).into();
+                let mut out : String = String::from_utf8_lossy(&s.stdout).into();
+                let len = out.len();
+                if out.ends_with('\n') {
+                    out.truncate(len - 1)
+                }
                 return Some(out)
             }
             Err(e) => {
@@ -68,15 +84,8 @@ fn infer_jenkins_link() -> Option<String> {
     }
 }
 
-fn pre_upgrade_sanity(dep: &Deployment) -> Result<()> {
+fn pre_upgrade_sanity() -> Result<()> {
     // TODO: kubectl auth can-i rollout Deployment
-
-    // region sanity
-    let kctx = kube::current_context()?;
-    assert_eq!(dep.region, kctx);
-    if !dep.manifest.regions.contains(&dep.region) {
-        bail!("This service cannot be deployed in this region")
-    }
 
     // slack stuff must also be set:
     slack::env_channel()?;
@@ -119,51 +128,85 @@ fn helm_wait_time(mf: &Manifest) -> u32 {
     }
 }
 
-/// Install a deployment first time
-pub fn install(dep: &Deployment, conf: &Config) -> Result<()> {
-    pre_upgrade_sanity(dep)?;
-    let version = dep.version.clone().unwrap_or_else(|| {
-        let r = &conf.regions[&dep.region];
-        r.clone().defaults.version
-    });
+#[derive(PartialEq)]
+pub enum UpgradeMode {
+    /// Upgrade dry-run
+    DiffOnly,
+    /// Normal Upgrade waiting for the calculated amount of time
+    UpgradeWait,
+    /// Upgrade and wait, but also debug and rollback if helm returned 1
+    UpgradeWaitMaybeRollback,
+    /// Upgrade with force recreate pods
+    UpgradeRecreateWait,
+    /// Upgrade with install flag set
+    UpgradeInstall,
+}
+impl fmt::Display for UpgradeMode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &UpgradeMode::DiffOnly => write!(f, "diff"),
+            &UpgradeMode::UpgradeWait => write!(f, "upgrade"),
+            &UpgradeMode::UpgradeRecreateWait => write!(f, "recreate"),
+            &UpgradeMode::UpgradeInstall => write!(f, "install"),
+            &UpgradeMode::UpgradeWaitMaybeRollback => write!(f, "carefully upgrade"),
+        }
+    }
+}
 
-    // create helm values
-    let file = format!("{}.helm.gen.yml", dep.service);
-    let _ = generate::helm(dep, Some(file.clone()), false)?;
 
-    // install
-    let mut installvec = vec![
-        "install".into(),
-        format!("charts/{}", dep.manifest.chart),
-        "-f".into(),
-        file.clone(),
-        format!("--name={}", dep.service.clone()),
-        //"--verify".into(), (doesn't work while chart is a directory)
-        "--set".into(),
-        format!("version={}", version),
+// debugging when helm upgrade fails
+fn kube_debug(mf: &Manifest) -> Result<()> {
+    for pod in kube::get_broken_pods(&mf.name)? {
+        warn!("Debugging non-running pod {}", pod);
+        warn!("Last 20 log lines:");
+        let logvec = vec![
+            "logs".into(),
+            pod.clone(),
+            format!("--tail=20").into(), // last 20 lines
+        ];
+        match kube::kout(logvec) {
+            Ok(l) => {
+                print!("{}\n", l);
+            },
+            Err(e) => {
+                warn!("Failed to get logs from {}: {}", pod, e)
+            }
+        }
+    }
+    Ok(())
+}
+
+fn rollback(mf: &Manifest) -> Result<()> {
+    let rollbackvec = vec![
+        "rollback".into(),
+        mf.name.clone(),
+        "0".into(), // magic helm string for previous
     ];
-
-    installvec.extend_from_slice(&[
-        "--wait".into(),
-        format!("--timeout={}", helm_wait_time(&dep.manifest)),
-    ]);
-    info!("helm {}", installvec.join(" "));
-    match hexec(installvec) {
+    info!("helm {}", rollbackvec.join(" "));
+    match hexec(rollbackvec) {
         Err(e) => {
             error!("{}", e);
-            return Err(e);
+            // this would be super weird, since we are not waiting for it:
+            let _ = slack::send(slack::Message {
+                text: format!("failed to rollback {} in {}", &mf.name, &mf._region),
+                color: Some("danger".into()),
+                link: infer_jenkins_link(),
+                ..Default::default()
+            });
+            Err(e)
         },
         Ok(_) => {
             slack::send(slack::Message {
-                text: format!("installed {} in {}", &dep.service, dep.region),
+                text: format!("rolling back {} in {}",  &mf.name, &mf._region),
                 color: Some("good".into()),
                 link: infer_jenkins_link(),
                 ..Default::default()
             })?;
+            Ok(())
         }
-    };
-    Ok(())
+    }
 }
+
 
 /// Upgrade an an existing deployment if needed
 ///
@@ -175,41 +218,99 @@ pub fn install(dep: &Deployment, conf: &Config) -> Result<()> {
 /// # missing kubectl step to inject previous version into helm.yml optionally
 /// helm diff {service} charts/{chartname} -f helm.yml
 /// helm upgrade {service} charts/{chartname} -f helm.yml
-pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
-    pre_upgrade_sanity(dep)?;
+pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifest, String)> {
+    if mode != UpgradeMode::DiffOnly {
+        pre_upgrade_sanity()?;
+    }
+    let helmdiff = diff(mf, hfile)?;
+    if mode == UpgradeMode::DiffOnly {
+        return Ok((mf.clone(), helmdiff))
+    }
 
-    // either we deploy with an explicit sha (build triggers from repos)
-    let version = if let Some(v) = dep.version.clone() {
-        v
-    } else {
-        // TODO: this may fail if the service is down
-        infer_version(&dep.service)?
-    };
-    let action = if dep.version.is_none() {
-        info!("Using version {} (inferred from current helm revision)", version);
-        "reconcile"
-    } else {
-        info!("Using default {} version", version);
-        "update"
-    };
-    // now create helm values
-    let file = format!("{}.helm.gen.yml", dep.service);
-    let mf = generate::helm(dep, Some(file.clone()), false)?;
+    let ver = mf.version.clone().unwrap(); // must be set outside
 
-    // diff against current running
+    if mode == UpgradeMode::UpgradeRecreateWait || mode == UpgradeMode::UpgradeInstall || !helmdiff.is_empty() {
+        // upgrade it using the same command
+        let mut upgradevec = vec![
+            "upgrade".into(),
+            mf.name.clone(),
+            format!("charts/{}", mf.chart),
+            "-f".into(),
+            hfile.into(),
+            "--set".into(),
+            format!("version={}", ver),
+        ];
+        match mode {
+            UpgradeMode::UpgradeWait => {
+                upgradevec.extend_from_slice(&[
+                    "--wait".into(),
+                    format!("--timeout={}", helm_wait_time(mf)),
+                ]);
+            },
+            UpgradeMode::UpgradeWaitMaybeRollback | UpgradeMode::UpgradeRecreateWait => {
+                upgradevec.extend_from_slice(&[
+                    "--recreate-pods".into(),
+                    "--wait".into(),
+                    format!("--timeout={}", helm_wait_time(mf)),
+                ]);
+            },
+            UpgradeMode::UpgradeInstall => {
+                upgradevec.extend_from_slice(&[
+                    "--install".into(),
+                ]);
+            },
+            _ => {
+                unimplemented!("Somehow got an uncovered upgrade mode");
+            }
+        }
+        info!("helm {}", upgradevec.join(" "));
+        match hexec(upgradevec) {
+            Err(e) => {
+                error!("{}", e);
+                slack::send(slack::Message {
+                    text: format!("failed to {} {} in {}", mode, &mf.name, &mf._region),
+                    color: Some("danger".into()),
+                    link: infer_jenkins_link(),
+                    code: Some(helmdiff.clone()),
+                })?;
+                if mode == UpgradeMode::UpgradeWaitMaybeRollback {
+                    kube_debug(mf)?;
+                    rollback(mf)?;
+                }
+                return Err(e);
+            },
+            Ok(_) => {
+                slack::send(slack::Message {
+                    text: format!("{}d {} in {}", mode, &mf.name, &mf._region),
+                    color: Some("good".into()),
+                    link: infer_jenkins_link(),
+                    code: Some(helmdiff.clone()),
+                })?;
+            }
+        };
+    }
+    Ok((mf.clone(), helmdiff))
+}
+
+
+/// helm diff against current running release
+///
+/// Shells out to helm diff, then obfuscates secrets
+pub fn diff(mf: &Manifest, hfile: &str) -> Result<String> {
+    let ver = mf.version.clone().unwrap(); // must be set outside
     let diffvec = vec![
         "diff".into(),
         "--no-color".into(),
-        dep.service.clone(),
-        format!("charts/{}", dep.manifest.chart),
+        mf.name.clone(),
+        format!("charts/{}", mf.chart),
         "-f".into(),
-        file.clone(),
+        hfile.into(),
         "--set".into(),
-        format!("version={}", version),
+        format!("version={}", ver),
     ];
     info!("helm {}", diffvec.join(" "));
     let helmdiff = obfuscate_secrets(
-        hout(diffvec)?,
+        hout(diffvec)?.0,
         mf._decoded_secrets.values().cloned().collect()
     );
     let smalldiff = diff_format(helmdiff.clone());
@@ -218,63 +319,20 @@ pub fn upgrade(dep: &Deployment, dryrun: bool) -> Result<()> {
         debug!("{}\n", helmdiff); // full diff for logs
         print!("{}\n", smalldiff);
     } else {
-        info!("{} is up to date", dep.service);
+        info!("{} is up to date", mf.name);
     }
-
-    if !dryrun && !helmdiff.is_empty() {
-        // upgrade it using the same command
-        let mut upgradevec = vec![
-            "upgrade".into(),
-            dep.service.clone(),
-            format!("charts/{}", dep.manifest.chart),
-            "-f".into(),
-            file.clone(),
-            "--set".into(),
-            format!("version={}", version),
-        ];
-        upgradevec.extend_from_slice(&[
-            "--wait".into(),
-            format!("--timeout={}", helm_wait_time(&dep.manifest)),
-        ]);
-        info!("helm {}", upgradevec.join(" "));
-        match hexec(upgradevec) {
-            Err(e) => {
-                error!("{}", e);
-                slack::send(slack::Message {
-                    text: format!("failed to {} {} in {}", action, &dep.service, dep.region),
-                    color: Some("danger".into()),
-                    link: infer_jenkins_link(),
-                    code: Some(smalldiff),
-                })?;
-            },
-            Ok(_) => {
-                slack::send(slack::Message {
-                    text: format!("{}d {} in {}", action, &dep.service, dep.region),
-                    color: Some("good".into()),
-                    link: infer_jenkins_link(),
-                    code: Some(smalldiff),
-                })?;
-            }
-        };
-
-    }
-    fs::remove_file(file)?; // remove temporary file
-    Ok(())
-}
-
-pub fn diff(dep: &Deployment) -> Result<()> {
-    upgrade(dep, true)
+    Ok(smalldiff)
 }
 
 /// Create helm values file for a service
 ///
 /// Defers to `generate::helm` for now
-pub fn values(dep: &Deployment, output: Option<String>) -> Result<Manifest> {
-    generate::helm(dep, output, false)
+pub fn values(dep: &Deployment, output: Option<String>, silent: bool) -> Result<Manifest> {
+    generate::helm(dep, output, silent)
 }
 
 
-/// Analogoue of helm template
+/// Analogue of helm template
 ///
 /// Generates helm values to disk, then passes it to helm template
 pub fn template(dep: &Deployment, output: Option<String>) -> Result<String> {
@@ -288,7 +346,10 @@ pub fn template(dep: &Deployment, output: Option<String>) -> Result<String> {
         "-f".into(),
         tmpfile.clone(),
     ];
-    let tpl = hout(tplvec)?;
+    let (tpl, success) = hout(tplvec)?;
+    if !success {
+        bail!("helm template failed");
+    }
     if let Some(o) = output {
         let pth = Path::new(".").join(o);
         info!("Writing helm template for {} to {}", dep.service, pth.display());

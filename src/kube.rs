@@ -34,7 +34,7 @@ pub fn current_context() -> Result<String> {
 
 
 fn get_pods(name: &str) -> Result<String> {
-    //kubectl get pods -l=app=$* -n $ns -o jsonpath='{.items[*].metadata.name}'
+    //kubectl get pods -l=app=$* -o jsonpath='{.items[*].metadata.name}'
     let podargs = vec![
         "get".into(),
         "pods".into(),
@@ -47,6 +47,27 @@ fn get_pods(name: &str) -> Result<String> {
     debug!("Active pods: {:?}", podsres);
     Ok(podsres)
 }
+
+pub fn get_broken_pods(name: &str) -> Result<Vec<String>> {
+    let podargs = vec![
+        "get".into(),
+        "pods".into(),
+        format!("-l=app={}", name),
+        format!("--no-headers"),
+    ];
+    let podres = kout(podargs)?;
+    let mut bpods = vec![];
+    for l in podres.lines() {
+        if !l.contains("Running") {
+            if let Some(p) = l.split(' ').next() {
+                warn!("Found pod not running: {}", p);
+                bpods.push(p.into());
+            }
+        }
+    }
+    Ok(bpods)
+}
+
 
 /// Shell into all pods associated with a service
 ///

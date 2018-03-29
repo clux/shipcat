@@ -5,7 +5,7 @@ use std::io;
 
 use serde_yaml;
 
-use tera::Context; // just a hashmap wrapper
+use tera::Context;
 use super::structs::ConfigMappedFile;
 use super::{Result};
 use super::manifest::*;
@@ -25,18 +25,11 @@ pub struct RenderedConfig {
 }
 
 
-// base context with variables used by templates
-fn make_base_context(dep: &Deployment) -> Result<Context> {
+fn template_config(dep: &Deployment, mount: &ConfigMappedFile) -> Result<String> {
     let mut ctx = Context::new();
     ctx.add("env", &dep.manifest.env);
     ctx.add("service", &dep.service);
     ctx.add("region", &dep.region);
-    Ok(ctx)
-}
-
-
-fn template_config(dep: &Deployment, mount: &ConfigMappedFile) -> Result<String> {
-    let ctx = make_base_context(dep)?;
     Ok((dep.render)(&mount.name, &ctx)?)
 }
 
@@ -48,8 +41,6 @@ pub struct Deployment {
     pub region: String,
     /// Manifest
     pub manifest: Manifest,
-    /// Optional semver version
-    pub version: Option<String>,
     /// Context bound template render function
     pub render: Box<Fn(&str, &Context) -> Result<(String)>>,
 }
@@ -80,10 +71,6 @@ pub fn helm(dep: &Deployment, output: Option<String>, silent: bool) -> Result<Ma
             f.value = Some(res);
         }
     }
-    // pass overridden version into manifest
-    if let Some(v) = dep.version.clone() {
-        mf.version = Some(v);
-    }
 
     let encoded = serde_yaml::to_string(&mf)?;
     if let Some(o) = output {
@@ -98,7 +85,7 @@ pub fn helm(dep: &Deployment, output: Option<String>, silent: bool) -> Result<Ma
         debug!("Wrote helm values for {} to {}: \n{}", dep.service, pth.display(), encoded);
     } else {
         // stdout only
-        let _ = io::stdout().write(encoded.as_bytes());
+        let _ = io::stdout().write(format!("{}\n", encoded).as_bytes());
     }
     Ok(mf)
 }
@@ -119,7 +106,6 @@ mod tests {
         let dep = Deployment {
             service: "fake-ask".into(),
             region: "dev-uk".into(),
-            version: None,
             manifest: Manifest::basic("fake-ask", &conf, Some("dev-uk".into())).unwrap(),
             // only provide template::render as the interface (move tera into this)
             render: Box::new(move |tmpl, context| {

@@ -26,6 +26,8 @@ extern crate log;
 
 extern crate regex;
 
+extern crate threadpool;
+
 #[macro_use]
 extern crate error_chain;
 error_chain! {
@@ -90,6 +92,8 @@ pub mod list;
 pub mod get;
 /// A post interface to slack using `slack_hook`
 pub mod slack;
+/// Cluster level operations
+pub mod cluster;
 
 /// Master config for manifests repositories
 mod config;
