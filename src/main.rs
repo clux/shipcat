@@ -89,6 +89,8 @@ fn main() {
                 .about("Diff kubeernetes configs with local state"))
             .subcommand(SubCommand::with_name("install")
                 .about("Install a service as a helm release from a manifest"))
+            .subcommand(SubCommand::with_name("recreate")
+                .about("Recreate pods and reconcile helm config for a service"))
             .subcommand(SubCommand::with_name("upgrade")
                 .about("Upgrade a helm release from a manifest")
                 .arg(Arg::with_name("dryrun")
@@ -244,14 +246,24 @@ fn main() {
         conditional_exit(shipcat::helm::values(&dep, Some(hfile.clone()), true));
 
         let res = if let Some(b) = a.subcommand_matches("upgrade") {
-            let dryrun = b.is_present("dryrun");
-            shipcat::helm::upgrade(&mf, &hfile.clone(), dryrun).map(|_| ())
+            let umode = if b.is_present("dryrun") {
+                shipcat::helm::UpgradeMode::DiffOnly
+            }
+            else {
+                shipcat::helm::UpgradeMode::UpgradeWait
+            };
+            shipcat::helm::upgrade(&mf, &hfile.clone(), umode).map(|_| ())
         }
         else if let Some(_) = a.subcommand_matches("install") {
-            shipcat::helm::install(&mf, &hfile.clone()).map(|_| ())
+            let umode = shipcat::helm::UpgradeMode::UpgradeInstall;
+            shipcat::helm::upgrade(&mf, &hfile.clone(), umode).map(|_| ())
         }
         else if let Some(_) = a.subcommand_matches("diff") {
             shipcat::helm::diff(&mf, &hfile.clone()).map(|_| ())
+        }
+        else if let Some(_) = a.subcommand_matches("recreate") {
+            let umode = shipcat::helm::UpgradeMode::UpgradeRecreateWait;
+            shipcat::helm::upgrade(&mf, &hfile.clone(), umode).map(|_| ())
         }
         else {
             unreachable!("Helm Subcommand valid, but not implemented")

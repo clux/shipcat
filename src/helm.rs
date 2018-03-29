@@ -62,7 +62,11 @@ fn infer_jenkins_link() -> Option<String> {
     } else {
         match Command::new("whoami").output() {
             Ok(s) => {
-                let out : String = String::from_utf8_lossy(&s.stdout).into();
+                let mut out : String = String::from_utf8_lossy(&s.stdout).into();
+                let len = out.len();
+                if out.ends_with('\n') {
+                    out.truncate(len - 1)
+                }
                 return Some(out)
             }
             Err(e) => {
@@ -117,44 +121,29 @@ fn helm_wait_time(mf: &Manifest) -> u32 {
     }
 }
 
-/// Install a deployment first time
-pub fn install(mf: &Manifest, hfile: &str) -> Result<()> {
-    pre_upgrade_sanity()?;
-    let ver = mf.version.clone().unwrap(); // must be set outside
-
-    // install
-    let mut installvec = vec![
-        "install".into(),
-        format!("charts/{}", mf.chart),
-        "-f".into(),
-        hfile.into(),
-        format!("--name={}", mf.name.clone()),
-        //"--verify".into(), (doesn't work while chart is a directory)
-        "--set".into(),
-        format!("version={}", ver),
-    ];
-
-    installvec.extend_from_slice(&[
-        "--wait".into(),
-        format!("--timeout={}", helm_wait_time(&mf)),
-    ]);
-    info!("helm {}", installvec.join(" "));
-    match hexec(installvec) {
-        Err(e) => {
-            error!("{}", e);
-            return Err(e);
-        },
-        Ok(_) => {
-            slack::send(slack::Message {
-                text: format!("installed {} in {}", &mf.name.clone(), &mf._region),
-                color: Some("good".into()),
-                link: infer_jenkins_link(),
-                ..Default::default()
-            })?;
-        }
-    };
-    Ok(())
+#[derive(PartialEq)]
+pub enum UpgradeMode {
+    /// Upgrade dry-run
+    DiffOnly,
+    /// Normal Upgrade waiting for the calculated amount of time
+    UpgradeWait,
+    /// Upgrade with force recreate pods
+    UpgradeRecreateWait,
+    /// Upgrade with install flag set
+    UpgradeInstall,
 }
+use std::fmt;
+impl fmt::Display for UpgradeMode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &UpgradeMode::DiffOnly => write!(f, "diff"),
+            &UpgradeMode::UpgradeWait => write!(f, "upgrade"),
+            &UpgradeMode::UpgradeRecreateWait => write!(f, "recreate"),
+            &UpgradeMode::UpgradeInstall => write!(f, "install"),
+        }
+    }
+}
+
 
 /// Upgrade an an existing deployment if needed
 ///
@@ -166,10 +155,82 @@ pub fn install(mf: &Manifest, hfile: &str) -> Result<()> {
 /// # missing kubectl step to inject previous version into helm.yml optionally
 /// helm diff {service} charts/{chartname} -f helm.yml
 /// helm upgrade {service} charts/{chartname} -f helm.yml
-pub fn upgrade(mf: &Manifest, hfile: &str, dryrun: bool) -> Result<(Manifest, String)> {
-    pre_upgrade_sanity()?;
+pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifest, String)> {
+    if mode != UpgradeMode::DiffOnly {
+        pre_upgrade_sanity()?;
+    }
+    let helmdiff = diff(mf, hfile)?;
+    if mode == UpgradeMode::DiffOnly {
+        return Ok((mf.clone(), helmdiff))
+    }
+
     let ver = mf.version.clone().unwrap(); // must be set outside
-    // diff against current running
+
+    if mode == UpgradeMode::UpgradeRecreateWait || !helmdiff.is_empty() {
+        // upgrade it using the same command
+        let mut upgradevec = vec![
+            "upgrade".into(),
+            mf.name.clone(),
+            format!("charts/{}", mf.chart),
+            "-f".into(),
+            hfile.into(),
+            "--set".into(),
+            format!("version={}", ver),
+        ];
+        match mode {
+            UpgradeMode::UpgradeWait => {
+                upgradevec.extend_from_slice(&[
+                    "--wait".into(),
+                    format!("--timeout={}", helm_wait_time(mf)),
+                ]);
+            },
+            UpgradeMode::UpgradeRecreateWait => {
+                upgradevec.extend_from_slice(&[
+                    "--recreate-pods".into(),
+                    "--wait".into(),
+                    format!("--timeout={}", helm_wait_time(mf)),
+                ]);
+            },
+            UpgradeMode::UpgradeInstall => {
+                upgradevec.extend_from_slice(&[
+                    "--install".into(),
+                ]);
+            },
+            _ => {
+                unimplemented!("Somehow got an uncovered upgrade mode");
+            }
+        }
+        info!("helm {}", upgradevec.join(" "));
+        match hexec(upgradevec) {
+            Err(e) => {
+                error!("{}", e);
+                slack::send(slack::Message {
+                    text: format!("failed to {} {} in {}", mode, &mf.name, &mf._region),
+                    color: Some("danger".into()),
+                    link: infer_jenkins_link(),
+                    code: Some(helmdiff.clone()),
+                })?;
+                return Err(e);
+            },
+            Ok(_) => {
+                slack::send(slack::Message {
+                    text: format!("{}d {} in {}", mode, &mf.name, &mf._region),
+                    color: Some("good".into()),
+                    link: infer_jenkins_link(),
+                    code: Some(helmdiff.clone()),
+                })?;
+            }
+        };
+    }
+    Ok((mf.clone(), helmdiff))
+}
+
+
+/// helm diff against current running release
+///
+/// Shells out to helm diff, then obfuscates secrets
+pub fn diff(mf: &Manifest, hfile: &str) -> Result<String> {
+    let ver = mf.version.clone().unwrap(); // must be set outside
     let diffvec = vec![
         "diff".into(),
         "--no-color".into(),
@@ -193,50 +254,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, dryrun: bool) -> Result<(Manifest, St
     } else {
         info!("{} is up to date", mf.name);
     }
-
-    if !dryrun && !helmdiff.is_empty() {
-        // upgrade it using the same command
-        let mut upgradevec = vec![
-            "upgrade".into(),
-            mf.name.clone(),
-            format!("charts/{}", mf.chart),
-            "-f".into(),
-            hfile.into(),
-            "--set".into(),
-            format!("version={}", ver),
-        ];
-        upgradevec.extend_from_slice(&[
-            "--wait".into(),
-            format!("--timeout={}", helm_wait_time(mf)),
-        ]);
-        info!("helm {}", upgradevec.join(" "));
-        match hexec(upgradevec) {
-            Err(e) => {
-                error!("{}", e);
-                slack::send(slack::Message {
-                    text: format!("failed to update {} in {}", &mf.name, &mf._region),
-                    color: Some("danger".into()),
-                    link: infer_jenkins_link(),
-                    code: Some(smalldiff),
-                })?;
-                return Err(e);
-            },
-            Ok(_) => {
-                slack::send(slack::Message {
-                    text: format!("updated {} in {}", &mf.name, &mf._region),
-                    color: Some("good".into()),
-                    link: infer_jenkins_link(),
-                    code: Some(smalldiff),
-                })?;
-            }
-        };
-    }
-    Ok((mf.clone(), helmdiff))
-}
-
-
-pub fn diff(mf: &Manifest, hfile: &str) -> Result<(Manifest, String)> {
-    upgrade(mf, hfile, true)
+    Ok(smalldiff)
 }
 
 /// Create helm values file for a service
@@ -320,10 +338,9 @@ pub fn reconcile_cluster(conf: &Config, region: String) -> Result<()> {
     for mf in manifests {
         let tx = tx.clone();
         pool.execute(move|| {
-            // Currently this is diff only as it's new!
-            let dryrun = true;
+            let mode = UpgradeMode::DiffOnly;
             let hfile = format!("{}.helm.gen.yml", mf.name); // as above
-            let res = upgrade(&mf, &hfile, dryrun);
+            let res = upgrade(&mf, &hfile, mode);
             tx.send(res).expect("channel will be there waiting for the pool");
         });
     }
