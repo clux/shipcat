@@ -294,17 +294,17 @@ impl Manifest {
     // Populate placeholder fields with secrets from vault
     fn secrets(&mut self, client: &Vault, region: &str) -> Result<()> {
         // some services use keys from other services
-        let svc = if let Some(ref vopts) = self.vault {
-            vopts.name.clone()
+        let (svc, reg) = if let Some(ref vopts) = self.vault {
+            (vopts.name.clone(), vopts.region.clone().unwrap_or_else(|| region.into()))
         } else {
-            self.name.clone()
+            (self.name.clone(), region.into())
         };
-        debug!("Injecting secrets from vault {}/{}", region, svc);
+        debug!("Injecting secrets from vault {}/{}", reg, svc);
 
         // iterate over key value evars and replace placeholders
         for (k, v) in &mut self.env {
             if v == "IN_VAULT" {
-                let vkey = format!("{}/{}/{}", region, svc, k);
+                let vkey = format!("{}/{}/{}", reg, svc, k);
                 let secret = client.read(&vkey)?;
                 *v = secret.clone();
                 self._decoded_secrets.insert(vkey, secret);
