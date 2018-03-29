@@ -167,7 +167,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
 
     let ver = mf.version.clone().unwrap(); // must be set outside
 
-    if mode == UpgradeMode::UpgradeRecreateWait || !helmdiff.is_empty() {
+    if mode == UpgradeMode::UpgradeRecreateWait || mode == UpgradeMode::UpgradeInstall || !helmdiff.is_empty() {
         // upgrade it using the same command
         let mut upgradevec = vec![
             "upgrade".into(),
