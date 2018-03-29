@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use super::traits::Verify;
-use super::Result;
+use super::{Config, Result};
 
 
 /// Supported dependency protocols
@@ -47,7 +47,7 @@ pub struct Dependency {
 }
 
 impl Verify for Dependency {
-    fn verify(&self) -> Result<()> {
+    fn verify(&self, _: &Config) -> Result<()> {
         // self.name must exist in services/
         let dpth = Path::new(".").join("services").join(self.name.clone());
         if !dpth.is_dir() {

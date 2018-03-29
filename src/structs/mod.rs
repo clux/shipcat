@@ -2,6 +2,8 @@
 
 /// Allow normal error handling from structs
 pub use super::Result;
+/// Verify trait gets the Config
+pub use super::Config;
 
 // Structs that exist in the manifest
 

@@ -1,5 +1,5 @@
 use super::traits::Verify;
-use super::Result;
+use super::{Result, Config};
 use std::collections::BTreeMap;
 
 // These structs contain a straight translation of kubernetes volumes
@@ -59,7 +59,7 @@ pub struct Volume {
 }
 
 impl Verify for Volume {
-    fn verify(&self) -> Result<()> {
+    fn verify(&self, _: &Config) -> Result<()> {
         // TODO: verify stuff here
         Ok(())
     }
