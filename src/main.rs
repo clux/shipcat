@@ -212,12 +212,16 @@ fn main() {
 
         // manifest with region specific secrets
         let mut mf = conditional_exit(Manifest::completed(&region, &conf, service, Some(vault)));
-        conditional_exit(mf.verify(&conf)); // sanity (non-secret verify)
+        conditional_exit(mf.verify(&conf)); // sanity (non-secret verify
 
         mf.version = if let Some(tag) = a.value_of("tag") {
             Some(tag.into())
         } else {
-            Some(conditional_exit(shipcat::helm::infer_version(service, &regdefaults)))
+            match shipcat::helm::infer_version(service, &regdefaults) {
+                Ok(t) => Some(t),
+                // temporary:
+                Err(_) => Some(regdefaults.version.clone()),
+            }
         };
         assert!(mf.version.is_some());
 

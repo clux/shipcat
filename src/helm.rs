@@ -41,6 +41,7 @@ pub fn infer_version(service: &str, reg: &RegionDefaults) -> Result<String> {
         "values".into(),
         service.into(),
     ];
+    // TODO: need to catch non-zero exit code here :(
     debug!("helm {}", imgvec.join(" "));
     if let Ok(vstr) = hout(imgvec) {
         // if we got this far, release was found
