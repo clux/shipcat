@@ -1,5 +1,5 @@
 use super::traits::Verify;
-use super::Result;
+use super::{Result, Config};
 
 /// Kubernetes resource requests
 #[derive(Serialize, Deserialize, Clone)]
@@ -34,7 +34,8 @@ pub struct Resources {
 
 
 impl Verify for Resources {
-    fn verify(&self) -> Result<()> {
+    // TODO: look at config for limits
+    fn verify(&self, _: &Config) -> Result<()> {
         // (We can unwrap all the values as we assume implicit called!)
         let req = self.clone().requests.unwrap();
         let lim = self.clone().limits.unwrap();
