@@ -148,7 +148,7 @@ impl fmt::Display for UpgradeMode {
             &UpgradeMode::UpgradeWait => write!(f, "upgrade"),
             &UpgradeMode::UpgradeRecreateWait => write!(f, "recreate"),
             &UpgradeMode::UpgradeInstall => write!(f, "install"),
-            &UpgradeMode::UpgradeWaitMaybeRollback => write!(f, "tryupgrade"),
+            &UpgradeMode::UpgradeWaitMaybeRollback => write!(f, "carefully upgrade"),
         }
     }
 }
@@ -229,7 +229,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
 
     let ver = mf.version.clone().unwrap(); // must be set outside
 
-    if true || mode == UpgradeMode::UpgradeRecreateWait || mode == UpgradeMode::UpgradeInstall || !helmdiff.is_empty() {
+    if mode == UpgradeMode::UpgradeRecreateWait || mode == UpgradeMode::UpgradeInstall || !helmdiff.is_empty() {
         // upgrade it using the same command
         let mut upgradevec = vec![
             "upgrade".into(),
@@ -247,7 +247,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
                     format!("--timeout={}", helm_wait_time(mf)),
                 ]);
             },
-            UpgradeMode::UpgradeRecreateWait => {
+            UpgradeMode::UpgradeWaitMaybeRollback | UpgradeMode::UpgradeRecreateWait => {
                 upgradevec.extend_from_slice(&[
                     "--recreate-pods".into(),
                     "--wait".into(),
@@ -259,13 +259,6 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
                     "--install".into(),
                 ]);
             },
-            UpgradeMode::UpgradeWaitMaybeRollback => {
-                upgradevec.extend_from_slice(&[
-                    "--recreate-pods".into(),
-                    "--wait".into(),
-                    format!("--timeout={}", helm_wait_time(mf)),
-                ]);
-            }
             _ => {
                 unimplemented!("Somehow got an uncovered upgrade mode");
             }
