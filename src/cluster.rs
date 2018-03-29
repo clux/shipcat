@@ -1,14 +1,14 @@
-use super::generate;
-use super::helm;
-use super::helm::{UpgradeMode};
+use super::vault;
+use super::generate::Deployment;
+use super::template;
+use super::helm::{self, UpgradeMode};
 use super::{Result, Config, Manifest};
+
 
 /// Experimental reconcile that is parallelised
 ///
 /// This still uses helm wait, but it does multiple services at a time.
 pub fn helm_diff(conf: &Config, region: String) -> Result<()> {
-    use super::vault;
-    use super::template;
     let services = Manifest::available()?;
     let mut manifests = vec![];
     for svc in services {
@@ -21,7 +21,7 @@ pub fn helm_diff(conf: &Config, region: String) -> Result<()> {
             let mut compmf = Manifest::completed(&region, &conf, &svc, Some(v))?;
             let regdefaults = conf.regions.get(&region).unwrap().defaults.clone();
             compmf.version = Some(helm::infer_version(&svc, &regdefaults)?);
-            let dep = generate::Deployment {
+            let dep = Deployment {
                 service: svc.into(),
                 region: region.clone(),
                 manifest: compmf,
