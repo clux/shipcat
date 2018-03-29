@@ -18,13 +18,14 @@ pub struct Dependency {
     pub api: Option<String>,
     /// Contract name for dependency
     pub contract: Option<String>,
-    /// Protocol
-    #[serde(default = "dependency_protocol_default")]
-    pub protocol: String,
-    /// Intent behind dependency
+    /// Protocol/message passing service used to depend on a service
+    #[serde(default)]
+    pub protocol: DependencyProtocol,
+    /// Intent behind dependency - for manifest level descriptiveness
     pub intent: Option<String>,
 }
-fn dependency_protocol_default() -> String { "http".into() }
+
+
 ```
 
 This auto derives serialisation capabilities, default values (helping out where an empty default is not helpful), and otherwise defines all the data, and docstrings used by `cargo doc`.
@@ -46,9 +47,6 @@ impl Verify for Dependency {
             let vstr = apiv.chars().skip_while(|ch| *ch == 'v').collect::<String>();
             let ver : usize = vstr.parse()?;
             trace!("Parsed api version of dependency {} as {}", self.name.clone(), ver);
-        }
-        if self.protocol != "http" && self.protocol != "grpc" {
-            bail!("Illegal dependency protocol {}", self.protocol)
         }
         Ok(())
     }

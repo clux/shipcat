@@ -136,6 +136,11 @@ pub struct Manifest {
     // Decoded secrets
     #[serde(default, skip_serializing, skip_deserializing)]
     pub _decoded_secrets: BTreeMap<String, String>,
+
+    // Region used in implicits
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub _region: String,
+
 }
 
 impl Manifest {
@@ -193,6 +198,7 @@ impl Manifest {
             if conf.regions.get(&r).is_none() {
                 bail!("Unknown region {} in regions in config", r);
             }
+            self._region = r.clone();
             let reg = conf.regions[&r].clone(); // must exist
             // allow overriding tags
             if self.version.is_none() {
@@ -288,17 +294,17 @@ impl Manifest {
     // Populate placeholder fields with secrets from vault
     fn secrets(&mut self, client: &Vault, region: &str) -> Result<()> {
         // some services use keys from other services
-        let svc = if let Some(ref vopts) = self.vault {
-            vopts.name.clone()
+        let (svc, reg) = if let Some(ref vopts) = self.vault {
+            (vopts.name.clone(), vopts.region.clone().unwrap_or_else(|| region.into()))
         } else {
-            self.name.clone()
+            (self.name.clone(), region.into())
         };
-        debug!("Injecting secrets from vault {}/{}", region, svc);
+        debug!("Injecting secrets from vault {}/{}", reg, svc);
 
         // iterate over key value evars and replace placeholders
         for (k, v) in &mut self.env {
             if v == "IN_VAULT" {
-                let vkey = format!("{}/{}/{}", region, svc, k);
+                let vkey = format!("{}/{}/{}", reg, svc, k);
                 let secret = client.read(&vkey)?;
                 *v = secret.clone();
                 self._decoded_secrets.insert(vkey, secret);
@@ -362,6 +368,7 @@ impl Manifest {
     ///
     /// Assumes the manifest has been populated with `implicits`
     pub fn verify(&self, conf: &Config) -> Result<()> {
+        assert!(self._region != ""); // needs to have been set by implicits!
         // limit to 40 characters, alphanumeric, dashes for sanity.
         let re = Regex::new(r"^[0-9a-z\-]{1,40}$").unwrap();
         if !re.is_match(&self.name) {
@@ -419,7 +426,6 @@ impl Manifest {
         if self.regions.is_empty() {
             bail!("No regions specified for {}", self.name);
         }
-
 
         // health check
         // every service that exposes http MUST have a health check
