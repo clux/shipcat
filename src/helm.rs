@@ -186,6 +186,7 @@ fn rollback(mf: &Manifest) -> Result<()> {
         mf.name.clone(),
         "0".into(), // magic helm string for previous
     ];
+    // TODO: diff this rollback? https://github.com/databus23/helm-diff/issues/6
     info!("helm {}", rollbackvec.join(" "));
     match hexec(rollbackvec) {
         Err(e) => {

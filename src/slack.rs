@@ -44,7 +44,7 @@ pub fn send(msg: Message) -> Result<()> {
     let mut p = PayloadBuilder::new().channel(hook_chan)
       .icon_emoji(":ship:")
       .username(hook_user)
-      .parse(Parse::Full);
+      .link_names(true); // seems to only do it for long usernames..
 
     let mut a = AttachmentBuilder::new(msg.text.clone());
     if let Some(c) = msg.color {
@@ -59,9 +59,11 @@ pub fn send(msg: Message) -> Result<()> {
         let desc = if split.len() == 2 { split[1].into() } else { link.clone() };
         let addr = if split.len() == 2 { split[0].into() } else { link.clone() };
         // TODO: allow multiple links!
+        //a = a.title_link(&addr as &str).title(desc).text(msg.text);
+
         a = a.text(vec![
             Text(msg.text.into()),
-            Link(SlackLink::new(&addr, &desc))
+            Link(SlackLink::new(&addr, &desc)),
         ].as_slice());
     } else {
         a = a.text(msg.text);
@@ -79,4 +81,24 @@ pub fn send(msg: Message) -> Result<()> {
     slack.send(&p.build()?)?;
 
     Ok(())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use tests::setup;
+    use super::{send, Message};
+
+    #[test]
+    fn slack_test() {
+        setup();
+        let ccs = format!("@clux @florent wtf");
+        send(Message {
+            text: format!("tested {} {} ", "slack", ccs),
+            color: Some("good".into()),
+            link: Some("https://jenkins.blah/job/testjob/1792/|testjob #1792".into()),
+            code: Some(format!("-diff\n+diff")),
+            ..Default::default()
+        }).unwrap();
+}
 }
