@@ -9,7 +9,7 @@ pub struct Metadata {
     /// Owning team
     pub team: String,
     /// Contact person
-    pub contact: String,
+    pub contacts: Vec<String>,
     /// Canoncal documentation link
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docs: Option<String>,
@@ -22,6 +22,16 @@ impl Verify for Metadata {
         if !teams.contains(&self.team) {
             bail!("Illegal team name {} not found in the config", self.team);
         }
+        for cc in &self.contacts {
+            let split: Vec<&str> = cc.split('|').collect();
+            if split.len() != 2 {
+                bail!("Contact needs to be of the form @U82SKDQD9|clux - got {}", cc);
+            }
+            if !split[0].starts_with("@U") {
+                bail!("Contact need to start with the slack guid '@U...'")
+            }
+        }
+
         Ok(())
     }
 }
