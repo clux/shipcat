@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use super::traits::Verify;
-use super::Result;
+use super::{Result, Config};
 
 /// What sensitive data is managed and how
 ///
@@ -110,7 +110,7 @@ pub struct DataProcess {
 
 
 impl Verify for DataHandling {
-    fn verify(&self) -> Result<()> {
+    fn verify(&self, _: &Config) -> Result<()> {
         for s in &self.stores {
             for f in &s.fields {
                 // can't block on this yet - so just warn a lot

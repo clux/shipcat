@@ -39,6 +39,13 @@ pub struct Region {
 }
 
 
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct Team {
+    /// Team name
+    pub name: String,
+}
+
+
 /// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Config {
@@ -47,6 +54,9 @@ pub struct Config {
 
     /// Allowed regions
     pub regions: BTreeMap<String, Region>,
+
+    /// Teams
+    pub teams: Vec<Team>,
 }
 
 impl Config {

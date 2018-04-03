@@ -2,6 +2,8 @@
 
 /// Allow normal error handling from structs
 pub use super::Result;
+/// Verify trait gets the Config
+pub use super::Config;
 
 // Structs that exist in the manifest
 
@@ -15,8 +17,8 @@ pub use self::jaeger::Jaeger;
 
 // abstractions - these have special handling
 /// Templated configmap abstractions
-mod config;
-pub use self::config::{ConfigMap, ConfigMappedFile};
+mod configmap;
+pub use self::configmap::{ConfigMap, ConfigMappedFile};
 /// Healthcheck abstraction
 mod healthcheck;
 pub use self::healthcheck::HealthCheck;

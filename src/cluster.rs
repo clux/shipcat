@@ -1,14 +1,46 @@
-use super::generate;
-use super::helm;
-use super::helm::{UpgradeMode};
+use threadpool::ThreadPool;
+use std::sync::mpsc::channel;
+
+use super::vault;
+use super::generate::Deployment;
+use super::template;
+use super::helm::{self, UpgradeMode};
 use super::{Result, Config, Manifest};
 
-/// Experimental reconcile that is parallelised
+
+
+/// Helm upgrade the region (reconcile)
 ///
-/// This still uses helm wait, but it does multiple services at a time.
+/// Upgrades multiple services at a time using rolling upgrade in a threadpool.
+/// Ignores upgrade failures.
+pub fn helm_reconcile(conf: &Config, region: String) -> Result<()> {
+    mass_helm(conf, region, UpgradeMode::UpgradeWait)
+}
+
+/// Helm installs region (disaster recovery)
+///
+/// Installs multiple services at a time in a threadpool.
+/// This upgrade mode does not wait so this should only be limited by k8s.
+pub fn helm_install(conf: &Config, region: String) -> Result<()> {
+    mass_helm(conf, region, UpgradeMode::UpgradeInstall)
+}
+
+
+/// Helm diff the region
+///
+/// Returns the diffs only from all services across a region.
+/// Farms out the work to a thread pool.
 pub fn helm_diff(conf: &Config, region: String) -> Result<()> {
-    use super::vault;
-    use super::template;
+    mass_helm(conf, region, UpgradeMode::DiffOnly)
+}
+
+
+/// Experimental threaded mass helm operation
+///
+/// Reads secrets first, dumps all the helm values files,
+/// then helm {operation} all the services.
+/// This still might still use helm wait, but it does multiple services at a time.
+fn mass_helm(conf: &Config, region: String, umode: UpgradeMode) -> Result<()> {
     let services = Manifest::available()?;
     let mut manifests = vec![];
     for svc in services {
@@ -21,7 +53,7 @@ pub fn helm_diff(conf: &Config, region: String) -> Result<()> {
             let mut compmf = Manifest::completed(&region, &conf, &svc, Some(v))?;
             let regdefaults = conf.regions.get(&region).unwrap().defaults.clone();
             compmf.version = Some(helm::infer_version(&svc, &regdefaults)?);
-            let dep = generate::Deployment {
+            let dep = Deployment {
                 service: svc.into(),
                 region: region.clone(),
                 manifest: compmf,
@@ -35,8 +67,6 @@ pub fn helm_diff(conf: &Config, region: String) -> Result<()> {
             manifests.push(mfrender);
         }
     }
-    use threadpool::ThreadPool;
-    use std::sync::mpsc::channel;
 
     let n_workers = 8;
     let n_jobs = manifests.len();
@@ -45,21 +75,28 @@ pub fn helm_diff(conf: &Config, region: String) -> Result<()> {
 
     let (tx, rx) = channel();
     for mf in manifests {
+        let mode = umode.clone();
         let tx = tx.clone();
         pool.execute(move|| {
-            let mode = UpgradeMode::DiffOnly;
             let hfile = format!("{}.helm.gen.yml", mf.name); // as above
             let res = helm::upgrade(&mf, &hfile, mode);
             tx.send(res).expect("channel will be there waiting for the pool");
         });
     }
-    let _ = rx.iter().take(n_jobs).map(|r| {
+
+    // wait for threads and look for errors
+    let mut res = rx.iter().take(n_jobs).map(|r| {
         match &r {
-            &Ok((ref mf, _)) => debug!("diffed {}", mf.name), // TODO: s/Diffed/Reconciled once !dryrun
-            &Err(ref e) => error!("Failed to reconcile {}", e)
+            &Ok((ref mf, _)) => debug!("{} {}", umode, mf.name),
+            &Err(ref e) => error!("Failed to {} {}", umode, e)
         }
         r
-    }).collect::<Vec<_>>();
+    }).filter_map(Result::err);
 
-    Ok(())
+    // propagate first error if exists
+    if let Some(e) = res.next() {
+        Err(e)
+    } else {
+        Ok(())
+    }
 }

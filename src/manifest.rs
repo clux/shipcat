@@ -379,7 +379,11 @@ impl Manifest {
         }
 
         for d in &self.dataHandling {
-            d.verify()?;
+            d.verify(&conf)?;
+        }
+
+        if let Some(ref md) = self.metadata {
+            md.verify(&conf)?;
         }
 
         if self.external {
@@ -390,7 +394,7 @@ impl Manifest {
         // run the `Verify` trait on all imported structs
         // mandatory structs first
         if let Some(ref r) = self.resources {
-            r.verify()?;
+            r.verify(&conf)?;
         } else {
             // TODO: maybe not for external services
             bail!("Resources is mandatory");
@@ -398,16 +402,16 @@ impl Manifest {
 
         // optional/vectorised entries
         for d in &self.dependencies {
-            d.verify()?;
+            d.verify(&conf)?;
         }
         for ha in &self.hostAliases {
-            ha.verify()?;
+            ha.verify(&conf)?;
         }
         for ic in &self.initContainers {
-            ic.verify()?;
+            ic.verify(&conf)?;
         }
         if let Some(ref cmap) = self.configs {
-            cmap.verify()?;
+            cmap.verify(&conf)?;
         }
 
         // misc minor properties
