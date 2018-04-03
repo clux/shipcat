@@ -132,7 +132,7 @@ fn helm_wait_time(mf: &Manifest) -> u32 {
 }
 
 /// The different modes we allow `helm upgrade` to run in
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum UpgradeMode {
     /// Upgrade dry-run
     DiffOnly,
