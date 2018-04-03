@@ -266,12 +266,20 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
                 unimplemented!("Somehow got an uncovered upgrade mode");
             }
         }
+
+        // CC service contacts on result
+        let ccs = if let Some(ref md) = mf.metadata {
+            format!(" cc {}", md.contact)
+        } else {
+            "".into()
+        };
+
         info!("helm {}", upgradevec.join(" "));
         match hexec(upgradevec) {
             Err(e) => {
                 error!("{}", e);
                 slack::send(slack::Message {
-                    text: format!("failed to {} {} in {}", mode, &mf.name, &mf._region),
+                    text: format!("failed to {} {} in {}{}", mode, &mf.name, &mf._region, ccs),
                     color: Some("danger".into()),
                     link: infer_jenkins_link(),
                     code: Some(helmdiff.clone()),
@@ -284,7 +292,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
             },
             Ok(_) => {
                 slack::send(slack::Message {
-                    text: format!("{}d {} in {}", mode, &mf.name, &mf._region),
+                    text: format!("{}d {} in {}{}", mode, &mf.name, &mf._region, ccs),
                     color: Some("good".into()),
                     link: infer_jenkins_link(),
                     code: Some(helmdiff.clone()),
