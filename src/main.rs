@@ -169,8 +169,12 @@ fn main() {
               .about("Graph the dependencies of a service"))
         .subcommand(SubCommand::with_name("cluster")
             .subcommand(SubCommand::with_name("helm")
+                .subcommand(SubCommand::with_name("reconcile")
+                    .about("Reconcile kubernetes region configs with local state"))
+                .subcommand(SubCommand::with_name("install")
+                    .about("Install all kubernetes services in a region as disaster recovery"))
                 .subcommand(SubCommand::with_name("diff")
-                    .about("Diff kubeernetes configs with local state"))))
+                    .about("Diff kubernetes region configs with local state"))))
         .subcommand(SubCommand::with_name("list-regions")
             .setting(AppSettings::Hidden)
             .about("list supported regions/clusters"))
@@ -300,6 +304,14 @@ fn main() {
         if let Some(b) = a.subcommand_matches("helm") {
             if let Some(_) = b.subcommand_matches("diff") {
                 let res = shipcat::cluster::helm_diff(&conf, region);
+                result_exit(args.subcommand_name().unwrap(), res)
+            }
+            else if let Some(_) = b.subcommand_matches("reconcile") {
+                let res = shipcat::cluster::helm_reconcile(&conf, region);
+                result_exit(args.subcommand_name().unwrap(), res)
+            }
+            else if let Some(_) = b.subcommand_matches("install") {
+                let res = shipcat::cluster::helm_install(&conf, region);
                 result_exit(args.subcommand_name().unwrap(), res)
             }
         }

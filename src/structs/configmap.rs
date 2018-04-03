@@ -1,5 +1,5 @@
 use super::traits::Verify;
-use super::Result;
+use super::{Result, Config};
 
 /// ConfigMap
 ///
@@ -35,7 +35,7 @@ pub struct ConfigMappedFile {
 
 
 impl Verify for ConfigMap {
-    fn verify(&self) -> Result<()> {
+    fn verify(&self, _: &Config) -> Result<()> {
         // mount paths can't be empty string
         if self.mount == "" || self.mount == "~" {
             bail!("Empty mountpath for {} mount ", self.name.clone().unwrap())

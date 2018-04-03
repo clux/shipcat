@@ -1,7 +1,7 @@
 use regex::Regex;
 
 use super::traits::Verify;
-use super::Result;
+use super::{Result, Config};
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct InitContainer {
@@ -12,7 +12,7 @@ pub struct InitContainer {
 
 impl Verify for InitContainer {
     // only verify syntax
-    fn verify(&self) -> Result<()> {
+    fn verify(&self, _: &Config) -> Result<()> {
         let re = Regex::new(r"(?:[a-z]+/)?([a-z]+)(?::[0-9]+)?").unwrap();
         if !re.is_match(&self.image) {
             bail!("The init container {} does not seem to match a valid image registry", self.name);

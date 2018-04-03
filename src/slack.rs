@@ -68,7 +68,7 @@ pub fn send(msg: Message) -> Result<()> {
     let mut ax = vec![a.build()?];
     if let Some(code) = msg.code {
         let a2 = AttachmentBuilder::new(code.clone())
-            .color("warning")
+            .color("#439FE0")
             .text(vec![Text(code.into())].as_slice())
             .build()?;
         ax.push(a2);
