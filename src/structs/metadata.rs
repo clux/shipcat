@@ -23,11 +23,7 @@ impl Verify for Metadata {
             bail!("Illegal team name {} not found in the config", self.team);
         }
         for cc in &self.contacts {
-            let split: Vec<&str> = cc.split('|').collect();
-            if split.len() != 2 {
-                bail!("Contact needs to be of the form @U82SKDQD9|clux - got {}", cc);
-            }
-            if !split[0].starts_with("@U") {
+            if !cc.starts_with("@U") {
                 bail!("Contact need to start with the slack guid '@U...'")
             }
         }

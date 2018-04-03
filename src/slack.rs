@@ -1,5 +1,5 @@
-use slack_hook::{Slack, PayloadBuilder, SlackLink, AttachmentBuilder};
-use slack_hook::SlackTextContent::{Text, Link};
+use slack_hook::{Slack, PayloadBuilder, SlackLink, SlackUserLink, AttachmentBuilder};
+use slack_hook::SlackTextContent::{Text, Link, User};
 use std::env;
 
 use super::{Result, ErrorKind};
@@ -77,14 +77,7 @@ pub fn send(msg: Message) -> Result<()> {
 
     // CCs from notifies array
     for cc in msg.notifies {
-        let split: Vec<&str> = cc.split('|').collect();
-        // No sanity needed here as validate enforces this format:
-        if split.len() != 2 {
-            bail!("Contact {} not in the form of @USLACKGUID|handle", cc);
-        }
-        let desc = split[1].to_string();
-        let addr = split[0].to_string();
-        texts.push(Link(SlackLink::new(&addr, &desc)));
+        texts.push(User(SlackUserLink::new(&cc)));
     }
 
     // Pass the texts array to slack_hook
@@ -121,7 +114,7 @@ mod tests {
             text: format!("tested {}", "slack"),
             color: Some("good".into()),
             link: Some("https://lolcathost.com/|lolcathost".into()),
-            notifies: vec!["@U82SKDQD9|clux".into()],
+            notifies: vec!["@U82SKDQD9".into()],
             code: Some(format!("-diff\n+diff")),
             ..Default::default()
         }).unwrap();
