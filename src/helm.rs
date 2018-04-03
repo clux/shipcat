@@ -186,6 +186,7 @@ fn rollback(mf: &Manifest) -> Result<()> {
         mf.name.clone(),
         "0".into(), // magic helm string for previous
     ];
+    // TODO: diff this rollback? https://github.com/databus23/helm-diff/issues/6
     info!("helm {}", rollbackvec.join(" "));
     match hexec(rollbackvec) {
         Err(e) => {
@@ -268,20 +269,16 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
         }
 
         // CC service contacts on result
-        let ccs = if let Some(ref md) = mf.metadata {
-            format!(" cc {}", md.contact)
-        } else {
-            "".into()
-        };
-
         info!("helm {}", upgradevec.join(" "));
+        let notifies = mf.metadata.clone().contacts;
         match hexec(upgradevec) {
             Err(e) => {
                 error!("{}", e);
                 slack::send(slack::Message {
-                    text: format!("failed to {} {} in {}{}", mode, &mf.name, &mf._region, ccs),
+                    text: format!("failed to {} {} in {}", mode, &mf.name, &mf._region),
                     color: Some("danger".into()),
                     link: infer_jenkins_link(),
+                    notifies,
                     code: Some(helmdiff.clone()),
                 })?;
                 if mode == UpgradeMode::UpgradeWaitMaybeRollback {
@@ -292,8 +289,9 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
             },
             Ok(_) => {
                 slack::send(slack::Message {
-                    text: format!("{}d {} in {}{}", mode, &mf.name, &mf._region, ccs),
+                    text: format!("{}d {} in {}", mode, &mf.name, &mf._region),
                     color: Some("good".into()),
+                    notifies,
                     link: infer_jenkins_link(),
                     code: Some(helmdiff.clone()),
                 })?;

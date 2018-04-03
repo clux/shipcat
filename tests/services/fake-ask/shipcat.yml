@@ -13,7 +13,8 @@ health:
 httpPort: 8080
 metadata:
   team: devops
-  contact: "@clux"
+  contacts:
+  - "@U82SKDQD9"
   repo: https://github.com/Babylonpartners/shipcat
 regions:
 - dev-uk

@@ -48,8 +48,8 @@ pub struct Manifest {
     pub command: Vec<String>,
 
     /// Canonical data sources like repo, docs, team names
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<Metadata>,
+    #[serde(default)]
+    pub metadata: Metadata,
 
     /// Data sources and handling strategies
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -382,9 +382,7 @@ impl Manifest {
             d.verify(&conf)?;
         }
 
-        if let Some(ref md) = self.metadata {
-            md.verify(&conf)?;
-        }
+        self.metadata.verify(&conf)?;
 
         if self.external {
             warn!("Ignoring most validation for kube-external service {}", self.name);
