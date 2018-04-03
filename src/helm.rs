@@ -271,7 +271,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
         let ccs = if let Some(ref md) = mf.metadata {
             format!(" cc {}", md.contact)
         } else {
-            " ".into()
+            "".into()
         };
 
         info!("helm {}", upgradevec.join(" "));
@@ -292,7 +292,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
             },
             Ok(_) => {
                 slack::send(slack::Message {
-                    text: format!("{}d {} in {} {}", mode, &mf.name, &mf._region, ccs),
+                    text: format!("{}d {} in {}{}", mode, &mf.name, &mf._region, ccs),
                     color: Some("good".into()),
                     link: infer_jenkins_link(),
                     code: Some(helmdiff.clone()),
