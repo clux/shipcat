@@ -1,4 +1,4 @@
-use slack_hook::{Slack, PayloadBuilder, SlackLink, AttachmentBuilder};
+use slack_hook::{Slack, PayloadBuilder, Parse, SlackLink, AttachmentBuilder};
 use slack_hook::SlackTextContent::{Text, Link};
 use std::env;
 
@@ -43,7 +43,8 @@ pub fn send(msg: Message) -> Result<()> {
     let slack = Slack::new(hook_url).unwrap();
     let mut p = PayloadBuilder::new().channel(hook_chan)
       .icon_emoji(":ship:")
-      .username(hook_user);
+      .username(hook_user)
+      .parse(Parse::Full);
 
     let mut a = AttachmentBuilder::new(msg.text.clone());
     if let Some(c) = msg.color {
