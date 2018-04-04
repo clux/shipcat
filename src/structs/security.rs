@@ -16,6 +16,14 @@ pub struct DataHandling {
     pub processes: Vec<DataProcess>,
 }
 
+impl DataHandling {
+    pub fn implicits(&mut self) {
+        for s in &mut self.stores {
+            s.implicits();
+        }
+    }
+}
+
 /// Data storage information and encryption information
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct DataStore {
@@ -25,6 +33,50 @@ pub struct DataStore {
     /// Fields stored in this backend
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fields: Vec<DataField>,
+
+    /// Encryption is in use at the storage side
+    ///
+    /// If either pii or spii is true, then this must be true
+    #[serde(default)]
+    pub encrypted: Option<bool>,
+    /// Cipher used to encrypt if used
+    pub cipher: Option<String>,
+    // Data is encryption strategies TODO: does this live in here?
+    /// Key rotator if used TODO: format?
+    pub keyRotator: Option<String>,
+    /// Retention period if any TODO: format? humantime?
+    pub retentionPeriod: Option<String>,
+}
+
+impl DataStore {
+    // Cascase DataStore level encryption params to the fields if none set there
+    pub fn implicits(&mut self) {
+        for f in &mut self.fields {
+            // If field values are not set, set them to the DataStores values
+            // if neither are set, clarify missing encryption value => no encryption
+            if f.encrypted.is_none() {
+                if let Some(e) = self.encrypted {
+                    f.encrypted = Some(e);
+                } else {
+                    f.encrypted = Some(false);
+                }
+            }
+            // For the Option<String> types, we override only in the one clean case:
+            // outer value is set, but not the inner.
+            //
+            // If however, inner is set but not outer, or both set. Nothing to do.
+            // If neither is set, everything is left as None types.
+            if f.cipher.is_none() && self.cipher.is_some() {
+                f.cipher = self.cipher.clone();
+            }
+            if f.keyRotator.is_none() && self.keyRotator.is_some() {
+                f.keyRotator = self.keyRotator.clone();
+            }
+            if f.retentionPeriod.is_none() && self.retentionPeriod.is_some() {
+                f.retentionPeriod = self.retentionPeriod.clone();
+            }
+        }
+    }
 }
 
 /// Canonical names for data fields
@@ -83,11 +135,13 @@ impl DataFieldType {
 pub struct DataField {
     /// Canonical name of the data field
     pub name: DataFieldType,
+
+    // same encryption params as in DataStore
+    // TODO: #[serde(flatten)] when we can
     /// Encryption is in use at the storage side
     ///
     /// If either pii or spii is true, then this must be true
-    #[serde(default)]
-    pub encrypted: bool,
+    pub encrypted: Option<bool>,
     /// Cipher used to encrypt if used
     pub cipher: Option<String>,
     // Data is encryption strategies TODO: does this live in here?
@@ -96,8 +150,6 @@ pub struct DataField {
     // Retention period if any
     pub retentionPeriod: Option<String>,
 }
-
-
 
 /// Data storage information and encryption information
 #[derive(Serialize, Deserialize, Clone)]
@@ -108,18 +160,20 @@ pub struct DataProcess {
     pub source: String,
 }
 
-
 impl Verify for DataHandling {
     fn verify(&self, _: &Config) -> Result<()> {
         for s in &self.stores {
             for f in &s.fields {
+                let enc = f.encrypted.unwrap(); // filled by implicits
                 // can't block on this yet - so just warn a lot
-                if f.name.is_pii() && !f.encrypted {
+                if f.name.is_spii() && !enc {
+                    warn!("{} stores SPII ({:?}) without encryption", s.backend, f.name)
+                }
+                // weaker warning
+                else if f.name.is_pii() && !enc {
                     warn!("{} stores PII ({:?}) without encryption", s.backend, f.name)
                 }
-                if f.name.is_spii() && !f.encrypted {
-                    warn!("{} stores SPII without encryption", s.backend)
-                }
+
             }
         }
         for p in &self.processes {
