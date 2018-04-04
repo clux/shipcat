@@ -149,10 +149,10 @@ impl fmt::Display for UpgradeMode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &UpgradeMode::DiffOnly => write!(f, "diff"),
-            &UpgradeMode::UpgradeWait => write!(f, "upgrade"),
+            &UpgradeMode::UpgradeWait => write!(f, "blindly upgrade"),
             &UpgradeMode::UpgradeRecreateWait => write!(f, "recreate"),
             &UpgradeMode::UpgradeInstall => write!(f, "install"),
-            &UpgradeMode::UpgradeWaitMaybeRollback => write!(f, "carefully upgrade"),
+            &UpgradeMode::UpgradeWaitMaybeRollback => write!(f, "upgrade"),
         }
     }
 }
