@@ -105,16 +105,20 @@ pub fn send(msg: Message) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use tests::setup;
+    use super::super::{Manifest, Config};
     use super::{send, Message};
 
     #[test]
     fn slack_test() {
         setup();
+        let conf = Config::read().unwrap();
+        let mf = Manifest::basic("fake-ask", &conf, Some("dev-uk".into())).unwrap();
+
         send(Message {
             text: format!("tested {}", "slack"),
             color: Some("good".into()),
             link: Some("https://lolcathost.com/|lolcathost".into()),
-            notifies: vec!["@U82SKDQD9".into()],
+            notifies: mf.metadata.contacts,
             code: Some(format!("-diff\n+diff")),
             ..Default::default()
         }).unwrap();

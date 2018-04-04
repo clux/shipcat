@@ -23,8 +23,11 @@ impl Verify for Metadata {
             bail!("Illegal team name {} not found in the config", self.team);
         }
         for cc in &self.contacts {
-            if !cc.starts_with("@U") {
-                bail!("Contact need to start with the slack guid '@U...'")
+            if !cc.starts_with("@") {
+                bail!("Contact need to start with the slack guid '@U...' - got {}", cc)
+            }
+            if cc.contains("|") {
+                bail!("Contact must be a slack user id - got {}", cc)
             }
         }
 
