@@ -52,8 +52,8 @@ pub struct Manifest {
     pub metadata: Metadata,
 
     /// Data sources and handling strategies
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub dataHandling: Option<DataHandling>,
+    #[serde(default)]
+    pub dataHandling: DataHandling,
 
     /// Jaeger options
     #[serde(default)]
@@ -215,6 +215,9 @@ impl Manifest {
         if self.replicaCount.is_none() {
             self.replicaCount = Some(conf.defaults.replicaCount)
         }
+
+        // dataHandling has cascading encryption values
+        self.dataHandling.implicits();
 
         // config map implicit name
         if let Some(ref mut cfg) = self.configs {
@@ -378,10 +381,7 @@ impl Manifest {
             bail!("Please use dashes to separate words only");
         }
 
-        for d in &self.dataHandling {
-            d.verify(&conf)?;
-        }
-
+        self.dataHandling.verify(&conf)?;
         self.metadata.verify(&conf)?;
 
         if self.external {
@@ -483,9 +483,10 @@ mod tests {
     use tests::setup;
     use super::Vault;
     use super::Config;
+    use super::Manifest;
 
     #[test]
-    fn graph_generate() {
+    fn validate_test() {
         setup();
         let client = Vault::default().unwrap();
         let conf = Config::read().unwrap();
@@ -493,5 +494,19 @@ mod tests {
         assert!(res.is_ok());
         let res2 = validate(vec!["fake-storage".into(), "fake-ask".into()], &conf, "dev-uk".into(), None);
         assert!(res2.is_ok())
+    }
+
+    #[test]
+    fn manifest_test() {
+        setup();
+        let conf = Config::read().unwrap();
+        let mf = Manifest::basic("fake-storage", &conf, Some("dev-uk".into())).unwrap();
+        // verify datahandling implicits
+        let s3 = mf.dataHandling.stores[0].clone();
+        assert!(s3.encrypted.unwrap());
+        assert_eq!(s3.fields[0].encrypted.unwrap(), false); // overridden
+        assert_eq!(s3.fields[1].encrypted.unwrap(), true); // cascaded
+        assert_eq!(s3.fields[0].keyRotator, None); // not set either place
+        assert_eq!(s3.fields[1].keyRotator, Some("2w".into())); // field value
     }
 }
