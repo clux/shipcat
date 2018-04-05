@@ -160,6 +160,13 @@ fn main() {
                 .long("secrets")
                 .help("Verifies secrets exist everywhere"))
               .about("Validate the shipcat manifest"))
+        .subcommand(SubCommand::with_name("gdpr")
+              .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service names to show"))
+              .about("Validate the shipcat manifest"))
+              .subcommand(SubCommand::with_name("show")
+                .help("Show GDPR data for a service"))
         .subcommand(SubCommand::with_name("graph")
               .arg(Arg::with_name("service")
                 .help("Service name to graph around"))
@@ -324,6 +331,11 @@ fn main() {
         } else {
             result_exit(args.subcommand_name().unwrap(), shipcat::graph::full(dot, &conf))
         }
+    }
+    if let Some(a) = args.subcommand_matches("gdpr") {
+        let svc = a.value_of("service").unwrap();
+        let region = kube::current_context().unwrap();
+        result_exit(args.subcommand_name().unwrap(), shipcat::gdpr_show(svc, &conf, region))
     }
 
     if let Some(a) = args.subcommand_matches("slack") {

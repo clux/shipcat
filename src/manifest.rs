@@ -477,6 +477,16 @@ pub fn validate(services: Vec<String>, conf: &Config, region: String, vault: Opt
     Ok(())
 }
 
+/// Show GDPR related info for a service
+///
+/// Prints the cascaded structs from a manifests `dataHandling`
+pub fn gdpr_show(svc: &str, conf: &Config, region: String) -> Result<()> {
+    use std::io::{self, Write};
+    let mf = Manifest::completed(&region, &conf, svc, None)?;
+    let _ = io::stdout().write(format!("{}\n", serde_yaml::to_string(&mf.dataHandling)?).as_bytes());
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{validate};
