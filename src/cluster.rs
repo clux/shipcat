@@ -13,16 +13,16 @@ use super::{Result, Config, Manifest};
 ///
 /// Upgrades multiple services at a time using rolling upgrade in a threadpool.
 /// Ignores upgrade failures.
-pub fn helm_reconcile(conf: &Config, region: String, numjobs: usize) -> Result<()> {
-    mass_helm(conf, region, UpgradeMode::UpgradeWait, numjobs)
+pub fn helm_reconcile(conf: &Config, region: String, n_workers: usize) -> Result<()> {
+    mass_helm(conf, region, UpgradeMode::UpgradeWait, n_workers)
 }
 
 /// Helm installs region (disaster recovery)
 ///
 /// Installs multiple services at a time in a threadpool.
 /// This upgrade mode does not wait so this should only be limited by k8s.
-pub fn helm_install(conf: &Config, region: String, numjobs: usize) -> Result<()> {
-    mass_helm(conf, region, UpgradeMode::UpgradeInstall, numjobs)
+pub fn helm_install(conf: &Config, region: String, n_workers: usize) -> Result<()> {
+    mass_helm(conf, region, UpgradeMode::UpgradeInstall, n_workers)
 }
 
 
@@ -30,8 +30,8 @@ pub fn helm_install(conf: &Config, region: String, numjobs: usize) -> Result<()>
 ///
 /// Returns the diffs only from all services across a region.
 /// Farms out the work to a thread pool.
-pub fn helm_diff(conf: &Config, region: String, numjobs: usize) -> Result<()> {
-    mass_helm(conf, region, UpgradeMode::DiffOnly, numjobs)
+pub fn helm_diff(conf: &Config, region: String, n_workers: usize) -> Result<()> {
+    mass_helm(conf, region, UpgradeMode::DiffOnly, n_workers)
 }
 
 
@@ -40,7 +40,7 @@ pub fn helm_diff(conf: &Config, region: String, numjobs: usize) -> Result<()> {
 /// Reads secrets first, dumps all the helm values files,
 /// then helm {operation} all the services.
 /// This still might still use helm wait, but it does multiple services at a time.
-fn mass_helm(conf: &Config, region: String, umode: UpgradeMode, numjobs: usize) -> Result<()> {
+fn mass_helm(conf: &Config, region: String, umode: UpgradeMode, n_workers: usize) -> Result<()> {
     let mut svcs = vec![];
     for svc in Manifest::available()? {
         debug!("Scanning service {:?}", svc);
@@ -50,10 +50,9 @@ fn mass_helm(conf: &Config, region: String, umode: UpgradeMode, numjobs: usize) 
         }
     }
 
-    let n_workers = numjobs;
     let n_jobs = svcs.len();
     let pool = ThreadPool::new(n_workers);
-    info!("Reconciling {} jobs using {} workers", n_jobs, n_workers);
+    info!("Starting {} parallel helm jobs using {} workers", n_jobs, n_workers);
 
     let (tx, rx) = channel();
     for svc in svcs {
@@ -64,6 +63,7 @@ fn mass_helm(conf: &Config, region: String, umode: UpgradeMode, numjobs: usize) 
 
         let tx = tx.clone(); // tx channel reused in each thread
         pool.execute(move || {
+            info!("Running {} for {}", mode, svc);
             let res = upgrade_worker(svc, mode, reg, config);
             tx.send(res).expect("channel will be there waiting for the pool");
         });
