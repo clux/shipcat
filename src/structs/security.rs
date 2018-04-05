@@ -103,6 +103,7 @@ pub enum DataFieldType {
     ConsultationAudioRecordings,
     ChatbotRawUserString,
     DeviceHistory,
+    PhoneNumber,
     /// Internal babylon health check metric
     HealthCheck,
 }
