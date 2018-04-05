@@ -60,45 +60,11 @@ fn mass_helm(conf: &Config, region: String, umode: UpgradeMode, numjobs: usize) 
         // satisfying thread safety
         let mode = umode.clone();
         let reg = region.clone();
-        let regdefaults = conf.regions.get(&reg).unwrap().defaults.clone();
         let config = conf.clone();
 
         let tx = tx.clone(); // tx channel reused in each thread
         pool.execute(move || {
-            let v = vault::Vault::default().unwrap(); // TODO:
-            let mut mf = Manifest::completed(&reg, &config, &svc, Some(v)).unwrap(); // TODO
-
-            let svc = mf.name.clone();
-            // need a tera per service (special folder handling)
-            let tera = template::init(&svc).unwrap(); // TODO
-
-            // get version now to limit race condition time
-            match helm::infer_version(&svc, &regdefaults) {
-                Ok(v) => mf.version = Some(v),
-                Err(e) => {
-                    return tx.send(Err(e)).expect("channel will be there waiting for the pool");
-                }
-            }
-
-            let dep = Deployment {
-                service: svc.into(),
-                region: reg,
-                manifest: mf,
-                render: Box::new(move |tmpl, context| {
-                    template::render(&tera, tmpl, context)
-                }),
-            };
-
-            // write values to file
-            let hfile = format!("{}.helm.gen.yml", dep.service);
-            match helm::values(&dep, Some(hfile.clone()), false) {
-                Err(e) => {
-                    return tx.send(Err(e)).expect("channel will be there waiting for the pool");
-                },
-                _ => {},
-            };
-            // upgrade
-            let res = helm::upgrade(&dep.manifest, &hfile, mode);
+            let res = upgrade_worker(svc, mode, reg, config);
             tx.send(res).expect("channel will be there waiting for the pool");
         });
     }
@@ -118,4 +84,31 @@ fn mass_helm(conf: &Config, region: String, umode: UpgradeMode, numjobs: usize) 
     } else {
         Ok(())
     }
+}
+
+// The work that will be done in parallel
+fn upgrade_worker(svc: String, mode: UpgradeMode, region: String, conf: Config) -> Result<(Manifest, String)> {
+    // Create a vault client and fetch all secrets
+    let v = vault::Vault::default()?;
+    let mut mf = Manifest::completed(&region, &conf, &svc, Some(v))?;
+
+    // instantiate a tera templating service (special folder handling per svc)
+    let tera = template::init(&svc)?;
+
+    // get version running now (to limit race condition with deploys)
+    let regdefaults = conf.regions.get(&region).unwrap().defaults.clone();
+    mf.version = Some(helm::infer_version(&svc, &regdefaults)?);
+
+    // Template values file
+    let hfile = format!("{}.helm.gen.yml", &svc);
+    let dep = Deployment {
+        service: svc.into(),
+        region: region,
+        manifest: mf,
+        render: Box::new(move |tmpl, context| {
+            template::render(&tera, tmpl, context)
+        }),
+    };
+    helm::values(&dep, Some(hfile.clone()), false)?;
+    helm::upgrade(&dep.manifest, &hfile, mode)
 }
