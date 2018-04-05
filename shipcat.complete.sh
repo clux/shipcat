@@ -7,12 +7,12 @@ _shipcat()
     local cur prev words cword
     _init_completion || return
 
-    local -r subcommands="help validate shell logs graph get helm cluster
+    local -r subcommands="help validate shell logs graph get helm cluster gdpr
                           list-regions list-services"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|status|shell|logs|get|graph|cluster|helm) ]]; then
+        if [[ ${words[i]} == @(help|validate|status|shell|logs|get|graph|cluster|helm|gdpr) ]]; then
             has_sub=1
         fi
     done
@@ -31,7 +31,7 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(validate|shell|logs|graph|get|cluster|helm|list-services) ]]; then
+        if [[ ${words[i]} == @(validate|shell|logs|graph|get|cluster|helm|list-services|gdpr) ]]; then
             special=${words[i]}
         fi
     done
@@ -47,6 +47,11 @@ _shipcat()
                 else
                     COMPREPLY=($(compgen -W "$resources" -- "$cur"))
                 fi
+                ;;
+            gdpr)
+                local -r region="$(kubectl config current-context)"
+                local -r svcs="$(shipcat list-services "$region")"
+                COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 ;;
             list-services)
                 local -r regions="$(shipcat list-regions)"

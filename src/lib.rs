@@ -103,7 +103,7 @@ pub use config::{Config};
 pub mod structs;
 
 mod manifest;
-pub use manifest::{validate, Manifest};
+pub use manifest::{validate, Manifest, gdpr_show};
 
 /// Templating consumer module
 pub mod generate;
