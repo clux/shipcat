@@ -8,15 +8,19 @@ resources:
     cpu: 100m
     memory: 512Mi
 dataHandling:
+  # NB: These values used to unit test cascading of encryption parameters
   stores:
   - backend: S3
+    cipher: AES256
+    encrypted: true
     fields:
     - name: EmailAddress
-      encrypted: true
-      cipher: AES256
+      encrypted: false # override default encrypted
     - name: DateOfBirth
+      keyRotator: 2w
   - backend: MySQL
-    fields: []
+    fields:
+    - name: ChatHistory
   processes:
   - field: EmailAddress
     source: fake-ask

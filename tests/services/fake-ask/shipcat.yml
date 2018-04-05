@@ -14,8 +14,7 @@ httpPort: 8080
 metadata:
   team: devops
   contacts:
-  - "@florent" # old user can use handle
-  - "@U82SKDQD9" # clux (too new to use handle)
+  - "@U82SKDQD9" # clux (too new to use @clux handle)
   repo: https://github.com/Babylonpartners/shipcat
 regions:
 - dev-uk
