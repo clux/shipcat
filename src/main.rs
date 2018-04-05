@@ -176,6 +176,11 @@ fn main() {
               .about("Graph the dependencies of a service"))
         .subcommand(SubCommand::with_name("cluster")
             .subcommand(SubCommand::with_name("helm")
+                .arg(Arg::with_name("num-jobs")
+                    .short("j")
+                    .long("num-jobs")
+                    .takes_value(true)
+                    .help("Number of worker threads used"))
                 .subcommand(SubCommand::with_name("reconcile")
                     .about("Reconcile kubernetes region configs with local state"))
                 .subcommand(SubCommand::with_name("install")
@@ -309,16 +314,17 @@ fn main() {
     if let Some(a) = args.subcommand_matches("cluster") {
         let region = kube::current_context().unwrap();
         if let Some(b) = a.subcommand_matches("helm") {
+            let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("diff") {
-                let res = shipcat::cluster::helm_diff(&conf, region);
+                let res = shipcat::cluster::helm_diff(&conf, region, jobs);
                 result_exit(args.subcommand_name().unwrap(), res)
             }
             else if let Some(_) = b.subcommand_matches("reconcile") {
-                let res = shipcat::cluster::helm_reconcile(&conf, region);
+                let res = shipcat::cluster::helm_reconcile(&conf, region, jobs);
                 result_exit(args.subcommand_name().unwrap(), res)
             }
             else if let Some(_) = b.subcommand_matches("install") {
-                let res = shipcat::cluster::helm_install(&conf, region);
+                let res = shipcat::cluster::helm_install(&conf, region, jobs);
                 result_exit(args.subcommand_name().unwrap(), res)
             }
         }
