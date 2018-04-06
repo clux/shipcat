@@ -121,6 +121,7 @@ fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
 }
 
 fn helm_wait_time(mf: &Manifest) -> u32 {
+    // TODO: need to take into account image size!
     let rcount = mf.replicaCount.unwrap(); // this is set by defaults!
     if let Some(ref hc) = mf.health {
         // wait for at most 2 * bootTime * replicas
@@ -160,13 +161,14 @@ impl fmt::Display for UpgradeMode {
 
 // debugging when helm upgrade fails
 fn kube_debug(mf: &Manifest) -> Result<()> {
-    for pod in kube::get_broken_pods(&mf.name)? {
+    let pods = kube::get_broken_pods(&mf.name)?;
+    for pod in pods.clone() {
         warn!("Debugging non-running pod {}", pod);
-        warn!("Last 20 log lines:");
+        warn!("Last 30 log lines:");
         let logvec = vec![
             "logs".into(),
             pod.clone(),
-            format!("--tail=20").into(), // last 20 lines
+            format!("--tail=30").into(),
         ];
         match kube::kout(logvec) {
             Ok(l) => {
@@ -174,6 +176,29 @@ fn kube_debug(mf: &Manifest) -> Result<()> {
             },
             Err(e) => {
                 warn!("Failed to get logs from {}: {}", pod, e)
+            }
+        }
+    }
+
+    for pod in pods {
+        warn!("Describing events for pod {}", pod);
+        let descvec = vec![
+            "describe".into(),
+            "pod".into(),
+            pod.clone()
+        ];
+        match kube::kout(descvec) {
+            Ok(mut o) => {
+                if let Some(idx) = o.find("Events:\n") {
+                    print!("{}\n", o.split_off(idx))
+                }
+                else {
+                    warn!("Unable to find events, describing pod:");
+                    print!("{}\n", o);
+                }
+            },
+            Err(e) => {
+                warn!("Failed to desccribe {}: {}", pod, e)
             }
         }
     }
