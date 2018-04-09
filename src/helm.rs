@@ -298,7 +298,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
         let notifies = mf.metadata.clone().contacts;
         match hexec(upgradevec) {
             Err(e) => {
-                error!("{}", e);
+                error!("{} from {}", e, mf.name);
                 slack::send(slack::Message {
                     text: format!("failed to {} {} in {}", mode, &mf.name, &mf._region),
                     color: Some("danger".into()),
