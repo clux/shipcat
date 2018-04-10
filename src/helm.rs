@@ -30,12 +30,13 @@ pub fn hexec(args: Vec<String>) -> Result<()> {
     }
     Ok(())
 }
-pub fn hout(args: Vec<String>) -> Result<(String, bool)> {
+pub fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
     use std::process::Command;
     debug!("helm {}", args.join(" "));
     let s = Command::new("helm").args(&args).output()?;
     let out : String = String::from_utf8_lossy(&s.stdout).into();
-    Ok((out, s.status.success()))
+    let err : String = String::from_utf8_lossy(&s.stderr).into();
+    Ok((out, err, s.status.success()))
 }
 
 
@@ -47,12 +48,15 @@ pub fn infer_version(service: &str, reg: &RegionDefaults) -> Result<String> {
         service.into(),
     ];
     debug!("helm {}", imgvec.join(" "));
-    match hout(imgvec) {
+    match hout(imgvec.clone()) {
         // got a result from helm + rc was 0:
-        Ok((vstr, true)) => {
+        Ok((vout, verr, true)) => {
+            if !verr.is_empty() {
+                warn!("{} stderr: {}", imgvec.join(" "), verr);
+            }
             // if we got this far, release was found
             // it should work to parse the HelmVals subset of the values:
-            let values : HelmVals = serde_yaml::from_str(&vstr.to_owned())?;
+            let values : HelmVals = serde_yaml::from_str(&vout.to_owned())?;
             Ok(values.version)
         },
         _ => {
@@ -343,10 +347,15 @@ pub fn diff(mf: &Manifest, hfile: &str) -> Result<String> {
         format!("version={}", ver),
     ];
     info!("helm {}", diffvec.join(" "));
+    let (hdiffunobfusc, hdifferr, _) = hout(diffvec.clone())?;
     let helmdiff = obfuscate_secrets(
-        hout(diffvec)?.0,
+        hdiffunobfusc,
         mf._decoded_secrets.values().cloned().collect()
     );
+    if !hdifferr.is_empty() {
+        warn!("diff {} stderr: \n{}", mf.name, hdifferr);
+        bail!("diff plugin for {} returned: {}", mf.name, hdifferr.lines().next().unwrap());
+    }
     let smalldiff = diff_format(helmdiff.clone());
 
     if !helmdiff.is_empty() {
@@ -380,8 +389,9 @@ pub fn template(dep: &Deployment, output: Option<String>) -> Result<String> {
         "-f".into(),
         tmpfile.clone(),
     ];
-    let (tpl, success) = hout(tplvec)?;
+    let (tpl, tplerr, success) = hout(tplvec.clone())?;
     if !success {
+        warn!("{} stderr: {}", tplvec.join(" "), tplerr);
         bail!("helm template failed");
     }
     if let Some(o) = output {
