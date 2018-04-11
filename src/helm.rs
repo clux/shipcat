@@ -359,7 +359,9 @@ pub fn diff(mf: &Manifest, hfile: &str) -> Result<String> {
     );
     if !hdifferr.is_empty() {
         warn!("diff {} stderr: \n{}", mf.name, hdifferr);
-        bail!("diff plugin for {} returned: {}", mf.name, hdifferr.lines().next().unwrap());
+        if ! hdifferr.contains("error copying from local connection to remote stream") {
+            bail!("diff plugin for {} returned: {}", mf.name, hdifferr.lines().next().unwrap());
+        }
     }
     let smalldiff = diff_format(helmdiff.clone());
 
