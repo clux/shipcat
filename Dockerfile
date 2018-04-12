@@ -1,7 +1,8 @@
 FROM alpine:3.6
 
-ENV KUBEVER=1.9.1 \
+ENV KUBEVER=1.9.6 \
     HELMVER=2.8.2 \
+    HELMDIFFVER=v2.8.2+2 \
     KUBEVALVER=0.7.1 \
     HOME=/config \
     SSL_CERT_DIR=/etc/ssl/certs/
@@ -31,7 +32,7 @@ RUN set -x && \
 RUN set x && \
     apk add --no-cache git && \
     helm init -c && \
-    helm plugin install https://github.com/databus23/helm-diff && \
+    helm plugin install https://github.com/databus23/helm-diff --version ${HELMDIFFVER} && \
     apk del git
 
 # Add yamllint+yq for convenience
