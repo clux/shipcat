@@ -255,15 +255,16 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
     if mode != UpgradeMode::DiffOnly {
         pre_upgrade_sanity()?;
     }
-    let helmdiff = if mode == UpgradeMode::UpgradeInstall {
-        "".into() // can't diff against what's not there!
-    } else {
-        let hdiff = diff(mf, hfile)?;
-        if mode == UpgradeMode::DiffOnly {
-            return Ok((mf.clone(), hdiff))
-        }
-        hdiff
-    };
+    //let helmdiff = if mode == UpgradeMode::UpgradeInstall {
+    //    "".into() // can't diff against what's not there!
+    //} else {
+    //    let hdiff = diff(mf, hfile)?;
+    //    if mode == UpgradeMode::DiffOnly {
+    //        return Ok((mf.clone(), hdiff))
+    //    }
+    //    hdiff
+    //};
+    let helmdiff = "diff disabled".to_string();
 
     let ver = mf.version.clone().unwrap(); // must be set outside
 
