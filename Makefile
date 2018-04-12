@@ -13,6 +13,9 @@ compile:
 build:
 	docker build -t $(REPO)/$(NAME):$(VERSION) .
 
+install:
+	docker push $(REPO)/$(NAME):$(VERSION)
+
 tag-semver:
 	docker tag  $(REPO)/$(NAME):$(VERSION) $(REPO)/$(NAME):$(SEMVER_VERSION)
 	docker push $(REPO)/$(NAME):$(SEMVER_VERSION)
