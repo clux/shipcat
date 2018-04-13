@@ -48,32 +48,41 @@ pub struct Vault {
     addr: reqwest::Url,
     /// The token which we'll use to access Vault.
     token: String,
-    /// Whether to return a fake value for all secrets
-    mock: bool,
+    /// Vault operation mode
+    mode: Mode,
 }
 
+/// Vault usage mode
+#[derive(PartialEq)]
+pub enum Mode {
+    /// Normal HTTP calls to vault returing actual secret
+    Standard,
+    /// Avoiding HTTP calls to vault altogether
+    Mocked,
+    /// Using HTTP calls but masking secrets
+    Masked,
+}
 
 impl Vault {
     /// Initialize using the same evars or token files that the `vault` CLI uses
     pub fn default() -> Result<Vault> {
-        Vault::new(reqwest::Client::new(), &default_addr()?, default_token()?, false)
+        Vault::new(reqwest::Client::new(), &default_addr()?, default_token()?, Mode::Standard)
     }
-    /// Initialize using vault evars, but mock return values
+    /// Initialize using vault evars, but return masked return values
+    pub fn masked() -> Result<Vault> {
+        Vault::new(reqwest::Client::new(), &default_addr()?, default_token()?, Mode::Masked)
+    }
+    /// Initialize using a dud client (still needs an addr)
     pub fn mocked() -> Result<Vault> {
-        Vault::new(reqwest::Client::new(), &default_addr()?, default_token()?, true)
+        Vault::new(reqwest::Client::new(), &default_addr()?, "", Mode::Mocked)
     }
 
-    fn new<U, S>(client: reqwest::Client, addr: U, token: S, mock: bool) -> Result<Vault>
+    fn new<U, S>(client: reqwest::Client, addr: U, token: S, mode: Mode) -> Result<Vault>
         where U: reqwest::IntoUrl,
               S: Into<String>
     {
         let addr = addr.into_url()?;
-        Ok(Vault {
-            client: client,
-            addr: addr,
-            token: token.into(),
-            mock: mock,
-        })
+        Ok(Vault { client, addr, mode, token: token.into() })
     }
 
     // The actual HTTP GET logic
@@ -106,6 +115,9 @@ impl Vault {
     /// Read secret from a Vault via an authenticated HTTP GET (or memory cache)
     pub fn read(&self, key: &str) -> Result<String> {
         let pth = format!("secret/{}", key);
+        if self.mode == Mode::Mocked {
+            return Ok("VAULT_MOCKED".into());
+        }
         let secret = match self.get_secret(&pth) {
             Ok(s) => s,
             Err(e) => {
@@ -120,7 +132,7 @@ impl Vault {
             .get("value")
             .ok_or_else(|| { ErrorKind::MissingSecret(pth).into() })
             .map(|v| {
-                if self.mock {
+                if self.mode == Mode::Masked {
                     "VAULT_VALIDATED".into()
                 } else {
                     v.clone()
