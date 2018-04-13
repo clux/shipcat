@@ -106,7 +106,7 @@ pub fn send(msg: Message) -> Result<()> {
 mod tests {
     use tests::setup;
     use super::super::{Manifest, Config};
-    use super::{send, Message};
+    use super::{send, Message, env_channel};
 
     #[test]
     fn slack_test() {
@@ -114,13 +114,16 @@ mod tests {
         let conf = Config::read().unwrap();
         let mf = Manifest::basic("fake-ask", &conf, Some("dev-uk".into())).unwrap();
 
-        send(Message {
-            text: format!("tested {}", "slack"),
-            color: Some("good".into()),
-            link: Some("https://lolcathost.com/|lolcathost".into()),
-            notifies: mf.metadata.contacts,
-            code: Some(format!("-diff\n+diff")),
-            ..Default::default()
-        }).unwrap();
+        let chan = env_channel().unwrap();
+        if chan == "#shipcat-test" {
+            send(Message {
+                text: format!("tested {}", "slack"),
+                color: Some("good".into()),
+                link: Some("https://lolcathost.com/|lolcathost".into()),
+                notifies: mf.metadata.contacts,
+                code: Some(format!("-diff\n+diff")),
+                ..Default::default()
+            }).unwrap();
+        }
     }
 }
