@@ -71,6 +71,9 @@ fn main() {
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
+            .arg(Arg::with_name("mock-vault")
+                .long("mock-vault")
+                .help("Return empty strings from Vault"))
             .subcommand(SubCommand::with_name("template")
                 .arg(Arg::with_name("output")
                     .short("o")
@@ -229,7 +232,14 @@ fn main() {
 
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
-        let mut vault = conditional_exit(shipcat::vault::Vault::default());
+        let mut vault = if a.is_present("mock-vault") {
+            if a.subcommand_name().unwrap() == "upgrade" {
+                assert!(false, "Cannot mock secret when using helm upgrade");
+            }
+            conditional_exit(shipcat::vault::Vault::mocked())
+        } else {
+            conditional_exit(shipcat::vault::Vault::default())
+        };
 
         // manifest with region specific secrets
         let mut mf = conditional_exit(Manifest::completed(&region, &conf, service, Some(vault)));
@@ -303,7 +313,7 @@ fn main() {
             kube::current_context().unwrap()
         });
         let res = if a.is_present("secrets") {
-            let vault = shipcat::vault::Vault::mocked().unwrap();
+            let vault = shipcat::vault::Vault::masked().unwrap();
             shipcat::validate(services, &conf, region, Some(vault))
         } else {
             shipcat::validate(services, &conf, region, None)
