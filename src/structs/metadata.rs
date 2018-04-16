@@ -10,6 +10,9 @@ pub struct Metadata {
     pub team: String,
     /// Contact person
     pub contacts: Vec<String>,
+    /// Support channels
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub support: Vec<String>,
     /// Canoncal documentation link
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docs: Option<String>,
