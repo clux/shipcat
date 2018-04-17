@@ -28,10 +28,23 @@ pub fn current_context() -> Result<String> {
     if res.ends_with('\n') {
         res.truncate(len - 1);
     }
-    // TODO: sanity check regions in allowed regions first
     Ok(res)
 }
 
+pub fn current_namespace(ctx: &str) -> Result<String> {
+    let res = kout(vec![
+        "config".into(),
+        "get-contexts".into(),
+        ctx.into(),
+        "--no-headers".into(),
+    ])?;
+    if res.contains(ctx) {
+        if let Some(ns) = res.split_whitespace().last() {
+            return Ok(ns.into());
+        }
+    }
+    bail!("Failed to find default namespace from kube context {}", ctx)
+}
 
 fn get_pods(name: &str) -> Result<String> {
     //kubectl get pods -l=app=$* -o jsonpath='{.items[*].metadata.name}'
@@ -139,4 +152,28 @@ pub fn logs(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
         kexec(logargs)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::env;
+    use super::{current_namespace, current_context};
+
+    #[test]
+    fn validate_ctx() {
+        let kubecfg = env::home_dir().unwrap().join(".kube").join("config");
+        if kubecfg.is_file() {
+            let ctx = current_context().unwrap();
+            assert_eq!(ctx, "dev-uk".to_string());
+        }
+    }
+
+    #[test]
+    fn validate_namespace() {
+        let kubecfg = env::home_dir().unwrap().join(".kube").join("config");
+        if kubecfg.is_file() {
+            let ns = current_namespace("dev-uk").unwrap();
+            assert_eq!(ns, "dev".to_string());
+        }
+    }
 }

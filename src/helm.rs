@@ -43,6 +43,7 @@ pub fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
 pub fn infer_version(service: &str, reg: &RegionDefaults) -> Result<String> {
     // fetch current version from helm
     let imgvec = vec![
+        format!("--tiller-namespace={}", reg.namespace),
         "get".into(),
         "values".into(),
         service.into(),
@@ -209,8 +210,9 @@ fn kube_debug(mf: &Manifest) -> Result<()> {
     Ok(())
 }
 
-fn rollback(mf: &Manifest) -> Result<()> {
+fn rollback(mf: &Manifest, namespace: &str) -> Result<()> {
     let rollbackvec = vec![
+        format!("--tiller-namespace={}", namespace),
         "rollback".into(),
         mf.name.clone(),
         "0".into(), // magic helm string for previous
@@ -255,6 +257,8 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
     if mode != UpgradeMode::DiffOnly {
         pre_upgrade_sanity()?;
     }
+    let namespace = kube::current_namespace(&mf._region)?;
+
     let helmdiff = if mode == UpgradeMode::UpgradeInstall {
         "".into() // can't diff against what's not there!
     } else {
@@ -270,6 +274,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
     if mode == UpgradeMode::UpgradeRecreateWait || mode == UpgradeMode::UpgradeInstall || !helmdiff.is_empty() {
         // upgrade it using the same command
         let mut upgradevec = vec![
+            format!("--tiller-namespace={}", namespace),
             "upgrade".into(),
             mf.name.clone(),
             format!("charts/{}", mf.chart),
@@ -317,7 +322,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
                 })?;
                 if mode == UpgradeMode::UpgradeWaitMaybeRollback {
                     kube_debug(mf)?;
-                    rollback(mf)?;
+                    rollback(mf, &namespace)?;
                 }
                 return Err(e);
             },
@@ -341,7 +346,9 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
 /// Shells out to helm diff, then obfuscates secrets
 pub fn diff(mf: &Manifest, hfile: &str) -> Result<String> {
     let ver = mf.version.clone().unwrap(); // must be set outside
+    let namespace = kube::current_namespace(&mf._region)?;
     let diffvec = vec![
+        format!("--tiller-namespace={}", namespace),
         "diff".into(),
         "--no-color".into(),
         mf.name.clone(),
@@ -396,6 +403,7 @@ pub fn template(dep: &Deployment, output: Option<String>) -> Result<String> {
         "-f".into(),
         tmpfile.clone(),
     ];
+    // NB: this call does NOT need --tiller-namespace (offline call)
     let (tpl, tplerr, success) = hout(tplvec.clone())?;
     if !success {
         warn!("{} stderr: {}", tplvec.join(" "), tplerr);
