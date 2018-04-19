@@ -58,3 +58,7 @@ pub mod traits;
 pub mod cronjob;
 pub use self::cronjob::CronJob;
 
+/// Sidecar
+pub mod sidecar;
+pub use self::sidecar::Sidecar;
+

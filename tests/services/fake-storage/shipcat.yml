@@ -30,6 +30,15 @@ health:
   uri: /health
   wait: 30
 httpPort: 3000
+sidecars:
+- name: redis
+  resources:
+    requests:
+      cpu: 100m
+      memory: 50Mi
+    limits:
+      cpu: 100m
+      memory: 50Mi
 regions:
 - dev-uk
 env:
