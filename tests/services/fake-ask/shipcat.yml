@@ -16,6 +16,8 @@ metadata:
   contacts:
   - "@U82SKDQD9" # clux (too new to use @clux handle)
   repo: https://github.com/Babylonpartners/shipcat
+sidecars:
+- name: redis
 regions:
 - dev-uk
 vault:

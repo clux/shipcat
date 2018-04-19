@@ -20,6 +20,7 @@ use super::structs::volume::{Volume, VolumeMount};
 use super::structs::{Metadata, DataHandling, VaultOpts, Jaeger, Dependency};
 use super::structs::prometheus::{Prometheus, Dashboard};
 use super::structs::{CronJob};
+use super::structs::{Sidecar};
 
 
 /// Main manifest, serializable from shipcat.yml
@@ -111,7 +112,9 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cronJobs: Vec<CronJob>,
 
-
+    /// Sidecars
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sidecars: Vec<Sidecar>,
 
     /// Service annotations (for internal services only)
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
