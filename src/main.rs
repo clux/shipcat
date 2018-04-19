@@ -227,8 +227,18 @@ fn main() {
     if let Some(a) = args.subcommand_matches("helm") {
         let service = a.value_of("service").unwrap();
 
-        let region = kube::current_context().unwrap();
-        let regdefaults = conf.regions.get(&region).unwrap().defaults.clone();
+        // some sanity
+        let region = kube::current_context().map_err(|e| {
+            error!("You need kubectl and a ~/.kube/config with a kube context for this");
+            error!("{}", e);
+            process::exit(2)
+        }).unwrap();
+        let regdefaults = if let Some(r) = conf.regions.get(&region) {
+            r.defaults.clone()
+        } else {
+            error!("You need to define your kube context '{}' in shipcat.conf first", region);
+            process::exit(2)
+        };
 
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));
