@@ -177,6 +177,7 @@ fn kube_debug(mf: &Manifest) -> Result<()> {
         ];
         match kube::kout(logvec) {
             Ok(l) => {
+                // TODO: stderr?
                 print!("{}\n", l);
             },
             Err(e) => {
@@ -198,12 +199,12 @@ fn kube_debug(mf: &Manifest) -> Result<()> {
                     print!("{}\n", o.split_off(idx))
                 }
                 else {
-                    warn!("Unable to find events, describing pod:");
-                    print!("{}\n", o);
+                    // Not printing in this case, tons of secrets in here
+                    warn!("Unable to find events for pod {}", pod);
                 }
             },
             Err(e) => {
-                warn!("Failed to desccribe {}: {}", pod, e)
+                warn!("Failed to describe {}: {}", pod, e)
             }
         }
     }
@@ -327,6 +328,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
                 return Err(e);
             },
             Ok(_) => {
+                // TODO: gh link!
                 slack::send(slack::Message {
                     text: format!("{}d {} in {}", mode, &mf.name, &mf._region),
                     color: Some("good".into()),
