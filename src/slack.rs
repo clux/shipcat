@@ -117,7 +117,7 @@ mod tests {
         let chan = env_channel().unwrap();
         if chan == "#shipcat-test" {
             send(Message {
-                text: format!("tested {}", "slack"),
+                text: format!("tested `{}`", "slack"),
                 color: Some("good".into()),
                 link: Some("https://lolcathost.com/|lolcathost".into()),
                 notifies: mf.metadata.contacts,

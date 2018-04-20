@@ -225,7 +225,7 @@ fn rollback(mf: &Manifest, namespace: &str) -> Result<()> {
             error!("{}", e);
             // this would be super weird, since we are not waiting for it:
             let _ = slack::send(slack::Message {
-                text: format!("failed to rollback {} in {}", &mf.name, &mf._region),
+                text: format!("failed to rollback `{}` in {}", &mf.name, &mf._region),
                 color: Some("danger".into()),
                 link: infer_jenkins_link(),
                 ..Default::default()
@@ -234,7 +234,7 @@ fn rollback(mf: &Manifest, namespace: &str) -> Result<()> {
         },
         Ok(_) => {
             slack::send(slack::Message {
-                text: format!("rolling back {} in {}",  &mf.name, &mf._region),
+                text: format!("rolling back `{}` in {}",  &mf.name, &mf._region),
                 color: Some("good".into()),
                 link: infer_jenkins_link(),
                 ..Default::default()
@@ -315,7 +315,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
             Err(e) => {
                 error!("{} from {}", e, mf.name);
                 slack::send(slack::Message {
-                    text: format!("failed to {} {} in {}", mode, &mf.name, &mf._region),
+                    text: format!("failed to {} `{}` in {}", mode, &mf.name, &mf._region),
                     color: Some("danger".into()),
                     link: infer_jenkins_link(),
                     notifies,
@@ -330,7 +330,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
             Ok(_) => {
                 // TODO: gh link!
                 slack::send(slack::Message {
-                    text: format!("{}d {} in {}", mode, &mf.name, &mf._region),
+                    text: format!("{}d `{}` in {}", mode, &mf.name, &mf._region),
                     color: Some("good".into()),
                     notifies,
                     link: infer_jenkins_link(),
