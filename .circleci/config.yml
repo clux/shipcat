@@ -16,6 +16,20 @@ workflows:
             branches:
               only:
                 - master
+      - mac_build:
+          filters:
+            branches:
+              only:
+                - master
+      - github_release:
+          requires:
+            - musl_build
+            - mac_build
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
 jobs:
   musl_build:
     docker:
@@ -32,17 +46,16 @@ jobs:
           key: target-{{ checksum "Cargo.lock" }}
           paths:
             - target
-      - store_artifacts:
-          path: target/x86_64-unknown-linux-musl/release/shipcat
-          destination: shipcat
       - save_cache:
           key: cargo.registry-{{ checksum "Cargo.lock" }}
           paths:
             - /root/.cargo
+      # Ensure we have a built `shipcat.x86_64-unknown-linux-musl` at workspace root
+      - run: mv target/x86_64-unknown-linux-musl/release/shipcat{,.x86_64-unknown-linux-musl}
       - persist_to_workspace:
           root: target/x86_64-unknown-linux-musl/release/
           paths:
-            - shipcat
+            - shipcat.x86_64-unknown-linux-musl
 
   cargo_test:
     docker:
@@ -66,8 +79,54 @@ jobs:
       - attach_workspace:
           at: .
       - run: docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
-      - run: ls -lah **
       - run: make build
       - run: make install
       - run: make tag-latest
       - run: make tag-semver
+
+  mac_build:
+    macos:
+      xcode: "9.0"
+    working_directory: /Users/distiller/project
+
+    steps:
+      - checkout
+      - run:
+          name: Install rust
+          command: |
+            curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
+      - restore_cache:
+          key: cargo.mac.registry-{{ checksum "Cargo.lock" }}
+      - restore_cache:
+          key: target.mac-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Build
+          command: ~/.cargo/bin/cargo build --verbose --release
+      - save_cache:
+          key: target.mac-{{ checksum "Cargo.lock" }}
+          paths:
+            - target
+      - save_cache:
+          key: cargo.mac.registry-{{ checksum "Cargo.lock" }}
+          paths:
+            - /Users/distiller/.cargo
+      # Ensure we have a built `shipcat.x86_64-apple-darwin` at workspace root
+      - run: mv target/release/shipcat{,.x86_64-apple-darwin}
+      - persist_to_workspace:
+          root: target/release/
+          paths:
+            - shipcat.x86_64-apple-darwin
+
+  github_release:
+    working_directory: ~/project
+    release:
+      tag: /^v.*/
+    docker:
+      - image: circleci/golang:1.8
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run: go get github.com/tcnksm/ghr
+      - run: make releases
+      - run: ghr -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME -replace $(git describe --abbrev=0 --tags) releases/

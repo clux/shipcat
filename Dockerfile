@@ -8,8 +8,8 @@ ENV KUBEVER=1.9.6 \
     HOME=/config \
     SSL_CERT_DIR=/etc/ssl/certs/
 
-# Install shipcat (build for musl outside)
-ADD shipcat /usr/local/bin/shipcat
+# Install shipcat (built for musl outside)
+ADD shipcat.x86_64-unknown-linux-musl /usr/local/bin/shipcat
 
 # Install kubectl (see https://aur.archlinux.org/packages/kubectl-bin )
 ADD https://storage.googleapis.com/kubernetes-release/release/v${KUBEVER}/bin/linux/amd64/kubectl /usr/local/bin/kubectl
