@@ -167,7 +167,7 @@ fn main() {
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service names to show"))
-              .about("Validate the shipcat manifest"))
+              .about("Reduce data handling structs"))
               .subcommand(SubCommand::with_name("show")
                 .help("Show GDPR data for a service"))
         .subcommand(SubCommand::with_name("graph")
