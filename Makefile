@@ -39,14 +39,14 @@ releases:
 
 # Package a shipcat.$* up with complete script in a standard folder structure:
 #
-# -rw-r--r-- user/user      5382 2018-04-21 02:43 share/shipcat.complete.sh
+# -rw-r--r-- user/user      5382 2018-04-21 02:43 share/shipcat/shipcat.complete.sh
 # -rwxr-xr-x user/user         0 2018-04-21 02:43 bin/shipcat
 #
 # This should be extractable into /usr/local/ and just work.
 release-%:
 	mkdir -p releases/$*/bin
-	mkdir -p releases/$*/share
-	cp shipcat.complete.sh releases/$*/share/
+	mkdir -p releases/$*/share/shipcat
+	cp shipcat.complete.sh releases/$*/share/shipcat
 	cp shipcat.$* releases/$*/bin/shipcat
 	chmod +x releases/$*/bin/shipcat
 	cd releases && tar czf shipcat.$*.tar.gz --transform=s,^$*/,, $$(find $*/ -type f -o -type l)

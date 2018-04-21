@@ -9,6 +9,10 @@ A standardisation tool sitting in front of `helm` to help control deployments on
 Lives [on your ship](https://en.wikipedia.org/wiki/Ship%27s_cat).
 
 ## Installation
+### Prebuilt
+Grab a [prebuilt shipcat from github releases](https://github.com/Babylonpartners/shipcat/releases). This can be extracted to `/usr/local` or some place on your `$PATH`. Then add the line `source /usr/local/share/shipcat/shipcat.complete.sh` to `~/.bash_completion`.
+
+### Building
 To build yourself, use [rustup](https://rustup.rs/) to get latest stable rust.
 
 ```sh
@@ -18,6 +22,7 @@ ln -sf $PWD/target/debug/shipcat /usr/local/bin/shipcat
 echo "source $PWD/shipcat.complete.sh" >> ~/.bash_completion
 ```
 
+### Docker
 The embedded `kubecat` image does come with `shipcat` + `kubectl` + `helm` + `helm diff` plugin + `kubeval`, which might be easier to use together. Bring a valid `~/.kube/config` and `VAULT_*` evars.
 
 ## Usage - Read Access
