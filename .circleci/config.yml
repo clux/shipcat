@@ -119,8 +119,6 @@ jobs:
 
   github_release:
     working_directory: ~/project
-    release:
-      tag: /^v.*/
     docker:
       - image: circleci/golang:1.8
     steps:
