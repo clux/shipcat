@@ -268,7 +268,7 @@ impl Manifest {
 
         // merge evars (most common override)
         for (k,v) in mf.env {
-            self.env.entry(k).or_insert(v);
+            self.env.insert(k, v);
         }
 
         // Override Kong per environment
