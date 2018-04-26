@@ -76,12 +76,12 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-          - cargo.registry-{{ checksum "Cargo.lock" }}
-          - cargo.registry-
+          - cargo.registry-osx-{{ checksum "Cargo.lock" }}
+          - cargo.registry-osx-
       - restore_cache:
           keys:
-          - target-{{ checksum "Cargo.lock" }}
-          - target-
+          - target-osx-{{ checksum "Cargo.lock" }}
+          - target-osx-
       - run: cargo test -- --nocapture
       - run: cargo doc --no-deps
 
