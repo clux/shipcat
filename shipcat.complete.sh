@@ -5,7 +5,11 @@ _shipcat()
 {
     # shellcheck disable=2034
     local cur prev words cword
-    _init_completion || return
+    if declare -F _init_completions >/dev/null 2>&1; then
+        _init_completion
+    else
+        _get_comp_words_by_ref cur prev words cword
+    fi
 
     local -r subcommands="help validate shell logs graph get helm cluster gdpr
                           list-regions list-services"

@@ -114,6 +114,9 @@ pub mod kube;
 /// A small CLI helm interface
 pub mod helm;
 
+/// A small CLI kong config generator interface
+pub mod kong;
+
 /// A graph generator for manifests using `petgraph`
 pub mod graph;
 

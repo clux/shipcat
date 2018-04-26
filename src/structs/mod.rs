@@ -13,6 +13,10 @@ pub use self::dependency::{Dependency, DependencyProtocol};
 mod jaeger;
 pub use self::jaeger::Jaeger;
 
+/// Kong configs
+pub mod kong;
+pub use self::kong::Kong;
+
 // Kubernetes - first are abstractions latter ones are straight translations
 
 // abstractions - these have special handling
