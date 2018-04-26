@@ -12,11 +12,11 @@ _shipcat()
     fi
 
     local -r subcommands="help validate shell logs graph get helm cluster gdpr
-                          kong list-regions list-services"
+                          kong jenkins list-regions list-services"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|status|shell|logs|get|graph|cluster|helm|gdpr|kong) ]]; then
+        if [[ ${words[i]} == @(help|validate|status|shell|logs|get|graph|cluster|helm|gdpr|kong|jenkins) ]]; then
             has_sub=1
         fi
     done
@@ -35,7 +35,7 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(validate|shell|logs|graph|get|cluster|helm|list-services|gdpr|kong) ]]; then
+        if [[ ${words[i]} == @(validate|shell|logs|graph|get|cluster|helm|list-services|gdpr|kong|jenkins) ]]; then
             special=${words[i]}
         fi
     done
@@ -117,6 +117,27 @@ _shipcat()
                 else
                     # Suggest subcommands of helm and global flags
                     COMPREPLY=($(compgen -W "values template diff upgrade install recreate" -- "$cur"))
+                fi
+                ;;
+            jenkins)
+                local -r regions="$(shipcat list-regions)"
+                local jenk_sub i
+                for (( i=2; i < ${#words[@]}-1; i++ )); do
+                    if [[ ${words[i]} = @(latest) ]]; then
+                        jenk_sub=${words[i]}
+                    fi
+                done
+
+                if [[ $prev = "jenkins" ]]; then
+                    local -r region=$(kubectl config current-context)
+                    local -r svcs="$(shipcat list-services "$region")"
+                    COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
+                elif [ -n "${jenk_sub}" ]; then
+                    # TODO; jenkins sub command specific flags here
+                    COMPREPLY=($(compgen -W "-o --output --dry-run" -- "$cur"))
+                else
+                    # Suggest subcommands of helm and global flags
+                    COMPREPLY=($(compgen -W "latest console history" -- "$cur"))
                 fi
                 ;;
             shell|logs)

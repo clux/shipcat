@@ -43,9 +43,13 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: cargo.registry-{{ checksum "Cargo.lock" }}
+          keys:
+          - cargo.registry-{{ checksum "Cargo.lock" }}
+          - cargo.registry-
       - restore_cache:
-          key: target-{{ checksum "Cargo.lock" }}
+          keys:
+          - target-{{ checksum "Cargo.lock" }}
+          - target-
       - run: cargo build --release
       - save_cache:
           key: target-{{ checksum "Cargo.lock" }}
@@ -71,9 +75,13 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: cargo.registry-{{ checksum "Cargo.lock" }}
+          keys:
+          - cargo.registry-{{ checksum "Cargo.lock" }}
+          - cargo.registry-
       - restore_cache:
-          key: target-{{ checksum "Cargo.lock" }}
+          keys:
+          - target-{{ checksum "Cargo.lock" }}
+          - target-
       - run: cargo test -- --nocapture
       - run: cargo doc --no-deps
 
@@ -124,8 +132,6 @@ jobs:
 
   github_release:
     working_directory: ~/project
-    release:
-      tag: /^v.*/
     docker:
       - image: circleci/golang:1.8
     steps:
