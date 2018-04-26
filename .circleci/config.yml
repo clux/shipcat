@@ -3,7 +3,10 @@ workflows:
   version: 2
   shipcat_flow:
     jobs:
-      - musl_build
+      - musl_build:
+          filters:
+            tags:
+              only: /^v.*/
       - cargo_test:
           filters:
             branches:
@@ -18,6 +21,8 @@ workflows:
                 - master
       - mac_build:
           filters:
+            tags:
+              only: /^v.*/
             branches:
               only:
                 - master
