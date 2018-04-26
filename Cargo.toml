@@ -24,9 +24,12 @@ serde_json = "1.0.13"
 serde_yaml = "0.7.3"
 slack-hook = { git = "https://github.com/clux/rust-slack" }
 #slack-hook = { path = "../rust-slack" }
-tera = "0.11.6"
+jenkins_api = { git = "https://github.com/clux/jenkins-api.rs", branch = "parameters" }
+tera = "0.11.7"
 walkdir = "2.1.4"
 threadpool = "1.7.1"
+chrono = "0.4.1"
+semver = { version = "0.9.0", features = ["serde"] }
 
 [dependencies.petgraph]
 features = ["serde-1"]

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::io::prelude::*;
 
+use semver::Version;
 use serde_yaml;
 
 use super::Result;
@@ -88,7 +89,7 @@ pub struct Team {
 
 
 /// Main manifest, serializable from shipcat.yml
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
     /// Global defaults
     pub defaults: ManifestDefaults,
@@ -98,6 +99,9 @@ pub struct Config {
 
     /// Teams
     pub teams: Vec<Team>,
+
+    /// Shipcat version pin
+    pub version: Version,
 }
 
 impl Config {
@@ -124,6 +128,12 @@ impl Config {
             if rdefs.version == "" {
                 bail!("Default floating tag must be set");
             }
+        }
+        let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+        if self.version > current {
+            let url = "https://github.com/Babylonpartners/shipcat/releases";
+            info!("Precompiled releasese available at {}", url);
+            bail!("Your shipcat is out of date ({} < {})", current, self.version)
         }
 
         Ok(())

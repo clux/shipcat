@@ -15,6 +15,10 @@ extern crate serde_json;
 #[macro_use]
 extern crate hyper;
 
+// jenkins api
+extern crate jenkins_api;
+extern crate chrono;
+
 // notifications
 extern crate slack_hook;
 
@@ -25,6 +29,8 @@ extern crate petgraph;
 extern crate log;
 
 extern crate regex;
+
+extern crate semver;
 
 extern crate threadpool;
 
@@ -47,6 +53,14 @@ error_chain! {
         Reqw(reqwest::UrlError);
     }
     errors {
+        MissingJenkinsJob(job: String) {
+            description("Jenkins job could not be fetched")
+            display("Failed to get jenkins job {}", job)
+        }
+        JenkinsFailure {
+            description("Jenkins client configuration failure")
+            display("Failed to create jenkins client")
+        }
         MissingSlackUrl {
             description("SLACK_SHIPCAT_HOOK_URL not specified")
             display("SLACK_SHIPCAT_HOOK_URL not specified")
@@ -62,6 +76,14 @@ error_chain! {
         MissingVaultToken {
             description("VAULT_TOKEN not specified")
             display("VAULT_TOKEN not specified")
+        }
+        MissingJenkinsUrl {
+            description("JENKINS_API_URL not specified")
+            display("JENKINS_API_URL not specified")
+        }
+        MissingJenkinsUser {
+            description("JENKINS_API_USER not specified")
+            display("JENKINS_API_USER not specified")
         }
         UnexpectedHttpStatus(status: reqwest::StatusCode) {
             description("unexpected HTTP status")
@@ -119,6 +141,9 @@ pub mod kong;
 
 /// A graph generator for manifests using `petgraph`
 pub mod graph;
+
+/// A jenkins helper interface using `jenkinsapi`
+pub mod jenkins;
 
 // Test helpers
 #[cfg(test)]

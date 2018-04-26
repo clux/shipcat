@@ -116,6 +116,20 @@ fn main() {
                 .required(true)
                 .help("Service name"))
             .about("Get logs from pods for a service described in a manifest"))
+        .subcommand(SubCommand::with_name("jenkins")
+            .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service name"))
+            .subcommand(SubCommand::with_name("console")
+                .arg(Arg::with_name("number")
+                    .takes_value(true)
+                    .short("n")
+                    .help("Build number if not last"))
+                .about("Print the latest jenkins console text for a service deploy"))
+            .subcommand(SubCommand::with_name("history")
+                .about("Print the jenkins deployment history for a service"))
+            .subcommand(SubCommand::with_name("latest")
+                .about("Print the latest jenkins deployment job for a service")))
         .subcommand(SubCommand::with_name("shell")
             .about("Shell into pods for a service described in a manifest")
             .arg(Arg::with_name("region")
@@ -228,6 +242,33 @@ fn main() {
     openssl_probe::init_ssl_cert_env_vars();
 
 
+    if let Some(a) = args.subcommand_matches("jenkins") {
+        let service = a.value_of("service").unwrap();
+        // TODO: helper for this:
+        let region = kube::current_context().map_err(|e| {
+            error!("You need kubectl and a ~/.kube/config with a kube context for this");
+            error!("{}", e);
+            process::exit(2)
+        }).unwrap();
+
+        if let Some(_) = a.subcommand_matches("latest") {
+            let res = shipcat::jenkins::latest_build(&service, &region);
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
+        if let Some(b) = a.subcommand_matches("console") {
+            let res = if let Some(n) = b.value_of("number") {
+                let nr : u32 = n.parse().unwrap();
+                shipcat::jenkins::specific_console(&service, nr, &region)
+            } else {
+                shipcat::jenkins::latest_console(&service, &region)
+            };
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
+        if let Some(_) = a.subcommand_matches("history") {
+           let res = shipcat::jenkins::history(&service, &region);
+           result_exit(a.subcommand_name().unwrap(), res)
+        }
+    }
     if let Some(a) = args.subcommand_matches("helm") {
         let service = a.value_of("service").unwrap();
 
