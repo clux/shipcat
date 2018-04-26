@@ -42,4 +42,8 @@ RUN set x && \
 # Add yamllint+yq for convenience
 RUN apk add --no-cache python3 && pip3 install yamllint yq
 
+# Install kong-configurator deps
+ADD kong-configurator kong-configurator
+RUN pip3 install -r kong-configurator/requirements.txt
+
 USER kubectl
