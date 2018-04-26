@@ -53,6 +53,17 @@ shipcat helm babylbot diff
 
 Note that this requires `helm` + [helm diff](https://github.com/databus23/helm-diff) installed to work, and it will work against the region in your context (`kubectl config current-context`).
 
+With jenkins credentials, you can also use `shipcat jenkins` to query for job history:
+
+```sh
+export JENKINS_URL=https://jenkins.babylontech.co.uk
+export JENKINS_API_TOKEN=TOKEN_FROM_PROFILE_PAGE
+export JENKINS_API_USER=eirik.albrigtsen
+
+shipcat jenkins diagnostic-engine history
+shipcat jenkins core-ruby console -n 3022 | less
+```
+
 ## Usage - Write Access
 With rollout access (`kubectl auth can-i rollout Deployment`) you can also perform upgrades:
 
@@ -69,17 +80,6 @@ If you have `slack` credentials, you can also use `shipcat slack` to talk to sla
 export SLACK_SHIPCAT_HOOK_URL=...
 export SLACK_SHIPCAT_CHANNEL="#kubernetes"
 shipcat slack hi slack
-```
-
-If you have jenkins credentials, you can also use `shipcat jenkins` to query for job history:
-
-```sh
-export JENKINS_URL=https://jenkins.babylontech.co.uk
-export JENKINS_API_TOKEN=TOKEN_FROM_PROFILE_PAGE
-export JENKINS_API_USER=eirik.albrigtsen
-
-shipcat jenkins diagnostic-engine history
-shipcat jenkins core-ruby console -n 3022 | less
 ```
 
 ## Docs
