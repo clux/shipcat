@@ -8,6 +8,7 @@ use std::io::prelude::*;
 use serde_yaml;
 
 use super::Result;
+use super::structs::{Kong};
 //use super::vault::Vault;
 
 
@@ -30,12 +31,46 @@ pub struct RegionDefaults {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+pub struct KongConfig {
+    /// Base URL to use (e.g. uk.dev.babylontech.co.uk)
+    pub base_url: String,
+    /// Kong token expiration time (in seconds)
+    pub kong_token_expiration: u32,
+    pub oauth_provision_key: String,
+    /// TCP logging options
+    pub tcp_log: KongTcpLogConfig,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anonymous_consumers: Option<KongAnonymousConsumers>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub consumers: BTreeMap<String, BTreeMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub internal_ips_whitelist: Vec<String>,
+    #[serde(default, skip_serializing)]
+    pub extra_apis: BTreeMap<String, Kong>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct KongAnonymousConsumers {
+    pub anonymous: BTreeMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct KongTcpLogConfig {
+    pub enabled: bool,
+    pub host: String,
+    pub port: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Region {
     /// Region defaults
     pub defaults: RegionDefaults,
     /// Environment variables to inject
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
+    /// Environment variables to inject
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kong: Option<KongConfig>,
 }
 
 

@@ -170,6 +170,8 @@ fn main() {
               .about("Reduce data handling structs"))
               .subcommand(SubCommand::with_name("show")
                 .help("Show GDPR data for a service"))
+        .subcommand(SubCommand::with_name("kong")
+            .about("Generate Kong config"))
         .subcommand(SubCommand::with_name("graph")
               .arg(Arg::with_name("service")
                 .help("Service name to graph around"))
@@ -362,6 +364,11 @@ fn main() {
         let svc = a.value_of("service").unwrap();
         let region = kube::current_context().unwrap();
         result_exit(args.subcommand_name().unwrap(), shipcat::gdpr_show(svc, &conf, region))
+    }
+
+    if let Some(_a) = args.subcommand_matches("kong") {
+        let region = conditional_exit(kube::current_context());
+        result_exit(args.subcommand_name().unwrap(), shipcat::kong::kong_generate(&conf, region))
     }
 
     if let Some(a) = args.subcommand_matches("slack") {

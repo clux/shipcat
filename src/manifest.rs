@@ -19,8 +19,7 @@ use super::structs::{InitContainer, Resources, HostAlias};
 use super::structs::volume::{Volume, VolumeMount};
 use super::structs::{Metadata, DataHandling, VaultOpts, Jaeger, Dependency};
 use super::structs::prometheus::{Prometheus, Dashboard};
-use super::structs::{CronJob};
-use super::structs::{Sidecar};
+use super::structs::{CronJob, Kong, Sidecar};
 
 
 /// Main manifest, serializable from shipcat.yml
@@ -131,6 +130,10 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub dashboards: BTreeMap<String, Dashboard>,
 
+    /// Kong config
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kong: Option<Kong>,
+
     // TODO: logging alerts
 
     // TODO: stop hook
@@ -211,6 +214,11 @@ impl Manifest {
             for (k, v) in reg.env {
                 self.env.insert(k, v);
             }
+
+            // Kong has implicit, region-scoped values
+            if let Some(ref mut kong) = self.kong {
+                kong.implicits(self.name.clone(), conf.regions[&r].clone());
+            }
         }
         if self.chart == "" {
             self.chart = conf.defaults.chart.clone();
@@ -261,6 +269,11 @@ impl Manifest {
         // merge evars (most common override)
         for (k,v) in mf.env {
             self.env.entry(k).or_insert(v);
+        }
+
+        // Override Kong per environment
+        if mf.kong.is_some() {
+            self.kong = mf.kong.clone();
         }
 
         // maybe environment specific resources?
