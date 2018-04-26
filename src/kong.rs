@@ -46,3 +46,13 @@ pub fn kong_generate(conf: &Config, region: String) -> Result<()> {
 
     Ok(())
 }
+
+/// Return the config_url for the given region
+pub fn kong_config_url(conf: &Config, region: String) -> Result<()> {
+    let reg = conf.regions[&region].clone();
+    let kong = reg.kong.clone().unwrap();
+
+    let _ = io::stdout().write(&kong.config_url.as_bytes());
+
+    Ok(())
+}

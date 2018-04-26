@@ -33,9 +33,15 @@ pub struct RegionDefaults {
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct KongConfig {
     /// Base URL to use (e.g. uk.dev.babylontech.co.uk)
+    #[serde(default, skip_serializing)]
     pub base_url: String,
+    /// Configuration API URL (e.g. https://kong-admin-ops.dev.babylontech.co.uk)
+    #[serde(default, skip_serializing)]
+    pub config_url: String,
     /// Kong token expiration time (in seconds)
+    #[serde(default)]
     pub kong_token_expiration: u32,
+    #[serde(default)]
     pub oauth_provision_key: String,
     /// TCP logging options
     pub tcp_log: KongTcpLogConfig,

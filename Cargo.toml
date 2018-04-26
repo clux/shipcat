@@ -1,8 +1,8 @@
 [package]
-authors = ["Eirik Albrigtsen <eirik.albrigtsen@babylonhealth.com>"]
+authors = ["Eirik Albrigtsen <eirik.albrigtsen@babylonhealth.com>", "Florent Delannoy <florent.delannoy@babylonhealth.com>"]
 name = "shipcat"
 readme = "README.md"
-version = "0.23.0"
+version = "0.24.0"
 
 [[bin]]
 doc = false
