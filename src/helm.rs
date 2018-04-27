@@ -1,5 +1,7 @@
 use std::fs;
 use serde_yaml;
+use semver::Version;
+use regex::Regex;
 
 use std::fmt;
 use std::fs::File;
@@ -271,6 +273,12 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
     };
 
     let ver = mf.version.clone().unwrap(); // must be set outside
+    // Version sanity: must be full git sha || semver
+    let gitre = Regex::new(r"^[0-9a-f\-]{40}$").unwrap();
+    if !gitre.is_match(&ver) && Version::parse(&ver).is_err() {
+        error!("Please supply a 40 char git sha version, or a semver version");
+        bail!("Floating tags cannot be rolled back - not upgrading");
+    }
 
     if mode == UpgradeMode::UpgradeRecreateWait || mode == UpgradeMode::UpgradeInstall || !helmdiff.is_empty() {
         // upgrade it using the same command
@@ -284,6 +292,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
             "--set".into(),
             format!("version={}", ver),
         ];
+
         match mode {
             UpgradeMode::UpgradeWaitMaybeRollback | UpgradeMode::UpgradeWait => {
                 upgradevec.extend_from_slice(&[
@@ -423,4 +432,19 @@ pub fn template(dep: &Deployment, output: Option<String>) -> Result<String> {
     }
     fs::remove_file(tmpfile)?;
     Ok(tpl)
+}
+
+/// Helm history wrapper
+///
+/// Analogue to `helm history {service}` uses the right tiller namespace
+pub fn history(mf: &Manifest) -> Result<()> {
+    let namespace = kube::current_namespace(&mf._region)?;
+    let histvec = vec![
+        format!("--tiller-namespace={}", namespace),
+        "history".into(),
+        mf.name.clone(),
+    ];
+    debug!("helm {}", histvec.join(" "));
+    hexec(histvec)?;
+    Ok(())
 }

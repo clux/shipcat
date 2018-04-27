@@ -15,7 +15,6 @@ use clap::{Arg, App, AppSettings, SubCommand, ArgMatches};
 use std::process;
 use std::fs;
 
-
 fn result_exit<T>(name: &str, x: Result<T>) {
     let _ = x.map_err(|e| {
         error!("{} error: {}", name, e);
@@ -89,7 +88,9 @@ fn main() {
                     .help("Output file to save to"))
                 .about("Generate helm values from a manifest"))
             .subcommand(SubCommand::with_name("diff")
-                .about("Diff kubeernetes configs with local state"))
+                .about("Diff kubernetes configs with local state"))
+            .subcommand(SubCommand::with_name("history")
+                .about("Show helm history for a service"))
             .subcommand(SubCommand::with_name("install")
                 .about("Install a service as a helm release from a manifest"))
             .subcommand(SubCommand::with_name("recreate")
@@ -122,8 +123,6 @@ fn main() {
                 .help("Service name"))
             .subcommand(SubCommand::with_name("console")
                 .arg(Arg::with_name("number")
-                    .takes_value(true)
-                    .short("n")
                     .help("Build number if not last"))
                 .about("Print the latest jenkins console text for a service deploy"))
             .subcommand(SubCommand::with_name("history")
@@ -228,8 +227,7 @@ fn main() {
         .init()
         .unwrap();
 
-    let conf = conditional_exit(Config::read());
-    conditional_exit(conf.verify()); // may as well block on this
+    let conf = conditional_exit(shipcat::init());
 
     if args.subcommand_matches("list-regions").is_some() {
         result_exit(args.subcommand_name().unwrap(), shipcat::list::regions(&conf))
@@ -284,6 +282,14 @@ fn main() {
             error!("You need to define your kube context '{}' in shipcat.conf first", region);
             process::exit(2)
         };
+
+        // small wrapper around helm history does not need anything fancy
+        if let Some(_) = a.subcommand_matches("history") {
+            // only get needs basic manifest
+            let mf = conditional_exit(Manifest::basic(&service, &conf, Some(region.clone())));
+            let res = shipcat::helm::history(&mf);
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
 
         // templating engine
         let tera = conditional_exit(shipcat::template::init(service));

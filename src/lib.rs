@@ -145,6 +145,29 @@ pub mod graph;
 /// A jenkins helper interface using `jenkinsapi`
 pub mod jenkins;
 
+/// Smart initialiser with safety
+///
+/// Tricks the library into reading from your manifest location.
+pub fn init() -> Result<Config> {
+    use std::env;
+    use std::path::Path;
+
+    // Allow shipcat calls to work from anywhere if we know where manifests are
+    if let Ok(mdir) = env::var("SHIPCAT_MANIFEST_DIR") {
+        let pth = Path::new(&mdir);
+        if !pth.is_dir() {
+            bail!("SHIPCAT_MANIFEST_DIR must exist");
+        }
+        env::set_current_dir(pth)?;
+    }
+
+    // Read and validate shipcat.conf
+    let conf = Config::read()?;
+    conf.verify()?; // may as well block on this
+
+    Ok(conf)
+}
+
 // Test helpers
 #[cfg(test)]
 extern crate loggerv;

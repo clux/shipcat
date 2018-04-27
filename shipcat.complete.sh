@@ -41,6 +41,11 @@ _shipcat()
     done
     # TODO: fix cluster -> helm swap :(
 
+    local mdir="."
+    if [ -n "$SHIPCAT_MANIFEST_DIR" ]; then
+        mdir="${SHIPCAT_MANIFEST_DIR}"
+    fi
+
     if [[ -n $special ]]; then
         case $special in
             get)
@@ -67,7 +72,7 @@ _shipcat()
             validate|graph)
                 local -r regions="$(shipcat list-regions)"
                 if [[ $prev = @(graph|validate) ]]; then
-                    svcs=$(find "./services" -maxdepth 1 -mindepth 1 -type d -printf "%f " 2> /dev/null)
+                    svcs=$(find "${mdir}/services" -maxdepth 1 -mindepth 1 -type d -printf "%f " 2> /dev/null)
                     COMPREPLY=($(compgen -W "$svcs -r --region" -- "$cur"))
                 elif [[ $prev == @(-r|--region) ]]; then
                     COMPREPLY=($(compgen -W "$regions" -- "$cur"))
@@ -102,7 +107,7 @@ _shipcat()
                 local -r regions="$(shipcat list-regions)"
                 local helm_sub i
                 for (( i=2; i < ${#words[@]}-1; i++ )); do
-                    if [[ ${words[i]} = @(values|template|diff|upgrade|install) ]]; then
+                    if [[ ${words[i]} = @(values|template|diff|upgrade|install|history) ]]; then
                         helm_sub=${words[i]}
                     fi
                 done
@@ -116,7 +121,7 @@ _shipcat()
                     COMPREPLY=($(compgen -W "-o --output --dry-run" -- "$cur"))
                 else
                     # Suggest subcommands of helm and global flags
-                    COMPREPLY=($(compgen -W "values template diff upgrade install recreate" -- "$cur"))
+                    COMPREPLY=($(compgen -W "values template diff upgrade install history recreate" -- "$cur"))
                 fi
                 ;;
             jenkins)
@@ -141,7 +146,7 @@ _shipcat()
                 fi
                 ;;
             shell|logs)
-                svcs=$(find "./services" -maxdepth 1 -mindepth 1 -type d -printf "%f " 2> /dev/null)
+                svcs=$(find "${mdir}/services" -maxdepth 1 -mindepth 1 -type d -printf "%f " 2> /dev/null)
                 if [[ $prev = @(shell|logs) ]]; then
                     COMPREPLY=($(compgen -W "-r --region -p --pod $svcs" -- "$cur"))
                 elif [[ $prev == @(-r|--region) ]]; then
