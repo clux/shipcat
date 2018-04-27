@@ -59,6 +59,7 @@ fn find_build_by_parameter(client: &Jenkins, job: &str, app: &str) -> Result<Opt
 fn find_builds_by_parameter(client: &Jenkins, job: &str, app: &str) -> Result<Vec<Build>> {
     let job = get_job(&client, job)?;
     let mut builds = vec![];
+    let len = job.builds.len();
     for sbuild in job.builds {
         match sbuild.get_full_build(&client) {
             Ok(build) => {
@@ -74,6 +75,9 @@ fn find_builds_by_parameter(client: &Jenkins, job: &str, app: &str) -> Result<Ve
             }
             Err(_) => continue,
         }
+    }
+    if builds.is_empty() {
+        warn!("No completed deploy jobs found for {} in the last {} builds", app, len);
     }
     Ok(builds)
 }
@@ -130,6 +134,9 @@ pub fn history(service: &str, reg: &str) -> Result<()> {
     let jobname = format!("kube-deploy-{}", reg);
     let builds = find_builds_by_parameter(&client, &jobname, service)?;
 
+    if builds.is_empty() {
+        return Ok(())
+    }
     println!("{0:<6} {1:<20} {2:<9}", "BUILD", "UPDATED", "RESULT");
     for b in builds {
         let ts = Utc.timestamp((b.timestamp/1000) as i64, 0);

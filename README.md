@@ -20,6 +20,7 @@ rustup update stable # if build breaks on master
 cargo build
 ln -sf $PWD/target/debug/shipcat /usr/local/bin/shipcat
 echo "source $PWD/shipcat.complete.sh" >> ~/.bash_completion
+export SHIPCAT_MANIFEST_DIR=~/repos/manifests
 ```
 
 ### Docker
@@ -61,7 +62,7 @@ export JENKINS_API_TOKEN=TOKEN_FROM_PROFILE_PAGE
 export JENKINS_API_USER=eirik.albrigtsen
 
 shipcat jenkins diagnostic-engine history
-shipcat jenkins core-ruby console -n 3022 | less
+shipcat jenkins core-ruby console 3022
 ```
 
 ## Usage - Write Access
