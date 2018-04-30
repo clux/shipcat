@@ -307,8 +307,13 @@ fn main() {
         conditional_exit(mf.verify(&conf)); // sanity (non-secret verify
 
         mf.version = if let Some(tag) = a.value_of("tag") {
+            // If passing version explicitly, use that
             Some(tag.into())
+        } else if let Some(v) = mf.version {
+            // If pinned in manifests, use that version
+            Some(v)
         } else {
+            // Otherwise infer from running, falling back to defaults
             Some(conditional_exit(shipcat::helm::infer_version(service, &regdefaults)))
         };
         assert!(mf.version.is_some());
