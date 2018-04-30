@@ -206,11 +206,6 @@ impl Manifest {
             }
             self._region = r.clone();
             let reg = conf.regions[&r].clone(); // must exist
-            // allow overriding tags
-            if self.version.is_none() {
-                trace!("overriding image.version with {:?}", reg.defaults.version);
-                self.version = Some(reg.defaults.version);
-            }
             for (k, v) in reg.env {
                 self.env.insert(k, v);
             }
@@ -266,37 +261,27 @@ impl Manifest {
         // we can put this straight into a Manifest struct
         let mf: Manifest = serde_yaml::from_str(&data)?;
 
-        // merge evars (most common override)
+        // merge evars (overwrites evars found in shipcat.yml)
         for (k,v) in mf.env {
             self.env.insert(k, v);
         }
-
-        // Override Kong per environment
+        // Must override Kong per environment (overwrite full struct)
         if mf.kong.is_some() {
             self.kong = mf.kong.clone();
         }
-
-        // maybe environment specific resources?
-        // probably not a good idea
-        //if self.resources.is_none() && mf.resources.is_some() {
-        //    self.resources = mf.resources.clone();
-        //}
-        //if let Some(ref mut res) = self.resources {
-        //    if res.limits.is_none() {
-        //        res.limits = mf.resources.clone().unwrap().limits;
-        //    }
-        //    if res.requests.is_none() {
-        //        res.requests = mf.resources.clone().unwrap().requests;
-        //    }
-        //    // for now: if limits or requests are specified, you have to fill in both CPU and memory
-        //}
-
-        // allow overriding of init containers
+        // Version overrides (can be locked across envs, but overwrite when requested)
+        if mf.version.is_some() {
+            self.version = mf.version;
+        }
+        // Allow overriding resources (full struct only)
+        if mf.resources.is_some(){
+            self.resources = mf.resources
+        }
+        // allow overriding of init containers (full vector only)
         if !mf.initContainers.is_empty() {
             self.initContainers = mf.initContainers.clone();
         }
-
-        // allow overriding of host aliases
+        // allow overriding of host aliases (full vector only)
         if !mf.hostAliases.is_empty() {
             for hostAlias in &mf.hostAliases {
                 if hostAlias.ip == "" || hostAlias.hostnames.is_empty() {
@@ -306,6 +291,7 @@ impl Manifest {
             trace!("overriding hostAliases with {:?}", mf.hostAliases);
             self.hostAliases = mf.hostAliases;
         }
+        // TODO: more as becomes needed
 
         Ok(())
     }
