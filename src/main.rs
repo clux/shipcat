@@ -314,7 +314,7 @@ fn main() {
             Some(v)
         } else {
             // Otherwise infer from running, falling back to defaults
-            Some(conditional_exit(shipcat::helm::infer_version(service, &regdefaults)))
+            Some(conditional_exit(shipcat::helm::infer_fallback_version(service, &regdefaults)))
         };
         assert!(mf.version.is_some());
 

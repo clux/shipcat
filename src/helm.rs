@@ -42,7 +42,7 @@ pub fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
 }
 
 
-pub fn infer_version(service: &str, reg: &RegionDefaults) -> Result<String> {
+pub fn infer_fallback_version(service: &str, reg: &RegionDefaults) -> Result<String> {
     // fetch current version from helm
     let imgvec = vec![
         format!("--tiller-namespace={}", reg.namespace),
@@ -102,6 +102,24 @@ fn pre_upgrade_sanity() -> Result<()> {
     slack::env_hook_url()?;
 
     Ok(())
+}
+
+fn version_validate(mf: &Manifest) -> Result<String> {
+    // version MUST be set by main.rs / cluster.rs / whatever.rs before using helm
+    // programmer error to not do so; hence the unwrap and backtrace crash
+    let ver = mf.version.clone().unwrap();
+    let img = mf.image.clone().unwrap();
+
+    // Version sanity: must be full git sha || semver
+    let gitre = Regex::new(r"^[0-9a-f\-]{40}$").unwrap();
+    if !gitre.is_match(&ver) && Version::parse(&ver).is_err() {
+        warn!("Please supply a 40 char git sha version, or a semver version for {}", mf.name);
+        if img.contains("quay.io/babylon") {
+            // TODO: locked down repos in config ^
+            bail!("Floating tag {} cannot be rolled back - not upgrading", ver);
+        }
+    }
+    Ok(ver)
 }
 
 fn diff_format(diff: String) -> String {
@@ -272,13 +290,8 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
         hdiff
     };
 
-    let ver = mf.version.clone().unwrap(); // must be set outside
-    // Version sanity: must be full git sha || semver
-    let gitre = Regex::new(r"^[0-9a-f\-]{40}$").unwrap();
-    if !gitre.is_match(&ver) && Version::parse(&ver).is_err() {
-        error!("Please supply a 40 char git sha version, or a semver version");
-        bail!("Floating tags cannot be rolled back - not upgrading");
-    }
+    let ver = version_validate(&mf)?;
+
 
     if mode == UpgradeMode::UpgradeRecreateWait || mode == UpgradeMode::UpgradeInstall || !helmdiff.is_empty() {
         // upgrade it using the same command

@@ -97,7 +97,12 @@ fn upgrade_worker(svc: String, mode: UpgradeMode, region: String, conf: Config) 
 
     // get version running now (to limit race condition with deploys)
     let regdefaults = conf.regions.get(&region).unwrap().defaults.clone();
-    mf.version = Some(helm::infer_version(&svc, &regdefaults)?);
+    mf.version = if let Some(v) = mf.version {
+        // If pinned in manifests, use that version
+        Some(v)
+    } else {
+        Some(helm::infer_fallback_version(&svc, &regdefaults)?)
+    };
 
     // Template values file
     let hfile = format!("{}.helm.gen.yml", &svc);
