@@ -1,7 +1,4 @@
 use std::fs;
-use serde_yaml;
-use semver::Version;
-use regex::Regex;
 
 use std::fmt;
 use std::fs::File;
@@ -12,150 +9,7 @@ use super::slack;
 use super::kube;
 use super::generate::{self, Deployment};
 use super::{Result, Manifest};
-use super::config::{RegionDefaults};
-
-/// Values parsed from `helm get values {service}`
-///
-/// This is the completed manifests including templates, but we only need one key
-/// Just parsing this key also makes it more forwards compatible
-#[derive(Deserialize)]
-struct HelmVals {
-    version: String,
-}
-
-pub fn hexec(args: Vec<String>) -> Result<()> {
-    use std::process::Command;
-    debug!("helm {}", args.join(" "));
-    let s = Command::new("helm").args(&args).status()?;
-    if !s.success() {
-        bail!("Subprocess failure from helm: {}", s.code().unwrap_or(1001))
-    }
-    Ok(())
-}
-pub fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
-    use std::process::Command;
-    debug!("helm {}", args.join(" "));
-    let s = Command::new("helm").args(&args).output()?;
-    let out : String = String::from_utf8_lossy(&s.stdout).into();
-    let err : String = String::from_utf8_lossy(&s.stderr).into();
-    Ok((out, err, s.status.success()))
-}
-
-
-pub fn infer_fallback_version(service: &str, reg: &RegionDefaults) -> Result<String> {
-    // fetch current version from helm
-    let imgvec = vec![
-        format!("--tiller-namespace={}", reg.namespace),
-        "get".into(),
-        "values".into(),
-        service.into(),
-    ];
-    debug!("helm {}", imgvec.join(" "));
-    match hout(imgvec.clone()) {
-        // got a result from helm + rc was 0:
-        Ok((vout, verr, true)) => {
-            if !verr.is_empty() {
-                warn!("{} stderr: {}", imgvec.join(" "), verr);
-            }
-            // if we got this far, release was found
-            // it should work to parse the HelmVals subset of the values:
-            let values : HelmVals = serde_yaml::from_str(&vout.to_owned())?;
-            Ok(values.version)
-        },
-        _ => {
-            // nothing from helm, fallback to region defaults from config
-            Ok(reg.version.clone())
-        }
-    }
-}
-
-fn infer_jenkins_link() -> Option<String> {
-    use std::env;
-    use std::process::Command;
-    if let (Ok(url), Ok(name), Ok(nr)) = (env::var("BUILD_URL"),
-                                          env::var("JOB_NAME"),
-                                          env::var("BUILD_NUMBER")) {
-        Some(format!("{}|{} #{}", url, name, nr))
-    } else {
-        match Command::new("whoami").output() {
-            Ok(s) => {
-                let mut out : String = String::from_utf8_lossy(&s.stdout).into();
-                let len = out.len();
-                if out.ends_with('\n') {
-                    out.truncate(len - 1)
-                }
-                return Some(out)
-            }
-            Err(e) => {
-                warn!("Could not retrieve user from shell {}", e);
-                return None
-            }
-        }
-    }
-}
-
-fn pre_upgrade_sanity() -> Result<()> {
-    // TODO: kubectl auth can-i rollout Deployment
-
-    // slack stuff must also be set:
-    slack::env_channel()?;
-    slack::env_hook_url()?;
-
-    Ok(())
-}
-
-fn version_validate(mf: &Manifest) -> Result<String> {
-    // version MUST be set by main.rs / cluster.rs / whatever.rs before using helm
-    // programmer error to not do so; hence the unwrap and backtrace crash
-    let ver = mf.version.clone().unwrap();
-    let img = mf.image.clone().unwrap();
-
-    // Version sanity: must be full git sha || semver
-    let gitre = Regex::new(r"^[0-9a-f\-]{40}$").unwrap();
-    if !gitre.is_match(&ver) && Version::parse(&ver).is_err() {
-        warn!("Please supply a 40 char git sha version, or a semver version for {}", mf.name);
-        if img.contains("quay.io/babylon") {
-            // TODO: locked down repos in config ^
-            bail!("Floating tag {} cannot be rolled back - not upgrading", ver);
-        }
-    }
-    Ok(ver)
-}
-
-fn diff_format(diff: String) -> String {
-    use regex::Regex;
-
-    let diff_re = Regex::new(r"has changed|^\-|^\+").unwrap();
-    // filter out lines that doesn't contain "has changed" or starting with + or -
-    diff.split("\n").filter(|l| {
-        diff_re.is_match(l)
-    }).collect::<Vec<_>>().join("\n")
-}
-
-fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
-    let mut out = input.clone();
-    for s in secrets {
-        // If your secret is less than 8 characters, we won't obfuscate it
-        // Mostly for fear of clashing with other parts of the output,
-        // but also because it's an insecure secret anyway
-        if s.len() >= 8 {
-            out = out.replace(&s, "************");
-        }
-    }
-    out
-}
-
-fn helm_wait_time(mf: &Manifest) -> u32 {
-    // TODO: need to take into account image size!
-    let rcount = mf.replicaCount.unwrap(); // this is set by defaults!
-    if let Some(ref hc) = mf.health {
-        // wait for at most 2 * bootTime * replicas
-        2 * hc.wait * rcount
-    } else {
-        // sensible guess for boot time
-        2 * 30 * rcount
-    }
-}
+use super::helpers::{self, hout, hexec};
 
 /// The different modes we allow `helm upgrade` to run in
 #[derive(PartialEq, Clone)]
@@ -247,7 +101,7 @@ fn rollback(mf: &Manifest, namespace: &str) -> Result<()> {
             let _ = slack::send(slack::Message {
                 text: format!("failed to rollback `{}` in {}", &mf.name, &mf._region),
                 color: Some("danger".into()),
-                link: infer_jenkins_link(),
+                link: helpers::infer_ci_links(),
                 ..Default::default()
             });
             Err(e)
@@ -256,7 +110,7 @@ fn rollback(mf: &Manifest, namespace: &str) -> Result<()> {
             slack::send(slack::Message {
                 text: format!("rolling back `{}` in {}",  &mf.name, &mf._region),
                 color: Some("good".into()),
-                link: infer_jenkins_link(),
+                link: helpers::infer_ci_links(),
                 ..Default::default()
             })?;
             Ok(())
@@ -276,7 +130,7 @@ fn rollback(mf: &Manifest, namespace: &str) -> Result<()> {
 /// but only after some base level debug has been output to console.
 pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifest, String)> {
     if mode != UpgradeMode::DiffOnly {
-        pre_upgrade_sanity()?;
+        slack::have_credentials()?;
     }
     let namespace = kube::current_namespace(&mf._region)?;
 
@@ -290,7 +144,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
         hdiff
     };
 
-    let ver = version_validate(&mf)?;
+    let ver = helpers::version_validate(&mf)?;
 
 
     if mode == UpgradeMode::UpgradeRecreateWait || mode == UpgradeMode::UpgradeInstall || !helmdiff.is_empty() {
@@ -310,14 +164,14 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
             UpgradeMode::UpgradeWaitMaybeRollback | UpgradeMode::UpgradeWait => {
                 upgradevec.extend_from_slice(&[
                     "--wait".into(),
-                    format!("--timeout={}", helm_wait_time(mf)),
+                    format!("--timeout={}", helpers::calculate_wait_time(mf)),
                 ]);
             },
             UpgradeMode::UpgradeRecreateWait => {
                 upgradevec.extend_from_slice(&[
                     "--recreate-pods".into(),
                     "--wait".into(),
-                    format!("--timeout={}", helm_wait_time(mf)),
+                    format!("--timeout={}", helpers::calculate_wait_time(mf)),
                 ]);
             },
             UpgradeMode::UpgradeInstall => {
@@ -339,7 +193,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
                 slack::send(slack::Message {
                     text: format!("failed to {} `{}` in {}", mode, &mf.name, &mf._region),
                     color: Some("danger".into()),
-                    link: infer_jenkins_link(),
+                    link: helpers::infer_ci_links(),
                     notifies,
                     code: Some(helmdiff.clone()),
                 })?;
@@ -355,7 +209,7 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
                     text: format!("{}d `{}` in {}", mode, &mf.name, &mf._region),
                     color: Some("good".into()),
                     notifies,
-                    link: infer_jenkins_link(),
+                    link: helpers::infer_ci_links(),
                     code: Some(helmdiff.clone()),
                 })?;
             }
@@ -385,7 +239,7 @@ pub fn diff(mf: &Manifest, hfile: &str) -> Result<String> {
     ];
     info!("helm {}", diffvec.join(" "));
     let (hdiffunobfusc, hdifferr, _) = hout(diffvec.clone())?;
-    let helmdiff = obfuscate_secrets(
+    let helmdiff = helpers::obfuscate_secrets(
         hdiffunobfusc,
         mf._decoded_secrets.values().cloned().collect()
     );
@@ -395,7 +249,7 @@ pub fn diff(mf: &Manifest, hfile: &str) -> Result<String> {
             bail!("diff plugin for {} returned: {}", mf.name, hdifferr.lines().next().unwrap());
         }
     }
-    let smalldiff = diff_format(helmdiff.clone());
+    let smalldiff = helpers::diff_format(helmdiff.clone());
 
     if !helmdiff.is_empty() {
         debug!("{}\n", helmdiff); // full diff for logs

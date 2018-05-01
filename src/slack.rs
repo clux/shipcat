@@ -36,6 +36,16 @@ fn env_username() -> String {
     env::var("SLACK_SHIPCAT_NAME").unwrap_or_else(|_| "shipcat".into())
 }
 
+/// Basic check to see that slack credentials is working
+///
+/// Used before running upgrades so we have a trail
+/// It's not very good at the moment. TODO: verify better
+pub fn have_credentials() -> Result<()> {
+    env_channel()?;
+    env_hook_url()?;
+    Ok(())
+}
+
 /// Send a `Message` to a configured slack destination
 pub fn send(msg: Message) -> Result<()> {
     let hook_url : &str = &env_hook_url()?;

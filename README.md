@@ -12,6 +12,8 @@ Lives [on your ship](https://en.wikipedia.org/wiki/Ship%27s_cat).
 ### Prebuilt
 Grab a [prebuilt shipcat from github releases](https://github.com/Babylonpartners/shipcat/releases). This can be extracted to `/usr/local` or some place on your `$PATH`. Then add the line `source /usr/local/share/shipcat/shipcat.complete.sh` to `~/.bash_completion`.
 
+To use `shipcat` from outside a manifest repo, `export SHIPCAT_MANIFEST_DIR=~/repos/manifests`.
+
 ### Building
 To build yourself, use [rustup](https://rustup.rs/) to get latest stable rust.
 
@@ -20,7 +22,6 @@ rustup update stable # if build breaks on master
 cargo build
 ln -sf $PWD/target/debug/shipcat /usr/local/bin/shipcat
 echo "source $PWD/shipcat.complete.sh" >> ~/.bash_completion
-export SHIPCAT_MANIFEST_DIR=~/repos/manifests
 ```
 
 ### Docker
