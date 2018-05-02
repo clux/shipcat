@@ -41,8 +41,14 @@ RUN set -x && \
     helm init -c && \
     curl -sSL https://github.com/databus23/helm-diff/releases/download/v${HELMDIFFVER}/helm-diff-linux.tgz | tar xvz -C $(helm home)/plugins
 
+# Hack to have diff in the bin sub-directory
+RUN mkdir $(helm home)/plugins/diff/bin && \
+    cp $(helm home)/plugins/diff/diff $(helm home)/plugins/diff/bin/
+
 # Add yamllint+yq for convenience
-RUN apk add --no-cache python3 && pip3 install yamllint yq
+RUN apk add --no-cache python3 && \
+    pip3 install --upgrade pip && \
+    pip3 install yamllint yq
 
 # Install kong-configurator deps
 ADD kong-configurator kong-configurator
