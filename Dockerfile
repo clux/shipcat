@@ -1,8 +1,8 @@
 FROM alpine:3.7
 
-ENV KUBEVER=1.9.6 \
-    HELMVER=2.8.2 \
-    HELMDIFFVER="2.8.2%2B2" \
+ENV KUBEVER=1.10.1 \
+    HELMVER=2.9.0 \
+    HELMDIFFVER="2.9.0%2B1" \
     KUBEVALVER=0.7.1 \
     KUBETESTVER=0.1.1 \
     HOME=/config \
