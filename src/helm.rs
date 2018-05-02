@@ -374,13 +374,14 @@ pub fn diff(mf: &Manifest, hfile: &str) -> Result<String> {
     let diffvec = vec![
         format!("--tiller-namespace={}", namespace),
         "diff".into(),
+        "upgrade".into(),
         "--no-color".into(),
+        "-q".into(),
         mf.name.clone(),
         format!("charts/{}", mf.chart),
         "-f".into(),
         hfile.into(),
-        "--set".into(),
-        format!("version={}", ver),
+        format!("--version={}", ver),
     ];
     info!("helm {}", diffvec.join(" "));
     let (hdiffunobfusc, hdifferr, _) = hout(diffvec.clone())?;
