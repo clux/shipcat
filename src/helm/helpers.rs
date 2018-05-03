@@ -8,13 +8,32 @@ use super::{Result, Manifest};
 
 
 pub fn diff_format(diff: String) -> String {
-    use regex::Regex;
-
     let diff_re = Regex::new(r"has changed|^\-|^\+").unwrap();
     // filter out lines that doesn't contain "has changed" or starting with + or -
     diff.split("\n").filter(|l| {
         diff_re.is_match(l)
     }).collect::<Vec<_>>().join("\n")
+}
+
+
+/// Infer a version change diff and extract old version and new version
+///
+/// Example input:
+/// pa-aggregator, Deployment (extensions/v1beta1) has changed:
+/// -         image: "quay.io/babylonhealth/pa-aggregator-python:e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19"
+/// +         image: "quay.io/babylonhealth/pa-aggregator-python:d4f01f5143643e75d9cc2d5e3221e82a9e1c12e5"
+///
+pub fn infer_version_change(diff: &str) -> Option<(String, String)> {
+    let img_re = Regex::new(r"image: [^:]*:((?P<version>[a-z0-9\.\-]+))").unwrap();
+    let res = img_re.captures_iter(diff).map(|cap| {
+        cap["version"].to_string()
+    }).collect::<Vec<String>>();
+    if res.len() >= 2 {
+        let old = res[0].clone();
+        let new = res[1].clone();
+        return Some((old, new));
+    }
+    None
 }
 
 pub fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
@@ -99,31 +118,6 @@ pub fn infer_fallback_version(service: &str, reg: &RegionDefaults) -> Result<Str
     }
 }
 
-pub fn infer_ci_links() -> Option<String> {
-    use std::env;
-    use std::process::Command;
-    // check jenkins evars first
-    if let (Ok(url), Ok(name), Ok(nr)) = (env::var("BUILD_URL"),
-                                          env::var("JOB_NAME"),
-                                          env::var("BUILD_NUMBER")) {
-        Some(format!("{}|{} #{}", url, name, nr))
-    } else {
-        match Command::new("whoami").output() {
-            Ok(s) => {
-                let mut out : String = String::from_utf8_lossy(&s.stdout).into();
-                let len = out.len();
-                if out.ends_with('\n') {
-                    out.truncate(len - 1)
-                }
-                return Some(out)
-            }
-            Err(e) => {
-                warn!("Could not retrieve user from shell {}", e);
-                return None
-            }
-        }
-    }
-}
 
 pub fn version_validate(mf: &Manifest) -> Result<String> {
     // version MUST be set by main.rs / cluster.rs / whatever.rs before using helm
@@ -141,4 +135,22 @@ pub fn version_validate(mf: &Manifest) -> Result<String> {
         }
     }
     Ok(ver)
+}
+
+#[cfg(test)]
+mod tests {
+    //use tests::setup;
+    use super::{infer_version_change};
+
+    #[test]
+    fn version_change_test() {
+        let input = "pa-aggregator, Deployment (extensions/v1beta1) has changed:\n
+-         image: \"quay.io/babylonhealth/pa-aggregator-python:e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19\"\n
++         image: \"quay.io/babylonhealth/pa-aggregator-python:d4f01f5143643e75d9cc2d5e3221e82a9e1c12e5\"";
+        let res = infer_version_change(input);
+        assert!(res.is_some());
+        let (old, new) = res.unwrap();
+        assert_eq!(old, "e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19");
+        assert_eq!(new, "d4f01f5143643e75d9cc2d5e3221e82a9e1c12e5");
+    }
 }
