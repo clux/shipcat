@@ -101,7 +101,6 @@ fn rollback(mf: &Manifest, namespace: &str) -> Result<()> {
             let _ = slack::send(slack::Message {
                 text: format!("failed to rollback `{}` in {}", &mf.name, &mf._region),
                 color: Some("danger".into()),
-                link: helpers::infer_ci_links(),
                 ..Default::default()
             });
             Err(e)
@@ -110,7 +109,6 @@ fn rollback(mf: &Manifest, namespace: &str) -> Result<()> {
             slack::send(slack::Message {
                 text: format!("rolling back `{}` in {}",  &mf.name, &mf._region),
                 color: Some("good".into()),
-                link: helpers::infer_ci_links(),
                 ..Default::default()
             })?;
             Ok(())
@@ -186,14 +184,21 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
 
         // CC service contacts on result
         info!("helm {}", upgradevec.join(" "));
-        let notifies = mf.metadata.clone().contacts;
+        let (notifies, ghlink) = if let Some(md) = mf.metadata.clone() {
+            // TODO: in slack, both versions!
+            // TODO: slice ver to first 8 chars
+            // TODO: only show short compare url
+            let ghcomp = format!("{}/compare/{}...{}", md.repo, ver, "master");
+            (md.contacts, Some(ghcomp))
+        } else {
+            (vec![], None)
+        };
         match hexec(upgradevec) {
             Err(e) => {
                 error!("{} from {}", e, mf.name);
                 slack::send(slack::Message {
                     text: format!("failed to {} `{}` in {}", mode, &mf.name, &mf._region),
                     color: Some("danger".into()),
-                    link: helpers::infer_ci_links(),
                     notifies,
                     code: Some(helmdiff.clone()),
                 })?;
@@ -209,7 +214,6 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
                     text: format!("{}d `{}` in {}", mode, &mf.name, &mf._region),
                     color: Some("good".into()),
                     notifies,
-                    link: helpers::infer_ci_links(),
                     code: Some(helmdiff.clone()),
                 })?;
             }

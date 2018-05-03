@@ -1,5 +1,5 @@
-use slack_hook::{Slack, PayloadBuilder, SlackLink, SlackUserLink, AttachmentBuilder};
-use slack_hook::SlackTextContent::{Text, Link, User};
+use slack_hook::{Slack, PayloadBuilder, SlackLink, SlackText, SlackUserLink, AttachmentBuilder};
+use slack_hook::SlackTextContent::{self, Text, Link, User};
 use std::env;
 
 use super::{Result, ErrorKind};
@@ -12,9 +12,6 @@ use super::{Result, ErrorKind};
 pub struct Message {
     /// Text in message
     pub text: String,
-
-    /// Optional link to append
-    pub link: Option<String>,
 
     /// Optional list of people links to CC
     pub notifies: Vec<String>,
@@ -73,16 +70,9 @@ pub fn send(msg: Message) -> Result<()> {
     // All text constructed for first attachment goes in this vec:
     let mut texts = vec![Text(msg.text.into())];
 
-    // Main link
-    if let Some(link) = msg.link {
-        let split: Vec<&str> = link.split('|').collect();
-        // Full sanity check here as it could come from the CLI
-        if split.len() > 2 {
-            bail!("Link {} not in the form of url|description", link);
-        }
-        let desc = if split.len() == 2 { split[1].into() } else { link.clone() };
-        let addr = if split.len() == 2 { split[0].into() } else { link.clone() };
-        texts.push(Link(SlackLink::new(&addr, &desc)));
+    // Auto link/text from originator
+    if let Some(orig) = infer_ci_links() {
+        texts.push(orig);
     }
 
     // CCs from notifies array
@@ -111,6 +101,39 @@ pub fn send(msg: Message) -> Result<()> {
     Ok(())
 }
 
+/// Infer originator of a message
+fn infer_ci_links() -> Option<SlackTextContent> {
+    use std::env;
+    use std::process::Command;
+    if let (Ok(url), Ok(name), Ok(nr)) = (env::var("BUILD_URL"),
+                                          env::var("JOB_NAME"),
+                                          env::var("BUILD_NUMBER")) {
+        // we are on jenkins
+        Some(Link(SlackLink::new(&url, &format!("{} #{}", name, nr))))
+    } else if let (Ok(url), Ok(name), Ok(nr)) = (env::var("CIRCLE_BUILD_URL"),
+                                                 env::var("CIRCLE_JOB"),
+                                                 env::var("CIRCLE_BUILD_NUM")) {
+        // we are on circle
+        Some(Link(SlackLink::new(&url, &format!("{} #{}", name, nr))))
+    } else {
+        // fallback to linux user
+        match Command::new("whoami").output() {
+            Ok(s) => {
+                let mut out : String = String::from_utf8_lossy(&s.stdout).into();
+                let len = out.len();
+                if out.ends_with('\n') {
+                    out.truncate(len - 1)
+                }
+                Some(Text(SlackText::new(format!("({})", out))))
+            }
+            Err(e) => {
+                warn!("Could not retrieve user from shell {}", e);
+                None
+            }
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -129,8 +152,7 @@ mod tests {
             send(Message {
                 text: format!("tested `{}`", "slack"),
                 color: Some("good".into()),
-                link: Some("https://lolcathost.com/|lolcathost".into()),
-                notifies: mf.metadata.contacts,
+                notifies: mf.metadata.unwrap().contacts,
                 code: Some(format!("-diff\n+diff")),
                 ..Default::default()
             }).unwrap();
