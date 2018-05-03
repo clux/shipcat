@@ -23,15 +23,14 @@ pub fn diff_format(diff: String) -> String {
 /// -         image: "quay.io/babylonhealth/pa-aggregator-python:e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19"
 /// +         image: "quay.io/babylonhealth/pa-aggregator-python:d4f01f5143643e75d9cc2d5e3221e82a9e1c12e5"
 ///
+/// Output: The two sha1s
 pub fn infer_version_change(diff: &str) -> Option<(String, String)> {
-    let img_re = Regex::new(r"image: [^:]*:((?P<version>[a-z0-9\.\-]+))").unwrap();
+    let img_re = Regex::new(r"[^:]+:(?P<version>[a-z0-9\.\-]+)").unwrap();
     let res = img_re.captures_iter(diff).map(|cap| {
         cap["version"].to_string()
     }).collect::<Vec<String>>();
     if res.len() >= 2 {
-        let old = res[0].clone();
-        let new = res[1].clone();
-        return Some((old, new));
+        return Some((res[0].clone(), res[1].clone()));
     }
     None
 }
@@ -144,8 +143,8 @@ mod tests {
 
     #[test]
     fn version_change_test() {
-        let input = "pa-aggregator, Deployment (extensions/v1beta1) has changed:\n
--         image: \"quay.io/babylonhealth/pa-aggregator-python:e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19\"\n
+        let input = "pa-aggregator, Deployment (extensions/v1beta1) has changed:
+-         image: \"quay.io/babylonhealth/pa-aggregator-python:e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19\"
 +         image: \"quay.io/babylonhealth/pa-aggregator-python:d4f01f5143643e75d9cc2d5e3221e82a9e1c12e5\"";
         let res = infer_version_change(input);
         assert!(res.is_some());

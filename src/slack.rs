@@ -2,6 +2,8 @@ use slack_hook::{Slack, PayloadBuilder, SlackLink, SlackText, SlackUserLink, Att
 use slack_hook::SlackTextContent::{self, Text, Link, User};
 use std::env;
 
+use super::helm::helpers;
+use super::structs::Metadata;
 use super::{Result, ErrorKind};
 
 /// Slack message options we support
@@ -13,8 +15,11 @@ pub struct Message {
     /// Text in message
     pub text: String,
 
-    /// Optional list of people links to CC
-    pub notifies: Vec<String>,
+    /// Metadata from Manifest
+    pub metadata: Option<Metadata>,
+
+    /// Set when not wanting to niotify people
+    pub quiet: bool,
 
     /// Optional color for the attachment API
     pub color: Option<String>,
@@ -70,35 +75,70 @@ pub fn send(msg: Message) -> Result<()> {
     // All text constructed for first attachment goes in this vec:
     let mut texts = vec![Text(msg.text.into())];
 
+    let mut have_gh_link = false;
+    let mut codeattach = None;
+    if let Some(code) = msg.code {
+        if let Some(ref md) = msg.metadata {
+            if let Some(lnk) = infer_metadata_links(md, &code) {
+                println!("pushed gh link");
+                have_gh_link = true;
+                texts.push(lnk);
+            }
+        }
+        let num_lines = code.lines().count();
+        // if it's not a straight image change diff, print it:
+        println!("how many fuciking lines {}: {:?}", num_lines, code.lines());
+        if !(num_lines == 3 && have_gh_link) {
+            codeattach = Some(AttachmentBuilder::new(code.clone())
+                .color("#439FE0")
+                .text(vec![Text(code.into())].as_slice())
+                .build()?);
+        }
+    }
+
     // Auto link/text from originator
     if let Some(orig) = infer_ci_links() {
         texts.push(orig);
     }
 
-    // CCs from notifies array
-    for cc in msg.notifies {
-        texts.push(User(SlackUserLink::new(&cc)));
+    // Auto cc users
+    if let Some(ref md) = msg.metadata {
+        if !msg.quiet {
+            texts.push(Text("cc ".to_string().into()));
+            texts.extend(infer_slack_notifies(md));
+        }
     }
 
     // Pass the texts array to slack_hook
     a = a.text(texts.as_slice());
+    let mut ax = vec![a.build()?];
 
     // Second attachment: optional code (blue)
-    let mut ax = vec![a.build()?];
-    if let Some(code) = msg.code {
-        let a2 = AttachmentBuilder::new(code.clone())
-            .color("#439FE0")
-            .text(vec![Text(code.into())].as_slice())
-            .build()?;
-        ax.push(a2);
-    }
+    if let Some(diffattach) = codeattach {
+        ax.push(diffattach);
+        // Pass attachment vector
 
-    // Pass attachment vector
+    }
     p = p.attachments(ax);
+
     // Send everything. Phew.
     slack.send(&p.build()?)?;
 
     Ok(())
+}
+
+fn infer_metadata_links(md: &Metadata, diff: &str) -> Option<SlackTextContent> {
+    if let Some((v1, v2)) = helpers::infer_version_change(&diff) {
+        let url = format!("{}/compare/{}...{}", md.repo, &v1[..8], &v2[..8]);
+        let ver = format!("{}", &v2[..8]);
+        Some(Link(SlackLink::new(&url, &ver)))
+    } else {
+        None
+    }
+}
+
+fn infer_slack_notifies(md: &Metadata) -> Vec<SlackTextContent> {
+    md.contacts.iter().map(|cc| { User(SlackUserLink::new(&cc)) }).collect()
 }
 
 /// Infer originator of a message
@@ -124,7 +164,7 @@ fn infer_ci_links() -> Option<SlackTextContent> {
                 if out.ends_with('\n') {
                     out.truncate(len - 1)
                 }
-                Some(Text(SlackText::new(format!("({})", out))))
+                Some(Text(SlackText::new(format!("(via admin {})", out))))
             }
             Err(e) => {
                 warn!("Could not retrieve user from shell {}", e);
@@ -149,11 +189,30 @@ mod tests {
 
         let chan = env_channel().unwrap();
         if chan == "#shipcat-test" {
-            send(Message {
-                text: format!("tested `{}`", "slack"),
+          send(Message {
+              text: format!("simple `{}` test", "slack"),
+              ..Default::default()
+          }).unwrap();
+          send(Message {
+                text: format!("Trivial upgrade deploy test of `{}`", "slack"),
                 color: Some("good".into()),
-                notifies: mf.metadata.unwrap().contacts,
-                code: Some(format!("-diff\n+diff")),
+                metadata: mf.metadata.clone(),
+                //code: Some(code.into()),
+                code: Some(format!("Pod changed:
+-  image: \"blah:abc12345678\"
++  image: \"blah:abc23456789\"")),
+                ..Default::default()
+            }).unwrap();
+          // this is not just a three line diff, so
+          send(Message {
+                text: format!("Non-trivial deploy test of `{}`", "slack"),
+                color: Some("good".into()),
+                metadata: mf.metadata,
+                //code: Some(code.into()),
+                code: Some(format!("Pod changed:
+-  value: \"somedeletedvar\"
+-  image: \"blah:abc12345678\"
++  image: \"blah:abc23456789\"")),
                 ..Default::default()
             }).unwrap();
         }
