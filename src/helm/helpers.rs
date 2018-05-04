@@ -118,28 +118,20 @@ pub fn infer_fallback_version(service: &str, reg: &RegionDefaults) -> Result<Str
 }
 
 
-pub fn version_validate(mf: &Manifest) -> Result<String> {
-    // version MUST be set by main.rs / cluster.rs / whatever.rs before using helm
-    // programmer error to not do so; hence the unwrap and backtrace crash
-    let ver = mf.version.clone().unwrap();
-    let img = mf.image.clone().unwrap();
-
-    // Version sanity: must be full git sha || semver
+/// Version validator
+///
+/// Enforces a 40 char git sha or a semver tag
+pub fn version_validate(ver: &str) -> Result<()> {
     let gitre = Regex::new(r"^[0-9a-f\-]{40}$").unwrap();
     if !gitre.is_match(&ver) && Version::parse(&ver).is_err() {
-        warn!("Please supply a 40 char git sha version, or a semver version for {}", mf.name);
-        if img.contains("quay.io/babylon") {
-            // TODO: locked down repos in config ^
-            bail!("Floating tag {} cannot be rolled back - not upgrading", ver);
-        }
+        bail!("Floating tag {} cannot be rolled back - disallowing", ver);
     }
-    Ok(ver)
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    //use tests::setup;
-    use super::{infer_version_change};
+    use super::{infer_version_change, version_validate};
 
     #[test]
     fn version_change_test() {
@@ -151,5 +143,15 @@ mod tests {
         let (old, new) = res.unwrap();
         assert_eq!(old, "e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19");
         assert_eq!(new, "d4f01f5143643e75d9cc2d5e3221e82a9e1c12e5");
+    }
+
+    #[test]
+    fn version_validate_test() {
+        assert!(version_validate("2.3.4").is_ok());
+        assert!(version_validate("2.3.4-alpine").is_ok());
+        assert!(version_validate("e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19").is_ok());
+        assert!(version_validate("e7c1e5dd5de74b2b5da").is_err());
+        assert!(version_validate("1.0").is_err());
+        assert!(version_validate("v1.0.0").is_err());
     }
 }
