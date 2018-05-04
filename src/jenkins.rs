@@ -35,22 +35,16 @@ fn get_job(client: &Jenkins, job: &str) -> Result<Job> {
     })?)
 }
 
-fn get_string_params(b: &Build) -> BTreeMap<String, String> {
+pub fn get_string_params(b: &Build) -> BTreeMap<String, String> {
     let mut res = BTreeMap::new();
     for a in &b.actions {
-        match a {
-            &Action::ParametersAction { ref parameters } => {
-                trace!("got pars {:?}", parameters);
-                for p in parameters {
-                    match p.clone() {
-                        &Parameter::StringParameterValue { ref name, ref value } => {
-                            res.insert(name.to_string(), value.to_string());
-                        },
-                        _ => {}
-                    }
+        if let &Action::ParametersAction { ref parameters } = a {
+            trace!("got pars {:?}", parameters);
+            for p in parameters {
+                if let &Parameter::StringParameterValue { ref name, ref value } = p {
+                    res.insert(name.clone(), value.clone());
                 }
-            },
-            _ => {}
+            }
         }
     }
     res
