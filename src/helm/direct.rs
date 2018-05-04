@@ -8,7 +8,7 @@ use std::io::{self, Write};
 use super::slack;
 use super::kube;
 use super::generate::{self, Deployment};
-use super::{Result, Manifest};
+use super::{Result, Manifest, ErrorKind};
 use super::helpers::{self, hout, hexec};
 
 /// The different modes we allow `helm upgrade` to run in
@@ -144,8 +144,15 @@ pub fn upgrade(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<(Manifes
         hdiff
     };
 
-    let ver = helpers::version_validate(&mf)?;
-
+    // version + image MUST be set by main.rs / cluster.rs / whatever.rs before using helm
+    let ver = mf.version.clone().ok_or_else(|| ErrorKind::ManifestFailure("version".into()))?;
+    if let Err(e) = helpers::version_validate(&ver) {
+        warn!("Please supply a 40 char git sha version, or a semver version for {}", mf.name);
+        let img = mf.image.clone().ok_or_else(|| ErrorKind::ManifestFailure("image".into()))?;
+        if img.contains("quay.io/babylon") { // TODO: locked down repos in config
+            return Err(e);
+        }
+    }
 
     if mode == UpgradeMode::UpgradeRecreateWait || mode == UpgradeMode::UpgradeInstall || !helmdiff.is_empty() {
         // upgrade it using the same command

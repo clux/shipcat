@@ -1,5 +1,5 @@
 /// Allow normal error handling from structs
-pub use super::Result;
+pub use super::{Result, ErrorKind};
 /// Verify trait gets the Config
 pub use super::config::{Config, RegionDefaults};
 

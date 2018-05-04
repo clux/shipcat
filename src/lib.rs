@@ -101,6 +101,10 @@ error_chain! {
             description("secret does not have value for specified key")
             display("secret '{}' does not exist", &key)
         }
+        ManifestFailure(key: String) {
+            description("Manifest key not propagated correctly internally")
+            display("manifest key {} was not propagated internally - bug!", &key)
+        }
     }
 }
 
