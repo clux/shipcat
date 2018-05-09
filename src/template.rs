@@ -99,3 +99,16 @@ pub fn render(tera: &Tera, tmpl: &str, context: &Context) -> Result<String> {
     }
     Ok(xs.join("\n"))
 }
+
+/// A function that can render templates for a service
+pub type ContextBoundRenderer = Box<Fn(&str, &Context) -> Result<(String)>>;
+
+/// Create a one of boxed template renderer for a service
+///
+/// Use lightly as it invokes a full template scan per creation
+pub fn service_bound_renderer(svc: &str) -> Result<ContextBoundRenderer> {
+    let tera = init(svc)?;
+    Ok(Box::new(move |tmpl, context| {
+        render(&tera, tmpl, context)
+    }))
+}

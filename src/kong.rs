@@ -22,7 +22,7 @@ pub fn kong_generate(conf: &Config, region: String) -> Result<()> {
     // Generate list of APIs to feed to Kong
     for svc in Manifest::available()? {
         debug!("Scanning service {:?}", svc);
-        let mf = Manifest::completed(&region, conf, &svc, None)?;
+        let mf = Manifest::completed(&svc, conf, &region, None)?;
         if !mf.disabled && mf.regions.contains(&region) {
             debug!("Found service {} in region {}", mf.name, region);
             if let Some(k) = mf.kong {

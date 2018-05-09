@@ -1,7 +1,9 @@
 /// Allow normal error handling from structs
-pub use super::{Result, ErrorKind};
+pub use super::{Result, ErrorKind, Error};
 /// Verify trait gets the Config
 pub use super::config::{Config, RegionDefaults};
+/// For slack hookback
+pub use super::structs::Metadata;
 
 // allow using some slack and templating stuff
 pub use super::template;
@@ -18,12 +20,13 @@ pub mod parallel;
 pub mod direct;
 // Re-exports for main
 pub use self::direct::{history, template, diff, values};
-// Re-export that should be wrapped in parallel dependency inferrer later on
-pub use self::direct::upgrade;
+
+/// Smart wrappers that deal with component depedencies
+pub mod smart;
 
 /// Helm related helpers
 pub mod helpers;
 // Commonly used helper
 pub use self::helpers::infer_fallback_version;
 
-pub use self::direct::{UpgradeMode};
+pub use self::direct::{UpgradeMode, UpgradeData};
