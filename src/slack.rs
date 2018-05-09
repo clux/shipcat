@@ -87,7 +87,6 @@ pub fn send(msg: Message) -> Result<()> {
         }
         let num_lines = code.lines().count();
         // if it's not a straight image change diff, print it:
-        println!("how many fuciking lines {}: {:?}", num_lines, code.lines());
         if !(num_lines == 3 && have_gh_link) {
             codeattach = Some(AttachmentBuilder::new(code.clone())
                 .color("#439FE0")
@@ -143,34 +142,21 @@ fn infer_slack_notifies(md: &Metadata) -> Vec<SlackTextContent> {
 
 /// Infer originator of a message
 fn infer_ci_links() -> Option<SlackTextContent> {
-    use std::env;
-    use std::process::Command;
     if let (Ok(url), Ok(name), Ok(nr)) = (env::var("BUILD_URL"),
                                           env::var("JOB_NAME"),
                                           env::var("BUILD_NUMBER")) {
         // we are on jenkins
-        Some(Link(SlackLink::new(&url, &format!("{} #{}", name, nr))))
+        Some(Link(SlackLink::new(&url, &format!("{}#{}", name, nr))))
     } else if let (Ok(url), Ok(name), Ok(nr)) = (env::var("CIRCLE_BUILD_URL"),
                                                  env::var("CIRCLE_JOB"),
                                                  env::var("CIRCLE_BUILD_NUM")) {
         // we are on circle
-        Some(Link(SlackLink::new(&url, &format!("{} #{}", name, nr))))
+        Some(Link(SlackLink::new(&url, &format!("{}#{}", name, nr))))
+    } else if let Ok(user) = env::var("USER") {
+        Some(Text(SlackText::new(format!("(via admin {})", user))))
     } else {
-        // fallback to linux user
-        match Command::new("whoami").output() {
-            Ok(s) => {
-                let mut out : String = String::from_utf8_lossy(&s.stdout).into();
-                let len = out.len();
-                if out.ends_with('\n') {
-                    out.truncate(len - 1)
-                }
-                Some(Text(SlackText::new(format!("(via admin {})", out))))
-            }
-            Err(e) => {
-                warn!("Could not retrieve user from shell {}", e);
-                None
-            }
-        }
+        warn!("Could not infer ci links from environment");
+        Some(Text(SlackText::new("via unknown user".to_string())))
     }
 }
 

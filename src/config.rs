@@ -158,4 +158,13 @@ impl Config {
         let conf = Config::read_from(&pwd.to_path_buf())?;
         Ok(conf)
     }
+
+    /// Region validator
+    pub fn region_defaults(&self, region: &str) -> Result<RegionDefaults> {
+        if let Some(r) = self.regions.get(region) {
+            Ok(r.defaults.clone())
+        } else {
+            bail!("You need to define your kube context '{}' in shipcat.conf first", region);
+        }
+    }
 }

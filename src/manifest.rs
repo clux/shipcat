@@ -20,7 +20,7 @@ use super::structs::volume::{Volume, VolumeMount};
 use super::structs::{Metadata, DataHandling, VaultOpts, Jaeger, Dependency};
 use super::structs::prometheus::{Prometheus, Dashboard};
 use super::structs::{CronJob, Kong, Sidecar};
-
+use super::structs::ChildComponent;
 
 /// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -119,8 +119,12 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub serviceAnnotations: BTreeMap<String, String>,
 
-    // TODO: boot time -> minReadySeconds
 
+    /// Lock step deployed child services
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<ChildComponent>,
+
+    // TODO: boot time -> minReadySeconds
 
     /// Prometheus metric options
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -146,17 +150,32 @@ pub struct Manifest {
     // Region used in implicits
     #[serde(default, skip_serializing, skip_deserializing)]
     pub _region: String,
-
+/*
+    // Internal type
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub _type: ManifestType,
+*/
 }
 
-impl Manifest {
-    pub fn new(name: &str) -> Manifest {
-        Manifest {
-            name: name.into(),
-            ..Default::default()
-        }
+/*
+/// What an internal representation of a `Manifest` means
+pub enum ManifestType {
+    /// A plain shipcat.yml with just `Manifest::implicits` filled in
+    Basic,
+    /// A shipcat.yml with region, config overrides applied - potentially secrets
+    Complete,
+    /// Completed manifest with mocked secrets
+    CompleteMocked,
+    /// A completed manifest with templated configs inlined for helm
+    HelmValues,
+}
+impl Default for ManifestType {
+    fn default() -> Self {
+        ManifestType::Basic
     }
+}*/
 
+impl Manifest {
     /// Walk the services directory and return the available services
     pub fn available() -> Result<Vec<String>> {
         let svcsdir = Path::new(".").join("services");
@@ -338,13 +357,14 @@ impl Manifest {
     }
 
     /// Complete (filled in env overrides and populate secrets) a manifest
-    pub fn completed(region: &str, conf: &Config, service: &str, vault: Option<Vault>) -> Result<Manifest> {
+    pub fn completed(service: &str, conf: &Config, region: &str, vault: Option<Vault>) -> Result<Manifest> {
         let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
         mf.fill(conf, &region, &vault)?;
+        mf.inline_configs()?;
         Ok(mf)
     }
 
@@ -360,6 +380,23 @@ impl Manifest {
         }
         mf.implicits(conf, region)?;
         Ok(mf)
+    }
+
+    /// Inline templates in values
+    fn inline_configs(&mut self) -> Result<()> {
+        use super::template;
+        use tera::Context;
+        let rdr = template::service_bound_renderer(&self.name)?;
+        if let Some(ref mut cfg) = self.configs {
+            for f in &mut cfg.files {
+                let mut ctx = Context::new();
+                ctx.add("env", &self.env.clone());
+                ctx.add("service", &self.name.clone());
+                ctx.add("region", &self._region.clone());
+                f.value = Some((rdr)(&f.name, &ctx)?);
+            }
+        }
+        Ok(())
     }
 
     /// Print manifest to debug output
@@ -484,9 +521,9 @@ pub fn validate(services: Vec<String>, conf: &Config, region: String, vault: Opt
 /// Show GDPR related info for a service
 ///
 /// Prints the cascaded structs from a manifests `dataHandling`
-pub fn gdpr_show(svc: &str, conf: &Config, region: String) -> Result<()> {
+pub fn gdpr_show(svc: &str, conf: &Config, region: &str) -> Result<()> {
     use std::io::{self, Write};
-    let mf = Manifest::completed(&region, &conf, svc, None)?;
+    let mf = Manifest::completed(svc, conf, region, None)?;
     let _ = io::stdout().write(format!("{}\n", serde_yaml::to_string(&mf.dataHandling)?).as_bytes());
     Ok(())
 }

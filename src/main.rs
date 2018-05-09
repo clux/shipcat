@@ -13,7 +13,6 @@ use shipcat::*;
 #[allow(unused_imports)]
 use clap::{Arg, App, AppSettings, SubCommand, ArgMatches};
 use std::process;
-use std::fs;
 
 fn result_exit<T>(name: &str, x: Result<T>) {
     let _ = x.map_err(|e| {
@@ -70,9 +69,9 @@ fn main() {
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
-            .arg(Arg::with_name("mock-vault")
-                .long("mock-vault")
-                .help("Return empty strings from Vault"))
+            //.arg(Arg::with_name("mock-vault")
+            //    .long("mock-vault")
+            //    .help("Return empty strings from Vault"))
             .subcommand(SubCommand::with_name("template")
                 .arg(Arg::with_name("output")
                     .short("o")
@@ -229,6 +228,7 @@ fn main() {
 
     let conf = conditional_exit(shipcat::init());
 
+    // 1. dumb offline commands
     if args.subcommand_matches("list-regions").is_some() {
         result_exit(args.subcommand_name().unwrap(), shipcat::list::regions(&conf))
     }
@@ -236,145 +236,29 @@ fn main() {
         let r = a.value_of("region").unwrap().into();
         result_exit(args.subcommand_name().unwrap(), shipcat::list::services(&conf, r))
     }
-    // clients for network related subcommands
-    openssl_probe::init_ssl_cert_env_vars();
-
-
-    if let Some(a) = args.subcommand_matches("jenkins") {
-        let service = a.value_of("service").unwrap();
-        // TODO: helper for this:
-        let region = kube::current_context().map_err(|e| {
-            error!("You need kubectl and a ~/.kube/config with a kube context for this");
-            error!("{}", e);
-            process::exit(2)
-        }).unwrap();
-
-        if let Some(_) = a.subcommand_matches("latest") {
-            let res = shipcat::jenkins::latest_build(&service, &region);
-            result_exit(a.subcommand_name().unwrap(), res)
-        }
-        if let Some(b) = a.subcommand_matches("console") {
-            let res = if let Some(n) = b.value_of("number") {
-                let nr : u32 = n.parse().unwrap();
-                shipcat::jenkins::specific_console(&service, nr, &region)
-            } else {
-                shipcat::jenkins::latest_console(&service, &region)
-            };
-            result_exit(a.subcommand_name().unwrap(), res)
-        }
-        if let Some(_) = a.subcommand_matches("history") {
-           let res = shipcat::jenkins::history(&service, &region);
-           result_exit(a.subcommand_name().unwrap(), res)
+    if let Some(a) = args.subcommand_matches("graph") {
+        let dot = a.is_present("dot");
+        if let Some(svc) = a.value_of("service") {
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(svc, &conf, dot))
+        } else {
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::full(dot, &conf))
         }
     }
-    if let Some(a) = args.subcommand_matches("helm") {
-        let service = a.value_of("service").unwrap();
 
-        // some sanity
-        let region = kube::current_context().map_err(|e| {
-            error!("You need kubectl and a ~/.kube/config with a kube context for this");
-            error!("{}", e);
-            process::exit(2)
-        }).unwrap();
-        let regdefaults = if let Some(r) = conf.regions.get(&region) {
-            r.defaults.clone()
-        } else {
-            error!("You need to define your kube context '{}' in shipcat.conf first", region);
-            process::exit(2)
-        };
+    // 2+ init network related subcommands
+    openssl_probe::init_ssl_cert_env_vars(); // prerequisite for https clients
 
-        // small wrapper around helm history does not need anything fancy
-        if let Some(_) = a.subcommand_matches("history") {
-            // only get needs basic manifest
-            let mf = conditional_exit(Manifest::basic(&service, &conf, Some(region.clone())));
-            let res = shipcat::helm::history(&mf);
-            result_exit(a.subcommand_name().unwrap(), res)
-        }
-
-        // templating engine
-        let tera = conditional_exit(shipcat::template::init(service));
-        let mut vault = if a.is_present("mock-vault") {
-            if a.subcommand_name().unwrap() == "upgrade" {
-                assert!(false, "Cannot mock secret when using helm upgrade");
-            }
-            conditional_exit(shipcat::vault::Vault::mocked())
-        } else {
-            conditional_exit(shipcat::vault::Vault::default())
-        };
-
-        // manifest with region specific secrets
-        let mut mf = conditional_exit(Manifest::completed(&region, &conf, service, Some(vault)));
-        conditional_exit(mf.verify(&conf)); // sanity (non-secret verify
-
-        mf.version = if let Some(tag) = a.value_of("tag") {
-            // If passing version explicitly, use that
-            Some(tag.into())
-        } else if let Some(v) = mf.version {
-            // If pinned in manifests, use that version
-            Some(v)
-        } else {
-            // Otherwise infer from running, falling back to defaults
-            Some(conditional_exit(shipcat::helm::infer_fallback_version(service, &regdefaults)))
-        };
-        assert!(mf.version.is_some());
-
-        // All parameters for a k8s deployment
-        let dep = shipcat::generate::Deployment {
-            service: service.into(),
-            region: region.into(),
-            manifest: mf.clone(),
-            render: Box::new(move |tmpl, context| {
-                template::render(&tera, tmpl, context)
-            }),
-        };
-        if let Some(b) = a.subcommand_matches("values") {
-            let output = b.value_of("output").map(String::from);
-            let res = shipcat::helm::values(&dep, output, false);
-            result_exit(a.subcommand_name().unwrap(), res)
-        }
-        if let Some(b) = a.subcommand_matches("template") {
-            let output = b.value_of("output").map(String::from);
-            let res = shipcat::helm::template(&dep, output);
-            result_exit(a.subcommand_name().unwrap(), res)
-        }
-        // remaining subcommands need a temporary helm values file generated
-        // store it under a {svc}.helm.gen.yml in pwd
-        let hfile = format!("{}.helm.gen.yml", dep.service);
-        conditional_exit(shipcat::helm::values(&dep, Some(hfile.clone()), true));
-
-        let res = if let Some(b) = a.subcommand_matches("upgrade") {
-            let umode = if b.is_present("dryrun") {
-                shipcat::helm::UpgradeMode::DiffOnly
-            }
-            else if b.is_present("auto-rollback") {
-                shipcat::helm::UpgradeMode::UpgradeWaitMaybeRollback
-            }
-            else {
-                shipcat::helm::UpgradeMode::UpgradeWait
-            };
-            shipcat::helm::upgrade(&mf, &hfile.clone(), umode).map(|_| ())
-        }
-        else if let Some(_) = a.subcommand_matches("install") {
-            let umode = shipcat::helm::UpgradeMode::UpgradeInstall;
-            shipcat::helm::upgrade(&mf, &hfile.clone(), umode).map(|_| ())
-        }
-        else if let Some(_) = a.subcommand_matches("diff") {
-            shipcat::helm::diff(&mf, &hfile.clone()).map(|_| ())
-        }
-        else if let Some(_) = a.subcommand_matches("recreate") {
-            let umode = shipcat::helm::UpgradeMode::UpgradeRecreateWait;
-            shipcat::helm::upgrade(&mf, &hfile.clone(), umode).map(|_| ())
-        }
-        else {
-            unreachable!("Helm Subcommand valid, but not implemented")
-        };
-        let _ = fs::remove_file(hfile); // remove temporary file
-        result_exit(&format!("helm {}", a.subcommand_name().unwrap()), res);
+    // 2. network related subcommands that doesn't NEED kubectl/kctx
+    if let Some(a) = args.subcommand_matches("slack") {
+        let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
+        //let link = a.value_of("url").map(String::from);
+        let color = a.value_of("color").map(String::from);
+        let msg = shipcat::slack::Message { text, color, ..Default::default() };
+        result_exit(args.subcommand_name().unwrap(), shipcat::slack::send(msg))
     }
-
-    // Handle subcommands
     if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
+        // this only needs a kube context if you don't specify it
         let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
             kube::current_context().unwrap()
         });
@@ -386,42 +270,130 @@ fn main() {
         };
         result_exit(args.subcommand_name().unwrap(), res)
     }
+    if let Some(a) = args.subcommand_matches("get") {
+        let rsrc = a.value_of("resource").unwrap();
+        let quiet = a.is_present("short");
+        // this only needs a kube context if you don't specify it
+         let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
+            kube::current_context().unwrap()
+        });
+        result_exit(args.subcommand_name().unwrap(), shipcat::get::table(rsrc, &conf, quiet, region))
+    }
 
+
+    // 3+ get the region from the kube context for remaining commands
+    let region = kube::current_context().map_err(|e| {
+        error!("You need kubectl and a ~/.kube/config with a kube context for this");
+        error!("{}", e);
+        process::exit(2)
+    }).unwrap();
+
+    // 3. kube context dependent commands
+    if let Some(a) = args.subcommand_matches("jenkins") {
+        let svc = a.value_of("service").unwrap();
+
+        if let Some(_) = a.subcommand_matches("latest") {
+            let res = shipcat::jenkins::latest_build(&svc, &region);
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
+        if let Some(b) = a.subcommand_matches("console") {
+            let res = if let Some(n) = b.value_of("number") {
+                let nr : u32 = n.parse().unwrap();
+                shipcat::jenkins::specific_console(&svc, nr, &region)
+            } else {
+                shipcat::jenkins::latest_console(&svc, &region)
+            };
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
+        if let Some(_) = a.subcommand_matches("history") {
+           let res = shipcat::jenkins::history(&svc, &region);
+           result_exit(a.subcommand_name().unwrap(), res)
+        }
+    }
+
+    // 3a). main helm proxy logic
+    if let Some(a) = args.subcommand_matches("helm") {
+        let svc = a.value_of("service").unwrap(); // defined required above
+        let ver = a.value_of("tag").map(String::from); // needed for some subcommands
+        let _regdefaults = conditional_exit(conf.region_defaults(&region));
+
+        // small wrapper around helm history does not need anything fancy
+        if let Some(_) = a.subcommand_matches("history") {
+            let res = shipcat::helm::history(&svc, &region);
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
+
+        if let Some(b) = a.subcommand_matches("values") {
+            let _output = b.value_of("output").map(String::from);
+            let res = shipcat::helm::direct::values_wrapper(svc,
+                &region, &conf, ver.clone());
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
+        if let Some(b) = a.subcommand_matches("template") {
+            let _output = b.value_of("output").map(String::from);
+            let res = shipcat::helm::direct::template(svc,
+                &region, &conf, ver.clone());
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
+
+
+        let umode = if let Some(b) = a.subcommand_matches("upgrade") {
+            if b.is_present("dryrun") {
+                shipcat::helm::UpgradeMode::DiffOnly
+            }
+            else if b.is_present("auto-rollback") {
+                shipcat::helm::UpgradeMode::UpgradeWaitMaybeRollback
+            }
+            else {
+                shipcat::helm::UpgradeMode::UpgradeWait
+            }
+        }
+        else if let Some(_) = a.subcommand_matches("install") {
+            shipcat::helm::UpgradeMode::UpgradeInstall
+        }
+        else if let Some(_) = a.subcommand_matches("diff") {
+            shipcat::helm::UpgradeMode::DiffOnly
+        }
+        else if let Some(_) = a.subcommand_matches("recreate") {
+            shipcat::helm::UpgradeMode::UpgradeRecreateWait
+        }
+        else {
+            unreachable!("Helm Subcommand valid, but not implemented")
+        };
+        let res = shipcat::helm::direct::full_wrapper(svc,
+            umode,
+            &region,
+            &conf,
+            ver).map(|_| ());
+
+        result_exit(&format!("helm {}", a.subcommand_name().unwrap()), res);
+    }
+
+    // 4. cluster level abstractions on top of existing commands
     if let Some(a) = args.subcommand_matches("cluster") {
-        let region = kube::current_context().unwrap();
         if let Some(b) = a.subcommand_matches("helm") {
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("diff") {
-                let res = shipcat::cluster::helm_diff(&conf, region, jobs);
+                let res = shipcat::cluster::helm_diff(&conf, &region, jobs);
                 result_exit(args.subcommand_name().unwrap(), res)
             }
             else if let Some(_) = b.subcommand_matches("reconcile") {
-                let res = shipcat::cluster::helm_reconcile(&conf, region, jobs);
+                let res = shipcat::cluster::helm_reconcile(&conf, &region, jobs);
                 result_exit(args.subcommand_name().unwrap(), res)
             }
             else if let Some(_) = b.subcommand_matches("install") {
-                let res = shipcat::cluster::helm_install(&conf, region, jobs);
+                let res = shipcat::cluster::helm_install(&conf, &region, jobs);
                 result_exit(args.subcommand_name().unwrap(), res)
             }
         }
     }
 
-    if let Some(a) = args.subcommand_matches("graph") {
-        let dot = a.is_present("dot");
-        if let Some(svc) = a.value_of("service") {
-            result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(svc, &conf, dot))
-        } else {
-            result_exit(args.subcommand_name().unwrap(), shipcat::graph::full(dot, &conf))
-        }
-    }
+    // 5. small - but properly supported new helpers
     if let Some(a) = args.subcommand_matches("gdpr") {
         let svc = a.value_of("service").unwrap();
-        let region = kube::current_context().unwrap();
-        result_exit(args.subcommand_name().unwrap(), shipcat::gdpr_show(svc, &conf, region))
+        result_exit(args.subcommand_name().unwrap(), shipcat::gdpr_show(svc, &conf, &region))
     }
-
     if let Some(a) = args.subcommand_matches("kong") {
-        let region = conditional_exit(kube::current_context());
         if let Some(_b) = a.subcommand_matches("config-url") {
             result_exit(args.subcommand_name().unwrap(), shipcat::kong::kong_config_url(&conf, region))
         } else {
@@ -429,14 +401,7 @@ fn main() {
         }
     }
 
-    if let Some(a) = args.subcommand_matches("slack") {
-        let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
-        //let link = a.value_of("url").map(String::from);
-        let color = a.value_of("color").map(String::from);
-        let msg = shipcat::slack::Message { text, color, ..Default::default() };
-        result_exit(args.subcommand_name().unwrap(), shipcat::slack::send(msg))
-    }
-
+    // 6. small experimental wrappers around kubectl
     if let Some(a) = args.subcommand_matches("shell") {
         let service = a.value_of("service").unwrap();
         let pod = value_t!(a.value_of("pod"), u32).ok();
@@ -446,41 +411,25 @@ fn main() {
             None
         };
         let mf = if let Some(r) = a.value_of("region") {
-            conditional_exit(Manifest::completed(r, &conf, service, None))
+            conditional_exit(Manifest::completed(service, &conf, r, None))
         } else {
             // infer region from kubectl current-context
             conditional_exit(Manifest::basic(service, &conf, None))
         };
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::shell(&mf, pod, cmd))
     }
-
     if let Some(a) = args.subcommand_matches("logs") {
         let service = a.value_of("service").unwrap();
         let pod = value_t!(a.value_of("pod"), u32).ok();
 
         let mf = if let Some(r) = a.value_of("region") {
-            conditional_exit(Manifest::completed(r, &conf, service, None))
+            conditional_exit(Manifest::completed(service, &conf, r, None))
         } else {
             // infer region from kubectl current-context
             conditional_exit(Manifest::basic(service, &conf, None))
         };
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::logs(&mf, pod))
     }
-
-    if let Some(a) = args.subcommand_matches("get") {
-        let rsrc = a.value_of("resource").unwrap();
-        let quiet = a.is_present("short");
-         let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
-            kube::current_context().unwrap()
-        });
-        result_exit(args.subcommand_name().unwrap(), shipcat::get::table(rsrc, &conf, quiet, region))
-    }
-
-
-    // TODO: command to list all vault secrets depended on?
-    // can use this to verify structure of vault!
-    // simpler than generating all kubefiles for all regions
-
 
     unreachable!("Subcommand valid, but not implemented");
 }
