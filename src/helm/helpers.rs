@@ -129,6 +129,7 @@ pub fn version_validate(ver: &str) -> Result<()> {
     Ok(())
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::{infer_version_change, version_validate};

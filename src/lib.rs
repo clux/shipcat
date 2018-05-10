@@ -131,9 +131,6 @@ pub mod structs;
 mod manifest;
 pub use manifest::{validate, Manifest, gdpr_show};
 
-/// Templating consumer module
-pub mod generate;
-
 /// A small CLI kubernetes interface
 pub mod kube;
 
