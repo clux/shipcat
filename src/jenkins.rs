@@ -1,9 +1,11 @@
 use super::{Result, ErrorKind};
 use chrono::{Utc, TimeZone};
 use jenkins_api::{JenkinsBuilder, Jenkins, Build, Job};
+//use jenkins_api::{Parameter, StringParameterValue};
+use jenkins_api::action::*;
 use std::env;
+use std::collections::BTreeMap;
 use std::io::{self, Write};
-use serde_json::Value;
 
 fn env_user() -> Result<String> {
     env::var("JENKINS_API_USER").map_err(|_| ErrorKind::MissingJenkinsUser.into())
@@ -33,6 +35,21 @@ fn get_job(client: &Jenkins, job: &str) -> Result<Job> {
     })?)
 }
 
+pub fn get_string_params(b: &Build) -> BTreeMap<String, String> {
+    let mut res = BTreeMap::new();
+    for a in &b.actions {
+        if let &Action::ParametersAction { ref parameters } = a {
+            trace!("got pars {:?}", parameters);
+            for p in parameters {
+                if let &Parameter::StringParameterValue { ref name, ref value } = p {
+                    res.insert(name.clone(), value.clone());
+                }
+            }
+        }
+    }
+    res
+}
+
 fn find_build_by_parameter(client: &Jenkins, job: &str, app: &str) -> Result<Option<Build>> {
     let job = get_job(&client, job)?;
     let len = job.builds.len();
@@ -40,12 +57,10 @@ fn find_build_by_parameter(client: &Jenkins, job: &str, app: &str) -> Result<Opt
         match sbuild.get_full_build(&client) {
             Ok(build) => {
                 debug!("scanning build :{:?}", build);
-                let params = build.get_parameters();
-                if let Some(p) = params.iter().find(|p| p.name == "APP") {
-                    if let Value::String(a) = p.value.clone() {
-                        if a == app {
-                            return Ok(Some(build));
-                        }
+                let params = get_string_params(&build);
+                if let Some(a) = params.get("APP") {
+                    if a == app {
+                        return Ok(Some(build));
                     }
                 }
             }
@@ -64,12 +79,10 @@ fn find_builds_by_parameter(client: &Jenkins, job: &str, app: &str) -> Result<Ve
         match sbuild.get_full_build(&client) {
             Ok(build) => {
                 debug!("scanning build :{:?}", build);
-                let params = build.get_parameters();
-                if let Some(p) = params.iter().find(|p| p.name == "APP") {
-                    if let Value::String(a) = p.value.clone() {
-                        if a == app {
-                            builds.push(build);
-                        }
+                let params = get_string_params(&build);
+                if let Some(a) = params.get("APP") {
+                    if a == app {
+                        builds.push(build);
                     }
                 }
             }
@@ -89,16 +102,14 @@ fn find_build_by_nr(client: &Jenkins, job: &str, nr: u32, app: &str) -> Result<O
         if sbuild.number == nr {
             match sbuild.get_full_build(&client) {
                 Ok(build) => {
-                    let params = build.get_parameters();
-                    if let Some(p) = params.iter().find(|p| p.name == "APP") {
-                        if let Value::String(a) = p.value.clone() {
-                            if a == app {
-                                return Ok(Some(build))
-                            }
-                            else {
-                                warn!("Build found, but it's not for {}", app);
-                                return Ok(None)
-                            }
+                    let params = get_string_params(&build);
+                    if let Some(a) = params.get("APP") {
+                        if a == app {
+                            return Ok(Some(build))
+                        }
+                        else {
+                            warn!("Build found, but it's not for {}", app);
+                            return Ok(None)
                         }
                     }
                 },

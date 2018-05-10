@@ -20,7 +20,7 @@ use super::structs::volume::{Volume, VolumeMount};
 use super::structs::{Metadata, DataHandling, VaultOpts, Jaeger, Dependency};
 use super::structs::prometheus::{Prometheus, Dashboard};
 use super::structs::{CronJob, Kong, Sidecar};
-
+use super::structs::ChildComponent;
 
 /// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -33,7 +33,7 @@ pub struct Manifest {
     #[serde(default, skip_serializing)]
     pub disabled: bool,
     /// Wheter the service is externally managed
-    #[serde(default)]
+    #[serde(default, skip_serializing)]
     pub external: bool,
 
     /// Optional image name
@@ -48,11 +48,11 @@ pub struct Manifest {
     pub command: Vec<String>,
 
     /// Canonical data sources like repo, docs, team names
-    #[serde(default)]
-    pub metadata: Metadata,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<Metadata>,
 
     /// Data sources and handling strategies
-    #[serde(default)]
+    #[serde(default, skip_serializing)]
     pub dataHandling: DataHandling,
 
     /// Jaeger options
@@ -60,6 +60,7 @@ pub struct Manifest {
     pub jaeger: Jaeger,
 
     /// Language the service is written in
+    #[serde(skip_serializing)]
     pub language: Option<String>,
 
     // Kubernetes specific flags
@@ -102,7 +103,7 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<Dependency>,
     /// Regions service is deployed to
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing)]
     pub regions: Vec<String>,
     /// Volumes
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -112,15 +113,19 @@ pub struct Manifest {
     pub cronJobs: Vec<CronJob>,
 
     /// Sidecars
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing)]
     pub sidecars: Vec<Sidecar>,
 
     /// Service annotations (for internal services only)
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub serviceAnnotations: BTreeMap<String, String>,
 
-    // TODO: boot time -> minReadySeconds
 
+    /// Lock step deployed child services
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<ChildComponent>,
+
+    // TODO: boot time -> minReadySeconds
 
     /// Prometheus metric options
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -146,17 +151,32 @@ pub struct Manifest {
     // Region used in implicits
     #[serde(default, skip_serializing, skip_deserializing)]
     pub _region: String,
-
+/*
+    // Internal type
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub _type: ManifestType,
+*/
 }
 
-impl Manifest {
-    pub fn new(name: &str) -> Manifest {
-        Manifest {
-            name: name.into(),
-            ..Default::default()
-        }
+/*
+/// What an internal representation of a `Manifest` means
+pub enum ManifestType {
+    /// A plain shipcat.yml with just `Manifest::implicits` filled in
+    Basic,
+    /// A shipcat.yml with region, config overrides applied - potentially secrets
+    Complete,
+    /// Completed manifest with mocked secrets
+    CompleteMocked,
+    /// A completed manifest with templated configs inlined for helm
+    HelmValues,
+}
+impl Default for ManifestType {
+    fn default() -> Self {
+        ManifestType::Basic
     }
+}*/
 
+impl Manifest {
     /// Walk the services directory and return the available services
     pub fn available() -> Result<Vec<String>> {
         let svcsdir = Path::new(".").join("services");
@@ -319,7 +339,7 @@ impl Manifest {
     }
 
     /// Fill in env overrides and populate secrets
-    pub fn fill(&mut self, conf: &Config, region: &str, vault: &Option<Vault>) -> Result<()> {
+    fn fill(&mut self, conf: &Config, region: &str, vault: &Option<Vault>) -> Result<()> {
         self.implicits(conf, Some(region.into()))?;
         if let &Some(ref client) = vault {
             self.secrets(&client, region)?;
@@ -338,13 +358,26 @@ impl Manifest {
     }
 
     /// Complete (filled in env overrides and populate secrets) a manifest
-    pub fn completed(region: &str, conf: &Config, service: &str, vault: Option<Vault>) -> Result<Manifest> {
+    pub fn completed(service: &str, conf: &Config, region: &str) -> Result<Manifest> {
+        let v = Vault::default()?;
         let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
-        mf.fill(conf, &region, &vault)?;
+        mf.fill(conf, &region, &Some(v))?;
+        mf.inline_configs()?;
+        Ok(mf)
+    }
+
+    /// Mostly completed but stubbed secrets version of the manifest
+    pub fn stubbed(service: &str, conf: &Config, region: &str) -> Result<Manifest> {
+        let pth = Path::new(".").join("services").join(service);
+        if !pth.exists() {
+            bail!("Service folder {} does not exist", pth.display())
+        }
+        let mut mf = Manifest::read_from(&pth)?;
+        mf.fill(conf, &region, &None)?;
         Ok(mf)
     }
 
@@ -360,6 +393,31 @@ impl Manifest {
         }
         mf.implicits(conf, region)?;
         Ok(mf)
+    }
+
+    /// Inline templates in values
+    fn inline_configs(&mut self) -> Result<()> {
+        use super::template;
+        use tera::Context;
+        let rdr = template::service_bound_renderer(&self.name)?;
+        if let Some(ref mut cfg) = self.configs {
+            for f in &mut cfg.files {
+                let mut ctx = Context::new();
+                ctx.add("env", &self.env.clone());
+                ctx.add("service", &self.name.clone());
+                ctx.add("region", &self._region.clone());
+                f.value = Some((rdr)(&f.name, &ctx)?);
+            }
+        }
+        Ok(())
+    }
+
+    /// Override version with an optional one from the CLI
+    pub fn set_version(mut self, ver: &Option<String>) -> Self {
+        if ver.is_some() {
+            self.version = ver.clone(); // override version here if set
+        }
+        self
     }
 
     /// Print manifest to debug output
@@ -384,7 +442,9 @@ impl Manifest {
         }
 
         self.dataHandling.verify(&conf)?;
-        self.metadata.verify(&conf)?;
+        if let Some(ref md) = self.metadata {
+            md.verify(&conf)?;
+        }
 
         if self.external {
             warn!("Ignoring most validation for kube-external service {}", self.name);
@@ -482,9 +542,9 @@ pub fn validate(services: Vec<String>, conf: &Config, region: String, vault: Opt
 /// Show GDPR related info for a service
 ///
 /// Prints the cascaded structs from a manifests `dataHandling`
-pub fn gdpr_show(svc: &str, conf: &Config, region: String) -> Result<()> {
+pub fn gdpr_show(svc: &str, conf: &Config, region: &str) -> Result<()> {
     use std::io::{self, Write};
-    let mf = Manifest::completed(&region, &conf, svc, None)?;
+    let mf = Manifest::stubbed(svc, conf, region)?;
     let _ = io::stdout().write(format!("{}\n", serde_yaml::to_string(&mf.dataHandling)?).as_bytes());
     Ok(())
 }

@@ -22,7 +22,7 @@ pub fn kong_generate(conf: &Config, region: String) -> Result<()> {
     // Generate list of APIs to feed to Kong
     for svc in Manifest::available()? {
         debug!("Scanning service {:?}", svc);
-        let mf = Manifest::completed(&region, conf, &svc, None)?;
+        let mf = Manifest::stubbed(&svc, conf, &region)?; // does not need secrets
         if !mf.disabled && mf.regions.contains(&region) {
             debug!("Found service {} in region {}", mf.name, region);
             if let Some(k) = mf.kong {
@@ -33,16 +33,15 @@ pub fn kong_generate(conf: &Config, region: String) -> Result<()> {
 
     // Add general Kong region config
     let reg = conf.regions[&region].clone();
-    let kong = reg.kong.clone().unwrap();
-    for (name, api) in kong.extra_apis.clone() {
-        apis.insert(name, api);
+    if let Some(kong) = reg.kong {
+        for (name, api) in kong.extra_apis.clone() {
+            apis.insert(name, api);
+        }
+        let output = KongOutput { apis, kong };
+        let _ = io::stdout().write(serde_json::to_string(&output)?.as_bytes());
+    } else {
+        bail!("No kong konfig specified in shipcat.conf for {}", region);
     }
-    let output = KongOutput {
-        apis: apis,
-        kong: reg.kong.unwrap(),
-    };
-
-    let _ = io::stdout().write(serde_json::to_string(&output)?.as_bytes());
 
     Ok(())
 }
