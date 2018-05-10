@@ -2,7 +2,7 @@ use super::traits::Verify;
 use super::{Config, Result};
 
 /// Metadata for a service
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Metadata {
     /// Git repository
     pub repo: String,

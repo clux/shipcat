@@ -10,7 +10,7 @@ use super::{Result, ErrorKind};
 ///
 /// These parameters get distilled into the attachments API.
 /// Mostly because this is the only thing API that supports colour.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Message {
     /// Text in message
     pub text: String,
@@ -26,6 +26,9 @@ pub struct Message {
 
     /// Optional code input
     pub code: Option<String>,
+
+    /// Optional version to send when not having code diffs
+    pub version: Option<String>,
 }
 
 pub fn env_hook_url() -> Result<String> {
@@ -60,6 +63,7 @@ pub fn send(msg: Message) -> Result<()> {
       .icon_emoji(":ship:")
       .username(hook_user);
 
+    debug!("Got slack notify {:?}", msg);
     // NB: cannot use .link_names due to https://api.slack.com/changelog/2017-09-the-one-about-usernames
     // NB: cannot use .parse(Parse::Full) as this breaks the other links
     // Thus we have to use full slack names, and construct SlackLink objs manually
@@ -92,6 +96,10 @@ pub fn send(msg: Message) -> Result<()> {
                 .color("#439FE0")
                 .text(vec![Text(code.into())].as_slice())
                 .build()?);
+        }
+    } else if let Some(v) = msg.version {
+        if let Some(ref md) = msg.metadata {
+           texts.push(infer_metadata_single_link(md, &v));
         }
     }
 
@@ -126,9 +134,15 @@ pub fn send(msg: Message) -> Result<()> {
     Ok(())
 }
 
+fn infer_metadata_single_link(md: &Metadata, ver: &str) -> SlackTextContent {
+    let url = format!("{}/commit/{}", md.repo, ver);
+    let ver = format!("{}", &ver[..8]);
+    Link(SlackLink::new(&url, &ver))
+}
+
 fn infer_metadata_links(md: &Metadata, diff: &str) -> Option<SlackTextContent> {
     if let Some((v1, v2)) = helpers::infer_version_change(&diff) {
-        let url = format!("{}/compare/{}...{}", md.repo, &v1[..8], &v2[..8]);
+        let url = format!("{}/compare/{}...{}", md.repo, v1, v2);
         let ver = format!("{}", &v2[..8]);
         Some(Link(SlackLink::new(&url, &ver)))
     } else {

@@ -85,21 +85,25 @@ fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Co
 }
 
 
-/// Experimental threaded mass helm operation
+/// Experimental threaded mass helm operation for components
 ///
 /// Reads secrets first, dumps all the helm values files
 /// then helm {operation} all the services.
 /// This differs from the above in that it collects the errors at end.
-pub fn upgrade_join(svcs: Vec<Manifest>, conf: &Config, region: String, umode: UpgradeMode, n_workers: usize) -> Result<()> {
+pub fn upgrade_join(svcs: Vec<Manifest>, conf: &Config, region: &str, umode: UpgradeMode, n_workers: usize) -> Result<()> {
     let n_jobs = svcs.len();
     let pool = ThreadPool::new(n_workers);
     info!("Starting {} parallel helm jobs using {} workers", n_jobs, n_workers);
+
+    let udatafallback = if umode == UpgradeMode::UpgradeInstall {
+        Some(UpgradeData::from_install(&svcs[0]))
+    } else { None };
 
     let (tx, rx) = channel();
     for mf in svcs {
         // satisfying thread safety
         let mode = umode.clone();
-        let reg = region.clone();
+        let reg = region.to_string();
         let config = conf.clone();
 
         let tx = tx.clone(); // tx channel reused in each thread
@@ -133,7 +137,7 @@ pub fn upgrade_join(svcs: Vec<Manifest>, conf: &Config, region: String, umode: U
     for r in &upgrades {
         // debug each failed worker - verbose but probably needed
         match r {
-            &Ok((None, None)) => debug!("found a blank result - not needed upgrade"),
+            &Ok((None, None)) => debug!("found a blank result - no upgrade needed || diff mode"),
             &Ok((None, Some(ref ud))) => {
                 debug!("{} {}", ud.mode, ud.name);
                 oks.push(ud.clone());
@@ -166,6 +170,12 @@ pub fn upgrade_join(svcs: Vec<Manifest>, conf: &Config, region: String, umode: U
     let mut svcs = vec![];
     let mut consistent = true;
     let mut prev = None;
+    if umode == UpgradeMode::UpgradeInstall {
+        // we won't have any diffs here - just make one up
+        let ud = udatafallback.unwrap(); // was created in this fn earlier
+        direct::handle_upgrade_notifies(true, &ud)?;
+        return Ok(())
+    }
     for s in &oks {
         svcs.push(s.name.clone());
         if let Some((v1, v2)) = helpers::infer_version_change(&s.diff) {
@@ -174,11 +184,11 @@ pub fn upgrade_join(svcs: Vec<Manifest>, conf: &Config, region: String, umode: U
             } else if prev != Some((v1, v2)) {
                 consistent = false;
             }
-        } else {
+        } else if umode != UpgradeMode::UpgradeInstall {
             warn!("Failed to infer version for {}", s.name);
         }
     }
-    if consistent {
+    if consistent && !oks.is_empty() {
         // provide a single slack upgrade notification for consistent components
         let ud = &oks[0];
         direct::handle_upgrade_notifies(true, ud)?;
@@ -192,22 +202,24 @@ pub fn upgrade_join(svcs: Vec<Manifest>, conf: &Config, region: String, umode: U
 }
 
 /// A slightly modified direct::upgrade_wrapper
-fn upgrade_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Config)
+fn upgrade_worker(stubmf: Manifest, mode: UpgradeMode, region: String, conf: Config)
     -> Result<(Option<Error>, Option<UpgradeData>)>
 {
-    let svc = tmpmf.name;
+    let svc = stubmf.name;
     let mut mf = Manifest::completed(&svc, &conf, &region)?;
 
     // get version running now (to limit race condition with deploys)
-    let regdefaults = conf.region_defaults(&region)?;
-    mf.version = if let Some(v) = tmpmf.version {
-        // if set outside - use that
-        Some(v)
-    } else if let Some(v) = mf.version {
-        // If pinned in manifests, use that version
-        Some(v)
-    } else {
-        Some(helpers::infer_fallback_version(&svc, &regdefaults)?)
+    if stubmf.version.is_some() {
+        mf.version = stubmf.version;
+    }
+    if mf.version.is_none() && mode == UpgradeMode::UpgradeInstall {
+        warn!("No version found in either manifest or passed explicitly");
+        bail!("helm install needs an explicit version")
+    }
+    // Other modes can infer in a pinch
+    if mf.version.is_none() {
+        let regdefaults = conf.region_defaults(&region)?;
+        mf.version = Some(helpers::infer_fallback_version(&svc, &regdefaults)?);
     };
 
     // Template values file
