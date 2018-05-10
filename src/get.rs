@@ -25,7 +25,7 @@ pub fn table(rsrc: &str, conf: &Config, quiet: bool, region: String) -> Result<(
         println!("{0: <40} {1:?}", "NAME", resource);
     }
     for svc in services {
-        let mf = Manifest::completed(&svc, &conf, &region, None)?;
+        let mf = Manifest::stubbed(&svc, &conf, &region)?;
         if mf.regions.contains(&region) {
             match resource {
                 ResourceType::VERSION => {

@@ -9,8 +9,7 @@ use semver::Version;
 use serde_yaml;
 
 use super::Result;
-use super::structs::{Kong};
-//use super::vault::Vault;
+use super::structs::Kong;
 
 
 #[derive(Serialize, Deserialize, Clone, Default)]
