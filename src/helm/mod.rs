@@ -5,13 +5,10 @@ pub use super::config::{Config, RegionDefaults};
 /// For slack hookback
 pub use super::structs::Metadata;
 
-// allow using some slack and templating stuff
-pub use super::template;
+// allow using some slack and kube stuff
 pub use super::slack;
 pub use super::kube;
-pub use super::generate;
 pub use super::Manifest;
-pub use super::vault;
 
 /// Parallel helm invokers
 pub mod parallel;

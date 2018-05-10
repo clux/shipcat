@@ -4,7 +4,6 @@ use std::io::{self, Write};
 
 use super::slack;
 use super::kube;
-use super::generate;
 use super::Metadata;
 use super::{Result, Manifest, ErrorKind, Error, Config};
 use super::helpers::{self, hout, hexec};
@@ -301,13 +300,24 @@ pub fn diff(mf: &Manifest, hfile: &str) -> Result<String> {
 ///
 /// Requires a completed manifest (with inlined configs)
 pub fn values(mf: &Manifest, output: Option<String>) -> Result<()> {
-    if let Some(o) = output {
-        generate::values_to_disk(mf, &o)
-    } else {
-        generate::values_stdout(mf)
-    }
-}
+    use std::io::prelude::*;
+    use std::io;
+    use serde_yaml;
+    use std::path::Path;
+    use std::fs::File;
 
+    let encoded = serde_yaml::to_string(&mf)?;
+    if let Some(o) = output {
+        let pth = Path::new(".").join(o);
+        debug!("Writing helm values for {} to {}", mf.name, pth.display());
+        let mut f = File::create(&pth)?;
+        write!(f, "{}\n", encoded)?;
+        debug!("Wrote helm values for {} to {}: \n{}", mf.name, pth.display(), encoded);
+    } else {
+        let _ = io::stdout().write(format!("{}\n", encoded).as_bytes());
+    }
+    Ok(())
+}
 
 /// Analogue of helm template
 ///
@@ -465,4 +475,27 @@ pub fn full_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config, v
     }
     let _ = fs::remove_file(&hfile); // try to remove temporary file
     Ok(upgrade_opt)
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::super::Manifest;
+    use super::values;
+    use tests::setup;
+    use super::super::Config;
+
+    #[test]
+    fn helm_values() {
+        setup();
+        let conf = Config::read().unwrap();
+        let mf = Manifest::stubbed("fake-ask", &conf, "dev-uk".into()).unwrap();
+        if let Err(e) = values(&mf, None) {
+            println!("Failed to create helm values for fake-ask");
+            print!("{}", e);
+            assert!(false);
+        }
+        // can verify output here matches what we want if we wanted to,
+        // but type safety proves 99% of that anyway
+    }
 }
