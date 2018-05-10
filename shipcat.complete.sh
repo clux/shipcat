@@ -8,6 +8,9 @@ _shipcat()
     if declare -F _init_completions >/dev/null 2>&1; then
         _init_completion
     else
+        # Mac support
+        # Mac users also need bash and bash-completion installed from brew
+        # They also need to source the line from the bash-completion package
         _get_comp_words_by_ref cur prev words cword
     fi
 

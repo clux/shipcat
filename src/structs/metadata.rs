@@ -2,13 +2,14 @@ use super::traits::Verify;
 use super::{Config, Result};
 
 /// Metadata for a service
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Metadata {
     /// Git repository
     pub repo: String,
     /// Owning team
     pub team: String,
     /// Contact person
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub contacts: Vec<String>,
     /// Support channels
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

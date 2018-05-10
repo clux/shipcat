@@ -4,11 +4,16 @@
 pub use super::Result;
 /// Verify trait gets the Config
 pub use super::Config;
+/// Verify traits sometimes need to cross reference stuff from other manifests
+pub use super::Manifest;
 
 // Structs that exist in the manifest
 
 mod dependency;
 pub use self::dependency::{Dependency, DependencyProtocol};
+
+mod children;
+pub use self::children::ChildComponent;
 
 mod jaeger;
 pub use self::jaeger::Jaeger;
