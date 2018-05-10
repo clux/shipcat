@@ -98,7 +98,7 @@ fn rollback(ud: &UpgradeData) -> Result<()> {
         format!("--tiller-namespace={}", ud.namespace),
         "rollback".into(),
         ud.name.clone(),
-        "0".into(), // magic helm string for previous
+        "0".into(), // magic helm number for previous
     ];
     // TODO: diff this rollback? https://github.com/databus23/helm-diff/issues/6
     info!("helm {}", rollbackvec.join(" "));
@@ -150,68 +150,56 @@ pub struct UpgradeData {
     pub metadata: Option<Metadata>,
 }
 
-// Helm upgrade a service in one of various modes
-//
-// This will use the explicit version set in the manifest (at this point).
-// It assumes that the helm values has been written to the `hfile`.
-//
-// It then figures out the correct chart, and upgrade in the correct way.
-// See the `UpgradeMode` enum for more info.
-// In the `UpgradeWaitMaybeRollback` we also will roll back if helm upgrade failed,
-// but only after some base level debug has been output to console.
-pub fn upgrade_wrapper(data: &UpgradeData) -> Result<()> {
-    if data.mode == UpgradeMode::UpgradeRecreateWait ||
-       data.mode == UpgradeMode::UpgradeInstall ||
-       !data.diff.is_empty()
-    {
-        // We actually need to do something
-        let res = upgrade(&data).map_err(|e| handle_upgrade_rollbacks(&e, &data));
-        handle_upgrade_notifies(res.is_ok(), &data)?;
-    }
-    Ok(())
-}
-
-/// Prepare an upgrade data from values and manifest data
-///
-/// Performs basic sanity checks, and populates canonical values that are reused a lot.
-pub fn upgrade_prepare(mf: &Manifest, hfile: &str, mode: UpgradeMode) -> Result<Option<UpgradeData>> {
-    if mode != UpgradeMode::DiffOnly {
-        slack::have_credentials()?;
-    }
-    let namespace = kube::current_namespace(&mf._region)?;
-
-    let helmdiff = if mode == UpgradeMode::UpgradeInstall {
-        "".into() // can't diff against what's not there!
-    } else {
-        let hdiff = diff(mf, hfile)?;
-        if mode == UpgradeMode::DiffOnly {
-            return Ok(None)
+impl UpgradeData {
+    /// Prepare an upgrade data from values and manifest data
+    ///
+    /// Manifest must have had a version set or inferred as appropriate.
+    /// (DiffOnly can sneak by early due to it not being technically needed)
+    ///
+    /// Performs basic sanity checks, and populates canonical values that are reused a lot.
+    pub fn new(mf: &Manifest, hfile: &str, mode: UpgradeMode) ->  Result<Option<UpgradeData>> {
+        if mode != UpgradeMode::DiffOnly {
+            slack::have_credentials()?;
         }
-        hdiff
-    };
+        let namespace = kube::current_namespace(&mf._region)?;
 
-    // version + image MUST be set at this point before calling this
-    let version = mf.version.clone().ok_or_else(|| ErrorKind::ManifestFailure("version".into()))?;
-    if let Err(e) = helpers::version_validate(&version) {
-        warn!("Please supply a 40 char git sha version, or a semver version for {}", mf.name);
-        let img = mf.image.clone().ok_or_else(|| ErrorKind::ManifestFailure("image".into()))?;
-        if img.contains("quay.io/babylon") { // TODO: locked down repos in config
-            return Err(e);
+        let helmdiff = if mode == UpgradeMode::UpgradeInstall {
+            "".into() // can't diff against what's not there!
+        } else {
+            let hdiff = diff(mf, hfile)?;
+            if mode == UpgradeMode::DiffOnly {
+                return Ok(None)
+            }
+            if hdiff.is_empty() && mode != UpgradeMode::UpgradeRecreateWait {
+                debug!("Not upgrading {} - empty diff", mf.name);
+                return Ok(None)
+            }
+            hdiff
+        };
+
+        // version + image MUST be set at this point before calling this for upgrade/install purposes
+        // all entry points into this should set mf.version correctly!
+        let version = mf.version.clone().ok_or_else(|| ErrorKind::ManifestFailure("version".into()))?;
+        if let Err(e) = helpers::version_validate(&version) {
+            warn!("Please supply a 40 char git sha version, or a semver version for {}", mf.name);
+            let img = mf.image.clone().ok_or_else(|| ErrorKind::ManifestFailure("image".into()))?;
+            if img.contains("quay.io/babylon") { // TODO: locked down repos in config
+                return Err(e);
+            }
         }
+
+        Ok(Some(UpgradeData {
+            name: mf.name.clone(),
+            diff: helmdiff,
+            metadata: mf.metadata.clone(),
+            chart: mf.chart.clone(),
+            waittime: helpers::calculate_wait_time(mf),
+            region: mf._region.clone(),
+            values: hfile.into(),
+            mode, version, namespace
+        }))
     }
-
-    Ok(Some(UpgradeData {
-        name: mf.name.clone(),
-        diff: helmdiff,
-        metadata: mf.metadata.clone(),
-        chart: mf.chart.clone(),
-        waittime: helpers::calculate_wait_time(mf),
-        region: mf._region.clone(),
-        values: hfile.into(),
-        mode, version, namespace
-    }))
 }
-
 
 pub fn upgrade(data: &UpgradeData) -> Result<()> {
     // upgrade it using the same command
@@ -326,16 +314,10 @@ pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>) -> 
     let mut mf = Manifest::completed(svc, &conf, region)?;
 
     // template or values does not need version - but respect passed in / manifest
-    mf.version = if let Some(v) = ver {
-        // If version set explicitly, use that
-        Some(v)
-    } else if let Some(v) = mf.version {
-        // If pinned in manifests, respect that version
-        Some(v)
-    } else {
-        // Should not need further network here..
-        None
-    };
+    if ver.is_some() {
+        // override with set version only if set - respect pin otherwise
+        mf.version = ver;
+    }
 
     let hfile = format!("{}.helm.gen.yml", svc);
     values(&mf, Some(hfile.clone()))?;
@@ -421,42 +403,30 @@ pub fn values_wrapper(svc: &str, region: &str, conf: &Config, ver: Option<String
     let mut mf = Manifest::completed(svc, &conf, region)?;
 
     // template or values does not need version - but respect passed in / manifest
-    mf.version = if let Some(v) = ver {
-        // If version set explicitly, use that
-        Some(v)
-    } else if let Some(v) = mf.version {
-        // If pinned in manifests, respect that version
-        Some(v)
-    } else {
-        // Should not need further network here..
-        None
-    };
+    if ver.is_some() {
+        mf.version = ver;
+    }
     assert!(mf.regions.contains(&region.to_string()));
     values(&mf, None)
 }
 
 /// Full helm wrapper for a single upgrade/diff/install
-pub fn full_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
+pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
     let mut mf = Manifest::completed(svc, &conf, region)?;
 
     // Ensure we have a version - or are able to infer one
-    mf.version = if let Some(v) = ver {
-        // If version set explicitly, use that
-        Some(v)
-    } else if let Some(v) = mf.version {
-        // If pinned in manifests, respect that version
-        Some(v)
-    } else if mode == UpgradeMode::UpgradeInstall {
+    if ver.is_some() {
+        mf.version = ver; // override if passing in
+    }
+    // Can't install without a version
+    if mf.version.is_none() && mode == UpgradeMode::UpgradeInstall {
         warn!("No version found in either manifest or passed explicitly");
         bail!("helm install needs an explicit version")
-    } else {
-        // Environment uses rolling upgrades - infer from current running
-        let regdefaults = if let Some(r) = conf.regions.get(region) {
-            r.defaults.clone()
-        } else {
-            bail!("You need to define the kube context '{}' in shipcat.conf fist", region)
-        };
-        Some(helpers::infer_fallback_version(&svc, &regdefaults)?)
+    }
+    // Other modes can infer in a pinch
+    if mf.version.is_none() {
+        let regdefaults = conf.region_defaults(region)?;
+        mf.version = Some(helpers::infer_fallback_version(&svc, &regdefaults)?);
     };
 
     // Template values file
@@ -464,7 +434,7 @@ pub fn full_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config, v
     values(&mf, Some(hfile.clone()))?;
 
     // Sanity step that gives canonical upgrade data
-    let upgrade_opt = upgrade_prepare(&mf, &hfile, mode)?;
+    let upgrade_opt = UpgradeData::new(&mf, &hfile, mode)?;
     if let Some(ref udata) = upgrade_opt {
         // Upgrade necessary - pass on data:
         let res = upgrade(&udata).map_err(|e| {

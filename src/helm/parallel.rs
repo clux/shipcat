@@ -8,7 +8,7 @@ use super::helpers;
 use super::{Result, Error, Config, Manifest};
 
 
-/// Experimental threaded mass helm operation
+/// Stable threaded mass helm operation
 ///
 /// Reads secrets first, dumps all the helm values files
 /// then helm {operation} all the services.
@@ -61,25 +61,17 @@ fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Co
     let svc = tmpmf.name;
 
     let mut mf = Manifest::completed(&svc, &conf, &region)?;
-
-    // get version running now (to limit race condition with deploys)
-    let regdefaults = if let Some(r) = conf.regions.get(&region) {
-        r.defaults.clone()
-    } else {
-        bail!("You need to define the kube context '{}' in shipcat.conf fist", region)
-    };
-    mf.version = if let Some(v) = mf.version {
-        // If pinned in manifests, use that version
-        Some(v)
-    } else {
-        Some(helpers::infer_fallback_version(&svc, &regdefaults)?)
+    if mf.version.is_none() {
+        // get version running now (to limit race condition with deploys)
+        let regdefaults = conf.region_defaults(&region)?;
+        mf.version = Some(helpers::infer_fallback_version(&svc, &regdefaults)?)
     };
 
     // Template values file
     let hfile = format!("{}.helm.gen.yml", &svc);
     direct::values(&mf, Some(hfile.clone()))?;
 
-    let upgrade_opt = direct::upgrade_prepare(&mf, &hfile, mode)?;
+    let upgrade_opt = UpgradeData::new(&mf, &hfile, mode)?;
     if let Some(ref udata) = upgrade_opt {
         // upgrade in given mode, potentially rolling back a failure
         let res = direct::upgrade(&udata).map_err(|e| {
@@ -199,20 +191,15 @@ pub fn upgrade_join(svcs: Vec<Manifest>, conf: &Config, region: String, umode: U
     Ok(())
 }
 
-
-// TODO: similar function that:
-// - pre-generates manifests?
-// - at least pre-sets versions (bypasses mf.version check)
-// - passes those down instead
-// - properly handles error handling on the result vctor!
-// Parallel reconcile worker that reports information sequentially
+/// A slightly modified direct::upgrade_wrapper
 fn upgrade_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Config)
--> Result<(Option<Error>, Option<UpgradeData>)> {
+    -> Result<(Option<Error>, Option<UpgradeData>)>
+{
     let svc = tmpmf.name;
     let mut mf = Manifest::completed(&svc, &conf, &region)?;
 
     // get version running now (to limit race condition with deploys)
-    let regdefaults = conf.regions.get(&region).unwrap().defaults.clone();
+    let regdefaults = conf.region_defaults(&region)?;
     mf.version = if let Some(v) = tmpmf.version {
         // if set outside - use that
         Some(v)
@@ -227,7 +214,7 @@ fn upgrade_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Conf
     let hfile = format!("{}.helm.gen.yml", &svc);
     direct::values(&mf, Some(hfile.clone()))?;
 
-    let upgrade_opt = direct::upgrade_prepare(&mf, &hfile, mode)?;
+    let upgrade_opt = UpgradeData::new(&mf, &hfile, mode)?;
     // Upgrades after this point can happen if services are failing
     // deal with these expected errors seperately:
     match upgrade_opt {
