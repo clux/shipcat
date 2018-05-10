@@ -2,8 +2,6 @@ use threadpool::ThreadPool;
 use std::sync::mpsc::channel;
 use std::fs;
 
-use super::vault;
-
 use super::{UpgradeMode, UpgradeData};
 use super::direct;
 use super::helpers;
@@ -62,9 +60,7 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &str, umode: Upgrad
 fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Config) -> Result<Option<UpgradeData>> {
     let svc = tmpmf.name;
 
-    // Create a vault client and fetch all secrets
-    let v = vault::Vault::default()?;
-    let mut mf = Manifest::completed(&svc, &conf, &region, Some(v))?;
+    let mut mf = Manifest::completed(&svc, &conf, &region)?;
 
     // get version running now (to limit race condition with deploys)
     let regdefaults = if let Some(r) = conf.regions.get(&region) {
@@ -213,10 +209,7 @@ pub fn upgrade_join(svcs: Vec<Manifest>, conf: &Config, region: String, umode: U
 fn upgrade_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Config)
 -> Result<(Option<Error>, Option<UpgradeData>)> {
     let svc = tmpmf.name;
-
-    // Create a vault client and fetch all secrets
-    let v = vault::Vault::default()?;
-    let mut mf = Manifest::completed(&svc, &conf, &region, Some(v))?;
+    let mut mf = Manifest::completed(&svc, &conf, &region)?;
 
     // get version running now (to limit race condition with deploys)
     let regdefaults = conf.regions.get(&region).unwrap().defaults.clone();

@@ -411,7 +411,7 @@ fn main() {
             None
         };
         let mf = if let Some(r) = a.value_of("region") {
-            conditional_exit(Manifest::completed(service, &conf, r, None))
+            conditional_exit(Manifest::stubbed(service, &conf, r))
         } else {
             // infer region from kubectl current-context
             conditional_exit(Manifest::basic(service, &conf, None))
@@ -423,7 +423,7 @@ fn main() {
         let pod = value_t!(a.value_of("pod"), u32).ok();
 
         let mf = if let Some(r) = a.value_of("region") {
-            conditional_exit(Manifest::completed(service, &conf, r, None))
+            conditional_exit(Manifest::stubbed(service, &conf, r))
         } else {
             // infer region from kubectl current-context
             conditional_exit(Manifest::basic(service, &conf, None))

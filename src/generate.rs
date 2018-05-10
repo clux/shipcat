@@ -42,7 +42,7 @@ mod tests {
     fn helm_create() {
         setup();
         let conf = Config::read().unwrap();
-        let mf = Manifest::completed("fake-ask", &conf, "dev-uk".into(), None).unwrap();
+        let mf = Manifest::stubbed("fake-ask", &conf, "dev-uk".into()).unwrap();
         if let Err(e) = values_stdout(&mf) {
             println!("Failed to create helm values for fake-ask");
             print!("{}", e);

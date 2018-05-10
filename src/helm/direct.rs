@@ -313,10 +313,7 @@ pub fn values(mf: &Manifest, output: Option<String>) -> Result<()> {
 ///
 /// Generates helm values to disk, then passes it to helm template
 pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>) -> Result<String> {
-    use super::vault;
-    // Create a vault client and fetch all secrets
-    let v = vault::Vault::default()?;
-    let mut mf = Manifest::completed(svc, &conf, region, Some(v))?;
+    let mut mf = Manifest::completed(svc, &conf, region)?;
 
     // template or values does not need version - but respect passed in / manifest
     mf.version = if let Some(v) = ver {
@@ -411,11 +408,7 @@ pub fn handle_upgrade_notifies(success: bool, u: &UpgradeData) -> Result<()> {
 ///
 /// Completes a manifest and prints it out with the given version
 pub fn values_wrapper(svc: &str, region: &str, conf: &Config, ver: Option<String>) -> Result<()> {
-    use super::vault;
-
-    // Create a vault client and fetch all secrets
-    let v = vault::Vault::default()?;
-    let mut mf = Manifest::completed(svc, &conf, region, Some(v))?;
+    let mut mf = Manifest::completed(svc, &conf, region)?;
 
     // template or values does not need version - but respect passed in / manifest
     mf.version = if let Some(v) = ver {
@@ -434,11 +427,7 @@ pub fn values_wrapper(svc: &str, region: &str, conf: &Config, ver: Option<String
 
 /// Full helm wrapper for a single upgrade/diff/install
 pub fn full_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
-    use super::vault;
-
-    // Create a vault client and fetch all secrets
-    let v = vault::Vault::default()?;
-    let mut mf = Manifest::completed(svc, &conf, region, Some(v))?;
+    let mut mf = Manifest::completed(svc, &conf, region)?;
 
     // Ensure we have a version - or are able to infer one
     mf.version = if let Some(v) = ver {

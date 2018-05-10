@@ -338,7 +338,7 @@ impl Manifest {
     }
 
     /// Fill in env overrides and populate secrets
-    pub fn fill(&mut self, conf: &Config, region: &str, vault: &Option<Vault>) -> Result<()> {
+    fn fill(&mut self, conf: &Config, region: &str, vault: &Option<Vault>) -> Result<()> {
         self.implicits(conf, Some(region.into()))?;
         if let &Some(ref client) = vault {
             self.secrets(&client, region)?;
@@ -357,14 +357,26 @@ impl Manifest {
     }
 
     /// Complete (filled in env overrides and populate secrets) a manifest
-    pub fn completed(service: &str, conf: &Config, region: &str, vault: Option<Vault>) -> Result<Manifest> {
+    pub fn completed(service: &str, conf: &Config, region: &str) -> Result<Manifest> {
+        let v = Vault::default()?;
         let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
-        mf.fill(conf, &region, &vault)?;
+        mf.fill(conf, &region, &Some(v))?;
         mf.inline_configs()?;
+        Ok(mf)
+    }
+
+    /// Mostly completed but stubbed secrets version of the manifest
+    pub fn stubbed(service: &str, conf: &Config, region: &str) -> Result<Manifest> {
+        let pth = Path::new(".").join("services").join(service);
+        if !pth.exists() {
+            bail!("Service folder {} does not exist", pth.display())
+        }
+        let mut mf = Manifest::read_from(&pth)?;
+        mf.fill(conf, &region, &None)?;
         Ok(mf)
     }
 
@@ -523,7 +535,7 @@ pub fn validate(services: Vec<String>, conf: &Config, region: String, vault: Opt
 /// Prints the cascaded structs from a manifests `dataHandling`
 pub fn gdpr_show(svc: &str, conf: &Config, region: &str) -> Result<()> {
     use std::io::{self, Write};
-    let mf = Manifest::completed(svc, conf, region, None)?;
+    let mf = Manifest::stubbed(svc, conf, region)?;
     let _ = io::stdout().write(format!("{}\n", serde_yaml::to_string(&mf.dataHandling)?).as_bytes());
     Ok(())
 }
