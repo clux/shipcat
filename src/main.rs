@@ -362,7 +362,7 @@ fn main() {
         else {
             unreachable!("Helm Subcommand valid, but not implemented")
         };
-        let res = shipcat::helm::direct::full_wrapper(svc,
+        let res = shipcat::helm::direct::upgrade_wrapper(svc,
             umode,
             &region,
             &conf,
