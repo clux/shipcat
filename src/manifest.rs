@@ -33,7 +33,7 @@ pub struct Manifest {
     #[serde(default, skip_serializing)]
     pub disabled: bool,
     /// Wheter the service is externally managed
-    #[serde(default)]
+    #[serde(default, skip_serializing)]
     pub external: bool,
 
     /// Optional image name
@@ -52,7 +52,7 @@ pub struct Manifest {
     pub metadata: Option<Metadata>,
 
     /// Data sources and handling strategies
-    #[serde(default)]
+    #[serde(default, skip_serializing)]
     pub dataHandling: DataHandling,
 
     /// Jaeger options
@@ -60,6 +60,7 @@ pub struct Manifest {
     pub jaeger: Jaeger,
 
     /// Language the service is written in
+    #[serde(skip_serializing)]
     pub language: Option<String>,
 
     // Kubernetes specific flags
@@ -102,7 +103,7 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<Dependency>,
     /// Regions service is deployed to
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing)]
     pub regions: Vec<String>,
     /// Volumes
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -112,7 +113,7 @@ pub struct Manifest {
     pub cronJobs: Vec<CronJob>,
 
     /// Sidecars
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing)]
     pub sidecars: Vec<Sidecar>,
 
     /// Service annotations (for internal services only)
