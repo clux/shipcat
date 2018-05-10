@@ -22,6 +22,12 @@ pub enum UpgradeMode {
     /// Upgrade with install flag set
     UpgradeInstall,
 }
+impl Default for UpgradeMode {
+    fn default() -> Self {
+        UpgradeMode::DiffOnly
+    }
+}
+
 impl fmt::Display for UpgradeMode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -127,6 +133,7 @@ fn rollback(ud: &UpgradeData) -> Result<()> {
 }
 
 // All data needed for an upgrade
+#[derive(Default)]
 pub struct UpgradeData {
     /// Name of service
     pub name: String,
@@ -198,6 +205,19 @@ impl UpgradeData {
             values: hfile.into(),
             mode, version, namespace
         }))
+    }
+
+    pub fn from_install(mf: &Manifest) -> UpgradeData {
+        UpgradeData {
+            name: mf.name.clone(),
+            version: mf.version.clone().unwrap_or_else(|| "unknown".into()),
+            metadata: mf.metadata.clone(),
+            region: mf._region.clone(),
+            chart: mf.chart.clone(),
+            mode: UpgradeMode::UpgradeInstall,
+            // empty diff, namespace, 0 waittime,
+            ..Default::default()
+        }
     }
 }
 
@@ -383,15 +403,16 @@ pub fn handle_upgrade_rollbacks(e: &Error, u: &UpgradeData) -> Result<()> {
 /// Notify slack upgrades from a single upgrade
 pub fn handle_upgrade_notifies(success: bool, u: &UpgradeData) -> Result<()> {
     let (color, text) = if success {
-        ("good".into(), format!("{} `{}`", u.mode.action_verb(), u.name))
+        ("good".into(), format!("{} `{}` in `{}`", u.mode.action_verb(), u.name, u.region))
     } else {
-        ("danger".into(), format!("failed to {} `{}`", u.mode, u.name))
+        ("danger".into(), format!("failed to {} `{}` in `{}`", u.mode, u.name, u.region))
     };
+    let code = if u.diff.is_empty() { None } else { Some(u.diff.clone()) };
     slack::send(slack::Message {
-        text: text,
+        text, code,
         color: Some(color),
+        version: Some(u.version.clone()),
         metadata: u.metadata.clone(),
-        code: Some(u.diff.clone()),
         ..Default::default()
     })
 }

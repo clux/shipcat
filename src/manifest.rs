@@ -412,6 +412,14 @@ impl Manifest {
         Ok(())
     }
 
+    /// Override version with an optional one from the CLI
+    pub fn set_version(mut self, ver: &Option<String>) -> Self {
+        if ver.is_some() {
+            self.version = ver.clone(); // override version here if set
+        }
+        self
+    }
+
     /// Print manifest to debug output
     pub fn print(&self) -> Result<()> {
         let encoded = serde_yaml::to_string(self)?;

@@ -68,6 +68,11 @@ fn main() {
                 .short("t")
                 .takes_value(true)
                 .help("Image version to deploy"))
+            .arg(Arg::with_name("num-jobs")
+                    .short("j")
+                    .long("num-jobs")
+                    .takes_value(true)
+                    .help("Number of worker threads used"))
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
@@ -362,11 +367,10 @@ fn main() {
         else {
             unreachable!("Helm Subcommand valid, but not implemented")
         };
-        let res = shipcat::helm::direct::upgrade_wrapper(svc,
-            umode,
-            &region,
-            &conf,
-            ver).map(|_| ());
+        let jobs = a.value_of("num-jobs").unwrap_or("8").parse().unwrap();
+        let res = shipcat::helm::smart::upgrade_wrapper(svc,
+            umode, &region,
+            &conf, ver, jobs);
 
         result_exit(&format!("helm {}", a.subcommand_name().unwrap()), res);
     }

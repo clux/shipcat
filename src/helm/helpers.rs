@@ -55,7 +55,7 @@ pub fn calculate_wait_time(mf: &Manifest) -> u32 {
         // wait for at most 2 * bootTime * replicas
         2 * hc.wait * rcount
     } else {
-        // sensible guess for boot time
+        // sensible guess for boot time (helm default is 300 without any context)
         2 * 30 * rcount
     }
 }
