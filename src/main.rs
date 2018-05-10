@@ -48,6 +48,7 @@ fn main() {
             .long("debug")
             .help("Adds line numbers to log statements"))
         .subcommand(SubCommand::with_name("get")
+            .about("Get information about what's running in a cluster")
             .arg(Arg::with_name("resource")
                 .required(true)
                 .help("Name of manifest resource to retrieve"))
@@ -61,6 +62,7 @@ fn main() {
                 .long("short")
                 .help("Output short resource format")))
         .subcommand(SubCommand::with_name("helm")
+            .about("Run helm like commands on shipcat manifests")
             .arg(Arg::with_name("tag")
                 .long("tag")
                 .short("t")
@@ -73,18 +75,18 @@ fn main() {
             //    .long("mock-vault")
             //    .help("Return empty strings from Vault"))
             .subcommand(SubCommand::with_name("template")
-                .arg(Arg::with_name("output")
-                    .short("o")
-                    .long("output")
-                    .takes_value(true)
-                    .help("Output file to save to"))
+                //.arg(Arg::with_name("output")
+                //    .short("o")
+                //    .long("output")
+                //    .takes_value(true)
+                //    .help("Output file to save to"))
                 .about("Generate helm template from a manifest"))
             .subcommand(SubCommand::with_name("values")
-                .arg(Arg::with_name("output")
-                    .short("o")
-                    .long("output")
-                    .takes_value(true)
-                    .help("Output file to save to"))
+                //.arg(Arg::with_name("output")
+                //    .short("o")
+                //    .long("output")
+                //    .takes_value(true)
+                //    .help("Output file to save to"))
                 .about("Generate helm values from a manifest"))
             .subcommand(SubCommand::with_name("diff")
                 .about("Diff kubernetes configs with local state"))
@@ -117,6 +119,7 @@ fn main() {
                 .help("Service name"))
             .about("Get logs from pods for a service described in a manifest"))
         .subcommand(SubCommand::with_name("jenkins")
+            .about("Query jenkins jobs named kube-deploy-{region}")
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
@@ -180,8 +183,6 @@ fn main() {
                 .required(true)
                 .help("Service names to show"))
               .about("Reduce data handling structs"))
-              .subcommand(SubCommand::with_name("show")
-                .help("Show GDPR data for a service"))
         .subcommand(SubCommand::with_name("kong")
             .about("Generate Kong config")
             .subcommand(SubCommand::with_name("config-url")
@@ -194,6 +195,7 @@ fn main() {
                 .help("Generate dot output for graphviz"))
               .about("Graph the dependencies of a service"))
         .subcommand(SubCommand::with_name("cluster")
+            .about("Perform cluster level recovery / reconcilation commands")
             .subcommand(SubCommand::with_name("helm")
                 .arg(Arg::with_name("num-jobs")
                     .short("j")
@@ -323,14 +325,14 @@ fn main() {
             result_exit(a.subcommand_name().unwrap(), res)
         }
 
-        if let Some(b) = a.subcommand_matches("values") {
-            let _output = b.value_of("output").map(String::from);
+        if let Some(_) = a.subcommand_matches("values") {
+            //let _output = b.value_of("output").map(String::from);
             let res = shipcat::helm::direct::values_wrapper(svc,
                 &region, &conf, ver.clone());
             result_exit(a.subcommand_name().unwrap(), res)
         }
-        if let Some(b) = a.subcommand_matches("template") {
-            let _output = b.value_of("output").map(String::from);
+        if let Some(_) = a.subcommand_matches("template") {
+            //let _output = b.value_of("output").map(String::from);
             let res = shipcat::helm::direct::template(svc,
                 &region, &conf, ver.clone());
             result_exit(a.subcommand_name().unwrap(), res)

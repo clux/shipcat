@@ -24,7 +24,7 @@ pub fn values_to_disk(mf: &Manifest, output: &str) -> Result<()> {
     let encoded = serde_yaml::to_string(&mf)?;
 
     let pth = Path::new(".").join(output);
-    info!("Writing helm values for {} to {}", mf.name, pth.display());
+    debug!("Writing helm values for {} to {}", mf.name, pth.display());
     let mut f = File::create(&pth)?;
     write!(f, "{}\n", encoded)?;
     debug!("Wrote helm values for {} to {}: \n{}", mf.name, pth.display(), encoded);
