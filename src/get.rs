@@ -22,18 +22,18 @@ pub fn table(rsrc: &str, conf: &Config, quiet: bool, region: String) -> Result<(
 
     let services = Manifest::available()?;
     if !quiet {
-        println!("{0: <40} {1:?}", "NAME", resource);
+        let _ = io::stdout().write(&format!("{0: <40} {1:?}", "NAME", resource).as_bytes());
     }
     for svc in services {
         let mf = Manifest::stubbed(&svc, &conf, &region)?;
         if mf.regions.contains(&region) {
             match resource {
                 ResourceType::VERSION => {
-                    println!("{0: <40} {1}", mf.name, mf.version.unwrap());
+                    let _ = io::stdout().write(&format!("{0: <40} {1}", mf.name, mf.version.unwrap()).as_bytes());
                 },
                 ResourceType::IMAGE => {
                     let img = format!("{}", mf.image.unwrap());
-                    println!("{0: <40} {1}", mf.name, img);
+                    let _ = io::stdout().write(&format!("{0: <40} {1}", mf.name, img).as_bytes());
                 },
             }
         }

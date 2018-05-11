@@ -102,14 +102,13 @@ pub fn generate(service: &str, conf: &Config, dot: bool) -> Result<CatGraph> {
 
     recurse_manifest(baseidx, &base, conf, &mut graph)?;
 
-    if dot {
-        println!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel]));
+    let out = if dot {
+        format!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel]))
     }
     else {
-        println!("{}", serde_yaml::to_string(&graph)?);
-    }
-    io::stdout().flush()?; // allow piping stdout elsewhere
-
+        format!("{}", serde_yaml::to_string(&graph)?)
+    };
+    let _ = io::stdout().write(&out.as_bytes());
     Ok(graph)
 }
 
@@ -144,14 +143,13 @@ pub fn full(dot: bool, conf: &Config) -> Result<CatGraph> {
         }
     }
 
-    if dot {
-        println!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel]));
+    let out = if dot {
+        format!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel]))
     }
     else {
-        println!("{}", serde_yaml::to_string(&graph)?);
-    }
-    io::stdout().flush()?; // allow piping stdout elsewhere
-
+        format!("{}", serde_yaml::to_string(&graph)?)
+    };
+    let _ = io::stdout().write(&out.as_bytes());
     Ok(graph)
 }
 
