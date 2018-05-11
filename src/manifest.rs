@@ -113,7 +113,7 @@ pub struct Manifest {
     pub cronJobs: Vec<CronJob>,
 
     /// Sidecars
-    #[serde(default, skip_serializing)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sidecars: Vec<Sidecar>,
 
     /// Service annotations (for internal services only)
