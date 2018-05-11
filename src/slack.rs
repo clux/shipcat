@@ -104,9 +104,7 @@ pub fn send(msg: Message) -> Result<()> {
     }
 
     // Auto link/text from originator
-    if let Some(orig) = infer_ci_links() {
-        texts.push(orig);
-    }
+    texts.push(infer_ci_links());
 
     // Auto cc users
     if let Some(ref md) = msg.metadata {
@@ -155,22 +153,22 @@ fn infer_slack_notifies(md: &Metadata) -> Vec<SlackTextContent> {
 }
 
 /// Infer originator of a message
-fn infer_ci_links() -> Option<SlackTextContent> {
+fn infer_ci_links() -> SlackTextContent {
     if let (Ok(url), Ok(name), Ok(nr)) = (env::var("BUILD_URL"),
                                           env::var("JOB_NAME"),
                                           env::var("BUILD_NUMBER")) {
         // we are on jenkins
-        Some(Link(SlackLink::new(&url, &format!("{}#{}", name, nr))))
+        Link(SlackLink::new(&url, &format!("{}#{}", name, nr)))
     } else if let (Ok(url), Ok(name), Ok(nr)) = (env::var("CIRCLE_BUILD_URL"),
                                                  env::var("CIRCLE_JOB"),
                                                  env::var("CIRCLE_BUILD_NUM")) {
         // we are on circle
-        Some(Link(SlackLink::new(&url, &format!("{}#{}", name, nr))))
+        Link(SlackLink::new(&url, &format!("{}#{}", name, nr)))
     } else if let Ok(user) = env::var("USER") {
-        Some(Text(SlackText::new(format!("(via admin {})", user))))
+        Text(SlackText::new(format!("(via admin {})", user)))
     } else {
         warn!("Could not infer ci links from environment");
-        Some(Text(SlackText::new("via unknown user".to_string())))
+        Text(SlackText::new("via unknown user".to_string()))
     }
 }
 

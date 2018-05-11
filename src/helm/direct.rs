@@ -458,11 +458,16 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
     let upgrade_opt = UpgradeData::new(&mf, &hfile, mode)?;
     if let Some(ref udata) = upgrade_opt {
         // Upgrade necessary - pass on data:
-        let res = upgrade(&udata).map_err(|e| {
-            handle_upgrade_rollbacks(&e, &udata)
-        });
-        // notify about the result directly as they happen
-        handle_upgrade_notifies(res.is_ok(), &udata)?;
+        match upgrade(&udata) {
+            Err(e) => {
+                handle_upgrade_notifies(false, &udata)?;
+                handle_upgrade_rollbacks(&e, &udata)?;
+                return Err(e);
+            },
+            Ok(_) => {
+                handle_upgrade_notifies(true, &udata)?
+            }
+        };
     }
     let _ = fs::remove_file(&hfile); // try to remove temporary file
     Ok(upgrade_opt)
