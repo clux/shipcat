@@ -84,7 +84,6 @@ pub fn send(msg: Message) -> Result<()> {
     if let Some(code) = msg.code {
         if let Some(ref md) = msg.metadata {
             if let Some(lnk) = infer_metadata_links(md, &code) {
-                println!("pushed gh link");
                 have_gh_link = true;
                 texts.push(lnk);
             }
@@ -101,6 +100,9 @@ pub fn send(msg: Message) -> Result<()> {
         if let Some(ref md) = msg.metadata {
            texts.push(infer_metadata_single_link(md, &v));
         }
+    }
+    if msg.metadata.is_none() {
+        warn!("Not providing a slack github link due to missing metadata in manifest");
     }
 
     // Auto link/text from originator
@@ -206,7 +208,6 @@ mod tests {
                 text: format!("Non-trivial deploy test of `{}`", "slack"),
                 color: Some("good".into()),
                 metadata: mf.metadata,
-                //code: Some(code.into()),
                 code: Some(format!("Pod changed:
 -  value: \"somedeletedvar\"
 -  image: \"blah:abc12345678\"
