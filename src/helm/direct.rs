@@ -461,6 +461,7 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
         match upgrade(&udata) {
             Err(e) => {
                 handle_upgrade_notifies(false, &udata)?;
+                // TODO: kube debug doesn't seem to hit?
                 handle_upgrade_rollbacks(&e, &udata)?;
                 return Err(e);
             },
