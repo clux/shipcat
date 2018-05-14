@@ -79,6 +79,11 @@ pub fn send(msg: Message) -> Result<()> {
     // All text constructed for first attachment goes in this vec:
     let mut texts = vec![Text(msg.text.into())];
 
+    if msg.code.is_some() && msg.metadata.is_none() {
+        // TODO: only use this when notifying internally
+        warn!("Not providing a slack github link due to missing metadata in manifest");
+    }
+
     let mut have_gh_link = false;
     let mut codeattach = None;
     if let Some(code) = msg.code {
@@ -98,12 +103,8 @@ pub fn send(msg: Message) -> Result<()> {
         }
     } else if let Some(v) = msg.version {
         if let Some(ref md) = msg.metadata {
-           texts.push(infer_metadata_single_link(md, &v));
+           texts.push(infer_metadata_single_link(md, v));
         }
-    }
-    if msg.metadata.is_none() {
-        // TODO: only use this when notifying internally
-        warn!("Not providing a slack github link due to missing metadata in manifest");
     }
 
     // Auto link/text from originator
@@ -135,17 +136,25 @@ pub fn send(msg: Message) -> Result<()> {
     Ok(())
 }
 
-fn infer_metadata_single_link(md: &Metadata, ver: &str) -> SlackTextContent {
+fn short_ver(ver: String) -> String {
+    use semver::Version;
+    if Version::parse(&ver).is_err() && ver.len() == 40 {
+        // only abbreviate versions that are not semver and 40 chars (git shas)
+        format!("{}", &ver[..8])
+    } else {
+        ver
+    }
+}
+
+fn infer_metadata_single_link(md: &Metadata, ver: String) -> SlackTextContent {
     let url = format!("{}/commit/{}", md.repo, ver);
-    let ver = format!("{}", &ver[..8]);
-    Link(SlackLink::new(&url, &ver))
+    Link(SlackLink::new(&url, &short_ver(ver)))
 }
 
 fn infer_metadata_links(md: &Metadata, diff: &str) -> Option<SlackTextContent> {
     if let Some((v1, v2)) = helpers::infer_version_change(&diff) {
         let url = format!("{}/compare/{}...{}", md.repo, v1, v2);
-        let ver = format!("{}", &v2[..8]);
-        Some(Link(SlackLink::new(&url, &ver)))
+        Some(Link(SlackLink::new(&url, &short_ver(v2))))
     } else {
         None
     }
@@ -198,10 +207,9 @@ mod tests {
                 text: format!("Trivial upgrade deploy test of `{}`", "slack"),
                 color: Some("good".into()),
                 metadata: mf.metadata.clone(),
-                //code: Some(code.into()),
                 code: Some(format!("Pod changed:
--  image: \"blah:abc12345678\"
-+  image: \"blah:abc23456789\"")),
+-  image: \"blah:e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19\"
++  image: \"blah:d4f01f5143643e75d9cc2d5e3221e82a9e1c12e5\"")),
                 ..Default::default()
             }).unwrap();
           // this is not just a three line diff, so

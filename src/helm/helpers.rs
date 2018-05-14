@@ -17,13 +17,6 @@ pub fn diff_format(diff: String) -> String {
 
 
 /// Infer a version change diff and extract old version and new version
-///
-/// Example input:
-/// pa-aggregator, Deployment (extensions/v1beta1) has changed:
-/// -         image: "quay.io/babylonhealth/pa-aggregator-python:e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19"
-/// +         image: "quay.io/babylonhealth/pa-aggregator-python:d4f01f5143643e75d9cc2d5e3221e82a9e1c12e5"
-///
-/// Output: The two sha1s
 pub fn infer_version_change(diff: &str) -> Option<(String, String)> {
     let img_re = Regex::new(r"[^:]+:(?P<version>[a-z0-9\.\-]+)").unwrap();
     let res = img_re.captures_iter(diff).map(|cap| {
@@ -144,6 +137,18 @@ mod tests {
         let (old, new) = res.unwrap();
         assert_eq!(old, "e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19");
         assert_eq!(new, "d4f01f5143643e75d9cc2d5e3221e82a9e1c12e5");
+    }
+
+    #[test]
+    fn version_change_semver() {
+        let input = "pa-aggregator, Deployment (extensions/v1beta1) has changed:
+-         image: \"quay.io/babylonhealth/pa-aggregator-python:1.2.3\"
++         image: \"quay.io/babylonhealth/pa-aggregator-python:1.3.0-alpine\"";
+        let res = infer_version_change(input);
+        assert!(res.is_some());
+        let (old, new) = res.unwrap();
+        assert_eq!(old, "1.2.3");
+        assert_eq!(new, "1.3.0-alpine");
     }
 
     #[test]
