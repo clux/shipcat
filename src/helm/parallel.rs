@@ -144,6 +144,7 @@ pub fn upgrade_join(svcs: Vec<Manifest>, conf: &Config, region: &str, umode: Upg
             },
             &Ok((Some(ref e), Some(ref ud))) => {
                 warn!("Failed to {} {}: {}", ud.mode, ud.name, e);
+                // TODO: partial rollbacks are pretty dodgy maybe fallback to debug only
                 if let Err(e2) = direct::handle_upgrade_rollbacks(e, &ud) {
                     warn!("Failed to handle rollbacks for {}: {}", ud.name, e2);
                 }

@@ -214,27 +214,12 @@ impl Manifest {
 
 
     /// Add implicit defaults to self
-    fn implicits(&mut self, conf: &Config, region: Option<String>) -> Result<()> {
+    fn pre_merge_implicits(&mut self, conf: &Config) -> Result<()> {
         if self.image.is_none() {
             // image name defaults to some prefixed version of the service name
             self.image = Some(format!("{}/{}", conf.defaults.imagePrefix, self.name))
         }
 
-        if let Some(r) = region {
-            if conf.regions.get(&r).is_none() {
-                bail!("Unknown region {} in regions in config", r);
-            }
-            self._region = r.clone();
-            let reg = conf.regions[&r].clone(); // must exist
-            for (k, v) in reg.env {
-                self.env.insert(k, v);
-            }
-
-            // Kong has implicit, region-scoped values
-            if let Some(ref mut kong) = self.kong {
-                kong.implicits(self.name.clone(), conf.regions[&r].clone());
-            }
-        }
         if self.chart == "" {
             self.chart = conf.defaults.chart.clone();
         }
@@ -258,6 +243,26 @@ impl Manifest {
             }
         }
 
+        Ok(())
+    }
+
+    /// Add implicit defaults to self after merging in region overrides
+    fn post_merge_implicits(&mut self, conf: &Config, region: Option<String>) -> Result<()> {
+        if let Some(r) = region {
+            if conf.regions.get(&r).is_none() {
+                bail!("Unknown region {} in regions in config", r);
+            }
+            self._region = r.clone();
+            let reg = conf.regions[&r].clone(); // must exist
+            for (k, v) in reg.env {
+                self.env.insert(k, v);
+            }
+
+            // Kong has implicit, region-scoped values
+            if let Some(ref mut kong) = self.kong {
+                kong.implicits(self.name.clone(), conf.regions[&r].clone());
+            }
+        }
         Ok(())
     }
 
@@ -287,6 +292,7 @@ impl Manifest {
         }
         // Must override Kong per environment (overwrite full struct)
         if mf.kong.is_some() {
+            // Because this struct is overridden entirly; call implicits on this struct as well
             self.kong = mf.kong.clone();
         }
         // Version overrides (can be locked across envs, but overwrite when requested)
@@ -340,7 +346,7 @@ impl Manifest {
 
     /// Fill in env overrides and populate secrets
     fn fill(&mut self, conf: &Config, region: &str, vault: &Option<Vault>) -> Result<()> {
-        self.implicits(conf, Some(region.into()))?;
+        self.pre_merge_implicits(conf)?;
         if let &Some(ref client) = vault {
             self.secrets(&client, region)?;
         }
@@ -354,6 +360,7 @@ impl Manifest {
             debug!("Merging environment locals from {}", envlocals.display());
             self.merge(&envlocals)?;
         }
+        self.post_merge_implicits(conf, Some(region.into()))?;
         Ok(())
     }
 
@@ -391,7 +398,9 @@ impl Manifest {
         if mf.name != service {
             bail!("Service name must equal the folder name");
         }
-        mf.implicits(conf, region)?;
+        mf.pre_merge_implicits(conf)?;
+        // not merging here, but do all implicts we can anyway
+        mf.post_merge_implicits(conf, region)?;
         Ok(mf)
     }
 
@@ -545,7 +554,8 @@ pub fn validate(services: Vec<String>, conf: &Config, region: String, vault: Opt
 pub fn gdpr_show(svc: &str, conf: &Config, region: &str) -> Result<()> {
     use std::io::{self, Write};
     let mf = Manifest::stubbed(svc, conf, region)?;
-    let _ = io::stdout().write(format!("{}\n", serde_yaml::to_string(&mf.dataHandling)?).as_bytes());
+    let out = serde_yaml::to_string(&mf.dataHandling)?;
+    let _ = io::stdout().write(format!("{}\n", out).as_bytes());
     Ok(())
 }
 

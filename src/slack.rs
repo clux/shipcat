@@ -102,6 +102,7 @@ pub fn send(msg: Message) -> Result<()> {
         }
     }
     if msg.metadata.is_none() {
+        // TODO: only use this when notifying internally
         warn!("Not providing a slack github link due to missing metadata in manifest");
     }
 
