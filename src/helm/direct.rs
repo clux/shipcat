@@ -174,7 +174,7 @@ impl UpgradeData {
         if mode != UpgradeMode::DiffOnly {
             slack::have_credentials()?;
         }
-        let namespace = kube::current_namespace(&mf._region)?;
+        let namespace = kube::current_namespace(&mf.region)?;
 
         let helmdiff = if mode == UpgradeMode::UpgradeInstall {
             "".into() // can't diff against what's not there!
@@ -207,7 +207,7 @@ impl UpgradeData {
             metadata: mf.metadata.clone(),
             chart: mf.chart.clone(),
             waittime: helpers::calculate_wait_time(mf),
-            region: mf._region.clone(),
+            region: mf.region.clone(),
             values: hfile.into(),
             mode, version, namespace
         }))
@@ -218,7 +218,7 @@ impl UpgradeData {
             name: mf.name.clone(),
             version: mf.version.clone().unwrap_or_else(|| "unknown".into()),
             metadata: mf.metadata.clone(),
-            region: mf._region.clone(),
+            region: mf.region.clone(),
             chart: mf.chart.clone(),
             mode: UpgradeMode::UpgradeInstall,
             // empty diff, namespace, 0 waittime,
@@ -230,8 +230,8 @@ impl UpgradeData {
             name: mf.name.clone(),
             version: "unset".into(),
             metadata: mf.metadata.clone(),
-            namespace: kube::current_namespace(&mf._region)?,
-            region: mf._region.clone(),
+            namespace: kube::current_namespace(&mf.region)?,
+            region: mf.region.clone(),
             chart: mf.chart.clone(), // helm doesn't need this to rollback, but setting
             mode: UpgradeMode::UpgradeInstall, // unused in rollback flow, but setting
             // empty diff, 0 waittime,
@@ -301,7 +301,7 @@ impl fmt::Display for DiffMode {
 /// Shells out to helm diff, then obfuscates secrets
 fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
     let ver = mf.version.clone().unwrap(); // must be set outside
-    let namespace = kube::current_namespace(&mf._region)?;
+    let namespace = kube::current_namespace(&mf.region)?;
     let diffvec = vec![
         format!("--tiller-namespace={}", namespace),
         "diff".into(),

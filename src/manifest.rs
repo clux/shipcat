@@ -29,6 +29,14 @@ pub struct Manifest {
     #[serde(default)]
     pub name: String,
 
+    // Region injected in helm chart
+    #[serde(default, skip_deserializing)]
+    pub region: String,
+
+    // Environment (kube namespace) injected in helm chart
+    #[serde(default, skip_deserializing)]
+    pub environment: String,
+
     /// Wheter to ignore this service
     #[serde(default, skip_serializing)]
     pub disabled: bool,
@@ -151,10 +159,6 @@ pub struct Manifest {
     // Decoded secrets
     #[serde(default, skip_serializing, skip_deserializing)]
     pub _decoded_secrets: BTreeMap<String, String>,
-
-    // Region used in implicits
-    #[serde(default, skip_serializing, skip_deserializing)]
-    pub _region: String,
 /*
     // Internal type
     #[serde(default, skip_serializing, skip_deserializing)]
@@ -216,7 +220,6 @@ impl Manifest {
         Ok(serde_yaml::from_str(&data)?)
     }
 
-
     /// Add implicit defaults to self
     fn pre_merge_implicits(&mut self, conf: &Config) -> Result<()> {
         if self.image.is_none() {
@@ -256,7 +259,7 @@ impl Manifest {
             if conf.regions.get(&r).is_none() {
                 bail!("Unknown region {} in regions in config", r);
             }
-            self._region = r.clone();
+            self.region = r.clone();
             let reg = conf.regions[&r].clone(); // must exist
             for (k, v) in reg.env {
                 self.env.insert(k, v);
@@ -266,7 +269,11 @@ impl Manifest {
             if let Some(ref mut kong) = self.kong {
                 kong.implicits(self.name.clone(), conf.regions[&r].clone());
             }
+
+            // Inject the region environment
+            self.environment = reg.defaults.environment;
         }
+
         Ok(())
     }
 
@@ -305,7 +312,7 @@ impl Manifest {
         }
         // Allow overriding resources (full struct only)
         if mf.resources.is_some(){
-            self.resources = mf.resources
+            self.resources = mf.resources;
         }
         // allow overriding of init containers (full vector only)
         if !mf.initContainers.is_empty() {
@@ -427,7 +434,7 @@ impl Manifest {
                 let mut ctx = Context::new();
                 ctx.add("env", &self.env.clone());
                 ctx.add("service", &self.name.clone());
-                ctx.add("region", &self._region.clone());
+                ctx.add("region", &self.region.clone());
                 f.value = Some((rdr)(&f.name, &ctx)?);
             }
         }
@@ -453,7 +460,7 @@ impl Manifest {
     ///
     /// Assumes the manifest has been populated with `implicits`
     pub fn verify(&self, conf: &Config) -> Result<()> {
-        assert!(self._region != ""); // needs to have been set by implicits!
+        assert!(self.region != ""); // needs to have been set by implicits!
         // limit to 40 characters, alphanumeric, dashes for sanity.
         let re = Regex::new(r"^[0-9a-z\-]{1,40}$").unwrap();
         if !re.is_match(&self.name) {
@@ -560,7 +567,7 @@ pub fn validate(services: Vec<String>, conf: &Config, region: String, vault: Opt
             info!("validated {} for {}", svc, region);
             mf.print()?; // print it if sufficient verbosity
         } else if mf.external {
-             mf.verify(&conf)?; // exits early - but will verify some stuff
+            mf.verify(&conf)?; // exits early - but will verify some stuff
         } else {
             bail!("{} is not configured to be deployed in {}", svc, region)
         }

@@ -26,6 +26,8 @@ pub struct ManifestDefaults {
 pub struct RegionDefaults {
     /// Kubernetes namespace
     pub namespace: String,
+    /// Environment (i.e: `dev` or `staging`)
+    pub environment: String,
     /// Docker image floating tag
     pub version: String,
 }
