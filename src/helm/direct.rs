@@ -99,7 +99,13 @@ fn kube_debug(svc: &str) -> Result<()> {
     Ok(())
 }
 
-fn rollback(ud: &UpgradeData) -> Result<()> {
+/// Direct rollback command using synthetic or failed `UpgradeData`
+///
+/// Always just rolls back using to the helm's previous release and doesn't block
+/// I.e. it assumes th previous release is stable and can be upgraded to.
+/// If this is not the case you might have degraded service (fewer replicas).
+pub fn rollback(ud: &UpgradeData) -> Result<()> {
+    assert!(ud.namespace.len() > 0);
     let rollbackvec = vec![
         format!("--tiller-namespace={}", ud.namespace),
         "rollback".into(),
@@ -133,7 +139,7 @@ fn rollback(ud: &UpgradeData) -> Result<()> {
 }
 
 // All data needed for an upgrade
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct UpgradeData {
     /// Name of service
     pub name: String,
@@ -173,7 +179,7 @@ impl UpgradeData {
         let helmdiff = if mode == UpgradeMode::UpgradeInstall {
             "".into() // can't diff against what's not there!
         } else {
-            let hdiff = diff(mf, hfile)?;
+            let hdiff = diff(mf, hfile, DiffMode::Upgrade)?;
             if mode == UpgradeMode::DiffOnly {
                 return Ok(None)
             }
@@ -219,6 +225,19 @@ impl UpgradeData {
             ..Default::default()
         }
     }
+    pub fn from_rollback(mf: &Manifest) -> Result<UpgradeData> {
+        Ok(UpgradeData {
+            name: mf.name.clone(),
+            version: "unset".into(),
+            metadata: mf.metadata.clone(),
+            namespace: kube::current_namespace(&mf._region)?,
+            region: mf._region.clone(),
+            chart: mf.chart.clone(), // helm doesn't need this to rollback, but setting
+            mode: UpgradeMode::UpgradeInstall, // unused in rollback flow, but setting
+            // empty diff, 0 waittime,
+            ..Default::default()
+        })
+    }
 }
 
 pub fn upgrade(data: &UpgradeData) -> Result<()> {
@@ -260,19 +279,33 @@ pub fn upgrade(data: &UpgradeData) -> Result<()> {
 
     // CC service contacts on result
     info!("helm {}", upgradevec.join(" "));
-    hexec(upgradevec)
+    hexec(upgradevec).map_err(|e| ErrorKind::HelmUpgradeFailure(e.to_string()).into())
+}
+
+enum DiffMode {
+    Upgrade,
+    //Rollback,
+}
+
+impl fmt::Display for DiffMode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &DiffMode::Upgrade => write!(f, "upgrade"),
+            //&DiffMode::Rollback => write!(f, "rollback"),
+        }
+    }
 }
 
 /// helm diff against current running release
 ///
 /// Shells out to helm diff, then obfuscates secrets
-pub fn diff(mf: &Manifest, hfile: &str) -> Result<String> {
+fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
     let ver = mf.version.clone().unwrap(); // must be set outside
     let namespace = kube::current_namespace(&mf._region)?;
     let diffvec = vec![
         format!("--tiller-namespace={}", namespace),
         "diff".into(),
-        "upgrade".into(),
+        dmode.to_string(),
         "--no-color".into(),
         "-q".into(),
         mf.name.clone(),

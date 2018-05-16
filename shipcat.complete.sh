@@ -110,7 +110,7 @@ _shipcat()
                 local -r regions="$(shipcat list-regions)"
                 local helm_sub i
                 for (( i=2; i < ${#words[@]}-1; i++ )); do
-                    if [[ ${words[i]} = @(values|template|diff|upgrade|install|history) ]]; then
+                    if [[ ${words[i]} = @(values|template|diff|upgrade|install|history|rollback) ]]; then
                         helm_sub=${words[i]}
                     fi
                 done
@@ -124,7 +124,7 @@ _shipcat()
                     COMPREPLY=($(compgen -W "-o --output --dry-run" -- "$cur"))
                 else
                     # Suggest subcommands of helm and global flags
-                    COMPREPLY=($(compgen -W "values template diff upgrade install history recreate" -- "$cur"))
+                    COMPREPLY=($(compgen -W "values template diff upgrade install history recreate rollback" -- "$cur"))
                 fi
                 ;;
             jenkins)
