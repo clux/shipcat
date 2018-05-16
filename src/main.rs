@@ -95,6 +95,8 @@ fn main() {
                 .about("Generate helm values from a manifest"))
             .subcommand(SubCommand::with_name("diff")
                 .about("Diff kubernetes configs with local state"))
+            .subcommand(SubCommand::with_name("rollback")
+                .about("Rollback deployment (and children) to previous"))
             .subcommand(SubCommand::with_name("history")
                 .about("Show helm history for a service"))
             .subcommand(SubCommand::with_name("install")
@@ -327,6 +329,11 @@ fn main() {
         // small wrapper around helm history does not need anything fancy
         if let Some(_) = a.subcommand_matches("history") {
             let res = shipcat::helm::history(&svc, &region);
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
+        // small wrapper around helm rollback
+        if let Some(_) = a.subcommand_matches("rollback") {
+            let res = shipcat::helm::smart::rollback(&svc, &conf, &region);
             result_exit(a.subcommand_name().unwrap(), res)
         }
 

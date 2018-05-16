@@ -1,6 +1,7 @@
 use slack_hook::{Slack, PayloadBuilder, SlackLink, SlackText, SlackUserLink, AttachmentBuilder};
 use slack_hook::SlackTextContent::{self, Text, Link, User};
 use std::env;
+use semver::Version;
 
 use super::helm::helpers;
 use super::structs::Metadata;
@@ -113,7 +114,7 @@ pub fn send(msg: Message) -> Result<()> {
     // Auto cc users
     if let Some(ref md) = msg.metadata {
         if !msg.quiet {
-            texts.push(Text("cc ".to_string().into()));
+            texts.push(Text("<- ".to_string().into()));
             texts.extend(infer_slack_notifies(md));
         }
     }
@@ -137,7 +138,6 @@ pub fn send(msg: Message) -> Result<()> {
 }
 
 fn short_ver(ver: String) -> String {
-    use semver::Version;
     if Version::parse(&ver).is_err() && ver.len() == 40 {
         // only abbreviate versions that are not semver and 40 chars (git shas)
         format!("{}", &ver[..8])
@@ -147,13 +147,21 @@ fn short_ver(ver: String) -> String {
 }
 
 fn infer_metadata_single_link(md: &Metadata, ver: String) -> SlackTextContent {
-    let url = format!("{}/commit/{}", md.repo, ver);
+    let url = if Version::parse(&ver).is_ok() {
+        format!("{}/releases/tag/v{}", md.repo, ver)
+    } else {
+        format!("{}/commit/{}", md.repo, ver)
+    };
     Link(SlackLink::new(&url, &short_ver(ver)))
 }
 
 fn infer_metadata_links(md: &Metadata, diff: &str) -> Option<SlackTextContent> {
     if let Some((v1, v2)) = helpers::infer_version_change(&diff) {
-        let url = format!("{}/compare/{}...{}", md.repo, v1, v2);
+        let v1p = Version::parse(&v1).map(|v| format!("v{}", v)).unwrap_or(v1);
+        let v2p = Version::parse(&v2).map(|v| format!("v{}", v)).unwrap_or(v2.clone());
+        // tag comparisons for semver versions only
+        // github compare url expect leading v
+        let url = format!("{}/compare/{}...{}", md.repo, v1p, v2p);
         Some(Link(SlackLink::new(&url, &short_ver(v2))))
     } else {
         None
@@ -177,7 +185,7 @@ fn infer_ci_links() -> SlackTextContent {
         // we are on circle
         Link(SlackLink::new(&url, &format!("{}#{}", name, nr)))
     } else if let Ok(user) = env::var("USER") {
-        Text(SlackText::new(format!("(via admin {})", user)))
+        Text(SlackText::new(format!("(via {})", user)))
     } else {
         warn!("Could not infer ci links from environment");
         Text(SlackText::new("via unknown user".to_string()))

@@ -105,6 +105,10 @@ error_chain! {
             description("Manifest key not propagated correctly internally")
             display("manifest key {} was not propagated internally - bug!", &key)
         }
+        HelmUpgradeFailure(reason: String) {
+            description("Helm upgrade call failed")
+            display("Helm upgrade failed. Returned error {}", &reason)
+        }
     }
 }
 

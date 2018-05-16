@@ -1,4 +1,4 @@
-use super::{parallel, direct, UpgradeMode};
+use super::{parallel, direct, UpgradeMode, UpgradeData};
 use super::{Result, Config, Manifest, ErrorKind};
 
 
@@ -52,4 +52,21 @@ pub fn upgrade_wrapper(svc: &str, umode: UpgradeMode, region: &str,
         svcs.push(sub);
     }
     parallel::upgrade_join(svcs, conf, region, umode, n_workers)
+}
+
+/// A rollback wrapper compatible with `Manifest::children`
+pub fn rollback(svc: &str, conf: &Config, region: &str) -> Result<()> {
+    let base = Manifest::stubbed(svc, conf, region)?;
+    let ud = UpgradeData::from_rollback(&base)?;
+    // rollback main first
+    // NB: this doesn't wait for success so should just continue
+    // Catch any crazy errors and hopefully don't perform any upgdraes in that case
+    direct::rollback(&ud)?;
+    // also non-blocking helm rollback on all child services
+    for child in base.children {
+        let mut udchild = ud.clone();
+        udchild.name = child.name;
+        direct::rollback(&udchild)?;
+    }
+    Ok(())
 }

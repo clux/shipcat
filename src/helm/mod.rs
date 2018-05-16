@@ -16,7 +16,7 @@ pub mod parallel;
 /// Direct helm invokers (used by abstractions)
 pub mod direct;
 // Re-exports for main
-pub use self::direct::{history, template, diff, values};
+pub use self::direct::{history, template, values};
 
 /// Smart wrappers that deal with component depedencies
 pub mod smart;
