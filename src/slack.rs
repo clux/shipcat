@@ -161,7 +161,7 @@ fn infer_metadata_links(md: &Metadata, diff: &str) -> Option<SlackTextContent> {
 }
 
 fn infer_slack_notifies(md: &Metadata) -> Vec<SlackTextContent> {
-    md.contacts.iter().map(|cc| { User(SlackUserLink::new(&cc)) }).collect()
+    md.contacts.iter().map(|cc| { User(SlackUserLink::new(&cc.slack)) }).collect()
 }
 
 /// Infer originator of a message
