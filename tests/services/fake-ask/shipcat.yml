@@ -14,7 +14,8 @@ httpPort: 8080
 metadata:
   team: devops
   contacts:
-  - "@U82SKDQD9" # clux (too new to use @clux handle)
+  - name: "Eirik McClux"
+    slack: "@U82SKDQD9"
   repo: https://github.com/Babylonpartners/shipcat
 sidecars:
 - name: redis
