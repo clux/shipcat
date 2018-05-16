@@ -139,6 +139,10 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kong: Option<Kong>,
 
+    /// Kube Secret Files to append
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub secretFiles: BTreeMap<String, String>,
+
     // TODO: logging alerts
 
     // TODO: stop hook
@@ -341,6 +345,15 @@ impl Manifest {
                 self._decoded_secrets.insert(vkey, secret);
             }
         }
+        // do the same for secret secrets
+        for (k, v) in &mut self.secretFiles {
+            if v == "IN_VAULT" {
+                let vkey = format!("{}/{}/{}", reg, svc, k);
+                let secret = client.read(&vkey)?;
+                *v = secret.clone();
+                self._decoded_secrets.insert(vkey, secret);
+            }
+        }
         Ok(())
     }
 
@@ -486,6 +499,13 @@ impl Manifest {
         // misc minor properties
         if self.replicaCount.unwrap() == 0 {
             bail!("Need replicaCount to be at least 1");
+        }
+
+        // Env values are uppercase
+        for (k, _) in &self.env {
+            if k != &k.to_uppercase()  {
+                bail!("Env vars need to be uppercase, found: {}", k);
+            }
         }
 
         // TODO: verify self.image exists!
