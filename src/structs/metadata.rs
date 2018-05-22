@@ -12,6 +12,7 @@ pub struct Contact {
 
 /// Metadata for a service
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct Metadata {
     /// Git repository
     pub repo: String,

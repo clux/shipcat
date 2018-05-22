@@ -7,6 +7,7 @@
 /// If we need complete control over these, consider writing a probes struct
 /// and making it only allowed if this is not present.
 #[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub struct HealthCheck {
     /// Where the health check is located
     #[serde(default = "health_check_url_default")]

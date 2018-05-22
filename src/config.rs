@@ -13,6 +13,7 @@ use super::structs::Kong;
 
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub struct ManifestDefaults {
     /// Image prefix string
     pub imagePrefix: String,
@@ -23,6 +24,7 @@ pub struct ManifestDefaults {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub struct RegionDefaults {
     /// Kubernetes namespace
     pub namespace: String,
@@ -33,6 +35,7 @@ pub struct RegionDefaults {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub struct KongConfig {
     /// Base URL to use (e.g. uk.dev.babylontech.co.uk)
     #[serde(default, skip_serializing)]
@@ -58,11 +61,13 @@ pub struct KongConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub struct KongAnonymousConsumers {
     pub anonymous: BTreeMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub struct KongTcpLogConfig {
     pub enabled: bool,
     pub host: String,
@@ -70,6 +75,7 @@ pub struct KongTcpLogConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub struct Region {
     /// Region defaults
     pub defaults: RegionDefaults,
@@ -91,6 +97,7 @@ pub struct Team {
 
 /// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     /// Global defaults
     pub defaults: ManifestDefaults,

@@ -24,6 +24,7 @@ use super::structs::ChildComponent;
 
 /// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub struct Manifest {
     /// Name of the service
     #[serde(default)]
