@@ -1,4 +1,5 @@
 #[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub struct CronJob {
     /// The cron job name
     pub name: String,
