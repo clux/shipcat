@@ -74,11 +74,16 @@ fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Co
     let upgrade_opt = UpgradeData::new(&mf, &hfile, mode)?;
     if let Some(ref udata) = upgrade_opt {
         // upgrade in given mode, potentially rolling back a failure
-        let res = direct::upgrade(&udata).map_err(|e| {
-            direct::handle_upgrade_rollbacks(&e, &udata)
-        });
+        let res = direct::upgrade(&udata);
         // notify about the result directly as they happen
-        direct::handle_upgrade_notifies(res.is_ok(), &udata)?;
+        let _ = direct::handle_upgrade_notifies(res.is_ok(), &udata).map_err(|e| {
+            warn!("Failed to slack notify about upgrade: {}", e);
+            e
+        });
+        if let Err(e) = res {
+            direct::handle_upgrade_rollbacks(&e, &udata)?;
+            return Err(e);
+        }
     }
     let _ = fs::remove_file(&hfile); // try to remove temporary file
     Ok(upgrade_opt)
