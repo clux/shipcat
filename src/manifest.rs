@@ -274,7 +274,6 @@ impl Manifest {
             // Inject the region environment
             self.environment = reg.defaults.environment;
         }
-
         Ok(())
     }
 
@@ -368,10 +367,6 @@ impl Manifest {
     /// Fill in env overrides and populate secrets
     fn fill(&mut self, conf: &Config, region: &str, vault: &Option<Vault>) -> Result<()> {
         self.pre_merge_implicits(conf)?;
-        if let &Some(ref client) = vault {
-            self.secrets(&client, region)?;
-        }
-
         // merge service specific env overrides if they exists
         let envlocals = Path::new(".")
             .join("services")
@@ -382,6 +377,9 @@ impl Manifest {
             self.merge(&envlocals)?;
         }
         self.post_merge_implicits(conf, Some(region.into()))?;
+        if let &Some(ref client) = vault {
+            self.secrets(&client, region)?;
+        }
         Ok(())
     }
 
