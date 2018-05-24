@@ -302,6 +302,9 @@ impl Manifest {
         }
         // Must override Kong per environment (overwrite full struct)
         if mf.kong.is_some() {
+            if self.kong.is_some() {
+                bail!("Cannot have kong in main shipcat.yml and environment override files");
+            }
             // Because this struct is overridden entirly; call implicits on this struct as well
             self.kong = mf.kong.clone();
         }

@@ -47,6 +47,11 @@ fn main() {
             .short("d")
             .long("debug")
             .help("Adds line numbers to log statements"))
+        .subcommand(SubCommand::with_name("debug")
+            .about("Get debug information about a release running in a cluster")
+            .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service name")))
         .subcommand(SubCommand::with_name("get")
             .about("Get information about what's running in a cluster")
             .arg(Arg::with_name("resource")
@@ -105,21 +110,6 @@ fn main() {
                 .arg(Arg::with_name("dryrun")
                     .long("dry-run")
                     .help("Show the diff only"))))
-        .subcommand(SubCommand::with_name("logs")
-            .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .takes_value(true)
-                .help("Region to use (dev-uk, staging-uk, prod-uk)"))
-            .arg(Arg::with_name("pod")
-                .takes_value(true)
-                .short("p")
-                .long("pod")
-                .help("Pod number - otherwise gets all"))
-            .arg(Arg::with_name("service")
-                .required(true)
-                .help("Service name"))
-            .about("Get logs from pods for a service described in a manifest"))
         .subcommand(SubCommand::with_name("jenkins")
             .about("Query jenkins jobs named kube-deploy-{region}")
             .arg(Arg::with_name("service")
@@ -411,7 +401,8 @@ fn main() {
     // 6. small experimental wrappers around kubectl
     if let Some(a) = args.subcommand_matches("shell") {
         let service = a.value_of("service").unwrap();
-        let pod = value_t!(a.value_of("pod"), u32).ok();
+        let pod = value_t!(a.value_of("pod"), usize).ok();
+
         let cmd = if a.is_present("cmd") {
             Some(a.values_of("cmd").unwrap().collect::<Vec<_>>())
         } else {
@@ -425,17 +416,10 @@ fn main() {
         };
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::shell(&mf, pod, cmd))
     }
-    if let Some(a) = args.subcommand_matches("logs") {
-        let service = a.value_of("service").unwrap();
-        let pod = value_t!(a.value_of("pod"), u32).ok();
 
-        let mf = if let Some(r) = a.value_of("region") {
-            conditional_exit(Manifest::stubbed(service, &conf, r))
-        } else {
-            // infer region from kubectl current-context
-            conditional_exit(Manifest::basic(service, &conf, None))
-        };
-        result_exit(args.subcommand_name().unwrap(), shipcat::kube::logs(&mf, pod))
+    if let Some(a) = args.subcommand_matches("debug") {
+        let service = a.value_of("service").unwrap();
+        result_exit(args.subcommand_name().unwrap(), shipcat::kube::debug(&service))
     }
 
     unreachable!("Subcommand valid, but not implemented");

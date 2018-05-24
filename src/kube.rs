@@ -81,78 +81,109 @@ pub fn get_broken_pods(name: &str) -> Result<Vec<String>> {
     Ok(bpods)
 }
 
+/// Debug helper when upgrades fail
+///
+/// Prints log excerpts and events for broken pods.
+/// Typically enough to figure out why upgrades broke.
+pub fn debug(svc: &str) -> Result<()> {
+    let pods = get_broken_pods(&svc)?;
+    if pods.is_empty() {
+        info!("No broken pods found");
+    }
+    for pod in pods.clone() {
+        warn!("Debugging non-running pod {}", pod);
+        warn!("Last 30 log lines:");
+        let logvec = vec![
+            "logs".into(),
+            pod.clone(),
+            format!("--tail=30").into(),
+        ];
+        match kout(logvec) {
+            Ok(l) => {
+                // TODO: stderr?
+                print!("{}\n", l);
+            },
+            Err(e) => {
+                warn!("Failed to get logs from {}: {}", pod, e)
+            }
+        }
+    }
+
+    for pod in pods {
+        warn!("Describing events for pod {}", pod);
+        let descvec = vec![
+            "describe".into(),
+            "pod".into(),
+            pod.clone()
+        ];
+        match kout(descvec) {
+            Ok(mut o) => {
+                if let Some(idx) = o.find("Events:\n") {
+                    print!("{}\n", o.split_off(idx))
+                }
+                else {
+                    // Not printing in this case, tons of secrets in here
+                    warn!("Unable to find events for pod {}", pod);
+                }
+            },
+            Err(e) => {
+                warn!("Failed to describe {}: {}", pod, e)
+            }
+        }
+    }
+    Ok(())
+}
+
 
 /// Shell into all pods associated with a service
 ///
 /// Optionally specify the arbitrary pod index from kubectl get pods
-pub fn shell(mf: &Manifest, desiredpod: Option<u32>, cmd: Option<Vec<&str>>) -> Result<()> {
+pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -> Result<()> {
     // TODO: kubectl auth can-i create pods/exec
-
     let podsres = get_pods(&mf.name)?;
-    let pods = podsres.split(' ');
-
-    let mut num = 0;
-
-    for p in pods {
-        num += 1;
-        if let Some(pnr) = desiredpod {
-            if pnr != num {
-                trace!("Skipping pod {}", num);
-                continue;
-            }
-        }
-
+    let pods = podsres.split(' ').collect::<Vec<_>>();
+    let pnr = desiredpod.unwrap_or(0);
+    if let Some(p) = pods.get(pnr) {
         debug!("Shelling into {}", p);
-        //kubectl exec -n $ns -it $$pod sh
+        //kubectl exec -it $pod sh
         let mut execargs = vec![
             "exec".into(),
             "-it".into(),
-            p.into(),
+            p.to_string(),
         ];
         if let Some(cmdu) = cmd.clone() {
             for c in cmdu {
                 execargs.push(c.into())
             }
         } else {
-            execargs.push("sh".into())
+            let trybash = vec![
+                "exec".into(),
+                p.to_string(),
+                "which".into(),
+                "bash".into(),
+            ];
+            // kubectl exec $pod which bash
+            // returns a non-zero rc if not found generally
+              let shexe = match kout(trybash) {
+                Ok(o) => {
+                    debug!("Got {}", o);
+                    "bash".into()
+                },
+                Err(e) => {
+                    warn!("No bash in container, falling back to `sh`");
+                    debug!("Error: {}", e);
+                    "sh".into()
+                }
+            };
+            execargs.push(shexe);
         }
-
         kexec(execargs)?;
+    } else {
+        bail!("Pod {} not found for service {}", pnr, &mf.name);
     }
     Ok(())
 }
 
-/// Get the logs for pods associated with a service
-///
-/// Optionally specify the arbitrary pod index from kubectl get pods
-pub fn logs(mf: &Manifest, desiredpod: Option<u32>) -> Result<()> {
-    // TODO: kubectl auth can-i get,list pods/logs
-
-
-    let podsres = get_pods(&mf.name)?;
-    let pods = podsres.split(' ');
-
-    let mut num = 0;
-
-    for p in pods {
-        num += 1;
-        if let Some(pnr) = desiredpod {
-            if pnr != num {
-                trace!("Skipping pod {}", num);
-                continue;
-            }
-        }
-
-        info!("Logs for {}", p);
-        //kubectl logs -n $(ENV) $$pod
-        let logargs = vec![
-            "logs".into(),
-            p.into(),
-        ];
-        kexec(logargs)?;
-    }
-    Ok(())
-}
 
 #[cfg(test)]
 mod tests {
