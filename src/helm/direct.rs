@@ -52,53 +52,6 @@ impl UpgradeMode {
     }
 }
 
-// debugging when helm upgrade fails
-fn kube_debug(svc: &str) -> Result<()> {
-    let pods = kube::get_broken_pods(&svc)?;
-    for pod in pods.clone() {
-        warn!("Debugging non-running pod {}", pod);
-        warn!("Last 30 log lines:");
-        let logvec = vec![
-            "logs".into(),
-            pod.clone(),
-            format!("--tail=30").into(),
-        ];
-        match kube::kout(logvec) {
-            Ok(l) => {
-                // TODO: stderr?
-                print!("{}\n", l);
-            },
-            Err(e) => {
-                warn!("Failed to get logs from {}: {}", pod, e)
-            }
-        }
-    }
-
-    for pod in pods {
-        warn!("Describing events for pod {}", pod);
-        let descvec = vec![
-            "describe".into(),
-            "pod".into(),
-            pod.clone()
-        ];
-        match kube::kout(descvec) {
-            Ok(mut o) => {
-                if let Some(idx) = o.find("Events:\n") {
-                    print!("{}\n", o.split_off(idx))
-                }
-                else {
-                    // Not printing in this case, tons of secrets in here
-                    warn!("Unable to find events for pod {}", pod);
-                }
-            },
-            Err(e) => {
-                warn!("Failed to describe {}: {}", pod, e)
-            }
-        }
-    }
-    Ok(())
-}
-
 /// Direct rollback command using synthetic or failed `UpgradeData`
 ///
 /// Always just rolls back using to the helm's previous release and doesn't block
@@ -431,7 +384,7 @@ pub fn handle_upgrade_rollbacks(e: &Error, u: &UpgradeData) -> Result<()> {
     match u.mode {
         UpgradeMode::UpgradeRecreateWait |
         UpgradeMode::UpgradeInstall |
-        UpgradeMode::UpgradeWaitMaybeRollback => kube_debug(&u.name)?,
+        UpgradeMode::UpgradeWaitMaybeRollback => kube::debug(&u.name)?,
         _ => {}
     }
     if u.mode == UpgradeMode::UpgradeWaitMaybeRollback {

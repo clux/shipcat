@@ -14,12 +14,12 @@ _shipcat()
         _get_comp_words_by_ref cur prev words cword
     fi
 
-    local -r subcommands="help validate shell logs graph get helm cluster gdpr
-                          kong jenkins list-regions list-services"
+    local -r subcommands="help validate shell graph get helm cluster gdpr
+                          kong jenkins debug list-regions list-services"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|status|shell|logs|get|graph|cluster|helm|gdpr|kong|jenkins) ]]; then
+        if [[ ${words[i]} == @(help|validate|debug|status|shell|get|graph|cluster|helm|gdpr|kong|jenkins) ]]; then
             has_sub=1
         fi
     done
@@ -38,7 +38,7 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(validate|shell|logs|graph|get|cluster|helm|list-services|gdpr|kong|jenkins) ]]; then
+        if [[ ${words[i]} == @(validate|shell|debug|graph|get|cluster|helm|list-services|gdpr|kong|jenkins) ]]; then
             special=${words[i]}
         fi
     done
@@ -60,7 +60,7 @@ _shipcat()
                     COMPREPLY=($(compgen -W "$resources" -- "$cur"))
                 fi
                 ;;
-            gdpr)
+            gdpr|debug)
                 local -r region="$(kubectl config current-context)"
                 local -r svcs="$(shipcat list-services "$region")"
                 COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
@@ -148,9 +148,9 @@ _shipcat()
                     COMPREPLY=($(compgen -W "latest console history" -- "$cur"))
                 fi
                 ;;
-            shell|logs)
+            shell)
                 svcs=$(find "${mdir}/services" -maxdepth 1 -mindepth 1 -type d -printf "%f " 2> /dev/null)
-                if [[ $prev = @(shell|logs) ]]; then
+                if [[ $prev = "shell" ]]; then
                     COMPREPLY=($(compgen -W "-r --region -p --pod $svcs" -- "$cur"))
                 elif [[ $prev == @(-r|--region) ]]; then
                     local -r regions="$(shipcat list-regions)"
