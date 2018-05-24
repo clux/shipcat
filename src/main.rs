@@ -68,11 +68,6 @@ fn main() {
                 .short("t")
                 .takes_value(true)
                 .help("Image version to deploy"))
-            .arg(Arg::with_name("num-jobs")
-                    .short("j")
-                    .long("num-jobs")
-                    .takes_value(true)
-                    .help("Number of worker threads used"))
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
@@ -260,9 +255,9 @@ fn main() {
     // 2. network related subcommands that doesn't NEED kubectl/kctx
     if let Some(a) = args.subcommand_matches("slack") {
         let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
-        //let link = a.value_of("url").map(String::from);
+        let link = a.value_of("url").map(String::from);
         let color = a.value_of("color").map(String::from);
-        let msg = shipcat::slack::Message { text, color, ..Default::default() };
+        let msg = shipcat::slack::Message { text, link, color, ..Default::default() };
         result_exit(args.subcommand_name().unwrap(), shipcat::slack::send(msg))
     }
     if let Some(a) = args.subcommand_matches("validate") {
@@ -333,7 +328,7 @@ fn main() {
         }
         // small wrapper around helm rollback
         if let Some(_) = a.subcommand_matches("rollback") {
-            let res = shipcat::helm::smart::rollback(&svc, &conf, &region);
+            let res = shipcat::helm::direct::rollback_wrapper(&svc, &conf, &region);
             result_exit(a.subcommand_name().unwrap(), res)
         }
 
@@ -374,10 +369,9 @@ fn main() {
         else {
             unreachable!("Helm Subcommand valid, but not implemented")
         };
-        let jobs = a.value_of("num-jobs").unwrap_or("8").parse().unwrap();
-        let res = shipcat::helm::smart::upgrade_wrapper(svc,
+        let res = shipcat::helm::direct::upgrade_wrapper(svc,
             umode, &region,
-            &conf, ver, jobs);
+            &conf, ver);
 
         result_exit(&format!("helm {}", a.subcommand_name().unwrap()), res);
     }

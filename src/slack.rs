@@ -22,6 +22,9 @@ pub struct Message {
     /// Set when not wanting to niotify people
     pub quiet: bool,
 
+    /// Replacement link for CI infer
+    pub link: Option<String>,
+
     /// Optional color for the attachment API
     pub color: Option<String>,
 
@@ -108,8 +111,19 @@ pub fn send(msg: Message) -> Result<()> {
         }
     }
 
-    // Auto link/text from originator
-    texts.push(infer_ci_links());
+    if let Some(link) = msg.link {
+        let split: Vec<&str> = link.split('|').collect();
+        // Full sanity check here as it could come from the CLI
+        if split.len() > 2 {
+            bail!("Link {} not in the form of url|description", link);
+        }
+        let desc = if split.len() == 2 { split[1].into() } else { link.clone() };
+        let addr = if split.len() == 2 { split[0].into() } else { link.clone() };
+        texts.push(Link(SlackLink::new(&addr, &desc)));
+    } else {
+        // Auto link/text from originator if no ink set
+        texts.push(infer_ci_links());
+    }
 
     // Auto cc users
     if let Some(ref md) = msg.metadata {
