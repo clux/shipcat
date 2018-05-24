@@ -18,9 +18,6 @@ pub mod direct;
 // Re-exports for main
 pub use self::direct::{history, template, values};
 
-/// Smart wrappers that deal with component depedencies
-pub mod smart;
-
 /// Helm related helpers
 pub mod helpers;
 // Commonly used helper

@@ -12,8 +12,8 @@ pub use super::Manifest;
 mod dependency;
 pub use self::dependency::{Dependency, DependencyProtocol};
 
-mod children;
-pub use self::children::ChildComponent;
+mod worker;
+pub use self::worker::Worker;
 
 mod jaeger;
 pub use self::jaeger::Jaeger;
@@ -32,6 +32,7 @@ pub use self::configmap::{ConfigMap, ConfigMappedFile};
 mod healthcheck;
 pub use self::healthcheck::HealthCheck;
 
+
 // translations - these are typically inlined in templates as yaml
 /// Kubernetes resource structs
 mod resources;
@@ -45,6 +46,9 @@ pub use self::hostalias::HostAlias;
 /// Kubernetes init containers
 mod initcontainer;
 pub use self::initcontainer::InitContainer;
+/// Kubernetes health check probes
+mod probes;
+pub use self::probes::Probe;
 
 
 mod metadata;

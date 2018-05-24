@@ -138,6 +138,13 @@ pub fn rollback(ud: &UpgradeData) -> Result<()> {
     }
 }
 
+/// Rollback entrypoint using a plain service and region
+pub fn rollback_wrapper(svc: &str, conf: &Config, region: &str) -> Result<()> {
+    let base = Manifest::stubbed(svc, conf, region)?;
+    let ud = UpgradeData::from_rollback(&base)?;
+    rollback(&ud)
+}
+
 // All data needed for an upgrade
 #[derive(Default, Clone)]
 pub struct UpgradeData {

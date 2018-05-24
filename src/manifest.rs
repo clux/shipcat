@@ -20,7 +20,7 @@ use super::structs::volume::{Volume, VolumeMount};
 use super::structs::{Metadata, DataHandling, VaultOpts, Jaeger, Dependency};
 use super::structs::prometheus::{Prometheus, Dashboard};
 use super::structs::{CronJob, Kong, Sidecar};
-use super::structs::ChildComponent;
+use super::structs::Worker;
 
 /// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -125,14 +125,13 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sidecars: Vec<Sidecar>,
 
+    /// Worker side-deployments
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub workers: Vec<Worker>,
+
     /// Service annotations (for internal services only)
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub serviceAnnotations: BTreeMap<String, String>,
-
-
-    /// Lock step deployed child services
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub children: Vec<ChildComponent>,
 
     // TODO: boot time -> minReadySeconds
 
@@ -497,6 +496,9 @@ impl Manifest {
         }
         for ic in &self.initContainers {
             ic.verify(&conf)?;
+        }
+        for wrk in &self.workers {
+            wrk.verify(&conf)?;
         }
         if let Some(ref cmap) = self.configs {
             cmap.verify(&conf)?;
