@@ -82,7 +82,7 @@ pub fn rollback(ud: &UpgradeData) -> Result<()> {
         Ok(_) => {
             slack::send(slack::Message {
                 text: format!("rolling back `{}` in {}",  &ud.name, &ud.region),
-                color: Some("good".into()),
+                color: Some("warning".into()),
                 metadata: ud.metadata.clone(),
                 ..Default::default()
             })?;
