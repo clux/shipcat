@@ -335,20 +335,25 @@ impl Manifest {
         Ok(())
     }
 
-    // Populate placeholder fields with secrets from vault
-    fn secrets(&mut self, client: &Vault, region: &str) -> Result<()> {
+    fn get_vault_path(&self, region: &str) -> String {
         // some services use keys from other services
         let (svc, reg) = if let Some(ref vopts) = self.vault {
             (vopts.name.clone(), vopts.region.clone().unwrap_or_else(|| region.into()))
         } else {
             (self.name.clone(), region.into())
         };
-        debug!("Injecting secrets from vault {}/{}", reg, svc);
+        format!("{}/{}", reg, svc)
+    }
+
+    // Populate placeholder fields with secrets from vault
+    fn secrets(&mut self, client: &Vault, region: &str) -> Result<()> {
+        let pth = self.get_vault_path(region);
+        debug!("Injecting secrets from vault {}", pth);
 
         // iterate over key value evars and replace placeholders
         for (k, v) in &mut self.env {
             if v == "IN_VAULT" {
-                let vkey = format!("{}/{}/{}", reg, svc, k);
+                let vkey = format!("{}/{}", pth, k);
                 let secret = client.read(&vkey)?;
                 *v = secret.clone();
                 self._decoded_secrets.insert(vkey, secret);
@@ -357,10 +362,45 @@ impl Manifest {
         // do the same for secret secrets
         for (k, v) in &mut self.secretFiles {
             if v == "IN_VAULT" {
-                let vkey = format!("{}/{}/{}", reg, svc, k);
+                let vkey = format!("{}/{}", pth, k);
                 let secret = client.read(&vkey)?;
                 *v = secret.clone();
                 self._decoded_secrets.insert(vkey, secret);
+            }
+        }
+        Ok(())
+    }
+
+
+    fn verify_secrets_exist(&self, region: &str) -> Result<()> {
+        // what are we requesting
+        let keys = self.env.clone().into_iter()
+            .filter(|(_,v)| v == "IN_VAULT")
+            .map(|(k,_)| k)
+            .collect::<Vec<_>>();
+        let files = self.secretFiles.clone().into_iter()
+            .filter(|(_,v)| v == "IN_VAULT")
+            .map(|(k, _)| k)
+            .collect::<Vec<_>>();
+        if keys.is_empty() && files.is_empty() {
+            return Ok(()); // no point trying to cross reference
+        }
+
+        // what we have
+        let v = Vault::masked()?;
+        let secpth = self.get_vault_path(region);
+        let found = v.list(&secpth)?; // can fail if folder is empty
+        debug!("Found secrets {:?} for {}", found, self.name);
+
+        // compare
+        for k in keys {
+            if !found.contains(&k) {
+                bail!("Secret {} not found in vault {} for {}", k, secpth, self.name);
+            }
+        }
+        for k in files {
+            if !found.contains(&k) {
+                bail!("Secret file {} not found in vault {} for {}", k, secpth, self.name);
             }
         }
         Ok(())
@@ -574,6 +614,23 @@ pub fn validate(services: Vec<String>, conf: &Config, region: String, vault: Opt
             mf.verify(&conf)?; // exits early - but will verify some stuff
         } else {
             bail!("{} is not configured to be deployed in {}", svc, region)
+        }
+    }
+    Ok(())
+}
+
+// Validate the secrets exists in all regions
+pub fn validate_secret_presence(conf: &Config, regions: Vec<String>) -> Result<()> {
+    for r in regions {
+        info!("validating secrets in {}", r);
+        let services = Manifest::available()?;
+        for svc in services {
+            let mut mf = Manifest::basic(&svc, conf, Some(r.clone()))?;
+            if mf.regions.contains(&r) && !mf.external && !mf.disabled {
+                info!("validating secrets for {} in {}", svc, r);
+                mf.fill(&conf, &r, &None)?;
+                mf.verify_secrets_exist(&r)?;
+            }
         }
     }
     Ok(())
