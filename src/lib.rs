@@ -133,7 +133,7 @@ pub use config::{Config};
 pub mod structs;
 
 mod manifest;
-pub use manifest::{validate, Manifest, gdpr_show};
+pub use manifest::{validate, validate_secret_presence, Manifest, gdpr_show};
 
 /// A small CLI kubernetes interface
 pub mod kube;

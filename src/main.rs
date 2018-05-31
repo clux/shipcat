@@ -67,6 +67,7 @@ fn main() {
                 .long("short")
                 .help("Output short resource format")))
         .subcommand(SubCommand::with_name("helm")
+            .setting(AppSettings::SubcommandRequiredElseHelp)
             .about("Run helm like commands on shipcat manifests")
             .arg(Arg::with_name("tag")
                 .long("tag")
@@ -112,6 +113,7 @@ fn main() {
                     .help("Show the diff only"))))
         .subcommand(SubCommand::with_name("jenkins")
             .about("Query jenkins jobs named kube-deploy-{region}")
+            .setting(AppSettings::SubcommandRequiredElseHelp)
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
@@ -170,6 +172,15 @@ fn main() {
                 .long("secrets")
                 .help("Verifies secrets exist everywhere"))
               .about("Validate the shipcat manifest"))
+        .subcommand(SubCommand::with_name("secret")
+            .setting(AppSettings::SubcommandRequiredElseHelp)
+            .subcommand(SubCommand::with_name("verify-region")
+                .arg(Arg::with_name("regions")
+                    .required(true)
+                    .multiple(true)
+                    .help("Regions to validate all enabled services for"))
+                .about("Verify existence of secrets for entire regions"))
+            .about("Secret interaction"))
         .subcommand(SubCommand::with_name("gdpr")
               .arg(Arg::with_name("service")
                 .required(true)
@@ -187,6 +198,7 @@ fn main() {
                 .help("Generate dot output for graphviz"))
               .about("Graph the dependencies of a service"))
         .subcommand(SubCommand::with_name("cluster")
+            .setting(AppSettings::SubcommandRequiredElseHelp)
             .about("Perform cluster level recovery / reconcilation commands")
             .subcommand(SubCommand::with_name("helm")
                 .arg(Arg::with_name("num-jobs")
@@ -272,6 +284,13 @@ fn main() {
             kube::current_context().unwrap()
         });
         result_exit(args.subcommand_name().unwrap(), shipcat::get::table(rsrc, &conf, quiet, region))
+    }
+    if let Some(a) = args.subcommand_matches("secret") {
+        if let Some(b) = a.subcommand_matches("verify-region") {
+            let regions = b.values_of("regions").unwrap().map(String::from).collect::<Vec<_>>();
+            let res = shipcat::validate_secret_presence(&conf, regions);
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
     }
 
 

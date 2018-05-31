@@ -40,6 +40,12 @@ struct Secret {
     lease_duration: u64,
 }
 
+/// List data retrieved from Vault when listing available secrets
+#[derive(Debug, Deserialize)]
+struct ListSecrets {
+    data: BTreeMap<String, Vec<String>>
+}
+
 /// Vault client with cached data
 pub struct Vault {
     /// Our HTTP client.  This can be configured to mock out the network.
@@ -112,6 +118,44 @@ impl Vault {
         Ok(serde_json::from_str(&body)?)
     }
 
+    /// List secrets
+    ///
+    /// Does a HTTP LIST on the folder a service is in and returns the keys
+    pub fn list(&self, path: &str) -> Result<Vec<String>> {
+        let url = self.addr.join(&format!("v1/secret/{}?list=true", path))?;
+        debug!("LIST {}", url);
+
+        let mkerr = || ErrorKind::Url(url.clone());
+        let mut res = self.client.get(url.clone())
+            // Leaving the connection open will cause errors on reconnect
+            // after inactivity.
+            .header(Connection::close())
+            .header(XVaultToken(self.token.clone()))
+            .send()
+            .chain_err(&mkerr)?;
+
+        // Generate informative errors for HTTP failures, because these can
+        // be caused by everything from bad URLs to overly restrictive vault policies
+        if !res.status().is_success() {
+            let status = res.status().to_owned();
+            let err: Error = ErrorKind::UnexpectedHttpStatus(status).into();
+            return Err(err).chain_err(&mkerr);
+        }
+
+        let mut body = String::new();
+        res.read_to_string(&mut body)?;
+        let lsec : ListSecrets = serde_json::from_str(&body)?;
+        if !lsec.data.contains_key("keys") {
+            return Err(ErrorKind::MissingSecret(url.to_string()).into());
+        }
+        let res = lsec.data["keys"].iter()
+            .filter(|e| !e.ends_with("/")) // skip sub folders
+            .map(|e| e.to_string())
+            .collect::<Vec<String>>();
+        Ok(res)
+    }
+
+
     /// Read secret from a Vault via an authenticated HTTP GET (or memory cache)
     pub fn read(&self, key: &str) -> Result<String> {
         let pth = format!("secret/{}", key);
@@ -151,5 +195,12 @@ mod tests {
         let client = Vault::default().unwrap();
         let secret = client.read("dev-uk/test-shipcat/FAKE_SECRET").unwrap();
         assert_eq!(secret, "hello");
+    }
+
+    #[test]
+    fn list_dev_secrets() {
+        let client = Vault::default().unwrap();
+        let secrets = client.list("dev-uk/test-shipcat").unwrap();
+        assert_eq!(secrets, vec!["FAKE_SECRET".to_string()]);
     }
 }
