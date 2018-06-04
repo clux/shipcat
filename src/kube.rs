@@ -185,6 +185,29 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
 }
 
 
+/// Port forward a port to localhost
+pub fn port_forward(mf: &Manifest, desiredpod: Option<usize>) -> Result<()> {
+    // TODO: kubectl auth can-i create something?
+    let podsres = get_pods(&mf.name)?;
+    let pods = podsres.split(' ').collect::<Vec<_>>();
+    let pnr = desiredpod.unwrap_or(0);
+    let port = mf.httpPort.unwrap();
+    if let Some(p) = pods.get(pnr) {
+        debug!("Port forwarding kube pod {} to localhost:{}", p, port);
+        //kubectl port-forward $pod httpPort:httpPort
+        let mut pfargs = vec![
+            "port-forward".into(),
+            p.to_string(),
+            format!("{}:{}", port, port)
+        ];
+        kexec(pfargs)?;
+    } else {
+        bail!("Pod {} not found for service {}", pnr, &mf.name);
+    }
+    Ok(())
+}
+
+
 #[cfg(test)]
 mod tests {
     use std::env;

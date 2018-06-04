@@ -4,7 +4,7 @@ use semver::Version;
 use regex::Regex;
 
 use super::RegionDefaults;
-use super::{Result, Manifest};
+use super::{Result};
 
 
 pub fn diff_format(diff: String) -> String {
@@ -40,20 +40,6 @@ pub fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
     }
     out
 }
-
-pub fn calculate_wait_time(mf: &Manifest) -> u32 {
-    // TODO: need to take into account image size!
-    let rcount = mf.replicaCount.unwrap(); // this is set by defaults!
-    if let Some(ref hc) = mf.health {
-        // wait for at most 2 * bootTime * replicas
-        2 * hc.wait * rcount
-    } else {
-        // sensible guess for boot time (helm default is 300 without any context)
-        2 * 30 * rcount
-    }
-}
-
-
 
 /// Values parsed from `helm get values {service}`
 ///
