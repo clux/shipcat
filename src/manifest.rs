@@ -48,6 +48,11 @@ pub struct Manifest {
     /// Optional image name
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
+
+    /// Optional uncompressed image size (for estimating helm timeouts)
+    #[serde(skip_serializing, default = "default_image_size")]
+    pub imageSize: u32,
+
     /// Optional version/tag of docker image
     #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
@@ -165,6 +170,8 @@ pub struct Manifest {
     pub _type: ManifestType,
 */
 }
+
+fn default_image_size() -> u32 { 512 }
 
 /*
 /// What an internal representation of a `Manifest` means
@@ -387,7 +394,7 @@ impl Manifest {
         }
 
         // what we have
-        let v = Vault::masked()?;
+        let v = Vault::masked()?; // masked doesn't matter - only listing anyway
         let secpth = self.get_vault_path(region);
         let found = v.list(&secpth)?; // can fail if folder is empty
         debug!("Found secrets {:?} for {}", found, self.name);
@@ -481,6 +488,23 @@ impl Manifest {
         }
         Ok(())
     }
+
+    pub fn estimate_wait_time(&self) -> u32 {
+        // 512 default => extra 60s wait
+        let pulltimeestimate = (((self.imageSize*60) as f64)/(1024 as f64)) as u32;
+        assert!(pulltimeestimate > 0);
+        let rcount = self.replicaCount.unwrap(); // this is set by defaults!
+        // NB: we wait to pull on each node because of how rolling-upd
+        if let Some(ref hc) = self.health {
+            // wait for at most (bootTime + pulltimeestimate) * replicas
+            (hc.wait + pulltimeestimate) * rcount
+        } else {
+            // sensible guess for boot time (helm default is 300 without any context)
+            (30 + pulltimeestimate) * rcount
+        }
+    }
+
+
 
     /// Override version with an optional one from the CLI
     pub fn set_version(mut self, ver: &Option<String>) -> Self {
@@ -576,6 +600,9 @@ impl Manifest {
         if self.httpPort.is_some() && self.health.is_none() {
             bail!("{} has an httpPort but no health check", self.name)
         }
+        if self.imageSize == 0{
+            bail!("imageSize must be set in MB (default 512)");
+        }
 
         // add some warnigs about missing health checks and ports regardless
         // TODO: make both mandatory once we have sidecars supported
@@ -654,6 +681,7 @@ mod tests {
     use super::Vault;
     use super::Config;
     use super::Manifest;
+    use super::HealthCheck;
 
     #[test]
     fn validate_test() {
@@ -664,6 +692,32 @@ mod tests {
         assert!(res.is_ok());
         let res2 = validate(vec!["fake-storage".into(), "fake-ask".into()], &conf, "dev-uk".into(), None);
         assert!(res2.is_ok())
+    }
+
+    #[test]
+    fn wait_time_check() {
+        setup();
+        // DEFAULT SETUP: no values == defaults => 120s helm wait
+        let mut mf = Manifest::default();
+        mf.imageSize = 512;
+        mf.health = Some(HealthCheck {
+            uri: "/".into(),
+            wait: 30,
+            ..Default::default()
+        });
+        mf.replicaCount = Some(2);
+        let wait = mf.estimate_wait_time();
+        assert_eq!(wait, 30*2*2);
+
+        // setup with large image and short boot time:
+        mf.imageSize = 4096;
+        mf.health = Some(HealthCheck {
+            uri: "/".into(),
+            wait: 20,
+            ..Default::default()
+        });
+        let wait2 = mf.estimate_wait_time();
+        assert_eq!(wait2, (20+240)*2);
     }
 
     #[test]

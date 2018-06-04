@@ -166,7 +166,7 @@ impl UpgradeData {
             diff: helmdiff,
             metadata: mf.metadata.clone(),
             chart: mf.chart.clone(),
-            waittime: helpers::calculate_wait_time(mf),
+            waittime: mf.estimate_wait_time(),
             region: mf.region.clone(),
             values: hfile.into(),
             mode, version, namespace

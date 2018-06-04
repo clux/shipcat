@@ -136,12 +136,22 @@ fn main() {
                 .takes_value(true)
                 .short("p")
                 .long("pod")
-                .help("Pod number - otherwise tries all"))
+                .help("Pod number - otherwise tries first"))
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
             .setting(AppSettings::TrailingVarArg)
             .arg(Arg::with_name("cmd").multiple(true)))
+        .subcommand(SubCommand::with_name("port-forward")
+            .about("Port forwards a pod from a service to localhost")
+            .arg(Arg::with_name("pod")
+                .takes_value(true)
+                .short("p")
+                .long("pod")
+                .help("Pod number - otherwise tries first"))
+            .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service name")))
         .subcommand(SubCommand::with_name("slack")
             .arg(Arg::with_name("url")
                 .short("u")
@@ -434,6 +444,13 @@ fn main() {
             conditional_exit(Manifest::basic(service, &conf, None))
         };
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::shell(&mf, pod, cmd))
+    }
+
+    if let Some(a) = args.subcommand_matches("port-forward") {
+        let service = a.value_of("service").unwrap();
+        let pod = value_t!(a.value_of("pod"), usize).ok();
+        let mf = conditional_exit(Manifest::basic(service, &conf, None));
+        result_exit(args.subcommand_name().unwrap(), shipcat::kube::port_forward(&mf, pod))
     }
 
     if let Some(a) = args.subcommand_matches("debug") {
