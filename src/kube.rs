@@ -192,9 +192,11 @@ pub fn port_forward(mf: &Manifest, desiredpod: Option<usize>) -> Result<()> {
     let pods = podsres.split(' ').collect::<Vec<_>>();
     let pnr = desiredpod.unwrap_or(0);
     let port = mf.httpPort.unwrap();
+    // first 1024 ports need sudo so avoid that
+    let localport = if port <= 1024 { 7777 } else { port };
     if let Some(p) = pods.get(pnr) {
-        debug!("Port forwarding kube pod {} to localhost:{}", p, port);
-        //kubectl port-forward $pod httpPort:httpPort
+        debug!("Port forwarding kube pod {} to localhost:{}", p, localport);
+        //kubectl port-forward $pod localport:httpPort
         let mut pfargs = vec![
             "port-forward".into(),
             p.to_string(),
