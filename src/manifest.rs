@@ -492,7 +492,6 @@ impl Manifest {
     pub fn estimate_wait_time(&self) -> u32 {
         // 512 default => extra 60s wait
         let pulltimeestimate = (((self.imageSize*60) as f64)/(1024 as f64)) as u32;
-        assert!(pulltimeestimate > 0);
         let rcount = self.replicaCount.unwrap(); // this is set by defaults!
         // NB: we wait to pull on each node because of how rolling-upd
         if let Some(ref hc) = self.health {
