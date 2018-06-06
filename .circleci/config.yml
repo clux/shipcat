@@ -6,7 +6,7 @@ workflows:
       - musl_build:
           filters:
             tags:
-              only: /^v.*/
+              only: /^.*/
       - cargo_test:
           filters:
             branches:
@@ -22,7 +22,7 @@ workflows:
       - mac_build:
           filters:
             tags:
-              only: /^v.*/
+              only: /^.*/
             branches:
               only:
                 - master
@@ -32,7 +32,7 @@ workflows:
             - mac_build
           filters:
             tags:
-              only: /^v.*/
+              only: /^.*/
             branches:
               ignore: /.*/
 jobs:
