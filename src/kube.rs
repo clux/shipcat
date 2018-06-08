@@ -164,9 +164,9 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
             ];
             // kubectl exec $pod which bash
             // returns a non-zero rc if not found generally
-              let shexe = match kout(trybash) {
+              let shexe = match kexec(trybash) {
                 Ok(o) => {
-                    debug!("Got {}", o);
+                    debug!("Got {:?}", o);
                     "bash".into()
                 },
                 Err(e) => {

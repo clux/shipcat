@@ -38,15 +38,13 @@ pub struct RegionDefaults {
 #[serde(deny_unknown_fields)]
 pub struct KongConfig {
     /// Base URL to use (e.g. uk.dev.babylontech.co.uk)
-    #[serde(default, skip_serializing)]
+    #[serde(skip_serializing)]
     pub base_url: String,
     /// Configuration API URL (e.g. https://kong-admin-ops.dev.babylontech.co.uk)
-    #[serde(default, skip_serializing)]
+    #[serde(skip_serializing)]
     pub config_url: String,
     /// Kong token expiration time (in seconds)
-    #[serde(default)]
     pub kong_token_expiration: u32,
-    #[serde(default)]
     pub oauth_provision_key: String,
     /// TCP logging options
     pub tcp_log: KongTcpLogConfig,
@@ -82,9 +80,8 @@ pub struct Region {
     /// Environment variables to inject
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
-    /// Environment variables to inject
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub kong: Option<KongConfig>,
+    /// Kong configuration for the region
+    pub kong: KongConfig,
 }
 
 
