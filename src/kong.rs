@@ -33,15 +33,11 @@ pub fn kong_generate(conf: &Config, region: String) -> Result<()> {
 
     // Add general Kong region config
     let reg = conf.regions[&region].clone();
-    if let Some(kong) = reg.kong {
-        for (name, api) in kong.extra_apis.clone() {
-            apis.insert(name, api);
-        }
-        let output = KongOutput { apis, kong };
-        let _ = io::stdout().write(serde_json::to_string(&output)?.as_bytes());
-    } else {
-        bail!("No kong konfig specified in shipcat.conf for {}", region);
+    for (name, api) in reg.kong.extra_apis.clone() {
+        apis.insert(name, api);
     }
+    let output = KongOutput { apis, kong: reg.kong };
+    let _ = io::stdout().write(serde_json::to_string(&output)?.as_bytes());
 
     Ok(())
 }
@@ -49,9 +45,6 @@ pub fn kong_generate(conf: &Config, region: String) -> Result<()> {
 /// Return the config_url for the given region
 pub fn kong_config_url(conf: &Config, region: String) -> Result<()> {
     let reg = conf.regions[&region].clone();
-    let kong = reg.kong.clone().unwrap();
-
-    println!("{}", kong.config_url);
-
+    println!("{}", reg.kong.config_url);
     Ok(())
 }
