@@ -193,7 +193,6 @@ fn main() {
             .about("Secret interaction"))
         .subcommand(SubCommand::with_name("gdpr")
               .arg(Arg::with_name("service")
-                .required(true)
                 .help("Service names to show"))
               .about("Reduce data handling structs"))
         .subcommand(SubCommand::with_name("kong")
@@ -416,8 +415,8 @@ fn main() {
 
     // 5. small - but properly supported new helpers
     if let Some(a) = args.subcommand_matches("gdpr") {
-        let svc = a.value_of("service").unwrap();
-        result_exit(args.subcommand_name().unwrap(), shipcat::gdpr_show(svc, &conf, &region))
+        let svc = a.value_of("service").map(String::from);
+        result_exit(args.subcommand_name().unwrap(), shipcat::gdpr::show(svc, &conf, &region))
     }
     if let Some(a) = args.subcommand_matches("kong") {
         if let Some(_b) = a.subcommand_matches("config-url") {
