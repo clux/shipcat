@@ -662,16 +662,6 @@ pub fn validate_secret_presence(conf: &Config, regions: Vec<String>) -> Result<(
     Ok(())
 }
 
-/// Show GDPR related info for a service
-///
-/// Prints the cascaded structs from a manifests `dataHandling`
-pub fn gdpr_show(svc: &str, conf: &Config, region: &str) -> Result<()> {
-    use std::io::{self, Write};
-    let mf = Manifest::stubbed(svc, conf, region)?;
-    let out = serde_yaml::to_string(&mf.dataHandling)?;
-    let _ = io::stdout().write(format!("{}\n", out).as_bytes());
-    Ok(())
-}
 
 #[cfg(test)]
 mod tests {
