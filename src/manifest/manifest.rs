@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 use serde_yaml;
 use walkdir::WalkDir;
 use regex::Regex;
@@ -17,8 +15,8 @@ use super::structs::traits::Verify;
 use super::structs::{HealthCheck, ConfigMap};
 use super::structs::{InitContainer, Resources, HostAlias};
 use super::structs::volume::{Volume, VolumeMount};
-use super::structs::{Metadata, DataHandling, VaultOpts, Jaeger, Dependency};
-use super::structs::prometheus::{Prometheus, Dashboard};
+use super::structs::{Metadata, DataHandling, VaultOpts, Dependency};
+//use super::structs::prometheus::{Prometheus, Dashboard};
 use super::structs::{CronJob, Kong, Sidecar};
 use super::structs::Worker;
 
@@ -29,59 +27,58 @@ pub struct Manifest {
     /// Name of the service
     #[serde(default)]
     pub name: String,
-
     // Region injected in helm chart
     #[serde(default, skip_deserializing)]
     pub region: String,
-
     // Environment (kube namespace) injected in helm chart
     #[serde(default, skip_deserializing)]
     pub environment: String,
-
     /// Wheter to ignore this service
     #[serde(default, skip_serializing)]
     pub disabled: bool,
     /// Wheter the service is externally managed
     #[serde(default, skip_serializing)]
     pub external: bool,
+    /// Regions service is deployed to
+    #[serde(default, skip_serializing)]
+    pub regions: Vec<String>,
 
+    // following are properties that can be merged
+
+    /// Chart to use for the service
+    #[serde(default)]
+    pub chart: Option<String>,
     /// Optional image name
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
-
     /// Optional uncompressed image size (for estimating helm timeouts)
-    #[serde(skip_serializing, default = "default_image_size")]
-    pub imageSize: u32,
-
+    #[serde(skip_serializing)]
+    pub imageSize: Option<u32>,
     /// Optional version/tag of docker image
     #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
-
     /// Optional image command (if not using the default docker command)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub command: Vec<String>,
 
+    // misc metadata
     /// Canonical data sources like repo, docs, team names
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Metadata>,
-
     /// Data sources and handling strategies
     #[serde(default, skip_serializing)]
-    pub dataHandling: DataHandling,
-
-    /// Jaeger options
-    #[serde(default)]
-    pub jaeger: Jaeger,
-
+    pub dataHandling: Option<DataHandling>,
     /// Language the service is written in
     #[serde(skip_serializing)]
     pub language: Option<String>,
 
-    // Kubernetes specific flags
 
-    /// Chart to use for the service
-    #[serde(default)]
-    pub chart: String,
+    // Jaeger options CURRENTLY UNUSED
+    //#[serde(default)]
+    //pub jaeger: Jaeger,
+
+
+    // Kubernetes specific flags
 
     /// Resource limits and requests
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -89,36 +86,47 @@ pub struct Manifest {
     /// Replication limits
     #[serde(default)]
     pub replicaCount: Option<u32>,
-    /// host aliases to inject in /etc/hosts
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub hostAliases: Vec<HostAlias>,
+
+    // our main abstractions for kube resources
+
     /// Environment variables to inject
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
     /// Config files to inline in a configMap
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub configs: Option<ConfigMap>,
-    /// Volumes mounts
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub volumeMounts: Vec<VolumeMount>,
-    /// Init container intructions
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub initContainers: Vec<InitContainer>,
-    /// Http Port to expose
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub httpPort: Option<u32>,
     /// Vault options
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vault: Option<VaultOpts>,
+    /// Http Port to expose
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub httpPort: Option<u32>,
     /// Health check parameters
     #[serde(skip_serializing_if = "Option::is_none")]
     pub health: Option<HealthCheck>,
     /// Service dependencies
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<Dependency>,
-    /// Regions service is deployed to
-    #[serde(default, skip_serializing)]
-    pub regions: Vec<String>,
+
+    /// Sidecars
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sidecars: Vec<Sidecar>,
+    /// Worker side-deployments
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub workers: Vec<Worker>,
+
+    // pure kube yaml
+
+    /// host aliases to inject in /etc/hosts
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hostAliases: Vec<HostAlias>,
+    /// Volumes mounts
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub volumeMounts: Vec<VolumeMount>,
+    /// Init container intructions
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub initContainers: Vec<InitContainer>,
+
     /// Volumes
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub volumes: Vec<Volume>,
@@ -126,27 +134,18 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cronJobs: Vec<CronJob>,
 
-    /// Sidecars
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub sidecars: Vec<Sidecar>,
-
-    /// Worker side-deployments
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub workers: Vec<Worker>,
 
     /// Service annotations (for internal services only)
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub serviceAnnotations: BTreeMap<String, String>,
 
-    // TODO: boot time -> minReadySeconds
+    // Prometheus metric options CURRENTLY UNUSED
+    //#[serde(skip_serializing_if = "Option::is_none")]
+    //pub prometheus: Option<Prometheus>,
 
-    /// Prometheus metric options
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prometheus: Option<Prometheus>,
-
-    /// Dashboards to generate
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub dashboards: BTreeMap<String, Dashboard>,
+    // Dashboards to generate CURRENTLY UNUSED
+    //#[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    //pub dashboards: BTreeMap<String, Dashboard>,
 
     /// Kong config
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -170,8 +169,6 @@ pub struct Manifest {
     pub _type: ManifestType,
 */
 }
-
-fn default_image_size() -> u32 { 512 }
 
 /*
 /// What an internal representation of a `Manifest` means
@@ -227,121 +224,6 @@ impl Manifest {
         Ok(serde_yaml::from_str(&data)?)
     }
 
-    /// Add implicit defaults to self
-    fn pre_merge_implicits(&mut self, conf: &Config) -> Result<()> {
-        if self.image.is_none() {
-            // image name defaults to some prefixed version of the service name
-            self.image = Some(format!("{}/{}", conf.defaults.imagePrefix, self.name))
-        }
-
-        if self.chart == "" {
-            self.chart = conf.defaults.chart.clone();
-        }
-        if self.replicaCount.is_none() {
-            self.replicaCount = Some(conf.defaults.replicaCount)
-        }
-
-        // dataHandling has cascading encryption values
-        self.dataHandling.implicits();
-
-        // config map implicit name
-        if let Some(ref mut cfg) = self.configs {
-            if cfg.name.is_none() {
-                cfg.name = Some(format!("{}-config", self.name));
-            }
-        }
-
-        for d in &mut self.dependencies {
-            if d.api.is_none() {
-                d.api = Some("v1".to_string());
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Add implicit defaults to self after merging in region overrides
-    fn post_merge_implicits(&mut self, conf: &Config, region: Option<String>) -> Result<()> {
-        if let Some(r) = region {
-            if conf.regions.get(&r).is_none() {
-                bail!("Unknown region {} in regions in config", r);
-            }
-            self.region = r.clone();
-            let reg = conf.regions[&r].clone(); // must exist
-            for (k, v) in reg.env {
-                self.env.insert(k, v);
-            }
-
-            // Kong has implicit, region-scoped values
-            if let Some(ref mut kong) = self.kong {
-                kong.implicits(self.name.clone(), conf.regions[&r].clone());
-            }
-
-            // Inject the region environment
-            self.environment = reg.defaults.environment;
-        }
-        Ok(())
-    }
-
-    /// Merge defaults from partial override file
-    ///
-    /// Note this does not merge all keys, because not everyting makes sense to
-    /// override. E.g. service name.
-    ///
-    /// Currently being conservative and only allowing doing environment overrides for:
-    /// - environment variables
-    /// - image repo and default tag
-    fn merge(&mut self, pth: &PathBuf) -> Result<()> {
-        trace!("Merging {}", pth.display());
-        if !pth.exists() {
-            bail!("Defaults file {} does not exist", pth.display())
-        }
-        let mut f = File::open(&pth)?;
-        let mut data = String::new();
-        f.read_to_string(&mut data)?;
-        // Because Manifest has most things implementing Default via serde
-        // we can put this straight into a Manifest struct
-        let mf: Manifest = serde_yaml::from_str(&data)?;
-
-        // merge evars (overwrites evars found in shipcat.yml)
-        for (k,v) in mf.env {
-            self.env.insert(k, v);
-        }
-        // Must override Kong per environment (overwrite full struct)
-        if mf.kong.is_some() {
-            if self.kong.is_some() {
-                bail!("Cannot have kong in main shipcat.yml and environment override files");
-            }
-            // Because this struct is overridden entirly; call implicits on this struct as well
-            self.kong = mf.kong.clone();
-        }
-        // Version overrides (can be locked across envs, but overwrite when requested)
-        if mf.version.is_some() {
-            self.version = mf.version;
-        }
-        // Allow overriding resources (full struct only)
-        if mf.resources.is_some(){
-            self.resources = mf.resources;
-        }
-        // allow overriding of init containers (full vector only)
-        if !mf.initContainers.is_empty() {
-            self.initContainers = mf.initContainers.clone();
-        }
-        // allow overriding of host aliases (full vector only)
-        if !mf.hostAliases.is_empty() {
-            for hostAlias in &mf.hostAliases {
-                if hostAlias.ip == "" || hostAlias.hostnames.is_empty() {
-                    bail!("Host alias should have an ip and at least one hostname");
-                }
-            }
-            trace!("overriding hostAliases with {:?}", mf.hostAliases);
-            self.hostAliases = mf.hostAliases;
-        }
-        // TODO: more as becomes needed
-
-        Ok(())
-    }
-
     fn get_vault_path(&self, region: &str) -> String {
         // some services use keys from other services
         let (svc, reg) = if let Some(ref vopts) = self.vault {
@@ -379,7 +261,7 @@ impl Manifest {
     }
 
 
-    fn verify_secrets_exist(&self, region: &str) -> Result<()> {
+    pub fn verify_secrets_exist(&self, region: &str) -> Result<()> {
         // what are we requesting
         let keys = self.env.clone().into_iter()
             .filter(|(_,v)| v == "IN_VAULT")
@@ -414,7 +296,7 @@ impl Manifest {
     }
 
     /// Fill in env overrides and populate secrets
-    fn fill(&mut self, conf: &Config, region: &str, vault: &Option<Vault>) -> Result<()> {
+    pub fn fill(&mut self, conf: &Config, region: &str, vault: &Option<Vault>) -> Result<()> {
         self.pre_merge_implicits(conf)?;
         // merge service specific env overrides if they exists
         let envlocals = Path::new(".")
@@ -491,7 +373,7 @@ impl Manifest {
 
     pub fn estimate_wait_time(&self) -> u32 {
         // 512 default => extra 60s wait
-        let pulltimeestimate = (((self.imageSize*60) as f64)/(1024 as f64)) as u32;
+        let pulltimeestimate = (((self.imageSize.unwrap()*60) as f64)/(1024 as f64)) as u32;
         let rcount = self.replicaCount.unwrap(); // this is set by defaults!
         // NB: we wait to pull on each node because of how rolling-upd
         if let Some(ref hc) = self.health {
@@ -534,7 +416,9 @@ impl Manifest {
             bail!("Please use dashes to separate words only");
         }
 
-        self.dataHandling.verify(&conf)?;
+        if let Some(ref dh) = self.dataHandling {
+            dh.verify(&conf)?
+        }
         if let Some(ref md) = self.metadata {
             md.verify(&conf)?;
         }
@@ -582,7 +466,16 @@ impl Manifest {
             }
         }
 
-        // TODO: verify self.image exists!
+        // internal errors - implicits set these!
+        if self.image.is_none() {
+            bail!("Image should be set at this point")
+        }
+        if self.imageSize.is_none() {
+            bail!("imageSize must be set at this point");
+        }
+        if self.chart.is_none() {
+            bail!("chart must be set at this point");
+        }
 
         // regions must have a defaults file in ./environments
         for r in &self.regions {
@@ -598,9 +491,6 @@ impl Manifest {
         // every service that exposes http MUST have a health check
         if self.httpPort.is_some() && self.health.is_none() {
             bail!("{} has an httpPort but no health check", self.name)
-        }
-        if self.imageSize == 0{
-            bail!("imageSize must be set in MB (default 512)");
         }
 
         // add some warnigs about missing health checks and ports regardless
@@ -621,74 +511,19 @@ impl Manifest {
 }
 
 
-/// Validate the manifest of a service in the services directory
-///
-/// This will populate the manifest for all supported environments,
-/// and `verify` their parameters.
-/// Optionally, it will also verify that all secrets are found in the corresponding
-/// vault locations serverside (which require vault credentials).
-pub fn validate(services: Vec<String>, conf: &Config, region: String, vault: Option<Vault>) -> Result<()> {
-    for svc in services {
-        let mut mf = Manifest::basic(&svc, conf, Some(region.clone()))?;
-        if mf.regions.contains(&region) {
-            info!("validating {} for {}", svc, region);
-            mf.fill(&conf, &region, &vault)?;
-            mf.verify(&conf)?;
-            info!("validated {} for {}", svc, region);
-            mf.print()?; // print it if sufficient verbosity
-        } else if mf.external {
-            mf.verify(&conf)?; // exits early - but will verify some stuff
-        } else {
-            bail!("{} is not configured to be deployed in {}", svc, region)
-        }
-    }
-    Ok(())
-}
-
-// Validate the secrets exists in all regions
-pub fn validate_secret_presence(conf: &Config, regions: Vec<String>) -> Result<()> {
-    for r in regions {
-        info!("validating secrets in {}", r);
-        let services = Manifest::available()?;
-        for svc in services {
-            let mut mf = Manifest::basic(&svc, conf, Some(r.clone()))?;
-            if mf.regions.contains(&r) && !mf.external && !mf.disabled {
-                info!("validating secrets for {} in {}", svc, r);
-                mf.fill(&conf, &r, &None)?;
-                mf.verify_secrets_exist(&r)?;
-            }
-        }
-    }
-    Ok(())
-}
-
-
 #[cfg(test)]
 mod tests {
-    use super::{validate};
     use tests::setup;
-    use super::Vault;
     use super::Config;
     use super::Manifest;
     use super::HealthCheck;
-
-    #[test]
-    fn validate_test() {
-        setup();
-        let client = Vault::default().unwrap();
-        let conf = Config::read().unwrap();
-        let res = validate(vec!["fake-ask".into()], &conf, "dev-uk".into(), Some(client));
-        assert!(res.is_ok());
-        let res2 = validate(vec!["fake-storage".into(), "fake-ask".into()], &conf, "dev-uk".into(), None);
-        assert!(res2.is_ok())
-    }
 
     #[test]
     fn wait_time_check() {
         setup();
         // DEFAULT SETUP: no values == defaults => 120s helm wait
         let mut mf = Manifest::default();
-        mf.imageSize = 512;
+        mf.imageSize = Some(512);
         mf.health = Some(HealthCheck {
             uri: "/".into(),
             wait: 30,
@@ -699,7 +534,7 @@ mod tests {
         assert_eq!(wait, 30*2*2);
 
         // setup with large image and short boot time:
-        mf.imageSize = 4096;
+        mf.imageSize = Some(4096);
         mf.health = Some(HealthCheck {
             uri: "/".into(),
             wait: 20,
@@ -715,7 +550,8 @@ mod tests {
         let conf = Config::read().unwrap();
         let mf = Manifest::basic("fake-storage", &conf, Some("dev-uk".into())).unwrap();
         // verify datahandling implicits
-        let s3 = mf.dataHandling.stores[0].clone();
+        let dh = mf.dataHandling.unwrap();
+        let s3 = dh.stores[0].clone();
         assert!(s3.encrypted.unwrap());
         assert_eq!(s3.fields[0].encrypted.unwrap(), false); // overridden
         assert_eq!(s3.fields[1].encrypted.unwrap(), true); // cascaded

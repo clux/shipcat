@@ -55,3 +55,11 @@ impl Verify for ConfigMap {
         Ok(())
     }
 }
+
+impl ConfigMap {
+    pub fn implicits(&mut self, svc: &str) {
+        if self.name.is_none() {
+            self.name = Some(format!("{}-config", svc));
+        }
+    }
+}

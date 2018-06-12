@@ -10,10 +10,10 @@ use super::{Result, Config};
 #[serde(deny_unknown_fields)]
 pub struct DataHandling {
     /// Where and how data is stored
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub stores: Vec<DataStore>,
     /// Where the data was retrieved from
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub processes: Vec<DataProcess>,
 }
 

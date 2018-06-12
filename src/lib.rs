@@ -112,8 +112,6 @@ error_chain! {
     }
 }
 
-/// A renderer of `tera` templates (jinja style)
-pub mod template;
 /// A Hashicorp Vault HTTP client using `reqwest`
 pub mod vault;
 /// Convenience listers
@@ -133,7 +131,10 @@ pub use config::{Config};
 pub mod structs;
 
 mod manifest;
-pub use manifest::{validate, validate_secret_presence, Manifest};
+pub use manifest::{Manifest};
+
+/// Validation methods of manifests post merge
+pub mod validate;
 
 /// gdpr lister
 pub mod gdpr;
