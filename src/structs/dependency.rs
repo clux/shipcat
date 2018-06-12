@@ -64,3 +64,11 @@ impl Verify for Dependency {
         Ok(())
     }
 }
+
+impl Dependency {
+    pub fn implicits(&mut self) {
+        if self.api.is_none() {
+            self.api = Some("v1".to_string());
+        }
+    }
+}

@@ -165,7 +165,7 @@ impl UpgradeData {
             name: mf.name.clone(),
             diff: helmdiff,
             metadata: mf.metadata.clone(),
-            chart: mf.chart.clone(),
+            chart: mf.chart.clone().unwrap(),
             waittime: mf.estimate_wait_time(),
             region: mf.region.clone(),
             values: hfile.into(),
@@ -179,7 +179,7 @@ impl UpgradeData {
             version: mf.version.clone().unwrap_or_else(|| "unknown".into()),
             metadata: mf.metadata.clone(),
             region: mf.region.clone(),
-            chart: mf.chart.clone(),
+            chart: mf.chart.clone().unwrap(),
             mode: UpgradeMode::UpgradeInstall,
             // empty diff, namespace, 0 waittime,
             ..Default::default()
@@ -192,7 +192,7 @@ impl UpgradeData {
             metadata: mf.metadata.clone(),
             namespace: kube::current_namespace(&mf.region)?,
             region: mf.region.clone(),
-            chart: mf.chart.clone(), // helm doesn't need this to rollback, but setting
+            chart: mf.chart.clone().unwrap(), // helm doesn't need this to rollback, but setting
             mode: UpgradeMode::UpgradeInstall, // unused in rollback flow, but setting
             // empty diff, 0 waittime,
             ..Default::default()
@@ -269,7 +269,7 @@ fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
         "--no-color".into(),
         "-q".into(),
         mf.name.clone(),
-        format!("charts/{}", mf.chart),
+        format!("charts/{}", mf.chart.clone().unwrap()),
         "-f".into(),
         hfile.into(),
         format!("--version={}", ver),
@@ -338,7 +338,7 @@ pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>) -> 
     // helm template with correct params
     let tplvec = vec![
         "template".into(),
-        format!("charts/{}", mf.chart),
+        format!("charts/{}", mf.chart.unwrap()),
         "-f".into(),
         hfile.clone(),
     ];

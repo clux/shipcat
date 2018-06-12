@@ -279,9 +279,9 @@ fn main() {
         });
         let res = if a.is_present("secrets") {
             let vault = shipcat::vault::Vault::masked().unwrap();
-            shipcat::validate(services, &conf, region, Some(vault))
+            shipcat::validate::manifest(services, &conf, region, Some(vault))
         } else {
-            shipcat::validate(services, &conf, region, None)
+            shipcat::validate::manifest(services, &conf, region, None)
         };
         result_exit(args.subcommand_name().unwrap(), res)
     }
@@ -297,7 +297,7 @@ fn main() {
     if let Some(a) = args.subcommand_matches("secret") {
         if let Some(b) = a.subcommand_matches("verify-region") {
             let regions = b.values_of("regions").unwrap().map(String::from).collect::<Vec<_>>();
-            let res = shipcat::validate_secret_presence(&conf, regions);
+            let res = shipcat::validate::secret_presence(&conf, regions);
             result_exit(a.subcommand_name().unwrap(), res)
         }
     }
