@@ -43,6 +43,10 @@ pub struct Manifest {
     #[serde(default, skip_serializing)]
     pub regions: Vec<String>,
 
+    /// Extra labels
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub labels: BTreeMap<String, String>,
+
     // following are properties that can be merged
 
     /// Chart to use for the service
