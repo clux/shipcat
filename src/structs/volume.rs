@@ -3,6 +3,8 @@ use super::{Result, Config};
 use std::collections::BTreeMap;
 
 // These structs contain a straight translation of kubernetes volumes
+// TODO: cross reference better with
+// https://kubernetes.io/docs/concepts/storage/volumes/
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct VolumeSecretItem {

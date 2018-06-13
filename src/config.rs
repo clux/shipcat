@@ -23,6 +23,19 @@ pub struct ManifestDefaults {
     pub replicaCount: u32
 }
 
+/// Versioning Scheme used in region
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum VersionScheme {
+    Semver,
+    GitShaOrSemver,
+}
+
+impl Default for VersionScheme {
+    fn default() -> Self {
+        VersionScheme::GitShaOrSemver
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct RegionDefaults {
@@ -30,8 +43,8 @@ pub struct RegionDefaults {
     pub namespace: String,
     /// Environment (i.e: `dev` or `staging`)
     pub environment: String,
-    /// Docker image floating tag
-    pub version: String,
+    /// Versioning scheme
+    pub versions: VersionScheme,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -129,9 +142,6 @@ impl Config {
             let rdefs = &data.defaults;
             if rdefs.namespace == "" {
                 bail!("Default namespace cannot be empty");
-            }
-            if rdefs.version == "" {
-                bail!("Default floating tag must be set");
             }
         }
         let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();

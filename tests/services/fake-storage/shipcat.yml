@@ -81,3 +81,7 @@ volumes:
         items:
         - key: file
           path: combined-secret2.yaml
+metadata:
+  repo: https://github.com/Babylonpartners/shipcat
+  contacts: []
+  team: someteam
