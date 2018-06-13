@@ -1,4 +1,6 @@
 name: fake-ask
+labels:
+  custom-metrics: true
 resources:
   limits:
     cpu: 2

@@ -190,7 +190,9 @@ impl Manifest {
         if !mf.workers.is_empty() {
             self.workers = mf.workers;
         }
-
+        if !mf.labels.is_empty() {
+            self.labels = mf.labels;
+        }
 
         Ok(())
     }
