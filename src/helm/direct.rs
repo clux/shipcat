@@ -155,10 +155,10 @@ impl UpgradeData {
         let version = mf.version.clone().ok_or_else(|| ErrorKind::ManifestFailure("version".into()))?;
         if let Err(e) = helpers::version_validate(&version) {
             warn!("Please supply a 40 char git sha version, or a semver version for {}", mf.name);
-            let img = mf.image.clone().ok_or_else(|| ErrorKind::ManifestFailure("image".into()))?;
-            if img.contains("quay.io/babylon") { // TODO: locked down repos in config
-                return Err(e);
-            }
+            //let img = mf.image.clone().ok_or_else(|| ErrorKind::ManifestFailure("image".into()))?;
+            //if img.contains("quay.io/babylon") { // TODO: locked down repos in config
+            return Err(e);
+            //}
         }
 
         Ok(Some(UpgradeData {
@@ -325,6 +325,7 @@ pub fn values(mf: &Manifest, output: Option<String>) -> Result<()> {
 /// Generates helm values to disk, then passes it to helm template
 pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>) -> Result<String> {
     let mut mf = Manifest::completed(svc, &conf, region)?;
+    mf.verify(conf)?;
 
     // template or values does not need version - but respect passed in / manifest
     if ver.is_some() {
@@ -415,18 +416,18 @@ pub fn handle_upgrade_notifies(success: bool, u: &UpgradeData) -> Result<()> {
 /// Completes a manifest and prints it out with the given version
 pub fn values_wrapper(svc: &str, region: &str, conf: &Config, ver: Option<String>) -> Result<()> {
     let mut mf = Manifest::completed(svc, &conf, region)?;
-
+    mf.verify(conf)?;
     // template or values does not need version - but respect passed in / manifest
     if ver.is_some() {
         mf.version = ver;
     }
-    assert!(mf.regions.contains(&region.to_string()));
     values(&mf, None)
 }
 
 /// Full helm wrapper for a single upgrade/diff/install
 pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
     let mut mf = Manifest::completed(svc, &conf, region)?;
+    mf.verify(conf)?;
 
     // Ensure we have a version - or are able to infer one
     if ver.is_some() {
@@ -442,6 +443,14 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
         let regdefaults = conf.region_defaults(region)?;
         mf.version = Some(helpers::infer_fallback_version(&svc, &regdefaults)?);
     };
+    if mode != UpgradeMode::DiffOnly {
+        // validate that the version matches the versioning scheme for this region
+        // NB: only doing this on direct upgrades not parallel reconciles atm
+        helpers::version_validate_specific(
+            &mf.version.clone().unwrap(),
+            &conf.regions[region].defaults.versions
+        )?;
+    }
 
     // Template values file
     let hfile = format!("{}.helm.gen.yml", &svc);

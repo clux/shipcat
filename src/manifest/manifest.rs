@@ -421,6 +421,8 @@ impl Manifest {
         }
         if let Some(ref md) = self.metadata {
             md.verify(&conf)?;
+        } else {
+            bail!("Missing metadata for {}", self.name);
         }
 
         if self.external {
@@ -482,6 +484,9 @@ impl Manifest {
             if conf.regions.get(r).is_none() {
                 bail!("Unsupported region {} without entry in config", r);
             }
+        }
+        if !self.regions.contains(&self.region.to_string()) {
+            bail!("Unsupported region {} for service {}", self.region, self.name);
         }
         if self.regions.is_empty() {
             bail!("No regions specified for {}", self.name);

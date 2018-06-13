@@ -3,7 +3,7 @@ use serde_yaml;
 use semver::Version;
 use regex::Regex;
 
-use super::RegionDefaults;
+use super::{RegionDefaults, VersionScheme};
 use super::{Result};
 
 
@@ -90,8 +90,8 @@ pub fn infer_fallback_version(service: &str, reg: &RegionDefaults) -> Result<Str
             Ok(values.version)
         },
         _ => {
-            // nothing from helm, fallback to region defaults from config
-            Ok(reg.version.clone())
+            // nothing from helm
+            bail!("Service {} not found in in {} tiller", service, reg.namespace);
         }
     }
 }
@@ -105,6 +105,21 @@ pub fn version_validate(ver: &str) -> Result<()> {
     if !gitre.is_match(&ver) && Version::parse(&ver).is_err() {
         bail!("Floating tag {} cannot be rolled back - disallowing", ver);
     }
+    Ok(())
+}
+
+/// Version validator for a region (allows you to lock down)
+pub fn version_validate_specific(ver: &str, scheme: &VersionScheme) -> Result<()> {
+    match scheme {
+        VersionScheme::GitShaOrSemver => {
+            version_validate(&ver)?
+        },
+        VersionScheme::Semver => {
+            if Version::parse(&ver).is_err() {
+                bail!("Version {} is not a semver version in a region using semver versions", ver);
+            }
+        },
+    };
     Ok(())
 }
 
