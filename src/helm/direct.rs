@@ -21,6 +21,8 @@ pub enum UpgradeMode {
     UpgradeRecreateWait,
     /// Upgrade with install flag set
     UpgradeInstall,
+    /// Upgrade or install, but always wait (reconcile)
+    UpgradeInstallWait,
 }
 impl Default for UpgradeMode {
     fn default() -> Self {
@@ -36,6 +38,7 @@ impl fmt::Display for UpgradeMode {
             &UpgradeMode::UpgradeRecreateWait => write!(f, "recreate"),
             &UpgradeMode::UpgradeInstall => write!(f, "install"),
             &UpgradeMode::UpgradeWaitMaybeRollback => write!(f, "upgrade"),
+            &UpgradeMode::UpgradeInstallWait => write!(f, "reconcile"),
         }
     }
 }
@@ -48,6 +51,7 @@ impl UpgradeMode {
             &UpgradeMode::UpgradeRecreateWait => "recreated pods for",
             &UpgradeMode::UpgradeInstall => "installed",
             &UpgradeMode::UpgradeWaitMaybeRollback => "upgraded",
+            &UpgradeMode::UpgradeInstallWait => "reconciled",
         }.into()
     }
 }
@@ -130,13 +134,13 @@ impl UpgradeData {
     /// (DiffOnly can sneak by early due to it not being technically needed)
     ///
     /// Performs basic sanity checks, and populates canonical values that are reused a lot.
-    pub fn new(mf: &Manifest, hfile: &str, mode: UpgradeMode) ->  Result<Option<UpgradeData>> {
+    pub fn new(mf: &Manifest, hfile: &str, mode: UpgradeMode, exists: bool) ->  Result<Option<UpgradeData>> {
         if mode != UpgradeMode::DiffOnly {
             slack::have_credentials()?;
         }
         let namespace = kube::current_namespace(&mf.region)?;
 
-        let helmdiff = if mode == UpgradeMode::UpgradeInstall {
+        let helmdiff = if !exists {
             "".into() // can't diff against what's not there!
         } else {
             let hdiff = diff(mf, hfile, DiffMode::Upgrade)?;
@@ -232,6 +236,13 @@ pub fn upgrade(data: &UpgradeData) -> Result<()> {
                 "--install".into(),
             ]);
         },
+        UpgradeMode::UpgradeInstallWait => {
+              upgradevec.extend_from_slice(&[
+                "--install".into(),
+                "--wait".into(),
+                format!("--timeout={}", data.waittime),
+            ]);
+        },
         _ => {
             unimplemented!("Somehow got an uncovered upgrade mode");
         }
@@ -282,7 +293,8 @@ fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
     );
     if !hdifferr.is_empty() {
         warn!("diff {} stderr: \n{}", mf.name, hdifferr);
-        if ! hdifferr.contains("error copying from local connection to remote stream") {
+        if ! hdifferr.contains("error copying from local connection to remote stream") &&
+           ! hdifferr.contains("error copying from remote stream to local connection") {
             bail!("diff plugin for {} returned: {}", mf.name, hdifferr.lines().next().unwrap());
         }
     }
@@ -438,6 +450,9 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
         warn!("No version found in either manifest or passed explicitly");
         bail!("helm install needs an explicit version")
     }
+    // assume it exists if we're not doing installs
+    // (this is fine atm because upgrade_wrapper is the CLI entrypoint)
+    let exists = mode != UpgradeMode::UpgradeInstall;
     // Other modes can infer in a pinch
     if mf.version.is_none() {
         let regdefaults = conf.region_defaults(region)?;
@@ -457,7 +472,7 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
     values(&mf, Some(hfile.clone()))?;
 
     // Sanity step that gives canonical upgrade data
-    let upgrade_opt = UpgradeData::new(&mf, &hfile, mode)?;
+    let upgrade_opt = UpgradeData::new(&mf, &hfile, mode, exists)?;
     if let Some(ref udata) = upgrade_opt {
         // Upgrade necessary - pass on data:
         match upgrade(&udata) {

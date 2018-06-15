@@ -17,6 +17,7 @@ use super::structs::{InitContainer, Resources, HostAlias};
 use super::structs::volume::{Volume, VolumeMount};
 use super::structs::{Metadata, DataHandling, VaultOpts, Dependency};
 //use super::structs::prometheus::{Prometheus, Dashboard};
+use super::structs::Probe;
 use super::structs::{CronJob, Kong, Sidecar};
 use super::structs::Worker;
 
@@ -43,11 +44,13 @@ pub struct Manifest {
     #[serde(default, skip_serializing)]
     pub regions: Vec<String>,
 
-    /// Extra labels
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub labels: BTreeMap<String, String>,
+    // Decoded secrets - only used interally
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub _decoded_secrets: BTreeMap<String, String>,
 
-    // following are properties that can be merged
+    // BEFORE ADDING PROPERTIES READ THIS
+    // Below are properties that can be merged, above ones that are global
+    // if you add anything below here, also add it to merge.rs!
 
     /// Chart to use for the service
     #[serde(default)]
@@ -120,6 +123,12 @@ pub struct Manifest {
     pub workers: Vec<Worker>,
 
     // pure kube yaml
+    /// Optional readiness probe (REPLACES health abstraction)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub readinessProbe: Option<Probe>,
+    /// Optional liveness probe
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub livenessProbe: Option<Probe>,
 
     /// host aliases to inject in /etc/hosts
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -143,6 +152,10 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub serviceAnnotations: BTreeMap<String, String>,
 
+    /// Extra labels
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub labels: BTreeMap<String, String>,
+
     // Prometheus metric options CURRENTLY UNUSED
     //#[serde(skip_serializing_if = "Option::is_none")]
     //pub prometheus: Option<Prometheus>,
@@ -160,37 +173,7 @@ pub struct Manifest {
     pub secretFiles: BTreeMap<String, String>,
 
     // TODO: logging alerts
-
-    // TODO: stop hook
-    //preStopHookPath: /die
-
-    // Decoded secrets
-    #[serde(default, skip_serializing, skip_deserializing)]
-    pub _decoded_secrets: BTreeMap<String, String>,
-/*
-    // Internal type
-    #[serde(default, skip_serializing, skip_deserializing)]
-    pub _type: ManifestType,
-*/
 }
-
-/*
-/// What an internal representation of a `Manifest` means
-pub enum ManifestType {
-    /// A plain shipcat.yml with just `Manifest::implicits` filled in
-    Basic,
-    /// A shipcat.yml with region, config overrides applied - potentially secrets
-    Complete,
-    /// Completed manifest with mocked secrets
-    CompleteMocked,
-    /// A completed manifest with templated configs inlined for helm
-    HelmValues,
-}
-impl Default for ManifestType {
-    fn default() -> Self {
-        ManifestType::Basic
-    }
-}*/
 
 impl Manifest {
     /// Walk the services directory and return the available services
@@ -422,7 +405,8 @@ impl Manifest {
 
         if let Some(ref dh) = self.dataHandling {
             dh.verify(&conf)?
-        }
+        } // TODO: mandatory for later environments!
+
         if let Some(ref md) = self.metadata {
             md.verify(&conf)?;
         } else {
@@ -439,7 +423,6 @@ impl Manifest {
         if let Some(ref r) = self.resources {
             r.verify(&conf)?;
         } else {
-            // TODO: maybe not for external services
             bail!("Resources is mandatory");
         }
 
@@ -498,7 +481,7 @@ impl Manifest {
 
         // health check
         // every service that exposes http MUST have a health check
-        if self.httpPort.is_some() && self.health.is_none() {
+        if self.httpPort.is_some() && (self.health.is_none() && self.readinessProbe.is_none()) {
             bail!("{} has an httpPort but no health check", self.name)
         }
 
@@ -507,7 +490,7 @@ impl Manifest {
         if self.httpPort.is_none() {
             warn!("{} exposes no http port", self.name);
         }
-        if self.health.is_none() {
+        if self.health.is_none() && self.readinessProbe.is_none() {
             warn!("{} does not set a health check", self.name)
         }
 

@@ -6,15 +6,7 @@ use super::{Result, Config, Manifest};
 /// Upgrades multiple services at a time using rolling upgrade in a threadpool.
 /// Ignores upgrade failures.
 pub fn helm_reconcile(conf: &Config, region: &str, n_workers: usize) -> Result<()> {
-    mass_helm(conf, region, UpgradeMode::UpgradeWait, n_workers)
-}
-
-/// Helm installs region (disaster recovery)
-///
-/// Installs multiple services at a time in a threadpool.
-/// This upgrade mode does not wait so this should only be limited by k8s.
-pub fn helm_install(conf: &Config, region: &str, n_workers: usize) -> Result<()> {
-    mass_helm(conf, region, UpgradeMode::UpgradeInstall, n_workers)
+    mass_helm(conf, region, UpgradeMode::UpgradeInstallWait, n_workers)
 }
 
 /// Helm diff the region

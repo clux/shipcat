@@ -6,7 +6,7 @@ authors = [
 ]
 name = "shipcat"
 readme = "README.md"
-version = "0.33.0"
+version = "0.34.0"
 
 [[bin]]
 doc = false
@@ -28,7 +28,7 @@ serde_json = "1.0.13"
 serde_yaml = "0.7.3"
 slack-hook = { git = "https://github.com/clux/rust-slack" }
 #slack-hook = { path = "../rust-slack" }
-jenkins_api = "0.2.1"
+jenkins_api = "0.4.0"
 tera = "0.11.7"
 walkdir = "2.1.4"
 threadpool = "1.7.1"

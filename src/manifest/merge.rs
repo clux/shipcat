@@ -7,13 +7,6 @@ use std::fs::File;
 
 use super::{Manifest, Result, Config};
 
-// shortcut that could be used by merge?
-//macro_rules! overwrite_if_present {
-//    ($e:expr) => (if mf.$e.is_some() {
-//        self.$e = mf.$e;
-//    })
-//}
-
 impl Manifest {
 
     /// Add implicit defaults to self after merging in region overrides
@@ -102,7 +95,7 @@ impl Manifest {
             bail!("Regions must only be defined in the main shipcat.yml file");
         }
         if self.version.is_some() {
-            warn!("Locking versions across all environment main shipcat.yml");
+            warn!("{} locks versions across all environments in shipcat.yml", self.name);
         }
 
         // start merging:
@@ -157,6 +150,12 @@ impl Manifest {
         }
         if mf.health.is_some() {
             self.health = mf.health;
+        }
+        if mf.readinessProbe.is_some() {
+            self.readinessProbe = mf.readinessProbe;
+        }
+        if mf.livenessProbe.is_some() {
+            self.livenessProbe = mf.livenessProbe;
         }
         if mf.httpPort.is_some() {
             self.httpPort = mf.httpPort;

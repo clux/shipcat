@@ -1,8 +1,10 @@
 use super::{Result, ErrorKind};
 use chrono::{Utc, TimeZone};
-use jenkins_api::{JenkinsBuilder, Jenkins, Build, Job};
-//use jenkins_api::{Parameter, StringParameterValue};
-use jenkins_api::action::*;
+use jenkins_api::{JenkinsBuilder, Jenkins};
+use jenkins_api::job::CommonJob;
+use jenkins_api::build::{Build, CommonBuild};
+use jenkins_api::action::parameters::StringParameterValue;
+use jenkins_api::action::ParametersAction;
 use std::env;
 use std::collections::BTreeMap;
 use std::io::{self, Write};
@@ -28,21 +30,21 @@ fn get_client() -> Result<Jenkins> {
     )
 }
 
-fn get_job(client: &Jenkins, job: &str) -> Result<Job> {
+fn get_job(client: &Jenkins, job: &str) -> Result<CommonJob> {
     Ok(client.get_job(job).map_err(|e| {
         error!("Failed to get job {}", e);
         ErrorKind::MissingJenkinsJob(job.into())
     })?)
 }
 
-pub fn get_string_params(b: &Build) -> BTreeMap<String, String> {
+pub fn get_string_params(b: &CommonBuild) -> BTreeMap<String, String> {
     let mut res = BTreeMap::new();
     for a in &b.actions {
-        if let &Action::ParametersAction { ref parameters } = a {
-            trace!("got pars {:?}", parameters);
-            for p in parameters {
-                if let &Parameter::StringParameterValue { ref name, ref value } = p {
-                    res.insert(name.clone(), value.clone());
+        if let Ok(params) = a.as_variant::<ParametersAction>() {
+            trace!("got pars {:?}", params);
+            for p in params.parameters {
+                if let Ok(spar) = p.as_variant::<StringParameterValue>() {
+                    res.insert(spar.name.clone(), spar.value.clone());
                 }
             }
         }
@@ -50,7 +52,7 @@ pub fn get_string_params(b: &Build) -> BTreeMap<String, String> {
     res
 }
 
-fn find_build_by_parameter(client: &Jenkins, job: &str, app: &str) -> Result<Option<Build>> {
+fn find_build_by_parameter(client: &Jenkins, job: &str, app: &str) -> Result<Option<CommonBuild>> {
     let job = get_job(&client, job)?;
     let len = job.builds.len();
     for sbuild in job.builds {
@@ -71,7 +73,7 @@ fn find_build_by_parameter(client: &Jenkins, job: &str, app: &str) -> Result<Opt
     Ok(None)
 }
 
-fn find_builds_by_parameter(client: &Jenkins, job: &str, app: &str) -> Result<Vec<Build>> {
+fn find_builds_by_parameter(client: &Jenkins, job: &str, app: &str) -> Result<Vec<CommonBuild>> {
     let job = get_job(&client, job)?;
     let mut builds = vec![];
     let len = job.builds.len();
@@ -95,7 +97,7 @@ fn find_builds_by_parameter(client: &Jenkins, job: &str, app: &str) -> Result<Ve
     Ok(builds)
 }
 
-fn find_build_by_nr(client: &Jenkins, job: &str, nr: u32, app: &str) -> Result<Option<Build>> {
+fn find_build_by_nr(client: &Jenkins, job: &str, nr: u32, app: &str) -> Result<Option<CommonBuild>> {
     let job = get_job(&client, job)?;
     let len = job.builds.len();
     for sbuild in job.builds {

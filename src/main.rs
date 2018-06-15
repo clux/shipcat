@@ -217,8 +217,6 @@ fn main() {
                     .help("Number of worker threads used"))
                 .subcommand(SubCommand::with_name("reconcile")
                     .about("Reconcile kubernetes region configs with local state"))
-                .subcommand(SubCommand::with_name("install")
-                    .about("Install all kubernetes services in a region as disaster recovery"))
                 .subcommand(SubCommand::with_name("diff")
                     .about("Diff kubernetes region configs with local state"))))
         .subcommand(SubCommand::with_name("list-regions")
@@ -404,10 +402,6 @@ fn main() {
             }
             else if let Some(_) = b.subcommand_matches("reconcile") {
                 let res = shipcat::cluster::helm_reconcile(&conf, &region, jobs);
-                result_exit(args.subcommand_name().unwrap(), res)
-            }
-            else if let Some(_) = b.subcommand_matches("install") {
-                let res = shipcat::cluster::helm_install(&conf, &region, jobs);
                 result_exit(args.subcommand_name().unwrap(), res)
             }
         }

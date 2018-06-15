@@ -45,19 +45,19 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-          - cargo.registry-{{ checksum "Cargo.lock" }}
-          - cargo.registry-
+          - cargo.registry-musl-{{ checksum "Cargo.lock" }}
+          - cargo.registry-musl
       - restore_cache:
           keys:
-          - target-{{ checksum "Cargo.lock" }}
-          - target-
+          - target-musl-{{ checksum "Cargo.lock" }}
+          - target-musl
       - run: cargo build --release
       - save_cache:
-          key: target-{{ checksum "Cargo.lock" }}
+          key: target-musl-{{ checksum "Cargo.lock" }}
           paths:
             - target
       - save_cache:
-          key: cargo.registry-{{ checksum "Cargo.lock" }}
+          key: cargo.registry-musl-{{ checksum "Cargo.lock" }}
           paths:
             - /root/.cargo
       # Ensure we have a built `shipcat.x86_64-unknown-linux-musl` at workspace root
@@ -77,14 +77,22 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-          - cargo.registry-osx-{{ checksum "Cargo.lock" }}
-          - cargo.registry-osx-
+          - cargo.registry-test-{{ checksum "Cargo.lock" }}
+          - cargo.registry-test
       - restore_cache:
           keys:
-          - target-osx-{{ checksum "Cargo.lock" }}
-          - target-osx-
+          - target-test-{{ checksum "Cargo.lock" }}
+          - target-test
       - run: cargo test -- --nocapture
       - run: cargo doc --no-deps
+      - save_cache:
+          key: target-test-{{ checksum "Cargo.lock" }}
+          paths:
+            - target
+      - save_cache:
+          key: cargo.registry-test-{{ checksum "Cargo.lock" }}
+          paths:
+            - /root/.cargo
 
   docker_build:
     machine: true
@@ -110,18 +118,18 @@ jobs:
           command: |
             curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
       - restore_cache:
-          key: cargo.mac.registry-{{ checksum "Cargo.lock" }}
+          key: cargo.registry-mac-{{ checksum "Cargo.lock" }}
       - restore_cache:
-          key: target.mac-{{ checksum "Cargo.lock" }}
+          key: target-mac-{{ checksum "Cargo.lock" }}
       - run:
           name: Build
           command: ~/.cargo/bin/cargo build --verbose --release
       - save_cache:
-          key: target.mac-{{ checksum "Cargo.lock" }}
+          key: target-mac-{{ checksum "Cargo.lock" }}
           paths:
             - target
       - save_cache:
-          key: cargo.mac.registry-{{ checksum "Cargo.lock" }}
+          key: cargo.registry-mac-{{ checksum "Cargo.lock" }}
           paths:
             - /Users/distiller/.cargo
       # Ensure we have a built `shipcat.x86_64-apple-darwin` at workspace root
