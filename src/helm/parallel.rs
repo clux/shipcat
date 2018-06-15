@@ -61,17 +61,35 @@ fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Co
     let svc = tmpmf.name;
 
     let mut mf = Manifest::completed(&svc, &conf, &region)?;
+
+    let regdefaults = conf.region_defaults(&region)?;
+    // get version running now (to limit race condition with deploys)
+    // this query also lets us detect if we have to install or simply upgrade
+    let (exists, fallback) = match helpers::infer_fallback_version(&svc, &regdefaults) {
+        Ok(running_ver) => (true, running_ver),
+        Err(e) => {
+            if let Some(v) = mf.version.clone() {
+                warn!("Service {} will be installed by reconcile", mf.name);
+                (false, v)
+            } else {
+                warn!("Service {} has no version specified in manifest and is not installed", mf.name);
+                error!("Service {} must be installed manually in rolling environment", mf.name);
+                return Err(e);
+            }
+        }
+    };
+    debug!("reconcile worker {} - exists?{} fallback:{}", mf.name, exists, fallback);
+
+    // only override version if not in manifests
     if mf.version.is_none() {
-        // get version running now (to limit race condition with deploys)
-        let regdefaults = conf.region_defaults(&region)?;
-        mf.version = Some(helpers::infer_fallback_version(&svc, &regdefaults)?)
+         mf.version = Some(fallback)
     };
 
     // Template values file
     let hfile = format!("{}.helm.gen.yml", &svc);
     direct::values(&mf, Some(hfile.clone()))?;
 
-    let upgrade_opt = UpgradeData::new(&mf, &hfile, mode)?;
+    let upgrade_opt = UpgradeData::new(&mf, &hfile, mode, exists)?;
     if let Some(ref udata) = upgrade_opt {
         // upgrade in given mode, potentially rolling back a failure
         let res = direct::upgrade(&udata);

@@ -68,7 +68,6 @@ pub fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
     Ok((out, err, s.status.success()))
 }
 
-
 pub fn infer_fallback_version(service: &str, reg: &RegionDefaults) -> Result<String> {
     // fetch current version from helm
     let imgvec = vec![

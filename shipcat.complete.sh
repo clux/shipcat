@@ -103,7 +103,7 @@ _shipcat()
                     COMPREPLY=($(compgen -W "helm" -- "$cur"))
                 elif [[ $clustr_sub = "helm" ]]; then
                     # Suggest subcommands of helm and global flags
-                    COMPREPLY=($(compgen -W "diff reconcile install" -- "$cur"))
+                    COMPREPLY=($(compgen -W "diff reconcile" -- "$cur"))
                 fi
                 ;;
             helm)
