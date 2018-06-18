@@ -106,6 +106,8 @@ pub enum DataFieldType {
     ChatbotRawUserString,
     DeviceHistory,
     PhoneNumber,
+    PgmFlowOutcomes,
+    CheckbaseFlowOutcomes,
     /// Internal babylon health check metric
     HealthCheck,
 }
