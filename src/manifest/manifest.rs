@@ -342,9 +342,10 @@ impl Manifest {
     }
 
     /// Inline templates in values
-    fn inline_configs(&mut self) -> Result<()> {
+    pub fn inline_configs(&mut self) -> Result<()> {
         use super::template;
         use tera::Context;
+        let svc = self.name.clone();
         let rdr = template::service_bound_renderer(&self.name)?;
         if let Some(ref mut cfg) = self.configs {
             for f in &mut cfg.files {
@@ -352,7 +353,11 @@ impl Manifest {
                 ctx.add("env", &self.env.clone());
                 ctx.add("service", &self.name.clone());
                 ctx.add("region", &self.region.clone());
-                f.value = Some((rdr)(&f.name, &ctx)?);
+                f.value = Some((rdr)(&f.name, &ctx).map_err(|e| {
+                    // help out interleaved reconciles with service name
+                    error!("{} failed templating: {}", &svc, e);
+                    e
+                })?);
             }
         }
         Ok(())

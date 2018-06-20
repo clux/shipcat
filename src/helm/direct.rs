@@ -9,7 +9,7 @@ use super::{Result, Manifest, ErrorKind, Error, Config};
 use super::helpers::{self, hout, hexec};
 
 /// The different modes we allow `helm upgrade` to run in
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum UpgradeMode {
     /// Upgrade dry-run
     DiffOnly,
@@ -243,8 +243,8 @@ pub fn upgrade(data: &UpgradeData) -> Result<()> {
                 format!("--timeout={}", data.waittime),
             ]);
         },
-        _ => {
-            unimplemented!("Somehow got an uncovered upgrade mode");
+        ref u => {
+            unimplemented!("Somehow got an uncovered upgrade mode ({:?})", u);
         }
     }
 

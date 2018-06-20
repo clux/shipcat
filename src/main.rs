@@ -17,7 +17,8 @@ use std::process;
 fn result_exit<T>(name: &str, x: Result<T>) {
     let _ = x.map_err(|e| {
         error!("{} error: {}", name, e);
-        debug!("{}: {:?}", name, e); // in the off-chance that Debug is useful
+        // extra Debug output sometimes useful (like templating errors)
+        debug!("{}: {:?}", name, e);
         process::exit(1);
     });
     process::exit(0);
@@ -25,7 +26,8 @@ fn result_exit<T>(name: &str, x: Result<T>) {
 fn conditional_exit<T>(x: Result<T>) -> T {
     x.map_err(|e| {
         error!("error: {}", e);
-        debug!("{:?}", e); // in the off-chance that Debug is useful
+        // extra Debug output sometimes useful (like templating errors)
+        debug!("{:?}", e);
         process::exit(1);
     }).unwrap()
 }
@@ -158,14 +160,18 @@ fn main() {
                 .long("url")
                 .takes_value(true)
                 .help("url|description to link to at the end of the message"))
-            .setting(AppSettings::TrailingVarArg)
             .arg(Arg::with_name("message")
                 .required(true)
                 .multiple(true))
+            .arg(Arg::with_name("service")
+                .short("s")
+                .long("service")
+                .takes_value(true))
             .arg(Arg::with_name("color")
                 .short("c")
                 .long("color")
                 .takes_value(true))
+            .setting(AppSettings::TrailingVarArg)
             .about("Post message to slack"))
         .subcommand(SubCommand::with_name("validate")
               .arg(Arg::with_name("services")
@@ -262,18 +268,11 @@ fn main() {
     openssl_probe::init_ssl_cert_env_vars(); // prerequisite for https clients
 
     // 2. network related subcommands that doesn't NEED kubectl/kctx
-    if let Some(a) = args.subcommand_matches("slack") {
-        let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
-        let link = a.value_of("url").map(String::from);
-        let color = a.value_of("color").map(String::from);
-        let msg = shipcat::slack::Message { text, link, color, ..Default::default() };
-        result_exit(args.subcommand_name().unwrap(), shipcat::slack::send(msg))
-    }
     if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
         // this only needs a kube context if you don't specify it
         let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
-            kube::current_context().unwrap()
+            conditional_exit(kube::current_context())
         });
         let res = if a.is_present("secrets") {
             let vault = shipcat::vault::Vault::masked().unwrap();
@@ -329,6 +328,18 @@ fn main() {
            let res = shipcat::jenkins::history(&svc, &region);
            result_exit(a.subcommand_name().unwrap(), res)
         }
+    }
+    if let Some(a) = args.subcommand_matches("slack") {
+        let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
+        let link = a.value_of("url").map(String::from);
+        let color = a.value_of("color").map(String::from);
+        let metadata = if let Some(svc) = a.value_of("service") {
+            conditional_exit(Manifest::stubbed(svc, &conf, &region)).metadata
+        } else {
+            None
+        };
+        let msg = shipcat::slack::Message { text, link, color, metadata, ..Default::default() };
+        result_exit(args.subcommand_name().unwrap(), shipcat::slack::send(msg))
     }
 
     // 3a). main helm proxy logic
