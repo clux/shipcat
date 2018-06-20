@@ -9,15 +9,22 @@ use super::{Result, Config, Manifest};
 /// vault locations serverside (which require vault credentials).
 pub fn manifest(services: Vec<String>, conf: &Config, region: String, vault: Option<Vault>) -> Result<()> {
     for svc in services {
-        let mut mf = Manifest::basic(&svc, conf, Some(region.clone()))?;
-        if mf.regions.contains(&region) {
+        let mut tmpmf = Manifest::basic(&svc, conf, Some(region.clone()))?;
+        if tmpmf.regions.contains(&region) {
             info!("validating {} for {}", svc, region);
-            mf.fill(&conf, &region, &vault)?;
-            mf.verify(&conf)?;
+            let mf = if vault.is_some() {
+                Manifest::completed(&svc, conf, &region)?
+            } else {
+                // ensure we also verify template against stubbed secrets
+                let mut mani = Manifest::stubbed(&svc, conf, &region)?;
+                mani.inline_configs()?;
+                mani
+            };
+            mf.verify(conf)?;
             info!("validated {} for {}", svc, region);
             mf.print()?; // print it if sufficient verbosity
-        } else if mf.external {
-            mf.verify(&conf)?; // exits early - but will verify some stuff
+        } else if tmpmf.external {
+            tmpmf.verify(&conf)?; // exits early - but will verify some stuff
         } else {
             bail!("{} is not configured to be deployed in {}", svc, region)
         }

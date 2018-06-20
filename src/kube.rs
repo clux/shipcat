@@ -23,7 +23,10 @@ pub fn kout(args: Vec<String>) -> Result<String> {
 }
 
 pub fn current_context() -> Result<String> {
-    let mut res = kout(vec!["config".into(), "current-context".into()])?;
+    let mut res = kout(vec!["config".into(), "current-context".into()]).map_err(|e| {
+        error!("Failed to Get kubectl config current-context. Is kubectl installed?");
+        e
+    })?;
     let len = res.len();
     if res.ends_with('\n') {
         res.truncate(len - 1);
