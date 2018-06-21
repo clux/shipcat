@@ -68,7 +68,7 @@ fn nodeidx_from_name(name: &str, graph: &CatGraph) -> Option<NodeIndex> {
     None
 }
 
-fn recurse_manifest(idx: NodeIndex, mf: &Manifest, conf: &Config, graph: &mut CatGraph) -> Result<()> {
+fn recurse_manifest(idx: NodeIndex, mf: &Manifest, conf: &Config, graph: &mut CatGraph, reg: &str) -> Result<()> {
     for dep in &mf.dependencies {
         debug!("Recursing into {}", dep.name);
         // skip if node exists to avoid infinite loop
@@ -79,28 +79,28 @@ fn recurse_manifest(idx: NodeIndex, mf: &Manifest, conf: &Config, graph: &mut Ca
             continue;
         }
 
-        let depmf = Manifest::basic(&dep.name, conf, None)?;
+        let depmf = Manifest::stubbed(&dep.name, conf, reg)?;
 
         let depnode = ManifestNode::new(&depmf);
         let depidx = graph.add_node(depnode);
 
         graph.update_edge(idx, depidx, DepEdge::new(&dep));
-        recurse_manifest(depidx, &depmf, conf, graph)?;
+        recurse_manifest(depidx, &depmf, conf, graph, reg)?;
     }
 
     Ok(())
 }
 
 /// Generate dependency graph from an entry point via recursion
-pub fn generate(service: &str, conf: &Config, dot: bool) -> Result<CatGraph> {
-    let base = Manifest::basic(service, conf, None)?;
+pub fn generate(service: &str, conf: &Config, dot: bool, reg: &str) -> Result<CatGraph> {
+    let base = Manifest::stubbed(service, conf, &reg)?;
 
 
     let mut graph : CatGraph = DiGraph::<_, _>::new();
     let node = ManifestNode::new(&base);
     let baseidx = graph.add_node(node);
 
-    recurse_manifest(baseidx, &base, conf, &mut graph)?;
+    recurse_manifest(baseidx, &base, conf, &mut graph, reg)?;
 
     let out = if dot {
         format!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel]))
@@ -118,13 +118,13 @@ pub fn generate(service: &str, conf: &Config, dot: bool) -> Result<CatGraph> {
 /// one or more services as we could also show grahps reaching into the ecosystem.
 ///
 /// But it would require: TODO: optionally filter edges around node(s)
-pub fn full(dot: bool, conf: &Config) -> Result<CatGraph> {
+pub fn full(dot: bool, conf: &Config, reg: &str) -> Result<CatGraph> {
     let mut graph : CatGraph = DiGraph::<_, _>::new();
     let services = Manifest::available()?;
     for svc in services {
         debug!("Scanning service {:?}", svc);
 
-        let mf = Manifest::basic(&svc, conf, None)?;
+        let mf = Manifest::stubbed(&svc, conf, reg)?;
         let node = ManifestNode::new(&mf);
         let idx = graph.add_node(node);
 
@@ -134,7 +134,7 @@ pub fn full(dot: bool, conf: &Config) -> Result<CatGraph> {
                 id
             } else {
                 trace!("Found dependency new in graph: {}", dep.name);
-                let depmf = Manifest::basic(&dep.name, conf, None)?;
+                let depmf = Manifest::stubbed(&dep.name, conf, &reg)?;
                 let depnode = ManifestNode::new(&depmf);
                 let depidx = graph.add_node(depnode);
                 depidx
@@ -164,7 +164,7 @@ mod tests {
     fn graph_generate() {
         setup();
         let conf = Config::read().unwrap();
-        let graph = generate("fake-ask", &conf, true).unwrap();
+        let graph = generate("fake-ask", &conf, true, "dev-uk").unwrap();
         assert!(graph.edge_count() > 0);
         print!("got struct: \n{:?}\n", serde_yaml::to_string(&graph));
         let askidx = nodeidx_from_name("fake-ask", &graph).unwrap();
