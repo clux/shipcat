@@ -255,14 +255,6 @@ fn main() {
         let r = a.value_of("region").unwrap().into();
         result_exit(args.subcommand_name().unwrap(), shipcat::list::services(&conf, r))
     }
-    if let Some(a) = args.subcommand_matches("graph") {
-        let dot = a.is_present("dot");
-        if let Some(svc) = a.value_of("service") {
-            result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(svc, &conf, dot))
-        } else {
-            result_exit(args.subcommand_name().unwrap(), shipcat::graph::full(dot, &conf))
-        }
-    }
 
     // 2+ init network related subcommands
     openssl_probe::init_ssl_cert_env_vars(); // prerequisite for https clients
@@ -340,6 +332,14 @@ fn main() {
         };
         let msg = shipcat::slack::Message { text, link, color, metadata, ..Default::default() };
         result_exit(args.subcommand_name().unwrap(), shipcat::slack::send(msg))
+    }
+    if let Some(a) = args.subcommand_matches("graph") {
+        let dot = a.is_present("dot");
+        if let Some(svc) = a.value_of("service") {
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(svc, &conf, dot, &region))
+        } else {
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::full(dot, &conf, &region))
+        }
     }
 
     // 3a). main helm proxy logic
