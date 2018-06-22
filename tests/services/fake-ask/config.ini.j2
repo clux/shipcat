@@ -2,8 +2,8 @@
 FILE_NAME=swagger.yml
 URL={{ service }}/v1/api
 
-[SPACY]
-LANG=en
+[DOUBLE_TEMPLATING]
+CORE={{ env.CORE_URL }}
 
 [FIELDS]
 TEXT=text
