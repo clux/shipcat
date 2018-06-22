@@ -112,3 +112,57 @@ pub fn service_bound_renderer(svc: &str) -> Result<ContextBoundRenderer> {
         render(&tera, tmpl, context)
     }))
 }
+
+/// One off template
+pub fn one_off(tpl: &str, ctx: &Context) -> Result<String> {
+    let autoescape = false; // we template url with slashes in them
+    let res = Tera::one_off(tpl, ctx, autoescape)?;
+    Ok(res)
+}
+
+
+// main helpers for the manifest
+use super::{Config, Manifest};
+impl Manifest {
+    // This function defines what variables are available within .j2 templates and evars
+    fn make_template_context(&self, conf: &Config, region: &str) -> Result<Context> {
+        // need regional kong specifics here
+        if conf.regions.get(region).is_none() {
+            bail!("Unknown region {} in regions in config", region);
+        }
+        let reg = conf.regions[region].clone(); // must exist
+        // same context as normal templates + base_urls
+        let mut ctx = Context::new();
+        ctx.add("env", &self.env.clone());
+        ctx.add("service", &self.name.clone());
+        ctx.add("region", &self.region.clone());
+        ctx.add("base_urls", &reg.kong.base_urls);
+        Ok(ctx)
+    }
+
+    /// Inline templates in values
+    pub fn inline_configs(&mut self, conf: &Config, region: &str) -> Result<()> {
+        let svc = self.name.clone();
+        let rdr = service_bound_renderer(&self.name)?;
+        let ctx = self.make_template_context(conf, region)?;
+        if let Some(ref mut cfg) = self.configs {
+            for f in &mut cfg.files {
+                f.value = Some((rdr)(&f.name, &ctx).map_err(|e| {
+                    // help out interleaved reconciles with service name
+                    error!("{} failed templating: {}", &svc, e);
+                    e
+                })?);
+            }
+        }
+        Ok(())
+    }
+
+    /// Template evars
+    pub fn template_evars(&mut self, conf: &Config, region: &str) -> Result<()> {
+        let ctx = self.make_template_context(conf, region)?;
+        for (_, v) in &mut self.env {
+            *v = one_off(v, &ctx)?;
+        }
+        Ok(())
+    }
+}

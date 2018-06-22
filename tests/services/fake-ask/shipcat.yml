@@ -29,6 +29,7 @@ env:
   JAVA_OPTS: "-Xms256m -Xmx2048m"
   ENDPOINTS_ENABLED: "true"
   FAKE_SECRET: "IN_VAULT"
+  CORE_URL: "{{ base_urls.services }}/somesvc"
 configs:
   mount: /config/
   files:

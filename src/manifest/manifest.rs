@@ -310,7 +310,8 @@ impl Manifest {
         }
         let mut mf = Manifest::read_from(&pth)?;
         mf.fill(conf, &region, &Some(v))?;
-        mf.inline_configs()?;
+        mf.template_evars(&conf, region)?;
+        mf.inline_configs(&conf, region)?;
         Ok(mf)
     }
 
@@ -339,28 +340,6 @@ impl Manifest {
         // not merging here, but do all implicts we can anyway
         mf.post_merge_implicits(conf, region)?;
         Ok(mf)
-    }
-
-    /// Inline templates in values
-    pub fn inline_configs(&mut self) -> Result<()> {
-        use super::template;
-        use tera::Context;
-        let svc = self.name.clone();
-        let rdr = template::service_bound_renderer(&self.name)?;
-        if let Some(ref mut cfg) = self.configs {
-            for f in &mut cfg.files {
-                let mut ctx = Context::new();
-                ctx.add("env", &self.env.clone());
-                ctx.add("service", &self.name.clone());
-                ctx.add("region", &self.region.clone());
-                f.value = Some((rdr)(&f.name, &ctx).map_err(|e| {
-                    // help out interleaved reconciles with service name
-                    error!("{} failed templating: {}", &svc, e);
-                    e
-                })?);
-            }
-        }
-        Ok(())
     }
 
     pub fn estimate_wait_time(&self) -> u32 {
@@ -545,7 +524,7 @@ mod tests {
     fn manifest_test() {
         setup();
         let conf = Config::read().unwrap();
-        let mf = Manifest::basic("fake-storage", &conf, Some("dev-uk".into())).unwrap();
+        let mf = Manifest::completed("fake-storage", &conf, "dev-uk".into()).unwrap();
         // verify datahandling implicits
         let dh = mf.dataHandling.unwrap();
         let s3 = dh.stores[0].clone();
@@ -554,5 +533,20 @@ mod tests {
         assert_eq!(s3.fields[1].encrypted.unwrap(), true); // cascaded
         assert_eq!(s3.fields[0].keyRotator, None); // not set either place
         assert_eq!(s3.fields[1].keyRotator, Some("2w".into())); // field value
+    }
+
+    #[test]
+    fn templating_test() {
+        setup();
+        let conf = Config::read().unwrap();
+        let mf = Manifest::completed("fake-ask", &conf, "dev-uk".into()).unwrap();
+
+        // verify templating
+        let env = mf.env;
+        assert_eq!(env["CORE_URL"], "https://woot.com/somesvc".to_string());
+        let configs = mf.configs.clone().unwrap();
+        let configini = configs.files[0].clone();
+        let cfgtpl = configini.value.unwrap();
+        assert!(cfgtpl.contains("CORE=https://woot.com/somesvc"));
     }
 }

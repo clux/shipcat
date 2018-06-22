@@ -69,6 +69,9 @@ pub struct KongConfig {
     pub internal_ips_whitelist: Vec<String>,
     #[serde(default, skip_serializing)]
     pub extra_apis: BTreeMap<String, Kong>,
+    /// Important base urls that can be templated in evars
+    #[serde(default)]
+    pub base_urls: BTreeMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -143,6 +146,7 @@ impl Config {
             if rdefs.namespace == "" {
                 bail!("Default namespace cannot be empty");
             }
+            data.kong.verify()?;
         }
         let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
         if self.version > current {
@@ -150,7 +154,6 @@ impl Config {
             info!("Precompiled releasese available at {}", url);
             bail!("Your shipcat is out of date ({} < {})", current, self.version)
         }
-
         Ok(())
     }
 
@@ -181,5 +184,16 @@ impl Config {
         } else {
             bail!("You need to define your kube context '{}' in shipcat.conf first", region);
         }
+    }
+}
+
+impl KongConfig {
+    fn verify(&self) -> Result<()> {
+        for (_, v) in &self.base_urls {
+            if v.ends_with('/') {
+                bail!("A base_url must not end with a slash");
+            }
+        }
+        Ok(())
     }
 }

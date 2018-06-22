@@ -17,7 +17,8 @@ pub fn manifest(services: Vec<String>, conf: &Config, region: String, vault: Opt
             } else {
                 // ensure we also verify template against stubbed secrets
                 let mut mani = Manifest::stubbed(&svc, conf, &region)?;
-                mani.inline_configs()?;
+                mani.template_evars(conf, &region)?;
+                mani.inline_configs(conf, &region)?;
                 mani
             };
             mf.verify(conf)?;
