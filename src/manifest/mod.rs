@@ -3,7 +3,7 @@
 /// Allow normal error handling from structs
 pub use super::{Result, ErrorKind, Error};
 
-pub use super::config::{Config, RegionDefaults};
+pub use super::config::{Config, RegionDefaults, VaultConfig};
 
 /// Manifests needs all the structs
 pub use super::structs;

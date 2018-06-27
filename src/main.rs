@@ -266,12 +266,7 @@ fn main() {
         let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
             conditional_exit(kube::current_context())
         });
-        let res = if a.is_present("secrets") {
-            let vault = shipcat::vault::Vault::masked().unwrap();
-            shipcat::validate::manifest(services, &conf, region, Some(vault))
-        } else {
-            shipcat::validate::manifest(services, &conf, region, None)
-        };
+        let res = shipcat::validate::manifest(services, &conf, region, a.is_present("secrets"));
         result_exit(args.subcommand_name().unwrap(), res)
     }
     if let Some(a) = args.subcommand_matches("get") {
@@ -298,6 +293,7 @@ fn main() {
         error!("{}", e);
         process::exit(2)
     }).unwrap();
+    let _ = conditional_exit(conf.get_region(&region)); // sanity matchup with shipcat.conf
 
     // 3. kube context dependent commands
     if let Some(a) = args.subcommand_matches("jenkins") {
@@ -346,7 +342,6 @@ fn main() {
     if let Some(a) = args.subcommand_matches("helm") {
         let svc = a.value_of("service").unwrap(); // defined required above
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
-        let _regdefaults = conditional_exit(conf.region_defaults(&region));
 
         // small wrapper around helm history does not need anything fancy
         if let Some(_) = a.subcommand_matches("history") {

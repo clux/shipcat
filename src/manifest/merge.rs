@@ -15,11 +15,8 @@ impl Manifest {
     /// I.e. kong struct, dataHandling structs which both have implicit values
     pub fn post_merge_implicits(&mut self, conf: &Config, region: Option<String>) -> Result<()> {
         if let Some(r) = region {
-            if conf.regions.get(&r).is_none() {
-                bail!("Unknown region {} in regions in config", r);
-            }
             self.region = r.clone();
-            let reg = conf.regions[&r].clone(); // must exist
+            let reg = conf.get_region(&r)?;
             for (k, v) in reg.env {
                 self.env.insert(k, v);
             }

@@ -455,7 +455,7 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
     let exists = mode != UpgradeMode::UpgradeInstall;
     // Other modes can infer in a pinch
     if mf.version.is_none() {
-        let regdefaults = conf.region_defaults(region)?;
+        let regdefaults = conf.regions[region].defaults.clone();
         mf.version = Some(helpers::infer_fallback_version(&svc, &regdefaults)?);
     };
     if mode != UpgradeMode::DiffOnly {

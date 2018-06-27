@@ -1,4 +1,5 @@
 #![recursion_limit = "1024"]
+#![allow(renamed_and_removed_lints)]
 
 #[macro_use]
 extern crate serde_derive;
@@ -124,8 +125,8 @@ pub mod slack;
 pub mod cluster;
 
 /// Master config for manifests repositories
-mod config;
-pub use config::{Config};
+pub mod config;
+pub use config::Config;
 
 /// Structs for the manifest
 pub mod structs;
