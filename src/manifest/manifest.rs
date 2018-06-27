@@ -7,7 +7,7 @@ use std::fs::File;
 use std::path::{PathBuf, Path};
 use std::collections::BTreeMap;
 
-use super::{Result, Config};
+use super::{Result, Config, VaultConfig};
 use super::vault::Vault;
 
 // All structs come from the structs directory
@@ -211,19 +211,19 @@ impl Manifest {
         Ok(serde_yaml::from_str(&data)?)
     }
 
-    fn get_vault_path(&self, region: &str) -> String {
+    fn get_vault_path(&self, vc: &VaultConfig) -> String {
         // some services use keys from other services
         let (svc, reg) = if let Some(ref vopts) = self.vault {
-            (vopts.name.clone(), vopts.region.clone().unwrap_or_else(|| region.into()))
+            (vopts.name.clone(), vopts.region.clone().unwrap_or_else(|| vc.folder.clone()))
         } else {
-            (self.name.clone(), region.into())
+            (self.name.clone(), vc.folder.clone())
         };
         format!("{}/{}", reg, svc)
     }
 
     // Populate placeholder fields with secrets from vault
-    fn secrets(&mut self, client: &Vault, region: &str) -> Result<()> {
-        let pth = self.get_vault_path(region);
+    fn secrets(&mut self, client: &Vault, vc: &VaultConfig) -> Result<()> {
+        let pth = self.get_vault_path(vc);
         debug!("Injecting secrets from vault {}", pth);
 
         // iterate over key value evars and replace placeholders
@@ -248,7 +248,7 @@ impl Manifest {
     }
 
 
-    pub fn verify_secrets_exist(&self, region: &str) -> Result<()> {
+    pub fn verify_secrets_exist(&self, vc: &VaultConfig) -> Result<()> {
         // what are we requesting
         let keys = self.env.clone().into_iter()
             .filter(|(_,v)| v == "IN_VAULT")
@@ -263,8 +263,8 @@ impl Manifest {
         }
 
         // what we have
-        let v = Vault::masked()?; // masked doesn't matter - only listing anyway
-        let secpth = self.get_vault_path(region);
+        let v = Vault::masked(vc)?; // masked doesn't matter - only listing anyway
+        let secpth = self.get_vault_path(vc);
         let found = v.list(&secpth)?; // can fail if folder is empty
         debug!("Found secrets {:?} for {}", found, self.name);
 
@@ -282,8 +282,8 @@ impl Manifest {
         Ok(())
     }
 
-    /// Fill in env overrides and populate secrets
-    pub fn fill(&mut self, conf: &Config, region: &str, vault: &Option<Vault>) -> Result<()> {
+    /// Fill in env overrides and apply merge rules
+    pub fn fill(&mut self, conf: &Config, region: &str) -> Result<()> {
         self.pre_merge_implicits(conf)?;
         // merge service specific env overrides if they exists
         let envlocals = Path::new(".")
@@ -295,23 +295,24 @@ impl Manifest {
             self.merge(&envlocals)?;
         }
         self.post_merge_implicits(conf, Some(region.into()))?;
-        if let &Some(ref client) = vault {
-            self.secrets(&client, region)?;
-        }
         Ok(())
     }
 
     /// Complete (filled in env overrides and populate secrets) a manifest
     pub fn completed(service: &str, conf: &Config, region: &str) -> Result<Manifest> {
-        let v = Vault::default()?;
+        let r = &conf.regions[region]; // tested for existence earlier
+        let v = Vault::regional(&r.vault)?;
         let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
-        mf.fill(conf, &region, &Some(v))?;
-        mf.template_evars(&conf, region)?;
-        mf.inline_configs(&conf, region)?;
+        // fill defaults and merge regions before extracting secrets
+        mf.fill(conf, region)?;
+        // secrets before templates (templates use raw secret values)
+        mf.secrets(&v, &r.vault)?;
+        // templates last by transitive property..
+        mf.template(&conf, region)?;
         Ok(mf)
     }
 
@@ -322,7 +323,7 @@ impl Manifest {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
-        mf.fill(conf, &region, &None)?;
+        mf.fill(conf, &region)?;
         Ok(mf)
     }
 

@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::Read;
 
 use super::{Result, ErrorKind, ResultExt, Error};
+use super::config::VaultConfig;
 
 // hyper/reqwest header for Vault GET requests
 header! { (XVaultToken, "X-Vault-Token") => [String] }
@@ -63,24 +64,24 @@ pub struct Vault {
 pub enum Mode {
     /// Normal HTTP calls to vault returing actual secret
     Standard,
-    /// Avoiding HTTP calls to vault altogether
-    Mocked,
     /// Using HTTP calls but masking secrets
     Masked,
 }
 
 impl Vault {
     /// Initialize using the same evars or token files that the `vault` CLI uses
-    pub fn default() -> Result<Vault> {
+    pub fn from_evars() -> Result<Vault> {
         Vault::new(reqwest::Client::new(), &default_addr()?, default_token()?, Mode::Standard)
     }
-    /// Initialize using vault evars, but return masked return values
-    pub fn masked() -> Result<Vault> {
-        Vault::new(reqwest::Client::new(), &default_addr()?, default_token()?, Mode::Masked)
+
+    /// Initialize using VAULT_TOKEN evar + addr in shipcat.conf
+    pub fn regional(vc: &VaultConfig) -> Result<Vault> {
+        Vault::new(reqwest::Client::new(), &vc.url, default_token()?, Mode::Standard)
     }
-    /// Initialize using a dud client (still needs an addr)
-    pub fn mocked() -> Result<Vault> {
-        Vault::new(reqwest::Client::new(), &default_addr()?, "", Mode::Mocked)
+
+    /// Initialize using vault evars, but return masked return values
+    pub fn masked(vc: &VaultConfig) -> Result<Vault> {
+        Vault::new(reqwest::Client::new(), &vc.url, default_token()?, Mode::Masked)
     }
 
     fn new<U, S>(client: reqwest::Client, addr: U, token: S, mode: Mode) -> Result<Vault>
@@ -159,9 +160,6 @@ impl Vault {
     /// Read secret from a Vault via an authenticated HTTP GET (or memory cache)
     pub fn read(&self, key: &str) -> Result<String> {
         let pth = format!("secret/{}", key);
-        if self.mode == Mode::Mocked {
-            return Ok("VAULT_MOCKED".into());
-        }
         let secret = match self.get_secret(&pth) {
             Ok(s) => s,
             Err(e) => {
@@ -192,14 +190,14 @@ mod tests {
 
     #[test]
     fn get_dev_secret() {
-        let client = Vault::default().unwrap();
+        let client = Vault::from_evars().unwrap();
         let secret = client.read("dev-uk/test-shipcat/FAKE_SECRET").unwrap();
         assert_eq!(secret, "hello");
     }
 
     #[test]
     fn list_dev_secrets() {
-        let client = Vault::default().unwrap();
+        let client = Vault::from_evars().unwrap();
         let secrets = client.list("dev-uk/test-shipcat").unwrap();
         assert_eq!(secrets, vec!["FAKE_SECRET".to_string()]);
     }

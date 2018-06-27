@@ -141,7 +141,7 @@ impl Manifest {
     }
 
     /// Inline templates in values
-    pub fn inline_configs(&mut self, conf: &Config, region: &str) -> Result<()> {
+    fn inline_configs(&mut self, conf: &Config, region: &str) -> Result<()> {
         let svc = self.name.clone();
         let rdr = service_bound_renderer(&self.name)?;
         let ctx = self.make_template_context(conf, region)?;
@@ -158,11 +158,18 @@ impl Manifest {
     }
 
     /// Template evars
-    pub fn template_evars(&mut self, conf: &Config, region: &str) -> Result<()> {
+    fn template_evars(&mut self, conf: &Config, region: &str) -> Result<()> {
         let ctx = self.make_template_context(conf, region)?;
         for (_, v) in &mut self.env {
             *v = one_off(v, &ctx)?;
         }
+        Ok(())
+    }
+
+    /// Template everything in the correct order
+    pub fn template(&mut self, conf: &Config, region: &str) -> Result<()> {
+        self.template_evars(conf, region)?;
+        self.inline_configs(conf, region)?;
         Ok(())
     }
 }

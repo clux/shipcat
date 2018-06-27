@@ -12,7 +12,7 @@ use super::Result;
 use super::structs::Kong;
 
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ManifestDefaults {
     /// Image prefix string
@@ -36,7 +36,16 @@ impl Default for VersionScheme {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct VaultConfig {
+    /// Vault url up to and including port
+    pub url: String,
+    /// Root folder under secret
+    pub folder: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct RegionDefaults {
     /// Kubernetes namespace
@@ -88,7 +97,7 @@ pub struct KongTcpLogConfig {
     pub port: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Region {
     /// Region defaults
@@ -98,10 +107,12 @@ pub struct Region {
     pub env: BTreeMap<String, String>,
     /// Kong configuration for the region
     pub kong: KongConfig,
+    /// Vault configuration for the region
+    pub vault: VaultConfig,
 }
 
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Team {
     /// Team name
     pub name: String,
@@ -146,6 +157,12 @@ impl Config {
             if rdefs.namespace == "" {
                 bail!("Default namespace cannot be empty");
             }
+            if data.vault.url == "" {
+                bail!("Need to set vault url for {}", r);
+            }
+            if data.vault.folder != *r {
+                warn!("non-standard vault folder {} for region {}", data.vault.folder, r);
+            }
             data.kong.verify()?;
         }
         let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
@@ -177,10 +194,10 @@ impl Config {
         Ok(conf)
     }
 
-    /// Region validator
-    pub fn region_defaults(&self, region: &str) -> Result<RegionDefaults> {
+    /// Region retriever with warning (checked super early)
+    pub fn get_region(&self, region: &str) -> Result<Region> {
         if let Some(r) = self.regions.get(region) {
-            Ok(r.defaults.clone())
+            Ok(r.clone())
         } else {
             bail!("You need to define your kube context '{}' in shipcat.conf first", region);
         }
