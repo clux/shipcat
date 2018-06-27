@@ -59,14 +59,14 @@ impl Verify for Resources {
         if req_cpu > 10.0 {
             bail!("Requested more than 10 cores");
         }
-        if req_memory > 10.0*1024.0*1024.0*1024.0 {
-            bail!("Requested more than 10 GB of memory");
+        if req_memory > 20.0*1024.0*1024.0*1024.0 {
+            bail!("Requested more than 20 GB of memory");
         }
         if lim_cpu > 20.0 {
             bail!("CPU limit set to more than 20 cores");
         }
-        if lim_memory > 20.0*1024.0*1024.0*1024.0 {
-            bail!("Memory limit set to more than 20 GB of memory");
+        if lim_memory > 30.0*1024.0*1024.0*1024.0 {
+            bail!("Memory limit set to more than 30 GB of memory");
         }
         Ok(())
     }
