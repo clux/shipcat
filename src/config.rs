@@ -160,8 +160,8 @@ impl Config {
             if data.vault.url == "" {
                 bail!("Need to set vault url for {}", r);
             }
-            if data.vault.folder != *r {
-                warn!("non-standard vault folder {} for region {}", data.vault.folder, r);
+            if data.vault.folder == "" {
+                warn!("Need to set the vault folder {}", r);
             }
             data.kong.verify()?;
         }

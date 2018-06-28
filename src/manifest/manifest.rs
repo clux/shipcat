@@ -343,6 +343,7 @@ impl Manifest {
         Ok(mf)
     }
 
+    // TODO: move to helm module
     pub fn estimate_wait_time(&self) -> u32 {
         // 512 default => extra 60s wait
         let pulltimeestimate = (((self.imageSize.unwrap()*60) as f64)/(1024 as f64)) as u32;

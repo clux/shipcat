@@ -70,6 +70,9 @@ fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Co
         Err(e) => {
             if let Some(v) = mf.version.clone() {
                 warn!("Service {} will be installed by reconcile", mf.name);
+                if mode == UpgradeMode::DiffOnly {
+                    return Ok(None);
+                }
                 (false, v)
             } else {
                 warn!("Service {} has no version specified in manifest and is not installed", mf.name);
