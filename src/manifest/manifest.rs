@@ -31,9 +31,13 @@ pub struct Manifest {
     // Region injected in helm chart
     #[serde(default, skip_deserializing)]
     pub region: String,
-    // Environment (kube namespace) injected in helm chart
+    // Environment (not kube namespace) injected in helm chart
     #[serde(default, skip_deserializing)]
     pub environment: String,
+    // Namespace (kube) injected in helm chart
+    #[serde(default, skip_deserializing)]
+    pub namespace: String,
+
     /// Wheter to ignore this service
     #[serde(default, skip_serializing)]
     pub disabled: bool,
@@ -451,6 +455,9 @@ impl Manifest {
         if self.chart.is_none() {
             bail!("chart must be set at this point");
         }
+        if self.namespace == "" {
+            bail!("namespace must be set at this point");
+        }
 
         // regions must have a defaults file in ./environments
         for r in &self.regions {
@@ -463,6 +470,12 @@ impl Manifest {
         }
         if self.regions.is_empty() {
             bail!("No regions specified for {}", self.name);
+        }
+        if self.environment == "" {
+            bail!("Service {} ended up with an empty environment", self.name);
+        }
+        if self.namespace == "" {
+            bail!("Service {} ended up with an empty namespace", self.name);
         }
 
         // health check

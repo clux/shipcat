@@ -62,10 +62,10 @@ fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Co
 
     let mut mf = Manifest::completed(&svc, &conf, &region)?;
 
-    let regdefaults = conf.regions[&region].defaults.clone();
+    let regdata = &conf.regions[&region];
     // get version running now (to limit race condition with deploys)
     // this query also lets us detect if we have to install or simply upgrade
-    let (exists, fallback) = match helpers::infer_fallback_version(&svc, &regdefaults) {
+    let (exists, fallback) = match helpers::infer_fallback_version(&svc, &regdata.namespace) {
         Ok(running_ver) => (true, running_ver),
         Err(e) => {
             if let Some(v) = mf.version.clone() {
@@ -102,7 +102,7 @@ fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Co
             e
         });
         if let Err(e) = res {
-            direct::handle_upgrade_rollbacks(&e, &udata)?;
+            direct::handle_upgrade_rollbacks(&e, &udata, &mf)?;
             return Err(e);
         }
     }

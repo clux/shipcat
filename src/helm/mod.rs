@@ -1,7 +1,7 @@
 /// Allow normal error handling from structs
 pub use super::{Result, ErrorKind, Error};
 /// Verify trait gets the Config
-pub use super::config::{Config, RegionDefaults, VersionScheme};
+pub use super::config::{Config, VersionScheme};
 /// For slack hookback
 pub use super::structs::Metadata;
 

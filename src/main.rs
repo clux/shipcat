@@ -264,7 +264,7 @@ fn main() {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
         // this only needs a kube context if you don't specify it
         let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
-            conditional_exit(kube::current_context())
+            conditional_exit(conf.resolve_region())
         });
         let res = shipcat::validate::manifest(services, &conf, region, a.is_present("secrets"));
         result_exit(args.subcommand_name().unwrap(), res)
@@ -274,7 +274,7 @@ fn main() {
         let quiet = a.is_present("short");
         // this only needs a kube context if you don't specify it
          let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
-            kube::current_context().unwrap()
+            conditional_exit(conf.resolve_region())
         });
         result_exit(args.subcommand_name().unwrap(), shipcat::get::table(rsrc, &conf, quiet, region))
     }
@@ -288,12 +288,7 @@ fn main() {
 
 
     // 3+ get the region from the kube context for remaining commands
-    let region = kube::current_context().map_err(|e| {
-        error!("You need kubectl and a ~/.kube/config with a kube context for this");
-        error!("{}", e);
-        process::exit(2)
-    }).unwrap();
-    let _ = conditional_exit(conf.get_region(&region)); // sanity matchup with shipcat.conf
+    let region = conditional_exit(conf.resolve_region()); // sanity matchup with shipcat.conf
 
     // 3. kube context dependent commands
     if let Some(a) = args.subcommand_matches("jenkins") {
@@ -345,7 +340,7 @@ fn main() {
 
         // small wrapper around helm history does not need anything fancy
         if let Some(_) = a.subcommand_matches("history") {
-            let res = shipcat::helm::history(&svc, &region);
+            let res = shipcat::helm::history(&svc, &conf, &region);
             result_exit(a.subcommand_name().unwrap(), res)
         }
         // small wrapper around helm rollback
@@ -420,9 +415,9 @@ fn main() {
     }
     if let Some(a) = args.subcommand_matches("kong") {
         if let Some(_b) = a.subcommand_matches("config-url") {
-            result_exit(args.subcommand_name().unwrap(), shipcat::kong::kong_config_url(&conf, region))
+            result_exit(args.subcommand_name().unwrap(), shipcat::kong::kong_config_url(&conf, region.clone()))
         } else {
-            result_exit(args.subcommand_name().unwrap(), shipcat::kong::kong_generate(&conf, region))
+            result_exit(args.subcommand_name().unwrap(), shipcat::kong::kong_generate(&conf, region.clone()))
         }
     }
 
@@ -436,25 +431,22 @@ fn main() {
         } else {
             None
         };
-        let mf = if let Some(r) = a.value_of("region") {
-            conditional_exit(Manifest::stubbed(service, &conf, r))
-        } else {
-            // infer region from kubectl current-context
-            conditional_exit(Manifest::basic(service, &conf, None))
-        };
+        let reg = a.value_of("region").unwrap_or(&region);
+        let mf = conditional_exit(Manifest::stubbed(service, &conf, &reg));
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::shell(&mf, pod, cmd))
     }
 
     if let Some(a) = args.subcommand_matches("port-forward") {
         let service = a.value_of("service").unwrap();
         let pod = value_t!(a.value_of("pod"), usize).ok();
-        let mf = conditional_exit(Manifest::basic(service, &conf, None));
+        let mf = conditional_exit(Manifest::stubbed(service, &conf, &region));
         result_exit(args.subcommand_name().unwrap(), shipcat::kube::port_forward(&mf, pod))
     }
 
     if let Some(a) = args.subcommand_matches("debug") {
         let service = a.value_of("service").unwrap();
-        result_exit(args.subcommand_name().unwrap(), shipcat::kube::debug(&service))
+        let mf = conditional_exit(Manifest::stubbed(service, &conf, &region));
+        result_exit(args.subcommand_name().unwrap(), shipcat::kube::debug(&mf))
     }
 
     unreachable!("Subcommand valid, but not implemented");

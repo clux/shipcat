@@ -3,7 +3,7 @@ use serde_yaml;
 use semver::Version;
 use regex::Regex;
 
-use super::{RegionDefaults, VersionScheme};
+use super::{VersionScheme};
 use super::{Result};
 
 
@@ -68,10 +68,10 @@ pub fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
     Ok((out, err, s.status.success()))
 }
 
-pub fn infer_fallback_version(service: &str, reg: &RegionDefaults) -> Result<String> {
+pub fn infer_fallback_version(service: &str, ns: &str) -> Result<String> {
     // fetch current version from helm
     let imgvec = vec![
-        format!("--tiller-namespace={}", reg.namespace),
+        format!("--tiller-namespace={}", ns),
         "get".into(),
         "values".into(),
         service.into(),
@@ -90,7 +90,7 @@ pub fn infer_fallback_version(service: &str, reg: &RegionDefaults) -> Result<Str
         },
         _ => {
             // nothing from helm
-            bail!("Service {} not found in in {} tiller", service, reg.namespace);
+            bail!("Service {} not found in in {} tiller", service, ns);
         }
     }
 }

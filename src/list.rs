@@ -12,10 +12,16 @@ pub fn regions(conf: &Config) -> Result<()> {
 
 pub fn services(conf: &Config, region: String) -> Result<()> {
     let services = Manifest::available()?;
+    // this call happens before kubectl config validation
+    // make a best stab at context instead:
+    let region_guess = conf.contextAliases.get(&region).unwrap_or(&region);
+    // NB: we do this because shipcat autocomplete takes kube context
+    // and pass it in here, so a kubectx for region is most likely!
+
     for svc in services {
-        match Manifest::basic(&svc, conf, Some(region.clone())) {
+        match Manifest::basic(&svc, conf, Some(region_guess.clone())) {
             Ok(mf) => {
-                if mf.regions.contains(&region) {
+                if mf.regions.contains(&region_guess) {
                     let _ = io::stdout().write(&format!("{}\n", svc).as_bytes());
                 }
             }

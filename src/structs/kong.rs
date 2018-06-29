@@ -58,7 +58,7 @@ impl Kong {
         }
         // Generate upstream_url for an in-kubernetes service
         if self.upstream_url.is_empty() {
-          self.upstream_url = format!("http://{}.{}.svc.cluster.local", self.name, reg.defaults.namespace);
+          self.upstream_url = format!("http://{}.{}.svc.cluster.local", self.name, reg.namespace);
         }
         // If the `host` field is defined, generate a `hosts` field based on the environment
         if let Some(h) = self.host.clone() {
