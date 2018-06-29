@@ -38,22 +38,20 @@ impl Default for VersionScheme {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
+pub struct Cluster {
+    /// Url to the api server
+    pub api: String,
+    /// What regions this cluster control (perhaps not exclusively)
+    pub regions: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct VaultConfig {
     /// Vault url up to and including port
     pub url: String,
     /// Root folder under secret
     pub folder: String,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct RegionDefaults {
-    /// Kubernetes namespace
-    pub namespace: String,
-    /// Environment (i.e: `dev` or `staging`)
-    pub environment: String,
-    /// Versioning scheme
-    pub versions: VersionScheme,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -97,11 +95,20 @@ pub struct KongTcpLogConfig {
     pub port: String,
 }
 
+/// A region is an abstract kube context
+///
+/// Either it's a pure kubernetes context with a namespace and a cluster,
+/// or it's an abstract concept with many associated real kubernetes contexts.
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Region {
-    /// Region defaults
-    pub defaults: RegionDefaults,
+    /// Kubernetes namespace
+    pub namespace: String,
+    /// Environment (e.g. `dev` or `staging`)
+    pub environment: String,
+    /// Versioning scheme
+    pub versioningScheme: VersionScheme,
+
     /// Environment variables to inject
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
@@ -123,13 +130,19 @@ pub struct Team {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
-    /// Global defaults
+    /// Global defaults for the manifests
     pub defaults: ManifestDefaults,
 
-    /// Allowed regions
+    /// Cluster definitions
+    pub clusters: BTreeMap<String, Cluster>,
+
+    /// Context aliases, e.g. prod-uk-green -> prod-uk
+    pub contextAliases: BTreeMap<String, String>,
+
+    /// Region definitions
     pub regions: BTreeMap<String, Region>,
 
-    /// Teams
+    /// Team definitions
     pub teams: Vec<Team>,
 
     /// Shipcat version pin
@@ -148,14 +161,35 @@ impl Config {
             bail!("image prefix must be non-empty and not end with a slash");
         }
 
+        for (cname, clst) in &self.clusters {
+            for r in &clst.regions {
+                if !self.regions.contains_key(r) {
+                    bail!("cluster {} defines undefined region {}", cname, r);
+                }
+            }
+        }
+
+        for (k, v) in &self.contextAliases {
+            // all contextAlias values must exist as defined regions
+            if !self.regions.contains_key(v) {
+                bail!("context alias {} points to undefined region {}", k, v);
+            }
+            // cannot alias something that exists!
+            if self.regions.contains_key(k) {
+                bail!("cannot self-alias region {}", k);
+            }
+        }
+
         for (r, data) in &self.regions {
             let region_parts : Vec<_> = r.split('-').collect();
             if region_parts.len() != 2 {
                 bail!("invalid region {} of len {}", r, r.len());
             };
-            let rdefs = &data.defaults;
-            if rdefs.namespace == "" {
-                bail!("Default namespace cannot be empty");
+            if data.namespace == "" {
+                bail!("Need to set `namespace` in {}", r);
+            }
+            if data.environment == "" {
+                bail!("Need to set `environment` in {}", r)
             }
             if data.vault.url == "" {
                 bail!("Need to set vault url for {}", r);
@@ -194,13 +228,36 @@ impl Config {
         Ok(conf)
     }
 
-    /// Region retriever with warning (checked super early)
-    pub fn get_region(&self, region: &str) -> Result<Region> {
-        if let Some(r) = self.regions.get(region) {
-            Ok(r.clone())
-        } else {
-            bail!("You need to define your kube context '{}' in shipcat.conf first", region);
+    /// Retrieve region config from kube current context
+    ///
+    /// This should only be done once early on.
+    /// The resulting name should be passed around internally as `region`.
+    pub fn resolve_region(&self) -> Result<String> {
+        use super::kube; // this should be the only user of current_context!
+        let context = kube::current_context()?;
+        if let Some(_) = self.regions.get(&context) {
+            return Ok(context);
         }
+        // otherwise search for an alias
+        if let Some(alias) = self.contextAliases.get(&context) {
+            return Ok(alias.to_string())
+        }
+        error!("Please use an existing kube context or add your current context to shipcat.conf");
+        bail!("The current kube context ('{}') is not defined in shipcat.conf", context);
+    }
+
+    /// Region retriever safe alternative
+    ///
+    /// Alternative to the above `resolve_region`.
+    /// Useful for small helper subcommands that do validation later.
+    pub fn get_region(&self, ctx: &str) -> Result<Region> {
+        if let Some(r) = self.regions.get(ctx) {
+            return Ok(r.clone());
+        } else if let Some(alias) = self.contextAliases.get(ctx) {
+            return Ok(self.regions[&alias.to_string()].clone());
+            // missing region key should've been caught in verify above
+        }
+        bail!("You need to define your kube context '{}' in shipcat.conf regions first", ctx)
     }
 }
 

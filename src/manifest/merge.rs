@@ -16,18 +16,19 @@ impl Manifest {
     pub fn post_merge_implicits(&mut self, conf: &Config, region: Option<String>) -> Result<()> {
         if let Some(r) = region {
             self.region = r.clone();
-            let reg = conf.get_region(&r)?;
-            for (k, v) in reg.env {
+            let reg = &conf.regions[&r];
+            for (k, v) in reg.env.clone() {
                 self.env.insert(k, v);
             }
 
             // Kong has implicit, region-scoped values
             if let Some(ref mut kong) = self.kong {
-                kong.implicits(self.name.clone(), conf.regions[&r].clone());
+                kong.implicits(self.name.clone(), reg.clone());
             }
 
-            // Inject the region environment
-            self.environment = reg.defaults.environment;
+            // Inject the region's environment name and namespace
+            self.environment = reg.environment.clone();
+            self.namespace = reg.namespace.clone();
         }
         if let Some(ref mut dh) = self.dataHandling {
             // dataHandling has cascading encryption values

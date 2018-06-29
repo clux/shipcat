@@ -1,6 +1,6 @@
 use super::{Result, Manifest};
 
-pub fn kexec(args: Vec<String>) -> Result<()> {
+fn kexec(args: Vec<String>) -> Result<()> {
     use std::process::Command;
     debug!("kubectl {}", args.join(" "));
     let s = Command::new("kubectl").args(&args).status()?;
@@ -9,7 +9,7 @@ pub fn kexec(args: Vec<String>) -> Result<()> {
     }
     Ok(())
 }
-pub fn kout(args: Vec<String>) -> Result<String> {
+fn kout(args: Vec<String>) -> Result<String> {
     use std::process::Command;
     debug!("kubectl {}", args.join(" "));
     let s = Command::new("kubectl").args(&args).output()?;
@@ -34,27 +34,13 @@ pub fn current_context() -> Result<String> {
     Ok(res)
 }
 
-pub fn current_namespace(ctx: &str) -> Result<String> {
-    let res = kout(vec![
-        "config".into(),
-        "get-contexts".into(),
-        ctx.into(),
-        "--no-headers".into(),
-    ])?;
-    if res.contains(ctx) {
-        if let Some(ns) = res.split_whitespace().last() {
-            return Ok(ns.into());
-        }
-    }
-    bail!("Failed to find default namespace from kube context {}", ctx)
-}
-
-fn get_pods(name: &str) -> Result<String> {
+fn get_pods(mf: &Manifest) -> Result<String> {
     //kubectl get pods -l=app=$* -o jsonpath='{.items[*].metadata.name}'
     let podargs = vec![
         "get".into(),
         "pods".into(),
-        format!("-l=app={}", name),
+        format!("-l=app={}", mf.name),
+        format!("-n={}", mf.namespace),
         "-o".into(),
         "jsonpath='{.items[*].metadata.name}'".into(),
     ];
@@ -64,11 +50,12 @@ fn get_pods(name: &str) -> Result<String> {
     Ok(podsres)
 }
 
-pub fn get_broken_pods(name: &str) -> Result<Vec<String>> {
+fn get_broken_pods(mf: &Manifest) -> Result<Vec<String>> {
     let podargs = vec![
         "get".into(),
         "pods".into(),
-        format!("-l=app={}", name),
+        format!("-l=app={}", mf.name),
+        format!("-n={}", mf.namespace),
         format!("--no-headers"),
     ];
     let podres = kout(podargs)?;
@@ -88,8 +75,8 @@ pub fn get_broken_pods(name: &str) -> Result<Vec<String>> {
 ///
 /// Prints log excerpts and events for broken pods.
 /// Typically enough to figure out why upgrades broke.
-pub fn debug(svc: &str) -> Result<()> {
-    let pods = get_broken_pods(&svc)?;
+pub fn debug(mf: &Manifest) -> Result<()> {
+    let pods = get_broken_pods(&mf)?;
     if pods.is_empty() {
         info!("No broken pods found");
     }
@@ -99,6 +86,7 @@ pub fn debug(svc: &str) -> Result<()> {
         let logvec = vec![
             "logs".into(),
             pod.clone(),
+            format!("-n={}", mf.namespace),
             format!("--tail=30").into(),
         ];
         match kout(logvec) {
@@ -117,7 +105,8 @@ pub fn debug(svc: &str) -> Result<()> {
         let descvec = vec![
             "describe".into(),
             "pod".into(),
-            pod.clone()
+            pod.clone(),
+            format!("-n={}", mf.namespace),
         ];
         match kout(descvec) {
             Ok(mut o) => {
@@ -143,7 +132,7 @@ pub fn debug(svc: &str) -> Result<()> {
 /// Optionally specify the arbitrary pod index from kubectl get pods
 pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -> Result<()> {
     // TODO: kubectl auth can-i create pods/exec
-    let podsres = get_pods(&mf.name)?;
+    let podsres = get_pods(&mf)?;
     let pods = podsres.split(' ').collect::<Vec<_>>();
     let pnr = desiredpod.unwrap_or(0);
     if let Some(p) = pods.get(pnr) {
@@ -151,6 +140,7 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
         //kubectl exec -it $pod sh
         let mut execargs = vec![
             "exec".into(),
+            format!("-n={}", mf.namespace),
             "-it".into(),
             p.to_string(),
         ];
@@ -161,6 +151,7 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
         } else {
             let trybash = vec![
                 "exec".into(),
+                format!("-n={}", mf.namespace),
                 p.to_string(),
                 "which".into(),
                 "bash".into(),
@@ -191,7 +182,7 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
 /// Port forward a port to localhost
 pub fn port_forward(mf: &Manifest, desiredpod: Option<usize>) -> Result<()> {
     // TODO: kubectl auth can-i create something?
-    let podsres = get_pods(&mf.name)?;
+    let podsres = get_pods(&mf)?;
     let pods = podsres.split(' ').collect::<Vec<_>>();
     let pnr = desiredpod.unwrap_or(0);
     let port = mf.httpPort.unwrap();
@@ -201,6 +192,7 @@ pub fn port_forward(mf: &Manifest, desiredpod: Option<usize>) -> Result<()> {
         debug!("Port forwarding kube pod {} to localhost:{}", p, localport);
         //kubectl port-forward $pod localport:httpPort
         let mut pfargs = vec![
+            format!("-n={}", mf.namespace),
             "port-forward".into(),
             p.to_string(),
             format!("{}:{}", port, port)
@@ -216,7 +208,7 @@ pub fn port_forward(mf: &Manifest, desiredpod: Option<usize>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use std::env;
-    use super::{current_namespace, current_context};
+    use super::current_context;
 
     #[test]
     fn validate_ctx() {
@@ -224,15 +216,6 @@ mod tests {
         if kubecfg.is_file() {
             let ctx = current_context().unwrap();
             assert_eq!(ctx, "dev-uk".to_string());
-        }
-    }
-
-    #[test]
-    fn validate_namespace() {
-        let kubecfg = env::home_dir().unwrap().join(".kube").join("config");
-        if kubecfg.is_file() {
-            let ns = current_namespace("dev-uk").unwrap();
-            assert_eq!(ns, "dev".to_string());
         }
     }
 }

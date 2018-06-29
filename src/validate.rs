@@ -31,11 +31,14 @@ pub fn manifest(services: Vec<String>, conf: &Config, region: String, secrets: b
     Ok(())
 }
 
-// Validate the secrets exists in all regions
+/// Validate the secrets exists in all regions
+///
+/// This is one of very few functions not validating a single kube context,
+/// so it does special validation of all the regions.
 pub fn secret_presence(conf: &Config, regions: Vec<String>) -> Result<()> {
     for r in regions {
         info!("validating secrets in {}", r);
-        let reg = conf.get_region(&r)?;
+        let reg = conf.get_region(&r)?; // verifies region or region alias exists
         let services = Manifest::available()?;
         for svc in services {
             let mut mf = Manifest::basic(&svc, conf, Some(r.clone()))?;

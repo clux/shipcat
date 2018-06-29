@@ -98,7 +98,7 @@ pub fn rollback(ud: &UpgradeData) -> Result<()> {
 /// Rollback entrypoint using a plain service and region
 pub fn rollback_wrapper(svc: &str, conf: &Config, region: &str) -> Result<()> {
     let base = Manifest::stubbed(svc, conf, region)?;
-    let ud = UpgradeData::from_rollback(&base)?;
+    let ud = UpgradeData::from_rollback(&base);
     rollback(&ud)
 }
 
@@ -138,8 +138,6 @@ impl UpgradeData {
         if mode != UpgradeMode::DiffOnly {
             slack::have_credentials()?;
         }
-        let namespace = kube::current_namespace(&mf.region)?;
-
         let helmdiff = if !exists {
             "".into() // can't diff against what's not there!
         } else {
@@ -173,7 +171,8 @@ impl UpgradeData {
             waittime: mf.estimate_wait_time(),
             region: mf.region.clone(),
             values: hfile.into(),
-            mode, version, namespace
+            namespace: mf.namespace.clone(),
+            mode, version
         }))
     }
 
@@ -189,18 +188,18 @@ impl UpgradeData {
             ..Default::default()
         }
     }
-    pub fn from_rollback(mf: &Manifest) -> Result<UpgradeData> {
-        Ok(UpgradeData {
+    pub fn from_rollback(mf: &Manifest) -> UpgradeData {
+        UpgradeData {
             name: mf.name.clone(),
             version: "unset".into(),
             metadata: mf.metadata.clone(),
-            namespace: kube::current_namespace(&mf.region)?,
+            namespace: mf.namespace.clone(),
             region: mf.region.clone(),
             chart: mf.chart.clone().unwrap(), // helm doesn't need this to rollback, but setting
             mode: UpgradeMode::UpgradeInstall, // unused in rollback flow, but setting
             // empty diff, 0 waittime,
             ..Default::default()
-        })
+        }
     }
 }
 
@@ -272,7 +271,7 @@ impl fmt::Display for DiffMode {
 /// Shells out to helm diff, then obfuscates secrets
 fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
     let ver = mf.version.clone().unwrap(); // must be set outside
-    let namespace = kube::current_namespace(&mf.region)?;
+    let namespace = mf.namespace.clone();
     let diffvec = vec![
         format!("--tiller-namespace={}", namespace),
         "diff".into(),
@@ -378,10 +377,10 @@ pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>) -> 
 /// Helm history wrapper
 ///
 /// Analogue to `helm history {service}` uses the right tiller namespace
-pub fn history(svc: &str, region: &str) -> Result<()> {
-    let namespace = kube::current_namespace(region)?;
+pub fn history(svc: &str, conf: &Config, region: &str) -> Result<()> {
+    let mf = Manifest::stubbed(svc, &conf, region)?;
     let histvec = vec![
-        format!("--tiller-namespace={}", namespace),
+        format!("--tiller-namespace={}", mf.namespace),
         "history".into(),
         svc.into(),
     ];
@@ -392,12 +391,12 @@ pub fn history(svc: &str, region: &str) -> Result<()> {
 
 
 /// Handle error for a single upgrade
-pub fn handle_upgrade_rollbacks(e: &Error, u: &UpgradeData) -> Result<()> {
+pub fn handle_upgrade_rollbacks(e: &Error, u: &UpgradeData, mf: &Manifest) -> Result<()> {
     error!("{} from {}", e, u.name);
     match u.mode {
         UpgradeMode::UpgradeRecreateWait |
         UpgradeMode::UpgradeInstall |
-        UpgradeMode::UpgradeWaitMaybeRollback => kube::debug(&u.name)?,
+        UpgradeMode::UpgradeWaitMaybeRollback => kube::debug(&mf)?,
         _ => {}
     }
     if u.mode == UpgradeMode::UpgradeWaitMaybeRollback {
@@ -454,16 +453,16 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
     // (this is fine atm because upgrade_wrapper is the CLI entrypoint)
     let exists = mode != UpgradeMode::UpgradeInstall;
     // Other modes can infer in a pinch
+
     if mf.version.is_none() {
-        let regdefaults = conf.regions[region].defaults.clone();
-        mf.version = Some(helpers::infer_fallback_version(&svc, &regdefaults)?);
+        mf.version = Some(helpers::infer_fallback_version(&svc, &mf.namespace)?);
     };
     if mode != UpgradeMode::DiffOnly {
         // validate that the version matches the versioning scheme for this region
         // NB: only doing this on direct upgrades not parallel reconciles atm
         helpers::version_validate_specific(
             &mf.version.clone().unwrap(),
-            &conf.regions[region].defaults.versions
+            &conf.regions[region].versioningScheme
         )?;
     }
 
@@ -479,7 +478,7 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
             Err(e) => {
                 handle_upgrade_notifies(false, &udata)?;
                 // TODO: kube debug doesn't seem to hit?
-                handle_upgrade_rollbacks(&e, &udata)?;
+                handle_upgrade_rollbacks(&e, &udata, &mf)?;
                 return Err(e);
             },
             Ok(_) => {
