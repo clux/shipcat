@@ -384,8 +384,9 @@ impl Manifest {
     /// Assumes the manifest has been populated with `implicits`
     pub fn verify(&self, conf: &Config) -> Result<()> {
         assert!(self.region != ""); // needs to have been set by implicits!
-        // limit to 40 characters, alphanumeric, dashes for sanity.
-        let re = Regex::new(r"^[0-9a-z\-]{1,40}$").unwrap();
+        // limit to 50 characters, alphanumeric, dashes for sanity.
+        // 63 is kube dns limit (13 char suffix buffer)
+        let re = Regex::new(r"^[0-9a-z\-]{1,50}$").unwrap();
         if !re.is_match(&self.name) {
             bail!("Please use a short, lower case service names with dashes");
         }
