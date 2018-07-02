@@ -1,4 +1,5 @@
 use super::helm::{self, UpgradeMode};
+use super::kong;
 use super::{Result, Config, Manifest};
 
 /// Helm upgrade the region (reconcile)
@@ -28,4 +29,12 @@ fn mass_helm(conf: &Config, region: &str, umode: UpgradeMode, n_workers: usize) 
         }
     }
     helm::parallel::reconcile(svcs, conf, region, umode, n_workers)
+}
+
+/// Kong reconcile
+///
+/// Shells out to kong-configurator (python cli) with right params
+pub fn kong_reconcile(conf: &Config, region: &str) -> Result<()> {
+    kong::reconcile(conf, region)?;
+    Ok(())
 }

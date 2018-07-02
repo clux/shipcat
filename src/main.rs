@@ -215,6 +215,9 @@ fn main() {
         .subcommand(SubCommand::with_name("cluster")
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .about("Perform cluster level recovery / reconcilation commands")
+            .subcommand(SubCommand::with_name("kong")
+                .subcommand(SubCommand::with_name("reconcile")
+                    .about("Reconcile kong region config with local state")))
             .subcommand(SubCommand::with_name("helm")
                 .arg(Arg::with_name("num-jobs")
                     .short("j")
@@ -395,6 +398,12 @@ fn main() {
 
     // 4. cluster level abstractions on top of existing commands
     if let Some(a) = args.subcommand_matches("cluster") {
+        if let Some(b) = a.subcommand_matches("kong") {
+            if let Some(_) = b.subcommand_matches("reconcile") {
+                let res = shipcat::cluster::kong_reconcile(&conf, &region);
+                result_exit(args.subcommand_name().unwrap(), res)
+            }
+        }
         if let Some(b) = a.subcommand_matches("helm") {
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("diff") {
@@ -415,9 +424,9 @@ fn main() {
     }
     if let Some(a) = args.subcommand_matches("kong") {
         if let Some(_b) = a.subcommand_matches("config-url") {
-            result_exit(args.subcommand_name().unwrap(), shipcat::kong::kong_config_url(&conf, region.clone()))
+            result_exit(args.subcommand_name().unwrap(), shipcat::kong::kong_config_url(&conf, &region))
         } else {
-            result_exit(args.subcommand_name().unwrap(), shipcat::kong::kong_generate(&conf, region.clone()))
+            result_exit(args.subcommand_name().unwrap(), shipcat::kong::kong_generate(&conf, &region))
         }
     }
 

@@ -1,16 +1,27 @@
 # Kong Configurator
 
-## Installation
+## Usage via shipcat
+Given a `kubectl` and correctly set up kube contexts. Please install ensure you have the python `requests`  libray installed globally.
 
+Set the path to this folder in a file you source, e.g. `~/.bashrc`:
+
+```
+echo "export KONG_CONFIGURATOR_DIR=$PWD" >> ~/.bashrc
+```
+
+After that you should be able to:
+
+```sh
+shipcat cluster kong reconcile
+```
+
+and kong will reconcile using your current kube context.
+
+## Installation
 Set up virtual environment.
 
 ```
 virtualenv -p python3 venv
-```
-
-Install dependencies.
-
-```
 pip install -r requirements.txt
 ```
 
