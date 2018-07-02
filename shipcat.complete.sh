@@ -38,7 +38,7 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(validate|shell|port-forward|debug|graph|get|cluster|helm|list-services|gdpr|kong|jenkins) ]]; then
+        if [[ ${words[i]} == @(validate|shell|port-forward|debug|graph|get|cluster|helm|list-services|gdpr|jenkins) ]]; then
             special=${words[i]}
         fi
     done
@@ -65,8 +65,20 @@ _shipcat()
                 local -r svcs="$(shipcat list-services "$region")"
                 COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 ;;
-            kong)
-                COMPREPLY=($(compgen -W "config-url" -- "$cur"))
+            cluster)
+                local clustr_sub i
+                for (( i=2; i < ${#words[@]}-1; i++ )); do
+                    if [[ ${words[i]} = @(helm|kong) ]]; then
+                        clustr_sub=${words[i]}
+                    fi
+                done
+
+                if [[ $prev = "cluster" ]]; then
+                    COMPREPLY=($(compgen -W "helm kong" -- "$cur"))
+                elif [[ $clustr_sub = @(helm|kong) ]]; then
+                    # Suggest subcommands of helm and global flags
+                    COMPREPLY=($(compgen -W "diff reconcile" -- "$cur"))
+                fi
                 ;;
             list-services)
                 local -r regions="$(shipcat list-regions)"
@@ -89,21 +101,6 @@ _shipcat()
                     done
                     local -r svcs="$(shipcat list-services "$region")"
                     COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
-                fi
-                ;;
-            cluster)
-                local clustr_sub i
-                for (( i=2; i < ${#words[@]}-1; i++ )); do
-                    if [[ ${words[i]} = @(helm) ]]; then
-                        clustr_sub=${words[i]}
-                    fi
-                done
-
-                if [[ $prev = "cluster" ]]; then
-                    COMPREPLY=($(compgen -W "helm" -- "$cur"))
-                elif [[ $clustr_sub = "helm" ]]; then
-                    # Suggest subcommands of helm and global flags
-                    COMPREPLY=($(compgen -W "diff reconcile" -- "$cur"))
                 fi
                 ;;
             helm)
