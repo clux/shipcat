@@ -88,22 +88,25 @@ pub fn send(msg: Message) -> Result<()> {
         warn!("Not providing a slack github link due to missing metadata in manifest");
     }
 
-    let mut have_gh_link = false;
     let mut codeattach = None;
-    if let Some(code) = msg.code {
-        if let Some(ref md) = msg.metadata {
-            if let Some(lnk) = infer_metadata_links(md, &code) {
-                have_gh_link = true;
-                texts.push(lnk);
-            }
+    if let Some(diff) = msg.code {
+        // metadata always exists by Manifest::verify
+        let md = msg.metadata.clone().unwrap();
+        // does the diff contain versions?
+        let mut diff_is_pure_verison_change = false;
+        if let Some((v1, v2)) = helpers::infer_version_change(&diff) {
+            let v1p = Version::parse(&v1).map(|v| format!("v{}", v)).unwrap_or(v1);
+            let v2p = Version::parse(&v2).map(|v| format!("v{}", v)).unwrap_or(v2.clone());
+            let lnk = create_github_compare_url(&md, (&v1p, &v2p));
+            diff_is_pure_verison_change = helpers::diff_is_version_only(&diff, (&v1p, &v2p));
+            texts.push(lnk);
         }
-        let num_lines = code.lines().count();
-        // if it's not a straight image change diff, print it:
-        if !(num_lines == 3 && have_gh_link) {
-            codeattach = Some(AttachmentBuilder::new(code.clone())
+        // attach full diff as a slack attachment otherwise
+        if !diff_is_pure_verison_change {
+            codeattach = Some(AttachmentBuilder::new(diff.clone())
                 .color("#439FE0")
-                .text(vec![Text(code.into())].as_slice())
-                .build()?);
+                .text(vec![Text(diff.into())].as_slice())
+                .build()?)
         }
     } else if let Some(v) = msg.version {
         if let Some(ref md) = msg.metadata {
@@ -151,12 +154,12 @@ pub fn send(msg: Message) -> Result<()> {
     Ok(())
 }
 
-fn short_ver(ver: String) -> String {
+fn short_ver(ver: &str) -> String {
     if Version::parse(&ver).is_err() && ver.len() == 40 {
         // only abbreviate versions that are not semver and 40 chars (git shas)
         format!("{}", &ver[..8])
     } else {
-        ver
+        ver.to_string()
     }
 }
 
@@ -166,20 +169,15 @@ fn infer_metadata_single_link(md: &Metadata, ver: String) -> SlackTextContent {
     } else {
         format!("{}/commit/{}", md.repo, ver)
     };
-    Link(SlackLink::new(&url, &short_ver(ver)))
+    Link(SlackLink::new(&url, &short_ver(&ver)))
 }
 
-fn infer_metadata_links(md: &Metadata, diff: &str) -> Option<SlackTextContent> {
-    if let Some((v1, v2)) = helpers::infer_version_change(&diff) {
-        let v1p = Version::parse(&v1).map(|v| format!("v{}", v)).unwrap_or(v1);
-        let v2p = Version::parse(&v2).map(|v| format!("v{}", v)).unwrap_or(v2.clone());
-        // tag comparisons for semver versions only
-        // github compare url expect leading v
-        let url = format!("{}/compare/{}...{}", md.repo, v1p, v2p);
-        Some(Link(SlackLink::new(&url, &short_ver(v2))))
-    } else {
-        None
-    }
+fn create_github_compare_url(md: &Metadata, vers: (&str, &str)) -> SlackTextContent {
+    // tag comparisons for semver versions only
+    // github compare url expect leading v
+    // TODO: sometimes leading v if tagging old style, no v if new-style
+    let url = format!("{}/compare/{}...{}", md.repo, vers.0, vers.1);
+    Link(SlackLink::new(&url, &short_ver(vers.1)))
 }
 
 fn infer_slack_notifies(md: &Metadata) -> Vec<SlackTextContent> {

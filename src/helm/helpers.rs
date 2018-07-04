@@ -15,6 +15,23 @@ pub fn diff_format(diff: String) -> String {
     }).collect::<Vec<_>>().join("\n")
 }
 
+pub fn diff_is_version_only(diff: &str, vers: (&str, &str)) -> bool {
+    let smalldiff = diff_format(diff.to_string());
+    trace!("Checking diff for {:?}", vers);
+    for l in smalldiff.lines() {
+        // ignore headline for resource type (no actual changes)
+        if !l.starts_with("+") && !l.starts_with("-") && l.contains("has changed:") {
+            continue;
+        }
+        // ignore all lines that contain one of the versions
+        if l.contains(vers.0) || l.contains(vers.1) {
+            continue;
+        }
+        // any other lines found => not just a version change
+        return false;
+    }
+    true
+}
 
 /// Infer a version change diff and extract old version and new version
 pub fn infer_version_change(diff: &str) -> Option<(String, String)> {
@@ -125,7 +142,7 @@ pub fn version_validate_specific(ver: &str, scheme: &VersionScheme) -> Result<()
 
 #[cfg(test)]
 mod tests {
-    use super::{infer_version_change, version_validate};
+    use super::{infer_version_change, version_validate, diff_is_version_only};
 
     #[test]
     fn version_change_test() {
@@ -149,6 +166,38 @@ mod tests {
         let (old, new) = res.unwrap();
         assert_eq!(old, "1.2.3");
         assert_eq!(new, "1.3.0-alpine");
+    }
+
+    #[test]
+    fn version_diff_test() {
+        // simple version change with versions referenced more than once
+        let input = "react-ask-frontend, Deployment (extensions/v1beta1) has changed:
+-         image: \"quay.io/babylonhealth/react-ask-frontend:6418d7cacb7438ddd4e533d78b38902bc7f79e7b\"
++         image: \"quay.io/babylonhealth/react-ask-frontend:d27b5c6f96f05436b236dae112c7c8fcedca4c71\"
+-           value: 6418d7cacb7438ddd4e533d78b38902bc7f79e7b
++           value: d27b5c6f96f05436b236dae112c7c8fcedca4c71";
+
+        let res = infer_version_change(input);
+        assert!(res.is_some());
+        let (old, new) = res.unwrap();
+        assert_eq!(old, "6418d7cacb7438ddd4e533d78b38902bc7f79e7b");
+        assert_eq!(new, "d27b5c6f96f05436b236dae112c7c8fcedca4c71");
+        assert!(diff_is_version_only(input, (&new, &old)));
+    }
+
+    #[test]
+    fn version_diff_test2() {
+        // not just a simple version change
+        let input = "react-ask-frontend, Deployment (extensions/v1beta1) has changed:
+-         image: \"quay.io/babylonhealth/react-ask-frontend:6418d7cacb7438ddd4e533d78b38902bc7f79e7b\"
++         image: \"quay.io/babylonhealth/react-ask-frontend:d27b5c6f96f05436b236dae112c7c8fcedca4c71\"
+-           blast: keyremoval";
+        let res = infer_version_change(input);
+        assert!(res.is_some());
+        let (old, new) = res.unwrap();
+        assert_eq!(old, "6418d7cacb7438ddd4e533d78b38902bc7f79e7b");
+        assert_eq!(new, "d27b5c6f96f05436b236dae112c7c8fcedca4c71");
+        assert!(!diff_is_version_only(input, (&new, &old)));
     }
 
     #[test]
