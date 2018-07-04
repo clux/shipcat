@@ -201,6 +201,22 @@ mod tests {
     }
 
     #[test]
+    fn version_diff_test3() {
+        // semver version change
+        let input = "knowledge-base2-search, Deployment (extensions/v1beta1) has changed:
+-         image: \"quay.io/babylonhealth/knowledgebase2:1.0.6\"
++         image: \"quay.io/babylonhealth/knowledgebase2:1.0.7\"
+-           value: 1.0.6
++           value: 1.0.7";
+        let res = infer_version_change(input);
+        assert!(res.is_some());
+        let (old, new) = res.unwrap();
+        assert_eq!(old, "1.0.6");
+        assert_eq!(new, "1.0.7");
+        assert!(diff_is_version_only(input, (&new, &old)));
+    }
+
+    #[test]
     fn version_validate_test() {
         assert!(version_validate("2.3.4").is_ok());
         assert!(version_validate("2.3.4-alpine").is_ok());

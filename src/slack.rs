@@ -95,10 +95,8 @@ pub fn send(msg: Message) -> Result<()> {
         // does the diff contain versions?
         let mut diff_is_pure_verison_change = false;
         if let Some((v1, v2)) = helpers::infer_version_change(&diff) {
-            let v1p = Version::parse(&v1).map(|v| format!("v{}", v)).unwrap_or(v1);
-            let v2p = Version::parse(&v2).map(|v| format!("v{}", v)).unwrap_or(v2.clone());
-            let lnk = create_github_compare_url(&md, (&v1p, &v2p));
-            diff_is_pure_verison_change = helpers::diff_is_version_only(&diff, (&v1p, &v2p));
+            let lnk = create_github_compare_url(&md, (&v1, &v2));
+            diff_is_pure_verison_change = helpers::diff_is_version_only(&diff, (&v1, &v2));
             texts.push(lnk);
         }
         // attach full diff as a slack attachment otherwise
@@ -165,7 +163,8 @@ fn short_ver(ver: &str) -> String {
 
 fn infer_metadata_single_link(md: &Metadata, ver: String) -> SlackTextContent {
     let url = if Version::parse(&ver).is_ok() {
-        format!("{}/releases/tag/v{}", md.repo, ver)
+        // TODO: v prefix for old-style?
+        format!("{}/releases/tag/{}", md.repo, ver)
     } else {
         format!("{}/commit/{}", md.repo, ver)
     };
@@ -173,9 +172,7 @@ fn infer_metadata_single_link(md: &Metadata, ver: String) -> SlackTextContent {
 }
 
 fn create_github_compare_url(md: &Metadata, vers: (&str, &str)) -> SlackTextContent {
-    // tag comparisons for semver versions only
-    // github compare url expect leading v
-    // TODO: sometimes leading v if tagging old style, no v if new-style
+    // TODO: v prefix for old-style tags?
     let url = format!("{}/compare/{}...{}", md.repo, vers.0, vers.1);
     Link(SlackLink::new(&url, &short_ver(vers.1)))
 }
