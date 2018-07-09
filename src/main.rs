@@ -54,20 +54,6 @@ fn main() {
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name")))
-        .subcommand(SubCommand::with_name("get")
-            .about("Get information about what's running in a cluster")
-            .arg(Arg::with_name("resource")
-                .required(true)
-                .help("Name of manifest resource to retrieve"))
-            .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .takes_value(true)
-                .help("Region to use (dev-uk, staging-uk, prod-uk)"))
-            .arg(Arg::with_name("short")
-                .short("q")
-                .long("short")
-                .help("Output short resource format")))
         .subcommand(SubCommand::with_name("helm")
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .about("Run helm like commands on shipcat manifests")
@@ -201,6 +187,15 @@ fn main() {
               .arg(Arg::with_name("service")
                 .help("Service names to show"))
               .about("Reduce data handling structs"))
+        .subcommand(SubCommand::with_name("get")
+              .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Specific region to check"))
+              .about("Reduce encoded info")
+              .subcommand(SubCommand::with_name("versions")
+                .help("Reduce encoded version info")))
         .subcommand(SubCommand::with_name("kong")
             .about("Generate Kong config")
             .subcommand(SubCommand::with_name("config-url")
@@ -272,20 +267,20 @@ fn main() {
         let res = shipcat::validate::manifest(services, &conf, region, a.is_present("secrets"));
         result_exit(args.subcommand_name().unwrap(), res)
     }
-    if let Some(a) = args.subcommand_matches("get") {
-        let rsrc = a.value_of("resource").unwrap();
-        let quiet = a.is_present("short");
-        // this only needs a kube context if you don't specify it
-         let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
-            conditional_exit(conf.resolve_region())
-        });
-        result_exit(args.subcommand_name().unwrap(), shipcat::get::table(rsrc, &conf, quiet, region))
-    }
     if let Some(a) = args.subcommand_matches("secret") {
         if let Some(b) = a.subcommand_matches("verify-region") {
             let regions = b.values_of("regions").unwrap().map(String::from).collect::<Vec<_>>();
             let res = shipcat::validate::secret_presence(&conf, regions);
             result_exit(a.subcommand_name().unwrap(), res)
+        }
+    }
+    if let Some(a) = args.subcommand_matches("get") {
+        let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
+            conditional_exit(conf.resolve_region())
+        });
+        if let Some(_) = a.subcommand_matches("versions") {
+            let res = shipcat::get::versions(&conf, &region);
+            result_exit(args.subcommand_name().unwrap(), res)
         }
     }
 

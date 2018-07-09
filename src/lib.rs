@@ -117,8 +117,6 @@ error_chain! {
 pub mod vault;
 /// Convenience listers
 pub mod list;
-/// Convenience getters
-pub mod get;
 /// A post interface to slack using `slack_hook`
 pub mod slack;
 /// Cluster level operations
@@ -154,6 +152,9 @@ pub mod graph;
 
 /// A jenkins helper interface using `jenkinsapi`
 pub mod jenkins;
+
+/// Various simple reducers
+pub mod get;
 
 /// Smart initialiser with safety
 ///
