@@ -19,6 +19,7 @@ metadata:
   - name: "Eirik McClux"
     slack: "@U82SKDQD9"
   repo: https://github.com/Babylonpartners/shipcat
+  gitTagTemplate: "prefix-{{ version }}-suffix"
 sidecars:
 - name: redis
 regions:
