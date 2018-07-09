@@ -71,20 +71,25 @@ pub struct KongConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anonymous_consumers: Option<KongAnonymousConsumers>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub consumers: BTreeMap<String, BTreeMap<String, String>>,
+    pub consumers: BTreeMap<String, KongOauthConsumer>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub internal_ips_whitelist: Vec<String>,
     #[serde(default, skip_serializing)]
     pub extra_apis: BTreeMap<String, Kong>,
-    /// Important base urls that can be templated in evars
-    #[serde(default)]
-    pub base_urls: BTreeMap<String, String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct KongAnonymousConsumers {
     pub anonymous: BTreeMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct KongOauthConsumer {
+    pub oauth_client_id: String,
+    pub oauth_client_secret: String,
+    pub username: String
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -108,6 +113,10 @@ pub struct Region {
     pub environment: String,
     /// Versioning scheme
     pub versioningScheme: VersionScheme,
+
+    /// Important base urls that can be templated in evars
+    #[serde(default)]
+    pub base_urls: BTreeMap<String, String>,
 
     /// Environment variables to inject
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -197,6 +206,11 @@ impl Config {
             if data.vault.folder == "" {
                 warn!("Need to set the vault folder {}", r);
             }
+            for (_, v) in &data.base_urls {
+                if v.ends_with('/') {
+                    bail!("A base_url must not end with a slash");
+                }
+            }
             data.kong.verify()?;
         }
         let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
@@ -263,11 +277,6 @@ impl Config {
 
 impl KongConfig {
     fn verify(&self) -> Result<()> {
-        for (_, v) in &self.base_urls {
-            if v.ends_with('/') {
-                bail!("A base_url must not end with a slash");
-            }
-        }
         Ok(())
     }
 }

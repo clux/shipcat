@@ -126,7 +126,7 @@ use super::{Config, Manifest};
 impl Manifest {
     // This function defines what variables are available within .j2 templates and evars
     fn make_template_context(&self, conf: &Config, region: &str) -> Result<Context> {
-        // need regional kong specifics here
+        // need regional specifics here
         if conf.regions.get(region).is_none() {
             bail!("Unknown region {} in regions in config", region);
         }
@@ -136,7 +136,7 @@ impl Manifest {
         ctx.add("env", &self.env.clone());
         ctx.add("service", &self.name.clone());
         ctx.add("region", &self.region.clone());
-        ctx.add("base_urls", &reg.kong.base_urls);
+        ctx.add("base_urls", &reg.base_urls);
         Ok(ctx)
     }
 
