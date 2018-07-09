@@ -45,15 +45,15 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-          - cargo.registry-musl-{{ checksum "Cargo.lock" }}
-          - cargo.registry-musl
+          - cargo.registry-musl-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
+          - cargo.registry-musl-{{ .Environment.CACHE_VERSION }}
       - restore_cache:
           keys:
-          - target-musl-{{ checksum "Cargo.lock" }}
-          - target-musl
+          - target-musl-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
+          - target-musl-{{ .Environment.CACHE_VERSION }}
       - run: cargo build --release
       - save_cache:
-          key: target-musl-{{ checksum "Cargo.lock" }}
+          key: target-musl-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
           paths:
             - target
       - save_cache:
@@ -77,20 +77,20 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-          - cargo.registry-test-{{ checksum "Cargo.lock" }}
-          - cargo.registry-test
+          - cargo.registry-test-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
+          - cargo.registry-test-{{ .Environment.CACHE_VERSION }}
       - restore_cache:
           keys:
-          - target-test-{{ checksum "Cargo.lock" }}
-          - target-test
+          - target-test-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
+          - target-test-{{ .Environment.CACHE_VERSION }}
       - run: cargo test -- --nocapture
       - run: cargo doc --no-deps
       - save_cache:
-          key: target-test-{{ checksum "Cargo.lock" }}
+          key: target-test-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
           paths:
             - target
       - save_cache:
-          key: cargo.registry-test-{{ checksum "Cargo.lock" }}
+          key: cargo.registry-test-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
           paths:
             - /root/.cargo
 
@@ -118,18 +118,18 @@ jobs:
           command: |
             curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
       - restore_cache:
-          key: cargo.registry-mac-{{ checksum "Cargo.lock" }}
+          key: cargo.registry-mac-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
       - restore_cache:
-          key: target-mac-{{ checksum "Cargo.lock" }}
+          key: target-mac-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Build
           command: ~/.cargo/bin/cargo build --verbose --release
       - save_cache:
-          key: target-mac-{{ checksum "Cargo.lock" }}
+          key: target-mac-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
           paths:
             - target
       - save_cache:
-          key: cargo.registry-mac-{{ checksum "Cargo.lock" }}
+          key: cargo.registry-mac-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
           paths:
             - /Users/distiller/.cargo
       # Ensure we have a built `shipcat.x86_64-apple-darwin` at workspace root

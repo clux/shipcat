@@ -14,12 +14,12 @@ _shipcat()
         _get_comp_words_by_ref cur prev words cword
     fi
 
-    local -r subcommands="help validate shell port-forward graph get helm cluster gdpr
+    local -r subcommands="help validate shell port-forward get graph helm cluster gdpr
                           kong jenkins debug list-regions list-services"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|port-forward|debug|status|shell|get|graph|cluster|helm|gdpr|kong|jenkins) ]]; then
+        if [[ ${words[i]} == @(help|validate|port-forward|debug|get|status|shell|graph|cluster|helm|gdpr|kong|jenkins) ]]; then
             has_sub=1
         fi
     done
@@ -51,19 +51,13 @@ _shipcat()
 
     if [[ -n $special ]]; then
         case $special in
-            get)
-                local -r regions="$(shipcat list-regions)"
-                local -r resources="version ver image"
-                if [[ $prev == @(-r|--region) ]]; then
-                    COMPREPLY=($(compgen -W "$regions" -- "$cur"))
-                else
-                    COMPREPLY=($(compgen -W "$resources" -- "$cur"))
-                fi
-                ;;
             gdpr|debug|port-forward)
                 local -r region="$(kubectl config current-context)"
                 local -r svcs="$(shipcat list-services "$region")"
                 COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
+                ;;
+            get)
+                COMPREPLY=($(compgen -W "versions" -- "$cur"))
                 ;;
             cluster)
                 local clustr_sub i
