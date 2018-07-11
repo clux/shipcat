@@ -172,9 +172,13 @@ fn infer_metadata_single_link(md: &Metadata, ver: String) -> SlackTextContent {
 }
 
 fn create_github_compare_url(md: &Metadata, vers: (&str, &str)) -> SlackTextContent {
-    let v0 = md.version_template(&vers.0).unwrap_or(vers.0.to_string());
-    let v1 = md.version_template(&vers.1).unwrap_or(vers.1.to_string());
-
+    let (v0, v1) = if Version::parse(vers.0).is_ok() {
+        let v0 = md.version_template(&vers.0).unwrap_or(vers.0.to_string());
+        let v1 = md.version_template(&vers.1).unwrap_or(vers.1.to_string());
+        (v0, v1)
+    } else {
+        (vers.0.into(), vers.1.into())
+    };
     let url = format!("{}/compare/{}...{}", md.repo, v0, v1);
     Link(SlackLink::new(&url, &short_ver(vers.1)))
 }
