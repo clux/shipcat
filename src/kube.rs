@@ -1,4 +1,5 @@
 use super::{Result, Manifest};
+use regex::Regex;
 
 fn kexec(args: Vec<String>) -> Result<()> {
     use std::process::Command;
@@ -60,11 +61,20 @@ fn get_broken_pods(mf: &Manifest) -> Result<Vec<String>> {
     ];
     let podres = kout(podargs)?;
     let mut bpods = vec![];
+    let status_re = Regex::new(r" (?P<ready>\d+)/(?P<total>\d+) ").unwrap();
     for l in podres.lines() {
         if !l.contains("Running") {
             if let Some(p) = l.split(' ').next() {
                 warn!("Found pod not running: {}", p);
                 bpods.push(p.into());
+            }
+        }
+        if let Some(caps) = status_re.captures(l) {
+            if &caps["ready"] != &caps["total"] {
+                if let Some(p) = l.split(' ').next() {
+                    warn!("Found pod with less than necessary containers healthy: {}", p);
+                    bpods.push(p.into());
+                }
             }
         }
     }
