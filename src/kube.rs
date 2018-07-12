@@ -15,10 +15,14 @@ fn kout(args: Vec<String>) -> Result<String> {
     debug!("kubectl {}", args.join(" "));
     let s = Command::new("kubectl").args(&args).output()?;
     let out : String = String::from_utf8_lossy(&s.stdout).into();
+    let err : String = String::from_utf8_lossy(&s.stderr).into();
+    if !err.is_empty() {
+        warn!("kubectl {} stderr: {}", args.join(" "), err.trim());
+    }
     // kubectl keeps returning opening and closing apostrophes - strip them:
     if out.len() > 2 && out.chars().next() == Some('\'') {
         let res = out.split('\'').collect::<Vec<_>>()[1];
-        return Ok(res.into());
+        return Ok(res.trim().into());
     }
     Ok(out)
 }
@@ -69,7 +73,7 @@ fn get_broken_pods(mf: &Manifest) -> Result<Vec<String>> {
                 bpods.push(p.into());
             }
         }
-        if let Some(caps) = status_re.captures(l) {
+        else if let Some(caps) = status_re.captures(l) {
             if &caps["ready"] != &caps["total"] {
                 if let Some(p) = l.split(' ').next() {
                     warn!("Found pod with less than necessary containers healthy: {}", p);
@@ -92,17 +96,21 @@ pub fn debug(mf: &Manifest) -> Result<()> {
     }
     for pod in pods.clone() {
         warn!("Debugging non-running pod {}", pod);
-        warn!("Last 30 log lines:");
         let logvec = vec![
             "logs".into(),
             pod.clone(),
+            mf.name.clone(),
             format!("-n={}", mf.namespace),
             format!("--tail=30").into(),
         ];
         match kout(logvec) {
             Ok(l) => {
-                // TODO: stderr?
-                print!("{}\n", l);
+                if l == "" {
+                    warn!("No logs for pod {} found", pod);
+                } else {
+                    warn!("Last 30 log lines:");
+                    print!("{}\n", l);
+                }
             },
             Err(e) => {
                 warn!("Failed to get logs from {}: {}", pod, e)
