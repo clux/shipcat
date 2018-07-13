@@ -67,6 +67,8 @@ pub fn rollback(ud: &UpgradeData) -> Result<()> {
         format!("--tiller-namespace={}", ud.namespace),
         "rollback".into(),
         ud.name.clone(),
+        "--wait".into(),
+        format!("--timeout={}", ud.waittime),
         "0".into(), // magic helm number for previous
     ];
     // TODO: diff this rollback? https://github.com/databus23/helm-diff/issues/6
@@ -74,7 +76,6 @@ pub fn rollback(ud: &UpgradeData) -> Result<()> {
     match hexec(rollbackvec) {
         Err(e) => {
             error!("{}", e);
-            // this would be super weird, since we are not waiting for it:
             let _ = slack::send(slack::Message {
                 text: format!("failed to rollback `{}` in {}", &ud.name, &ud.region),
                 color: Some("danger".into()),
