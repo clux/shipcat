@@ -57,7 +57,7 @@ jobs:
           paths:
             - target
       - save_cache:
-          key: cargo.registry-musl-{{ checksum "Cargo.lock" }}
+          key: cargo.registry-musl-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
           paths:
             - /root/.cargo
       # Ensure we have a built `shipcat.x86_64-unknown-linux-musl` at workspace root

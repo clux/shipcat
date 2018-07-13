@@ -21,3 +21,19 @@ pub fn versions(conf: &Config, region: &str) -> Result<()> {
     let _ = println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
+
+pub fn images(conf: &Config, region: &str) -> Result<()> {
+    let services = Manifest::available()?;
+    let mut output : BTreeMap<String, String> = BTreeMap::new();
+
+    for svc in services {
+        let mf = Manifest::stubbed(&svc, &conf, &region)?;
+        if mf.regions.contains(&region.to_string()) {
+            if let Some(i) = mf.image {
+                output.insert(svc, i);
+            }
+        }
+    }
+    let _ = println!("{}", serde_json::to_string_pretty(&output)?);
+    Ok(())
+}
