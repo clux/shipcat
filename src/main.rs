@@ -194,6 +194,8 @@ fn main() {
                 .takes_value(true)
                 .help("Specific region to check"))
               .about("Reduce encoded info")
+              .subcommand(SubCommand::with_name("images")
+                .help("Reduce encoded image info"))
               .subcommand(SubCommand::with_name("versions")
                 .help("Reduce encoded version info")))
         .subcommand(SubCommand::with_name("kong")
@@ -280,6 +282,10 @@ fn main() {
         });
         if let Some(_) = a.subcommand_matches("versions") {
             let res = shipcat::get::versions(&conf, &region);
+            result_exit(args.subcommand_name().unwrap(), res)
+        }
+        else if let Some(_) = a.subcommand_matches("images") {
+            let res = shipcat::get::images(&conf, &region);
             result_exit(args.subcommand_name().unwrap(), res)
         }
     }

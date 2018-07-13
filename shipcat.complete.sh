@@ -57,7 +57,7 @@ _shipcat()
                 COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 ;;
             get)
-                COMPREPLY=($(compgen -W "versions" -- "$cur"))
+                COMPREPLY=($(compgen -W "versions images" -- "$cur"))
                 ;;
             cluster)
                 local clustr_sub i
