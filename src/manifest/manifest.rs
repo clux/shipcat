@@ -48,6 +48,10 @@ pub struct Manifest {
     #[serde(default, skip_serializing)]
     pub regions: Vec<String>,
 
+    // Secret evars
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub secrets: BTreeMap<String, String>,
+
     // Decoded secrets - only used interally
     #[serde(default, skip_serializing, skip_deserializing)]
     pub _decoded_secrets: BTreeMap<String, String>,
@@ -235,10 +239,14 @@ impl Manifest {
             if v == "IN_VAULT" {
                 let vkey = format!("{}/{}", pth, k);
                 let secret = client.read(&vkey)?;
-                *v = secret.clone();
+                self.secrets.insert(k.to_string(), secret.clone());
                 self._decoded_secrets.insert(vkey, secret);
             }
         }
+        // remove placeholders from env
+        self.env = self.env.clone().into_iter()
+            .filter(|&(_, ref v)| v != "IN_VAULT")
+            .collect();
         // do the same for secret secrets
         for (k, v) in &mut self.secretFiles {
             if v == "IN_VAULT" {

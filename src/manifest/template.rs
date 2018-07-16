@@ -133,7 +133,11 @@ impl Manifest {
         let reg = conf.regions[region].clone(); // must exist
         // same context as normal templates + base_urls
         let mut ctx = Context::new();
-        ctx.add("env", &self.env.clone());
+        // not great: pass env & secrets in a single btree for backwards compatibility
+        // TODO: switch to a bespoke `secrets` struct in manifests
+        let mut full_env = self.env.clone();
+        full_env.append(&mut self.secrets.clone());
+        ctx.add("env", &full_env);
         ctx.add("service", &self.name.clone());
         ctx.add("region", &self.region.clone());
         ctx.add("base_urls", &reg.base_urls);
