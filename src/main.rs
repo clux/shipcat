@@ -401,7 +401,7 @@ fn main() {
     if let Some(a) = args.subcommand_matches("cluster") {
         if let Some(b) = a.subcommand_matches("kong") {
             if let Some(_) = b.subcommand_matches("reconcile") {
-                let res = shipcat::cluster::kong_reconcile(&conf, &region);
+                let res = shipcat::cluster::kong_reconcile(&region);
                 result_exit(args.subcommand_name().unwrap(), res)
             }
         }
@@ -425,9 +425,9 @@ fn main() {
     }
     if let Some(a) = args.subcommand_matches("kong") {
         if let Some(_b) = a.subcommand_matches("config-url") {
-            result_exit(args.subcommand_name().unwrap(), shipcat::kong::kong_config_url(&conf, &region))
+            result_exit(args.subcommand_name().unwrap(), shipcat::kong::config_url(&conf, &region))
         } else {
-            result_exit(args.subcommand_name().unwrap(), shipcat::kong::kong_generate(&conf, &region))
+            result_exit(args.subcommand_name().unwrap(), shipcat::kong::output(&region))
         }
     }
 

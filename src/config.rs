@@ -8,6 +8,7 @@ use std::io::prelude::*;
 use semver::Version;
 use serde_yaml;
 
+use super::vault::Vault;
 use super::Result;
 use super::structs::Kong;
 
@@ -92,6 +93,45 @@ pub struct KongOauthConsumer {
     pub username: String
 }
 
+impl KongConfig {
+    fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
+        for (svc, data) in &mut self.consumers {
+            if data.oauth_client_id == "IN_VAULT" {
+                let vkey = format!("{}/kong/consumers/{}_oauth_client_id", region, svc);
+                data.oauth_client_id = vault.read(&vkey)?;
+            }
+            if data.oauth_client_secret == "IN_VAULT" {
+                let vkey = format!("{}/kong/consumers/{}_oauth_client_secret", region, svc);
+                data.oauth_client_secret = vault.read(&vkey)?;
+            }
+        }
+        Ok(())
+    }
+    fn verify_secrets_exist(&self, vault: &Vault, region: &str) -> Result<()> {
+        let mut expected = vec![];
+        for (svc, data) in &self.consumers {
+            if data.oauth_client_id == "IN_VAULT" {
+                expected.push(format!("{}/kong/consumers/{}_oauth_client_id", region, svc));
+            }
+            if data.oauth_client_secret == "IN_VAULT" {
+                expected.push(format!("{}/kong/consumers/{}_oauth_client_secret", region, svc));
+            }
+        }
+        if expected.is_empty() {
+            return Ok(()); // no point trying to cross reference
+        }
+        let secpth = format!("{}/kong/consumers", region);
+        let found = vault.list(&secpth)?;
+        debug!("Found kong secrets {:?} for {}", found, region);
+        for v in expected {
+            if !found.contains(&v) {
+                bail!("Kong secret {} not found in {} vault", v, region);
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct KongTcpLogConfig {
@@ -125,6 +165,20 @@ pub struct Region {
     pub kong: KongConfig,
     /// Vault configuration for the region
     pub vault: VaultConfig,
+}
+
+impl Region {
+    pub fn secrets(&mut self, region: &str) -> Result<()> {
+        let v = Vault::regional(&self.vault)?;
+        self.kong.secrets(&v, region)?;
+        Ok(())
+    }
+    pub fn verify_secrets_exist(&mut self, region: &str) -> Result<()> {
+        let v = Vault::regional(&self.vault)?;
+        debug!("Validating kong secrets for {}", region);
+        self.kong.verify_secrets_exist(&v, region)?;
+        Ok(())
+    }
 }
 
 
@@ -220,6 +274,23 @@ impl Config {
             bail!("Your shipcat is out of date ({} < {})", current, self.version)
         }
         Ok(())
+    }
+
+    // Populate placeholder fields with secrets from vault
+    fn secrets(&mut self, region: &str) -> Result<()> {
+        if let Some(r) = self.regions.get_mut(region) {
+            r.secrets(region)?;
+        } else {
+            bail!("Undefined region {}", region);
+        }
+        Ok(())
+    }
+
+    /// Read and populate a config with secrets for a region
+    pub fn completed(region: &str) -> Result<Config> {
+        let mut cfg = Config::read()?;
+        cfg.secrets(region)?;
+        Ok(cfg)
     }
 
     /// Read a config file in an arbitrary path

@@ -36,30 +36,38 @@ fn generate_kong_output(conf: &Config, region: &str) -> Result<KongOutput> {
     Ok(KongOutput { apis, kong: reg.kong })
 }
 
-/// Generate Kong config
-///
-/// Generate a JSON file used to configure Kong for a given region
-pub fn kong_generate(conf: &Config, region: &str) -> Result<()> {
+/// Generate Kong config from a filled in global config
+fn output_generate(conf: &Config, region: &str) -> Result<()> {
     let output = generate_kong_output(conf, &region)?;
     let _ = io::stdout().write(serde_json::to_string_pretty(&output)?.as_bytes());
     Ok(())
 }
 
+/// Fetch all kong secrets and generate a Kong config for a region
+///
+/// Generate json data used to configure Kong for a given region
+pub fn output(region: &str) -> Result<()> {
+    let conf = Config::completed(region)?;
+    output_generate(&conf, region)?;
+    Ok(())
+}
+
 /// Return the config_url for the given region
-pub fn kong_config_url(conf: &Config, region: &str) -> Result<()> {
+pub fn config_url(conf: &Config, region: &str) -> Result<()> {
     let reg = conf.regions[&region.to_string()].clone();
     println!("{}", reg.kong.config_url);
     Ok(())
 }
 
-pub fn reconcile(conf: &Config, region: &str) -> Result<()> {
+pub fn reconcile(region: &str) -> Result<()> {
     use std::env;
     use std::path::Path;
     use std::fs::File;
     use std::io::{Write};
+    let conf = Config::completed(region)?;
     let reg = conf.regions[&region.to_string()].clone();
 
-    let kong = generate_kong_output(conf, region)?;
+    let kong = generate_kong_output(&conf, region)?;
     let output = serde_json::to_string_pretty(&kong)?;
 
     // write kong-{region}.json
