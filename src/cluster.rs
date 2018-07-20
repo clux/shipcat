@@ -34,7 +34,7 @@ fn mass_helm(conf: &Config, region: &str, umode: UpgradeMode, n_workers: usize) 
 /// Kong reconcile
 ///
 /// Shells out to kong-configurator (python cli) with right params
-pub fn kong_reconcile(conf: &Config, region: &str) -> Result<()> {
-    kong::reconcile(conf, region)?;
+pub fn kong_reconcile(region: &str) -> Result<()> {
+    kong::reconcile(region)?;
     Ok(())
 }

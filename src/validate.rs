@@ -38,7 +38,8 @@ pub fn manifest(services: Vec<String>, conf: &Config, region: String, secrets: b
 pub fn secret_presence(conf: &Config, regions: Vec<String>) -> Result<()> {
     for r in regions {
         info!("validating secrets in {}", r);
-        let reg = conf.get_region(&r)?; // verifies region or region alias exists
+        let mut reg = conf.get_region(&r)?; // verifies region or region alias exists
+        reg.verify_secrets_exist(&r)?; // verify secrets for the region
         let services = Manifest::available()?;
         for svc in services {
             let mut mf = Manifest::basic(&svc, conf, Some(r.clone()))?;
