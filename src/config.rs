@@ -57,6 +57,23 @@ pub struct VaultConfig {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
+pub struct HostPort {
+    /// Hostname || IP || FQDN
+    pub host: String,
+    /// Port
+    pub port: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
+pub struct KafkaConfig {
+    /// Broker urls
+    pub brokers: Vec<HostPort>,
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub struct KongConfig {
     /// Base URL to use (e.g. uk.dev.babylontech.co.uk)
     #[serde(skip_serializing)]
@@ -163,6 +180,9 @@ pub struct Region {
     pub env: BTreeMap<String, String>,
     /// Kong configuration for the region
     pub kong: KongConfig,
+    /// Kafka configuration for the region
+    #[serde(default)]
+    pub kafka: KafkaConfig,
     /// Vault configuration for the region
     pub vault: VaultConfig,
 }

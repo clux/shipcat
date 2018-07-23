@@ -29,7 +29,7 @@ impl DataHandling {
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct DataStore {
-    /// Storage type (one of "MySQL", "DynamoDB", "S3", "File")
+    /// Storage type (one of "MySQL", "DynamoDB", "S3", "File", "Kafka")
     pub backend: String,
 
     /// Fields stored in this backend
@@ -126,6 +126,7 @@ impl DataFieldType {
             &DataFieldType::FullName => false,
             &DataFieldType::HomeAddress => false,
             &DataFieldType::DateOfBirth => false,
+            &DataFieldType::BabylonUserId => false,
             // Otherwise fall back to the weaker PII
             // because: not PII implies not SPII
             // slightly more sensible default than just `true`
