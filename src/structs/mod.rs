@@ -22,6 +22,10 @@ pub use self::jaeger::Jaeger;
 pub mod kong;
 pub use self::kong::Kong;
 
+/// Kafka configs
+pub mod kafka;
+pub use self::kafka::Kafka;
+
 // Kubernetes - first are abstractions latter ones are straight translations
 
 // abstractions - these have special handling

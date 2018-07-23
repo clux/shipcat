@@ -18,7 +18,8 @@ use super::structs::volume::{Volume, VolumeMount};
 use super::structs::{Metadata, DataHandling, VaultOpts, Dependency};
 //use super::structs::prometheus::{Prometheus, Dashboard};
 use super::structs::Probe;
-use super::structs::{CronJob, Kong, Sidecar};
+use super::structs::{CronJob, Sidecar};
+use super::structs::{Kafka, Kong};
 use super::structs::Worker;
 
 /// Main manifest, serializable from shipcat.yml
@@ -175,6 +176,10 @@ pub struct Manifest {
     /// Kong config
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kong: Option<Kong>,
+
+    /// Kafka config
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kafka: Option<Kafka>,
 
     /// Kube Secret Files to append
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]

@@ -30,13 +30,8 @@ pub struct ProjectedVolumeSecretSourceDetail {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-pub struct VolumeSecret {
-    pub secret: Option<VolumeSecretDetail>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ProjectedVolumeSecretSource {
-    pub secret: Option<ProjectedVolumeSecretSourceDetail>,
+    pub secret: ProjectedVolumeSecretSourceDetail,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -51,7 +46,7 @@ pub struct Volume {
     /// A projection combines multiple volume items
     #[serde(skip_serializing_if = "Option::is_none")]
     pub projected: Option<ProjectedVolumeSecret>,
-    /// The secret is fetched  from kube secrets and mounted as a volume
+    /// The secret is fetched from kube secrets and mounted as a volume
     #[serde(skip_serializing_if = "Option::is_none")]
     pub secret: Option<VolumeSecretDetail>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

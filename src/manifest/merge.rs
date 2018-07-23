@@ -26,6 +26,9 @@ impl Manifest {
                 kong.implicits(self.name.clone(), reg.clone());
             }
 
+            if let Some(ref mut kafka) = self.kafka {
+                kafka.implicits(&self.name, reg.clone())
+            }
             // Inject the region's environment name and namespace
             self.environment = reg.environment.clone();
             self.namespace = reg.namespace.clone();
@@ -139,6 +142,9 @@ impl Manifest {
         }
         if mf.resources.is_some(){
             self.resources = mf.resources;
+        }
+        if mf.kafka.is_some() {
+            self.kafka = mf.kafka;
         }
         if mf.kong.is_some() {
             self.kong = mf.kong;
