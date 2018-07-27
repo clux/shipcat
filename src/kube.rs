@@ -150,7 +150,6 @@ pub fn debug(mf: &Manifest) -> Result<()> {
     }
     // ignore errors from here atm - it's mostly here as a best effort helper
     let _ = debug_active_replicasets(mf);
-    let _ = debug_rollout_status(mf);
     Ok(())
 }
 
@@ -259,7 +258,7 @@ fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
 fn debug_active_replicasets(mf: &Manifest) -> Result<()> {
     let sets = find_active_replicasets(mf)?;
     if sets.len() > 1 {
-        warn!("{:?}", sets);
+        warn!("ReplicaSets: {:?}", sets);
     }
     if let Some(latest) = sets.iter().max_by_key(|x| x.created.timestamp()) {
         info!("Latest {:?}", latest);
@@ -269,7 +268,7 @@ fn debug_active_replicasets(mf: &Manifest) -> Result<()> {
         else if latest.available == 0{
             warn!("No replicas were rolled out fast enough ({} secs)", mf.estimate_wait_time());
             warn!("Your application might be crashing, or fail to respond to healthchecks in time");
-            warn!("Current health checks is set to {:?}", mf.health);
+            warn!("Current health check is set to {:?}", mf.health);
         }
     } else {
         warn!("No active replicasets found");

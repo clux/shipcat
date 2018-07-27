@@ -198,7 +198,8 @@ impl UpgradeData {
             region: mf.region.clone(),
             chart: mf.chart.clone().unwrap(), // helm doesn't need this to rollback, but setting
             mode: UpgradeMode::UpgradeInstall, // unused in rollback flow, but setting
-            // empty diff, 0 waittime,
+            waittime: mf.estimate_wait_time(),
+            // empty diff
             ..Default::default()
         }
     }
