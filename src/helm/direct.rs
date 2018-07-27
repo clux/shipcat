@@ -477,31 +477,23 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
     if let Some(ref udata) = upgrade_opt {
         // while upgrade is ongoing, have a background thread report upgrade progress:
         use std::{thread, time};
-        use std::sync::{Mutex, Arc};
-        let ustatus = Arc::new(Mutex::new(1));
-
-        let tstatus = Arc::clone(&ustatus);
+        // NB: This polling thread will be killed by `main`
         let mfcpy = mf.clone(); // for thread
-        let joinhandle = thread::Builder::new().name("upgrade_status".to_string()).spawn(move || {
+        let _joinhandle = thread::Builder::new().name("upgrade_status".to_string()).spawn(move || {
             let waittime = mfcpy.estimate_wait_time();
             let sec = time::Duration::from_millis(1000);
             trace!("Upgrade status thread active;");
             for i in 1..10 {
                 trace!("poll thread iteration {}", i);
                 let mut waited = 0;
-                // if parent thread is still listening, report status and sleep
-                while *tstatus.lock().unwrap() == 1 && waited < waittime/10 {
+                // report status and sleep
+                while waited < waittime/10 {
                     waited += 1;
                     trace!("sleep 1s (waited {})", waited);
                     thread::sleep(sec);
                 }
-                if *tstatus.lock().unwrap() == 0 {
-                    trace!("closing poll thread");
-                    return;
-                }
                 let _ = kube::debug_rollout_status(&mfcpy);
             }
-            return;
         }).unwrap();
 
         // Upgrade data exists so it necessary - start the upgrade:
@@ -515,13 +507,6 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
                 handle_upgrade_notifies(true, &udata)?
             }
         };
-
-        // set marker to close the upgrade thread, then join on it
-        {
-            let mut fstatus = ustatus.lock().unwrap();
-            *fstatus = 0; // thread should stop a second after this
-        }
-        joinhandle.join().expect("Could not join on polling thread");
     }
     let _ = fs::remove_file(&hfile); // try to remove temporary file
     Ok(upgrade_opt)
