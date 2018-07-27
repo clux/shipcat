@@ -1,7 +1,7 @@
 use serde_yaml;
 use std::collections::BTreeMap;
 
-use super::structs::DataHandling;
+use super::structs::security::DataHandling;
 use super::{Manifest, Result, Config};
 
 /// GdprOutput across manifests

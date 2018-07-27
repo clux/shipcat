@@ -1,5 +1,7 @@
 use super::{Result, Manifest};
 use regex::Regex;
+use serde_yaml;
+use chrono::{Utc, DateTime};
 
 fn kexec(args: Vec<String>) -> Result<()> {
     use std::process::Command;
@@ -55,7 +57,8 @@ fn get_pods(mf: &Manifest) -> Result<String> {
     Ok(podsres)
 }
 
-fn get_broken_pods(mf: &Manifest) -> Result<Vec<String>> {
+/// Return non-running or partially ready pods
+fn get_broken_pods(mf: &Manifest) -> Result<(String, Vec<String>)> {
     let podargs = vec![
         "get".into(),
         "pods".into(),
@@ -82,7 +85,7 @@ fn get_broken_pods(mf: &Manifest) -> Result<Vec<String>> {
             }
         }
     }
-    Ok(bpods)
+    Ok((podres, bpods))
 }
 
 /// Debug helper when upgrades fail
@@ -90,9 +93,12 @@ fn get_broken_pods(mf: &Manifest) -> Result<Vec<String>> {
 /// Prints log excerpts and events for broken pods.
 /// Typically enough to figure out why upgrades broke.
 pub fn debug(mf: &Manifest) -> Result<()> {
-    let pods = get_broken_pods(&mf)?;
+    let (podres, pods) = get_broken_pods(&mf)?;
     if pods.is_empty() {
         info!("No broken pods found");
+        info!("Pod statuses:\n{}", podres);
+    } else {
+        warn!("Pod statuses:\n{}", podres);
     }
     for pod in pods.clone() {
         warn!("Debugging non-running pod {}", pod);
@@ -126,6 +132,7 @@ pub fn debug(mf: &Manifest) -> Result<()> {
             pod.clone(),
             format!("-n={}", mf.namespace),
         ];
+
         match kout(descvec) {
             Ok(mut o) => {
                 if let Some(idx) = o.find("Events:\n") {
@@ -140,6 +147,147 @@ pub fn debug(mf: &Manifest) -> Result<()> {
                 warn!("Failed to describe {}: {}", pod, e)
             }
         }
+    }
+    // ignore errors from here atm - it's mostly here as a best effort helper
+    let _ = debug_active_replicasets(mf);
+    let _ = debug_rollout_status(mf);
+    Ok(())
+}
+
+
+// Parsed replica status from a deployment description
+#[derive(Clone, Debug)]
+struct ReplicaStatus {
+    /// Name of ReplicaSet
+    pub name: String,
+    /// Total replicas expected
+    pub total: u32,
+    /// Total replicas running
+    pub running: u32,
+}
+
+// limited parsed struct from kube ReplicaSet yaml
+#[derive(Deserialize)]
+struct ReplicaSetVal {
+    // rollout status of the RS
+    status: ReplicaInfoVal,
+    // metadata for timestamps
+    metadata: ReplicaMetadataVal,
+}
+#[derive(Deserialize, Debug)]
+struct ReplicaMetadataVal {
+    creationTimestamp: DateTime<Utc>, // e.g. 2018-05-17T10:08:37Z
+}
+#[derive(Deserialize, Debug)]
+struct ReplicaInfoVal {
+    // `observedGeneration` <- not unique across replicasets so useless
+    // Currently available replicas (ready for minReadySeconds) from this generation
+    #[serde(default)] // 0 if missing
+    availableReplicas: u32,
+    /// Currently ready replilas from this generation (weaker than above)
+    #[serde(default)] // 0 if missing
+    readyReplicas: u32,
+    /// Most recently oberved number of replicas
+    replicas: u32,
+}
+
+
+/// Simplified ReplicaSet struct
+///
+/// Created by combining deployment description with appropriate replicaset yamls
+#[derive(Debug)]
+pub struct ReplicaSet {
+    /// Name of replicaset
+    pub name: String,
+    /// Available replicas (has been ready for minReadySeconds)
+    pub available: u32,
+    /// Total replicas in set
+    pub total: u32,
+    /// Created timestamp (used for ordering)
+    pub created: DateTime<Utc>,
+}
+
+// Finds affected replicatsets, and checks the state of them.
+fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
+    // find relevant replicasets
+    // NB: not returned via `k get deploy {name} -oyaml` - have to scrape describe..
+    let descvec = vec![
+        "describe".into(),
+        "deploy".into(),
+        mf.name.clone(),
+        format!("-n={}", mf.namespace),
+    ];
+    // Finding the affected replicasets:
+    let rs_re = Regex::new(r"(Old|New)ReplicaSets?:\s+(?P<rs>\S+)\s+\((?P<running>\d+)/(?P<total>\d+)").unwrap();
+    let deployres = kout(descvec)?;
+    let mut sets = vec![];
+    for l in deployres.lines() {
+        if let Some(caps) = rs_re.captures(l) {
+            sets.push(ReplicaStatus {
+                name: caps["rs"].to_string(),
+                running: caps["running"].parse()?,
+                total: caps["total"].parse()?,
+            });
+        }
+    }
+    // Query each of the affected replicasets for info using yaml api:
+    let mut completesets = vec![];
+    for rs in sets {
+        // Find total counts from each replicaset
+        let getvec = vec![
+            "get".into(),
+            "rs".into(),
+            rs.name.clone(),
+            format!("-n={}", mf.namespace),
+            "-oyaml".into(),
+        ];
+        let getres = kout(getvec)?;
+        let rv : ReplicaSetVal = serde_yaml::from_str(&getres)?;
+        let ri = rv.status;
+        let res = ReplicaSet {
+            name: rs.name,
+            available: ri.availableReplicas,
+            total: ri.replicas,
+            created: rv.metadata.creationTimestamp
+        };
+        completesets.push(res);
+    }
+    Ok(completesets)
+}
+
+// Debug status of active replicasets post-upgrade helpful info
+fn debug_active_replicasets(mf: &Manifest) -> Result<()> {
+    let sets = find_active_replicasets(mf)?;
+    if sets.len() > 1 {
+        warn!("{:?}", sets);
+    }
+    if let Some(latest) = sets.iter().max_by_key(|x| x.created.timestamp()) {
+        info!("Latest {:?}", latest);
+        if latest.available > 0 && latest.available < latest.total {
+            warn!("Some replicas successfully rolled out - maybe a higher timeout would help?");
+        }
+        else if latest.available == 0{
+            warn!("No replicas were rolled out fast enough ({} secs)", mf.estimate_wait_time());
+            warn!("Your application might be crashing, or fail to respond to healthchecks in time");
+            warn!("Current health checks is set to {:?}", mf.health);
+        }
+    } else {
+        warn!("No active replicasets found");
+    }
+    Ok(())
+}
+
+/// Print upgrade status of current replicaset rollout
+pub fn debug_rollout_status(mf: &Manifest) -> Result<()> {
+    let mut sets = find_active_replicasets(mf)?;
+    if sets.len() == 2 {
+        sets.sort_unstable_by(|x,y| x.created.timestamp().cmp(&y.created.timestamp()));
+        let old = sets.first().unwrap();
+        let new = sets.last().unwrap();
+        info!("{} upgrade status: old {}/{} -  new {}/{} ", mf.name,
+            old.available, old.total,
+            new.available, new.total
+        );
     }
     Ok(())
 }
