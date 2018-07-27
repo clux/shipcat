@@ -62,8 +62,8 @@ pub use self::metadata::Metadata;
 pub mod prometheus;
 
 
-mod security;
-pub use self::security::DataHandling;
+/// Security related structs
+pub mod security;
 
 mod vault;
 pub use self::vault::VaultOpts;

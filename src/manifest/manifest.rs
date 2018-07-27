@@ -15,8 +15,9 @@ use super::structs::traits::Verify;
 use super::structs::{HealthCheck, ConfigMap};
 use super::structs::{InitContainer, Resources, HostAlias};
 use super::structs::volume::{Volume, VolumeMount};
-use super::structs::{Metadata, DataHandling, VaultOpts, Dependency};
+use super::structs::{Metadata, VaultOpts, Dependency};
 //use super::structs::prometheus::{Prometheus, Dashboard};
+use super::structs::security::DataHandling;
 use super::structs::Probe;
 use super::structs::{CronJob, Sidecar};
 use super::structs::{Kafka, Kong};
@@ -360,7 +361,8 @@ impl Manifest {
         Ok(mf)
     }
 
-    // TODO: move to helm module
+    // How long to wait for a kube rolling upgrade
+    // Currently used by helm upgrade --wait
     pub fn estimate_wait_time(&self) -> u32 {
         // 512 default => extra 60s wait
         let pulltimeestimate = (((self.imageSize.unwrap()*60) as f64)/(1024 as f64)) as u32;
