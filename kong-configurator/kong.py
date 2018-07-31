@@ -3,6 +3,7 @@ import requests
 import json
 import argparse
 import sys
+from typing import Dict, List, Optional
 
 
 ##################################
@@ -82,29 +83,36 @@ current_consumers = get_current_consumers(kong_endpoint)
 ##################################
 
 def configure_oauth2(api, kong_endpoint, kong_config, current_plugins):
+
+    # Get OAuth2 API Plugin Metadata if already exists in Kong
+    current_plugin = find_plugin(
+        plugins=current_plugins["data"],
+        api_id=api["id"],
+        plugin_name="oauth2"
+    )
+
     if "auth" not in api or api["auth"] != "none":
         oauth2_api_config = {
             "name": "oauth2",
             "enabled": True,
             "config": {
-              "mandatory_scope": False,
-              "token_expiration": kong_config["kong_token_expiration"],
-              "enable_implicit_grant": False,
-              "hide_credentials": False,
-              "enable_password_grant": True,
-              "global_credentials": True,
-              "accept_http_if_already_terminated": False,
-              "provision_key": kong_config["oauth_provision_key"],
-              "enable_client_credentials": False,
-              "enable_authorization_code": True,
-              "anonymous": api.get("oauth2_anonymous", "")
+                "mandatory_scope": False,
+                "token_expiration": kong_config["kong_token_expiration"],
+                "enable_implicit_grant": False,
+                "hide_credentials": False,
+                "enable_password_grant": True,
+                "global_credentials": True,
+                "accept_http_if_already_terminated": False,
+                "provision_key": kong_config["oauth_provision_key"],
+                "enable_client_credentials": False,
+                "enable_authorization_code": True,
+                "anonymous": api.get("oauth2_anonymous", "")
             }
         }
         # Get Oauth2 API Plugin Metadata if already exists in Kong
-        for plugin in current_plugins["data"]:
-            if plugin["name"] == 'oauth2' and plugin["api_id"] == api["id"]:
-                oauth2_api_config["id"] = plugin["id"]
-                oauth2_api_config["created_at"] = plugin["created_at"]
+        if current_plugin:
+            oauth2_api_config["id"] = current_plugin["id"]
+            oauth2_api_config["created_at"] = current_plugin["created_at"]
         # Add/Update Oauth2 API Plugin
         kong_plugin_config_endpoint = kong_endpoint + '/apis/' + api["id"] + '/plugins/'
         try:
@@ -112,12 +120,21 @@ def configure_oauth2(api, kong_endpoint, kong_config, current_plugins):
                 kong_plugin_config_endpoint,
                 json=oauth2_api_config
             )
-        except:
+        except Exception:
             print("Unexpected error:", sys.exc_info()[0])
         print("    OAuth2: \t\t\t[{}]".format(
             bcolors.OKGREEN + "OK" + bcolors.ENDC)
         )
+    elif current_plugin:
+        try:
+            response = requests.delete(
+                f"{kong_endpoint}/apis/{api['id']}/plugins/{current_plugin['id']}"
+            )
+            response.raise_for_status()
+        except Exception:
+            print("Unexpected error:", sys.exc_info()[0])
 
+        print("    OAuth2: \t\t[{}]".format(bcolors.WARNING + "Removed" + bcolors.ENDC))
     else:
         print("    OAuth2: \t\t\t[{}]".format(
             bcolors.WARNING + "None" + bcolors.ENDC)
@@ -128,9 +145,9 @@ def configure_correlation_id(api, kong_endpoint, current_plugins):
     correlation_id_api_config = {
         "name": "correlation-id",
         "config": {
-          "header_name": "babylon-request-id",
-          "generator": "uuid",
-          "echo_downstream": True
+            "header_name": "babylon-request-id",
+            "generator": "uuid",
+            "echo_downstream": True
         }
     }
     # Get Correlation ID API Plugin Metadata if already exists in Kong
@@ -142,13 +159,21 @@ def configure_correlation_id(api, kong_endpoint, current_plugins):
     kong_plugin_config_endpoint = kong_endpoint + '/apis/' + api["id"] + '/plugins/'
     try:
         requests.put(kong_plugin_config_endpoint, json=correlation_id_api_config)
-    except:
+    except Exception:
         print("Unexpected error:", sys.exc_info()[0])
     print("    Correlation ID: \t\t[{}]".format(bcolors.OKGREEN + "OK" + bcolors.ENDC))
 
 
 def configure_ip_restriction(api, kong_endpoint, kong_config, current_plugins):
     internal = api.get("internal", False)
+
+    # Get IP Restriction API Plugin Metadata if already exists in Kong
+    current_plugin = find_plugin(
+        plugins=current_plugins["data"],
+        api_id=api["id"],
+        plugin_name="ip-restriction"
+    )
+
     if internal:
         additional_internal_ips = api.get("additional_internal_ips", [])
         whitelist = ",".join(kong_config["internal_ips_whitelist"] + additional_internal_ips)
@@ -159,19 +184,31 @@ def configure_ip_restriction(api, kong_endpoint, kong_config, current_plugins):
                 "whitelist": whitelist,
             }
         }
-        # Get IP Restriction API Plugin Metadata if already exists in Kong
-        for plugin in current_plugins["data"]:
-            if plugin["name"] == 'ip-restriction' and plugin["api_id"] == api["id"]:
-                ip_restriction_api_config["id"] = plugin["id"]
-                ip_restriction_api_config["created_at"] = plugin["created_at"]
+
+        if current_plugin:
+            ip_restriction_api_config["id"] = current_plugin["id"]
+            ip_restriction_api_config["created_at"] = current_plugin["created_at"]
+
         # Add/Update IP Restriction API Plugin
         kong_plugin_config_endpoint = kong_endpoint + '/apis/' + api["id"] + '/plugins/'
-        try:
-            requests.put(kong_plugin_config_endpoint, json=ip_restriction_api_config)
-        except:
-            print("Unexpected error:", sys.exc_info()[0])
-        print("    IP Restriction: \t\t[{}]".format(bcolors.OKGREEN + "OK" + bcolors.ENDC))
 
+        try:
+            response = requests.put(kong_plugin_config_endpoint, json=ip_restriction_api_config)
+            response.raise_for_status()
+        except Exception:
+            print("Unexpected error:", sys.exc_info()[0])
+
+        print("    IP Restriction: \t\t[{}]".format(bcolors.OKGREEN + "OK" + bcolors.ENDC))
+    elif current_plugin:
+        try:
+            response = requests.delete(
+                f"{kong_endpoint}/apis/{api['id']}/plugins/{current_plugin['id']}"
+            )
+            response.raise_for_status()
+        except Exception:
+            print("Unexpected error:", sys.exc_info()[0])
+
+        print("    IP Restriction: \t\t[{}]".format(bcolors.WARNING + "Removed" + bcolors.ENDC))
     else:
         print("    IP Restriction: \t\t[{}]".format(bcolors.WARNING + "None" + bcolors.ENDC))
 
@@ -198,7 +235,7 @@ def configure_babylon_auth_header(api, kong_endpoint, current_plugins):
         kong_plugin_config_endpoint = kong_endpoint + '/apis/' + api["id"] + '/plugins/'
         try:
             requests.put(kong_plugin_config_endpoint, json=babylon_auth_header_api_config)
-        except:
+        except Exception:
             print("Unexpected error:", sys.exc_info()[0])
         print("    Babylon Auth Header: \t[{}]".format(bcolors.OKGREEN + "OK" + bcolors.ENDC))
 
@@ -208,8 +245,8 @@ def configure_babylon_auth_header(api, kong_endpoint, current_plugins):
 
 def configure_json_cookies_to_headers(api, kong_endpoint, current_plugins):
     cookie_to_header_config = {
-      "cookie_name": "autologin_token",
-      "field_name": "kong_token"
+        "cookie_name": "autologin_token",
+        "field_name": "kong_token"
     }
     cookie_to_header_enabled = api.get("cookie_auth", False)
     if cookie_to_header_enabled:
@@ -227,7 +264,7 @@ def configure_json_cookies_to_headers(api, kong_endpoint, current_plugins):
         kong_plugin_config_endpoint = kong_endpoint + '/apis/' + api["id"] + '/plugins/'
         try:
             requests.put(kong_plugin_config_endpoint, json=cookie_to_header_api_config)
-        except:
+        except Exception:
             print("Unexpected error:", sys.exc_info()[0])
         print("    Cookie to Header: \t\t[{}]".format(bcolors.OKGREEN + "OK" + bcolors.ENDC))
 
@@ -252,7 +289,7 @@ def configure_oauth2_extension(api, kong_endpoint, current_plugins):
         kong_plugin_config_endpoint = kong_endpoint + '/apis/' + api["id"] + '/plugins/'
         try:
             requests.put(kong_plugin_config_endpoint, json=oauth2_extension_api_config)
-        except:
+        except Exception:
             print("Unexpected error:", sys.exc_info()[0])
         print("    Oauth2 Extension: \t\t[{}]".format(bcolors.OKGREEN + "OK" + bcolors.ENDC))
 
@@ -288,7 +325,7 @@ def configure_cors(api, kong_endpoint, kong_config, current_plugins):
             response = requests.put(kong_plugin_config_endpoint, json=cors_api_config)
             if response.status_code > 399:
                 print("Unexpected status code %s, error: " % (response.status_code, response.text))
-        except:
+        except Exception:
             print("Unexpected error:", sys.exc_info()[0])
         print("    CORS: \t\t\t[{}]".format(bcolors.OKGREEN + "OK" + bcolors.ENDC))
     else:
@@ -318,11 +355,58 @@ def configure_tcp_log(api, kong_endpoint, kong_config, current_plugins):
         kong_plugin_config_endpoint = kong_endpoint + '/apis/' + api["id"] + '/plugins/'
         try:
             requests.put(kong_plugin_config_endpoint, json=tcp_log_api_config)
-        except:
+        except Exception:
             print("Unexpected error:", sys.exc_info()[0])
         print("    TCP Log: \t\t\t[{}]".format(bcolors.OKGREEN + "OK" + bcolors.ENDC))
     else:
         print("    TCP Log: \t\t\t[{}]".format(bcolors.WARNING + "None" + bcolors.ENDC))
+
+def configure_response_transformer(api, kong_endpoint, kong_config, current_plugins):
+    # Get response-transformer API Plugin Metadata if already exists in Kong
+    current_plugin = find_plugin(
+        plugins=current_plugins["data"],
+        api_id=api["id"],
+        plugin_name="response-transformer"
+    )
+
+    add_headers = api.get("add_headers", None)
+    if add_headers:
+        # Normalise map of headers into an array
+        headers_array = []
+        for (k, v) in add_headers.items():
+            headers_array.append(f"{k}: {v}")
+
+        response_transformer_api_config = {
+            "name": "response-transformer",
+            "enabled": True,
+            "config": {
+                "add": {
+                    "headers": headers_array
+                }
+            }
+        }
+        # Get Response Transformer API Plugin Metadata if already exists in Kong
+        if current_plugin:
+            response_transformer_api_config["id"] = current_plugin["id"]
+            response_transformer_api_config["created_at"] = current_plugin["created_at"]
+        # Add/Update Response Transformer API Plugin
+        kong_plugin_config_endpoint = kong_endpoint + '/apis/' + api["id"] + '/plugins/'
+        try:
+            requests.put(kong_plugin_config_endpoint, json=response_transformer_api_config)
+            print("    Response transformer: \t[{}]".format(bcolors.OKGREEN + "OK" + bcolors.ENDC))
+        except:
+            print("Unexpected error:", sys.exc_info()[0])
+    elif current_plugin:
+        try:
+            response = requests.delete(
+                f"{kong_endpoint}/apis/{api['id']}/plugins/{current_plugin['id']}"
+            )
+            response.raise_for_status()
+            print("    Response transformer: \t[{}]".format(bcolors.WARNING + "Removed" + bcolors.ENDC))
+        except Exception:
+            print("Unexpected error:", sys.exc_info()[0])
+    else:
+        print("    Response transformer: \t[{}]".format(bcolors.WARNING + "None" + bcolors.ENDC))
 
 
 def configure_consumer(consumer_config, kong_endpoint, current_consumers, anonymous=False):
@@ -337,7 +421,7 @@ def configure_consumer(consumer_config, kong_endpoint, current_consumers, anonym
     # Add/Update Consumer
     try:
         r = requests.put(kong_endpoint + '/consumers', data=existing_consumer)
-    except:
+    except Exception:
         print("Unexpected error:", sys.exc_info()[0])
     print("{}: ".format(consumer_config["username"]) + bcolors.OKGREEN + "OK" + bcolors.ENDC)
     if not anonymous:
@@ -361,7 +445,7 @@ def configure_consumer(consumer_config, kong_endpoint, current_consumers, anonym
         # Add/Update OAuth Credentials
         try:
             r = requests.put(kong_consumer_oauth, data=consumer_oauth)
-        except:
+        except Exception:
             print("Unexpected error:", sys.exc_info()[0])
         consumer_oauth["id"] = r.json()["id"]
         consumer_oauth["created_at"] = r.json()["created_at"]
@@ -393,7 +477,7 @@ def configure_api(api, current_apis, kong_endpoint, kong_config, current_plugins
     # Add/Update API
     try:
         r = requests.put(kong_endpoint + '/apis', data=api_config)
-    except:
+    except Exception:
         print("Unexpected error:", sys.exc_info()[0])
     api["id"] = r.json()["id"]
     api["created_at"] = r.json()["created_at"]
@@ -414,6 +498,18 @@ def configure_api(api, current_apis, kong_endpoint, kong_config, current_plugins
     configure_json_cookies_to_headers(api, kong_endpoint, current_plugins)
     # Configure TCP Plugin
     configure_tcp_log(api, kong_endpoint, kong_config, current_plugins)
+    # Configure Response Transformer Plugin
+    configure_response_transformer(api, kong_endpoint, kong_config, current_plugins)
+
+
+def find_plugin(
+    *, plugins: List[Dict], api_id: str, plugin_name: str,
+) -> Optional[Dict]:
+    for plugin in plugins:
+        if plugin["name"] == plugin_name and plugin["api_id"] == api_id:
+            return plugin
+
+    return None
 
 
 ##################################

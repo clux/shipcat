@@ -2,6 +2,7 @@ use super::traits::Verify;
 use super::{Config, Result};
 use config::{Region};
 use std::ops::Not;
+use std::collections::BTreeMap;
 
 /// Kong setup for a service
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -47,6 +48,8 @@ pub struct Kong {
     pub upstream_send_timeout: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upstream_read_timeout: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub add_headers: Option<BTreeMap<String, String>>,
 }
 
 
