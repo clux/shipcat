@@ -53,6 +53,9 @@ pub use self::initcontainer::InitContainer;
 /// Kubernetes health check probes
 mod probes;
 pub use self::probes::Probe;
+/// Kubernetes pod disruption budget
+mod disruption;
+pub use self::disruption::DisruptionBudget;
 
 
 mod metadata;
