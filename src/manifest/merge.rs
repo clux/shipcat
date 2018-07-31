@@ -152,6 +152,9 @@ impl Manifest {
         if mf.vault.is_some() {
             self.vault = mf.vault;
         }
+        if mf.disruptionBudget.is_some() {
+            self.disruptionBudget = mf.disruptionBudget;
+        }
         if mf.health.is_some() {
             self.health = mf.health;
         }

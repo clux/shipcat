@@ -21,6 +21,7 @@ use super::structs::security::DataHandling;
 use super::structs::Probe;
 use super::structs::{CronJob, Sidecar};
 use super::structs::{Kafka, Kong};
+use super::structs::DisruptionBudget;
 use super::structs::Worker;
 
 /// Main manifest, serializable from shipcat.yml
@@ -139,6 +140,9 @@ pub struct Manifest {
     /// Optional liveness probe
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub livenessProbe: Option<Probe>,
+    /// Pod Disruption Budget
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disruptionBudget: Option<DisruptionBudget>,
 
     /// host aliases to inject in /etc/hosts
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -452,6 +456,9 @@ impl Manifest {
         // misc minor properties
         if self.replicaCount.unwrap() == 0 {
             bail!("Need replicaCount to be at least 1");
+        }
+        if let Some(ref pdb) = &self.disruptionBudget {
+            pdb.verify(self.replicaCount.unwrap())?;
         }
 
         // Env values are uppercase
