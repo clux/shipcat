@@ -293,12 +293,23 @@ fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
         mf._decoded_secrets.values().cloned().collect()
     );
     if !hdifferr.is_empty() {
+        if hdifferr.starts_with(&format!("Error: \"{}\" has no deployed releases", mf.name)) {
+            let cmd = format!("helm --tiller-namespace={} del --purge {}", namespace, mf.name);
+            let reason = format!("to let you be able to retry the install/reconcile");
+            error!("Previous installs of {} failed, you need to run: \n\t{}\n{}",
+                mf.name, cmd, reason
+            );
+            // TODO: automate above? feels dangerous..
+            // return empty diff to force the error on helms end
+            return Ok("helm will attempt and fail to upgrade".to_string());
+        }
         warn!("diff {} stderr: \n{}", mf.name, hdifferr);
         if ! hdifferr.contains("error copying from local connection to remote stream") &&
            ! hdifferr.contains("error copying from remote stream to local connection") {
             bail!("diff plugin for {} returned: {}", mf.name, hdifferr.lines().next().unwrap());
         }
     }
+
     let smalldiff = helpers::diff_format(helmdiff.clone());
 
     if !helmdiff.is_empty() {
