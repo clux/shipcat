@@ -20,7 +20,8 @@ struct APIServiceParams {
 #[derive(Serialize)]
 struct EnvironmentInfo {
     name: String,
-    base_services: String,
+    services_suffix: String,
+    base_url: String,
     ip_whitelist: Vec<String>,
 }
 
@@ -66,7 +67,8 @@ pub fn apistatus(conf: &Config, region: &str) -> Result<()> {
     // Get Environment Config
     let environment = EnvironmentInfo {
         name: region.to_string(),
-        base_services: reg.kong.base_url,
+        services_suffix: reg.kong.base_url,
+        base_url: reg.base_urls.get("services").unwrap_or(&"".to_string()).to_string(),
         ip_whitelist: reg.ip_whitelist,
     };
 
