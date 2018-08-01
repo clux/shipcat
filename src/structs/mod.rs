@@ -54,8 +54,8 @@ pub use self::initcontainer::InitContainer;
 mod probes;
 pub use self::probes::Probe;
 /// Kubernetes pod disruption budget
-mod disruption;
-pub use self::disruption::DisruptionBudget;
+mod rollingupdate;
+pub use self::rollingupdate::RollingUpdate;
 
 
 mod metadata;

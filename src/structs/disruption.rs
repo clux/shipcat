@@ -1,3 +1,12 @@
+/// Source for PodDisruptionBudget representation
+///
+/// Ultimately, this is left unused and unimported due to significant limitations in kube.
+/// In particular; https://github.com/kubernetes/kubernetes/issues/45398
+/// which causes us to not reliably be able to change them.
+///
+/// This work is left here in case it becomes useful.
+/// Users may wish to look at rollingupdate.rs instead, which has a useful alternative.
+
 use super::{Result};
 
 // Untagged enum to get around the weird validation
