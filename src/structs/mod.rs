@@ -53,10 +53,11 @@ pub use self::initcontainer::InitContainer;
 /// Kubernetes health check probes
 mod probes;
 pub use self::probes::Probe;
-/// Kubernetes pod disruption budget
+/// Kubernetes rolling-update settings
 mod rollingupdate;
 pub use self::rollingupdate::RollingUpdate;
-
+/// Kubernetes horizontal pod autoscaler
+pub mod autoscaling;
 
 mod metadata;
 pub use self::metadata::Metadata;

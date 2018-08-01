@@ -22,6 +22,7 @@ use super::structs::Probe;
 use super::structs::{CronJob, Sidecar};
 use super::structs::{Kafka, Kong};
 use super::structs::RollingUpdate;
+use super::structs::autoscaling::AutoScaling;
 use super::structs::Worker;
 
 /// Main manifest, serializable from shipcat.yml
@@ -143,9 +144,12 @@ pub struct Manifest {
     /// Optional liveness probe
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub livenessProbe: Option<Probe>,
-    /// Pod Disruption Budget
+    /// Rolling update Deployment parameters
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rollingUpdate: Option<RollingUpdate>,
+    /// Horizontal Pod Auto Scaler parameters
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub autoScaling: Option<AutoScaling>,
 
     /// host aliases to inject in /etc/hosts
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
