@@ -155,6 +155,9 @@ impl Manifest {
         if mf.rollingUpdate.is_some() {
             self.rollingUpdate = mf.rollingUpdate;
         }
+        if mf.autoScaling.is_some() {
+            self.autoScaling = mf.autoScaling;
+        }
         if mf.health.is_some() {
             self.health = mf.health;
         }
