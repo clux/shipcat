@@ -180,6 +180,9 @@ pub struct Region {
     pub env: BTreeMap<String, String>,
     /// Kong configuration for the region
     pub kong: KongConfig,
+    /// List of Whitelisted IPs
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ip_whitelist: Vec<String>,
     /// Kafka configuration for the region
     #[serde(default)]
     pub kafka: KafkaConfig,

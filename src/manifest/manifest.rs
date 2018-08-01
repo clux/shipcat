@@ -50,6 +50,9 @@ pub struct Manifest {
     /// Regions service is deployed to
     #[serde(default, skip_serializing)]
     pub regions: Vec<String>,
+    /// Wheter the service should be public
+    #[serde(default, skip_serializing)]
+    pub publiclyAccessible: bool,
 
     // Secret evars
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
