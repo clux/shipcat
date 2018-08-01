@@ -2,6 +2,7 @@ use std::fs;
 use std::fmt;
 use std::io::{self, Write};
 
+use super::grafana;
 use super::slack;
 use super::kube;
 use super::Metadata;
@@ -85,6 +86,13 @@ pub fn rollback(ud: &UpgradeData) -> Result<()> {
             Err(e)
         },
         Ok(_) => {
+            let _ = grafana::create(grafana::Annotation {
+                event: grafana::Event::Rollback,
+                service: ud.name.clone(),
+                version: ud.version.clone(),
+                region: ud.region.clone(),
+                time: grafana::TimeSpec::Now,
+            });
             slack::send(slack::Message {
                 text: format!("rolling back `{}` in {}",  &ud.name, &ud.region),
                 color: Some("warning".into()),
@@ -426,6 +434,15 @@ pub fn handle_upgrade_notifies(success: bool, u: &UpgradeData) -> Result<()> {
         ("danger".into(), format!("failed to {} `{}` in `{}`", u.mode, u.name, u.region))
     };
     let code = if u.diff.is_empty() { None } else { Some(u.diff.clone()) };
+    if u.mode != UpgradeMode::DiffOnly {
+      let _ = grafana::create(grafana::Annotation {
+          event: grafana::Event::Upgrade,
+          service: u.name.clone(),
+          version: u.version.clone(),
+          region: u.region.clone(),
+          time: grafana::TimeSpec::Now,
+      });
+    }
     slack::send(slack::Message {
         text, code,
         color: Some(color),

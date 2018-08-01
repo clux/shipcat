@@ -13,6 +13,7 @@ extern crate walkdir;
 
 // vault api
 extern crate reqwest;
+#[macro_use]
 extern crate serde_json;
 #[macro_use]
 extern crate hyper;
@@ -53,6 +54,7 @@ error_chain! {
         SerdeJ(serde_json::Error);
         Slack(slack_hook::Error);
         Reqw(reqwest::UrlError);
+        Time(::std::time::SystemTimeError);
     }
     errors {
         MissingJenkinsJob(job: String) {
@@ -70,6 +72,14 @@ error_chain! {
         MissingSlackChannel {
             description("SLACK_SHIPCAT_CHANNEL not specified")
             display("SLACK_SHIPCAT_CHANNEL not specified")
+        }
+        MissingGrafanaUrl {
+            description("GRAFANA_SHIPCAT_HOOK_URL not specified")
+            display("GRAFANA_SHIPCAT_HOOK_URL not specified")
+        }
+        MissingGrafanaToken {
+            description("GRAFANA_SHIPCAT_TOKEN not specified")
+            display("GRAFANA_SHIPCAT_TOKEN not specified")
         }
         MissingVaultAddr {
             description("VAULT_ADDR not specified")
@@ -120,6 +130,8 @@ pub mod vault;
 pub mod list;
 /// A post interface to slack using `slack_hook`
 pub mod slack;
+/// A REST interface to grafana using `reqwest`
+pub mod grafana;
 /// Cluster level operations
 pub mod cluster;
 

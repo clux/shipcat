@@ -7,6 +7,7 @@ pub use super::structs::Metadata;
 
 // allow using some slack and kube stuff
 pub use super::slack;
+pub use super::grafana;
 pub use super::kube;
 pub use super::Manifest;
 
