@@ -273,7 +273,7 @@ def configure_json_cookies_to_headers(api, kong_endpoint, current_plugins):
 
 def configure_json_cookies_csrf(api, kong_endpoint, current_plugins):
     cookies_json_csrf_config = {
-        "cookie_name": "autologin_token",
+        "cookie_name": "autologin_info",
         "csrf_field_name": "csrf_token",
         "csrf_header_name": "x-security-token"
     }
