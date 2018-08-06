@@ -287,8 +287,8 @@ def configure_json_cookies_csrf(api, kong_endpoint, current_plugins):
         # Get Babylon Auth Header API Plugin Metadata if already exists in Kong
         for plugin in current_plugins["data"]:
             if plugin["name"] == 'json-cookies-csrf' and plugin["api_id"] == api["id"]:
-                cookie_to_header_api_config["id"] = plugin["id"]
-                cookie_to_header_api_config["created_at"] = plugin["created_at"]
+                json_cookies_csrf_api_config["id"] = plugin["id"]
+                json_cookies_csrf_api_config["created_at"] = plugin["created_at"]
         # Add/Update Babylon Auth Header API Plugin
         kong_plugin_config_endpoint = kong_endpoint + '/apis/' + api["id"] + '/plugins/'
         try:
