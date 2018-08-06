@@ -18,6 +18,8 @@ pub struct Kong {
     pub internal: bool,
     #[serde(default, skip_serializing_if = "Not::not")]
     pub cookie_auth: bool,
+    #[serde(default, skip_serializing_if = "Not::not")]
+    pub cookie_auth_csrf: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uris: Option<String>,
     /// Value filled by manifest
