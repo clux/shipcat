@@ -271,6 +271,35 @@ def configure_json_cookies_to_headers(api, kong_endpoint, current_plugins):
     else:
         print("    Cookie to Header: \t\t[{}]".format(bcolors.WARNING + "None" + bcolors.ENDC))
 
+def configure_json_cookies_csrf(api, kong_endpoint, current_plugins):
+    cookies_json_csrf_config = {
+        "cookie_name": "autologin_token",
+        "csrf_field_name": "csrf_token",
+        "csrf_header_name": "x-security-token"
+    }
+    cookies_json_csrf_enabled = api.get("cookie_auth_csrf", False)
+    if cookies_json_csrf_enabled:
+        json_cookies_csrf_api_config = {
+            "name": "json-cookies-csrf",
+            "enabled": True,
+            "config": cookies_json_csrf_config
+        }
+        # Get Babylon Auth Header API Plugin Metadata if already exists in Kong
+        for plugin in current_plugins["data"]:
+            if plugin["name"] == 'json-cookies-csrf' and plugin["api_id"] == api["id"]:
+                cookie_to_header_api_config["id"] = plugin["id"]
+                cookie_to_header_api_config["created_at"] = plugin["created_at"]
+        # Add/Update Babylon Auth Header API Plugin
+        kong_plugin_config_endpoint = kong_endpoint + '/apis/' + api["id"] + '/plugins/'
+        try:
+            requests.put(kong_plugin_config_endpoint, json=json_cookies_csrf_api_config)
+        except Exception:
+            print("Unexpected error:", sys.exc_info()[0])
+        print("    JSON Cookies Anti-CSRF: \t\t[{}]".format(bcolors.OKGREEN + "OK" + bcolors.ENDC))
+
+    else:
+        print("    JSON Cookies Anti-CSRF: \t\t[{}]".format(bcolors.WARNING + "None" + bcolors.ENDC))
+
 
 def configure_oauth2_extension(api, kong_endpoint, current_plugins):
     oauth2_extension_plugin = api.get("oauth2_extension_plugin", False)
@@ -496,6 +525,8 @@ def configure_api(api, current_apis, kong_endpoint, kong_config, current_plugins
     configure_cors(api, kong_endpoint, kong_config, current_plugins)
     # Configure Cookie to Header Plugin
     configure_json_cookies_to_headers(api, kong_endpoint, current_plugins)
+    # Configure Cookie CSRF Plugn
+    configure_json_cookies_csrf(api, kong_endpoint, current_plugins)
     # Configure TCP Plugin
     configure_tcp_log(api, kong_endpoint, kong_config, current_plugins)
     # Configure Response Transformer Plugin
