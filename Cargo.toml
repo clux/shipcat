@@ -2,11 +2,12 @@
 authors = [
   "Eirik Albrigtsen <eirik.albrigtsen@babylonhealth.com>",
   "Florent Delannoy <florent.delannoy@babylonhealth.com>",
+  "Jeremie Vallee <jeremie.vallee@babylonhealth.com>",
   "Laurent Godet <laurent.godet@babylonhealth.com>"
 ]
 name = "shipcat"
 readme = "README.md"
-version = "0.47.0"
+version = "0.48.0"
 
 [[bin]]
 doc = false

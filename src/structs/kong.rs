@@ -67,7 +67,7 @@ impl Kong {
         }
         // If the `host` field is defined, generate a `hosts` field based on the environment
         if let Some(h) = self.host.clone() {
-            self.hosts = Some(format!("{}-{}", h, reg.kong.base_url));
+            self.hosts = Some(format!("{}{}", h, reg.kong.base_url));
         }
     }
 
