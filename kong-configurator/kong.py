@@ -275,7 +275,8 @@ def configure_json_cookies_csrf(api, kong_endpoint, current_plugins):
     cookies_json_csrf_config = {
         "cookie_name": "autologin_info",
         "csrf_field_name": "csrf_token",
-        "csrf_header_name": "x-security-token"
+        "csrf_header_name": "x-security-token",
+        "strict": True
     }
     cookies_json_csrf_enabled = api.get("cookie_auth_csrf", False)
     if cookies_json_csrf_enabled:
