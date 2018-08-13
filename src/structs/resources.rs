@@ -26,13 +26,13 @@ pub struct ResourceLimit {
 /// Kubernetes resources
 ///
 /// This can be inlined straight into a container spec at the moment
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Resources {
     /// Resource requests for k8s
-    pub requests: Option<ResourceRequest>,
+    pub requests: ResourceRequest,
     /// Resource limits for k8s
-    pub limits: Option<ResourceLimit>,
+    pub limits: ResourceLimit,
 }
 
 
@@ -40,8 +40,8 @@ impl Verify for Resources {
     // TODO: look at config for limits
     fn verify(&self, _: &Config) -> Result<()> {
         // (We can unwrap all the values as we assume implicit called!)
-        let req = self.clone().requests.unwrap();
-        let lim = self.clone().limits.unwrap();
+        let req = &self.requests;
+        let lim = &self.limits;
 
         let req_memory = parse_memory(&req.memory)?;
         let lim_memory = parse_memory(&lim.memory)?;
@@ -55,18 +55,18 @@ impl Verify for Resources {
         if req_memory > lim_memory {
             bail!("Requested more memory than what was limited");
         }
-        // 1.2 sanity numbers
-        if req_cpu > 10.0 {
-            bail!("Requested more than 10 cores");
+        // 1.2 sanity numbers (based on c5.9xlarge)
+        if req_cpu > 36.0 {
+            bail!("Requested more than 36 cores");
         }
-        if req_memory > 20.0*1024.0*1024.0*1024.0 {
-            bail!("Requested more than 20 GB of memory");
+        if req_memory > 72.0*1024.0*1024.0*1024.0 {
+            bail!("Requested more than 72 GB of memory");
         }
-        if lim_cpu > 20.0 {
-            bail!("CPU limit set to more than 20 cores");
+        if lim_cpu > 36.0 {
+            bail!("CPU limit set to more than 36 cores");
         }
-        if lim_memory > 30.0*1024.0*1024.0*1024.0 {
-            bail!("Memory limit set to more than 30 GB of memory");
+        if lim_memory > 72.0*1024.0*1024.0*1024.0 {
+            bail!("Memory limit set to more than 72 GB of memory");
         }
         Ok(())
     }

@@ -71,6 +71,9 @@ impl AutoScaling {
         for m in &self.metrics {
             match m {
                 ScalingMetric::Resource(r) => {
+                    // need at least one of the values
+                    // docs seem to hint at one for cpu and one for memory...
+                    // if this is the case should disallow both to be set..
                     match r.resource.name {
                         ScalingMetricResourceType::CPU => {
                             assert!(r.resource.targetAverageUtilization.is_some());
