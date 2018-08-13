@@ -178,7 +178,7 @@ impl Manifest {
         if !mf.hostAliases.is_empty() {
             self.hostAliases = mf.hostAliases;
         }
-        if mf.tolerations.is_empty() {
+        if !mf.tolerations.is_empty() {
             self.tolerations = mf.tolerations;
         }
         if !mf.volumeMounts.is_empty() {
