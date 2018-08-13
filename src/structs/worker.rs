@@ -9,7 +9,7 @@ use super::{Config, Result};
 ///
 /// Essentially a side-car like object that can scale resources separately to the main pods.
 /// Useful for services that have one single side service that polls or does some work.
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Worker {
     /// Name of the worker

@@ -23,6 +23,7 @@ use super::structs::{CronJob, Sidecar};
 use super::structs::{Kafka, Kong};
 use super::structs::RollingUpdate;
 use super::structs::autoscaling::AutoScaling;
+use super::structs::tolerations::Tolerations;
 use super::structs::Worker;
 
 /// Main manifest, serializable from shipcat.yml
@@ -150,6 +151,9 @@ pub struct Manifest {
     /// Horizontal Pod Auto Scaler parameters
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub autoScaling: Option<AutoScaling>,
+    /// Toleration parameters
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tolerations: Vec<Tolerations>,
 
     /// host aliases to inject in /etc/hosts
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -449,6 +453,9 @@ impl Manifest {
         }
         for ha in &self.hostAliases {
             ha.verify(&conf)?;
+        }
+        for tl in &self.tolerations {
+            tl.verify()?;
         }
         for ic in &self.initContainers {
             ic.verify(&conf)?;

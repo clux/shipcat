@@ -58,6 +58,8 @@ mod rollingupdate;
 pub use self::rollingupdate::RollingUpdate;
 /// Kubernetes horizontal pod autoscaler
 pub mod autoscaling;
+/// Kuberneter tolerations
+pub mod tolerations;
 
 mod metadata;
 pub use self::metadata::Metadata;
