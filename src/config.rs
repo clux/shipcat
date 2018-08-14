@@ -247,11 +247,16 @@ impl Config {
             bail!("image prefix must be non-empty and not end with a slash");
         }
 
+        let mut covered_regions = vec![];
         for (cname, clst) in &self.clusters {
             for r in &clst.regions {
                 if !self.regions.contains_key(r) {
                     bail!("cluster {} defines undefined region {}", cname, r);
                 }
+                if covered_regions.contains(r) {
+                    bail!("region {} is covered by multiple clusters", r);
+                }
+                covered_regions.push(r.to_string());
             }
         }
 
@@ -358,11 +363,11 @@ impl Config {
     ///
     /// Alternative to the above `resolve_region`.
     /// Useful for small helper subcommands that do validation later.
-    pub fn get_region(&self, ctx: &str) -> Result<Region> {
+    pub fn get_region(&self, ctx: &str) -> Result<(String, Region)> {
         if let Some(r) = self.regions.get(ctx) {
-            return Ok(r.clone());
+            return Ok((ctx.to_string(), r.clone()));
         } else if let Some(alias) = self.contextAliases.get(ctx) {
-            return Ok(self.regions[&alias.to_string()].clone());
+            return Ok((alias.to_string(), self.regions[&alias.to_string()].clone()));
             // missing region key should've been caught in verify above
         }
         bail!("You need to define your kube context '{}' in shipcat.conf regions first", ctx)
