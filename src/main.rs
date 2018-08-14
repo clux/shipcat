@@ -198,6 +198,8 @@ fn main() {
                 .help("Reduce encoded image info"))
               .subcommand(SubCommand::with_name("apistatus")
                 .help("Reduce encoded API info"))
+              .subcommand(SubCommand::with_name("clusterinfo")
+                .help("Reduce encoded cluster information"))
               .subcommand(SubCommand::with_name("versions")
                 .help("Reduce encoded version info")))
         .subcommand(SubCommand::with_name("kong")
@@ -293,6 +295,10 @@ fn main() {
         else if let Some(_) = a.subcommand_matches("apistatus") {
             let res = shipcat::get::apistatus(&conf, &region);
             result_exit(args.subcommand_name().unwrap(), res)
+        }
+        else if let Some(_) = a.subcommand_matches("clusterinfo") {
+            let res = shipcat::get::clusterinfo(&conf, &region);
+            result_exit(args.subcommand_name().unwrap(), res);
         }
     }
 
