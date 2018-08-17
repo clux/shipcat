@@ -3,7 +3,7 @@ FROM alpine:3.7
 ENV KUBEVER=1.10.1 \
     HELMVER=2.9.0 \
     HELMDIFFVER="2.9.0%2B1" \
-    KUBEVALVER=0.7.1 \
+    KUBEVALVER=0.7.2 \
     KUBETESTVER=0.1.1 \
     HOME=/config \
     SSL_CERT_DIR=/etc/ssl/certs/
