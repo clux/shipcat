@@ -45,10 +45,10 @@ RUN set -x && \
 RUN mkdir $(helm home)/plugins/diff/bin && \
     cp $(helm home)/plugins/diff/diff $(helm home)/plugins/diff/bin/
 
-# Add yamllint+yq for convenience
+# Add yamllint, yq, semver, pylint for convenience (useful in verification jobs)
 RUN apk add --no-cache python3 && \
     pip3 install --upgrade pip && \
-    pip3 install yamllint yq semver pylint
+    pip3 install yamllint yq
 
 # Install kong-configurator deps
 ADD kong-configurator kong-configurator
