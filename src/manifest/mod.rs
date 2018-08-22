@@ -1,9 +1,9 @@
 #![allow(non_snake_case)]
 
 /// Allow normal error handling from structs
-pub use super::{Result, ErrorKind, Error};
+pub use super::{Result, ResultExt, ErrorKind, Error};
 
-pub use super::config::{Config, VaultConfig};
+pub use super::config::{Config, VaultConfig, VersionScheme};
 
 /// Manifests needs all the structs
 pub use super::structs;

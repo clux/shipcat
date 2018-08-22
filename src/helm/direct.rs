@@ -6,7 +6,7 @@ use super::grafana;
 use super::slack;
 use super::kube;
 use super::Metadata;
-use super::{Result, Manifest, ErrorKind, Error, Config};
+use super::{Result, ResultExt, ErrorKind, Error, Manifest, Config};
 use super::helpers::{self, hout, hexec};
 
 /// The different modes we allow `helm upgrade` to run in
@@ -162,15 +162,8 @@ impl UpgradeData {
         };
 
         // version + image MUST be set at this point before calling this for upgrade/install purposes
-        // all entry points into this should set mf.version correctly!
+        // all entry points into this should set mf.version correctly - and call mf.verify
         let version = mf.version.clone().ok_or_else(|| ErrorKind::ManifestFailure("version".into()))?;
-        if let Err(e) = helpers::version_validate(&version) {
-            warn!("Please supply a 40 char git sha version, or a semver version for {}", mf.name);
-            //let img = mf.image.clone().ok_or_else(|| ErrorKind::ManifestFailure("image".into()))?;
-            //if img.contains("quay.io/babylon") { // TODO: locked down repos in config
-            return Err(e);
-            //}
-        }
 
         Ok(Some(UpgradeData {
             name: mf.name.clone(),
@@ -357,7 +350,7 @@ pub fn values(mf: &Manifest, output: Option<String>) -> Result<()> {
 /// Generates helm values to disk, then passes it to helm template
 pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>) -> Result<String> {
     let mut mf = Manifest::completed(svc, &conf, region)?;
-    mf.verify(conf)?;
+    mf.verify(&conf).chain_err(|| ErrorKind::ManifestVerifyFailure(svc.into()))?;
 
     // template or values does not need version - but respect passed in / manifest
     if ver.is_some() {
@@ -457,7 +450,7 @@ pub fn handle_upgrade_notifies(success: bool, u: &UpgradeData) -> Result<()> {
 /// Completes a manifest and prints it out with the given version
 pub fn values_wrapper(svc: &str, region: &str, conf: &Config, ver: Option<String>) -> Result<()> {
     let mut mf = Manifest::completed(svc, &conf, region)?;
-    mf.verify(conf)?;
+    mf.verify(&conf).chain_err(|| ErrorKind::ManifestVerifyFailure(svc.into()))?;
     // template or values does not need version - but respect passed in / manifest
     if ver.is_some() {
         mf.version = ver;
@@ -468,7 +461,6 @@ pub fn values_wrapper(svc: &str, region: &str, conf: &Config, ver: Option<String
 /// Full helm wrapper for a single upgrade/diff/install
 pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
     let mut mf = Manifest::completed(svc, &conf, region)?;
-    mf.verify(conf)?;
 
     // Ensure we have a version - or are able to infer one
     if ver.is_some() {
@@ -484,17 +476,13 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
     let exists = mode != UpgradeMode::UpgradeInstall;
     // Other modes can infer in a pinch
 
+    // sanity verify to ensure stuff like invalid versions aren't shoehorned in
+    mf.verify(&conf).chain_err(|| ErrorKind::ManifestVerifyFailure(svc.into()))?;
+
+    // ..but if they already exist on kube, don't block on that..
     if mf.version.is_none() {
         mf.version = Some(helpers::infer_fallback_version(&svc, &mf.namespace)?);
     };
-    if mode != UpgradeMode::DiffOnly {
-        // validate that the version matches the versioning scheme for this region
-        // NB: only doing this on direct upgrades not parallel reconciles atm
-        helpers::version_validate_specific(
-            &mf.version.clone().unwrap(),
-            &conf.regions[region].versioningScheme
-        )?;
-    }
 
     // Template values file
     let hfile = format!("{}.helm.gen.yml", &svc);

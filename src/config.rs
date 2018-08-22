@@ -27,7 +27,9 @@ pub struct ManifestDefaults {
 /// Versioning Scheme used in region
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum VersionScheme {
+    /// Version must be valid semver (no leading v)
     Semver,
+    /// Version must be valid semver or a 40 character hex (git sha)
     GitShaOrSemver,
 }
 
@@ -36,6 +38,28 @@ impl Default for VersionScheme {
         VersionScheme::GitShaOrSemver
     }
 }
+
+/// Version validator
+impl VersionScheme {
+    pub fn verify(&self, ver: &str) -> Result<()> {
+        use regex::Regex;
+        let gitre = Regex::new(r"^[0-9a-f\-]{40}$").unwrap();
+        match *self {
+            VersionScheme::GitShaOrSemver => {
+                if !gitre.is_match(&ver) && Version::parse(&ver).is_err() {
+                    bail!("Illegal tag {} (floating tags cannot be rolled back please use 40 char git sha or semver)", ver);
+                }
+            },
+            VersionScheme::Semver => {
+                if Version::parse(&ver).is_err() {
+                    bail!("Version {} is not a semver version in a region using semver versions", ver);
+                }
+            },
+        };
+        Ok(())
+    }
+}
+
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
@@ -377,5 +401,25 @@ impl Config {
 impl KongConfig {
     fn verify(&self) -> Result<()> {
         Ok(())
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::VersionScheme;
+    #[test]
+    fn version_validate_test() {
+        let scheme = VersionScheme::default();
+        assert!(scheme.verify("2.3.4").is_ok());
+        assert!(scheme.verify("2.3.4-alpine").is_ok());
+        assert!(scheme.verify("e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19").is_ok());
+        assert!(scheme.verify("e7c1e5dd5de74b2b5da").is_err());
+        assert!(scheme.verify("1.0").is_err());
+        assert!(scheme.verify("v1.0.0").is_err());
+
+        let svscheme = VersionScheme::Semver;
+        assert!(svscheme.verify("2.3.4").is_ok());
+        assert!(svscheme.verify("e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19").is_err());
     }
 }

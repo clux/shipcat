@@ -147,7 +147,7 @@ impl Vault {
         res.read_to_string(&mut body)?;
         let lsec : ListSecrets = serde_json::from_str(&body)?;
         if !lsec.data.contains_key("keys") {
-            return Err(ErrorKind::MissingSecret(url.to_string()).into());
+            bail!("secret list {} does not contain keys list from vault api!?: {}", url, body);
         }
         let res = lsec.data["keys"].iter()
             .filter(|e| !e.ends_with("/")) // skip sub folders
@@ -160,19 +160,13 @@ impl Vault {
     /// Read secret from a Vault via an authenticated HTTP GET (or memory cache)
     pub fn read(&self, key: &str) -> Result<String> {
         let pth = format!("secret/{}", key);
-        let secret = match self.get_secret(&pth) {
-            Ok(s) => s,
-            Err(e) => {
-                error!("{}", e);
-                return Err(ErrorKind::MissingSecret(pth).into())
-            }
-        };
+        let secret = self.get_secret(&pth).chain_err(|| ErrorKind::SecretNotAccessible(pth.clone()))?;
 
         // NB: Currently assume each path in vault has a single `value`
         // Read the value key (which should exist)
         secret.data
             .get("value")
-            .ok_or_else(|| { ErrorKind::MissingSecret(pth).into() })
+            .ok_or_else(|| { ErrorKind::InvalidSecretForm(pth).into() })
             .map(|v| {
                 if self.mode == Mode::Masked {
                     "VAULT_VALIDATED".into()

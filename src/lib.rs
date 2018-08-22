@@ -109,13 +109,21 @@ error_chain! {
             description("could not access URL")
             display("could not access URL '{}'", &url)
         }
-        MissingSecret(key: String) {
-            description("secret does not have value for specified key")
-            display("secret '{}' does not exist", &key)
+        InvalidSecretForm(key: String) {
+            description("secret is of incorrect form")
+            display("secret '{}' not have the 'value' key", &key)
+        }
+        SecretNotAccessible(key: String) {
+            description("secret could not be reached or accessed")
+            display("secret '{}'", &key)
         }
         ManifestFailure(key: String) {
             description("Manifest key not propagated correctly internally")
             display("manifest key {} was not propagated internally - bug!", &key)
+        }
+        ManifestVerifyFailure(svc: String) {
+            description("manifest does not validate")
+            display("manifest for {} does not validate", &svc)
         }
         HelmUpgradeFailure(reason: String) {
             description("Helm upgrade call failed")

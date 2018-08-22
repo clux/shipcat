@@ -1,7 +1,7 @@
 FROM alpine:3.7
 
 ENV KUBEVER=1.10.1 \
-    HELMVER=2.9.0 \
+    HELMVER=2.10.0 \
     HELMDIFFVER="2.9.0%2B1" \
     KUBEVALVER=0.7.2 \
     KUBETESTVER=0.1.1 \
@@ -48,7 +48,7 @@ RUN mkdir $(helm home)/plugins/diff/bin && \
 # Add yamllint+yq for convenience
 RUN apk add --no-cache python3 && \
     pip3 install --upgrade pip && \
-    pip3 install yamllint yq
+    pip3 install yamllint yq semver pylint
 
 # Install kong-configurator deps
 ADD kong-configurator kong-configurator

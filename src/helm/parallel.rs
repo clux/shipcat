@@ -5,7 +5,7 @@ use std::fs;
 use super::{UpgradeMode, UpgradeData};
 use super::direct;
 use super::helpers;
-use super::{Result, Config, Manifest};
+use super::{Result, ResultExt, ErrorKind, Config, Manifest};
 
 
 /// Stable threaded mass helm operation
@@ -46,8 +46,8 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &str, umode: Upgrad
     }).filter_map(Result::err).collect::<Vec<_>>();
 
     // propagate first error if exists
-    if !res.is_empty() {
-        bail!("{}", res[0]);
+    if let Some(e) = res.into_iter().next() {
+        return Err(e);
     }
     Ok(())
 }
@@ -87,6 +87,8 @@ fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Co
     if mf.version.is_none() {
          mf.version = Some(fallback)
     };
+    // sanity verify (no-shoehorning in illegal versions etc)
+    mf.verify(&conf).chain_err(|| ErrorKind::ManifestVerifyFailure(svc.clone()))?;
 
     // Template values file
     let hfile = format!("{}.helm.gen.yml", &svc);
