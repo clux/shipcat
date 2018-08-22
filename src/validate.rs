@@ -1,4 +1,4 @@
-use super::{Result, Config, Manifest};
+use super::{Result, ResultExt, ErrorKind, Config, Manifest};
 
 /// Validate the manifest of a service in the services directory
 ///
@@ -19,7 +19,7 @@ pub fn manifest(services: Vec<String>, conf: &Config, region: String, secrets: b
                 mani.template(conf, &region)?;
                 mani
             };
-            mf.verify(conf)?;
+            mf.verify(conf).chain_err(|| ErrorKind::ManifestVerifyFailure(svc.clone()))?;
             info!("validated {} for {}", svc, region);
             mf.print()?; // print it if sufficient verbosity
         } else if tmpmf.external {

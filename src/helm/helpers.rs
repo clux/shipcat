@@ -1,9 +1,6 @@
 use serde_yaml;
 
-use semver::Version;
 use regex::Regex;
-
-use super::{VersionScheme};
 use super::{Result};
 
 
@@ -113,36 +110,9 @@ pub fn infer_fallback_version(service: &str, ns: &str) -> Result<String> {
 }
 
 
-/// Version validator
-///
-/// Enforces a 40 char git sha or a semver tag
-pub fn version_validate(ver: &str) -> Result<()> {
-    let gitre = Regex::new(r"^[0-9a-f\-]{40}$").unwrap();
-    if !gitre.is_match(&ver) && Version::parse(&ver).is_err() {
-        bail!("Floating tag {} cannot be rolled back - disallowing", ver);
-    }
-    Ok(())
-}
-
-/// Version validator for a region (allows you to lock down)
-pub fn version_validate_specific(ver: &str, scheme: &VersionScheme) -> Result<()> {
-    match scheme {
-        VersionScheme::GitShaOrSemver => {
-            version_validate(&ver)?
-        },
-        VersionScheme::Semver => {
-            if Version::parse(&ver).is_err() {
-                bail!("Version {} is not a semver version in a region using semver versions", ver);
-            }
-        },
-    };
-    Ok(())
-}
-
-
 #[cfg(test)]
 mod tests {
-    use super::{infer_version_change, version_validate, diff_is_version_only};
+    use super::{infer_version_change, diff_is_version_only};
 
     #[test]
     fn version_change_test() {
@@ -214,15 +184,5 @@ mod tests {
         assert_eq!(old, "1.0.6");
         assert_eq!(new, "1.0.7");
         assert!(diff_is_version_only(input, (&new, &old)));
-    }
-
-    #[test]
-    fn version_validate_test() {
-        assert!(version_validate("2.3.4").is_ok());
-        assert!(version_validate("2.3.4-alpine").is_ok());
-        assert!(version_validate("e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19").is_ok());
-        assert!(version_validate("e7c1e5dd5de74b2b5da").is_err());
-        assert!(version_validate("1.0").is_err());
-        assert!(version_validate("v1.0.0").is_err());
     }
 }

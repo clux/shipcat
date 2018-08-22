@@ -17,8 +17,10 @@ use std::process;
 fn result_exit<T>(name: &str, x: Result<T>) {
     let _ = x.map_err(|e| {
         error!("{} error: {}", name, e);
-        // extra Debug output sometimes useful (like templating errors)
-        debug!("{}: {:?}", name, e);
+        // causes sometimes useful (like templating errors)
+        for e in e.iter().skip(1) {
+            warn!("caused by: {}", e);
+        }
         process::exit(1);
     });
     process::exit(0);
@@ -26,8 +28,10 @@ fn result_exit<T>(name: &str, x: Result<T>) {
 fn conditional_exit<T>(x: Result<T>) -> T {
     x.map_err(|e| {
         error!("error: {}", e);
-        // extra Debug output sometimes useful (like templating errors)
-        debug!("{:?}", e);
+        // causes sometimes useful (like templating errors)
+        for e in e.iter().skip(1) {
+            warn!("caused by: {}", e);
+        }
         process::exit(1);
     }).unwrap()
 }

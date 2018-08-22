@@ -414,6 +414,7 @@ impl Manifest {
     /// Assumes the manifest has been populated with `implicits`
     pub fn verify(&self, conf: &Config) -> Result<()> {
         assert!(self.region != ""); // needs to have been set by implicits!
+        let region = &conf.regions[&self.region]; // tested for existence earlier
         // limit to 50 characters, alphanumeric, dashes for sanity.
         // 63 is kube dns limit (13 char suffix buffer)
         let re = Regex::new(r"^[0-9a-z\-]{1,50}$").unwrap();
@@ -437,6 +438,10 @@ impl Manifest {
         if self.external {
             warn!("Ignoring most validation for kube-external service {}", self.name);
             return Ok(());
+        }
+
+        if let Some(v) = &self.version {
+            region.versioningScheme.verify(v)?;
         }
 
         // run the `Verify` trait on all imported structs
