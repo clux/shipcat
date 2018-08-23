@@ -13,6 +13,10 @@ compile:
 build:
 	docker build -t $(REPO)/$(NAME):$(VERSION) .
 
+# Build an ubuntu version of the container - mostly for debugging atm
+build-ubuntu:
+	docker build -t $(REPO)/$(NAME):$(VERSION)-ubuntu -f Dockerfile.ubuntu .
+
 install:
 	docker push $(REPO)/$(NAME):$(VERSION)
 

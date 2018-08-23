@@ -1,0 +1,43 @@
+# Infrequently updated ubuntu container with sudo and ubuntu
+# Can be useful to debug really obscure issues, such as segfaults
+# See https://github.com/Babylonpartners/shipcat/issues/160
+
+FROM ubuntu:16.04
+
+ENV KUBEVER=1.10.1 \
+    HELMVER=2.10.0 \
+    HELMDIFFVER="2.9.0%2B1" \
+    KUBEVALVER=0.7.2 \
+    KUBETESTVER=0.1.1 \
+    HOME=/config
+
+# Install shipcat (build for musl outside)
+ADD shipcat.x86_64-unknown-linux-musl /usr/local/bin/shipcat
+
+ # Install kubectl (see https://aur.archlinux.org/packages/kubectl-bin )
+ADD https://storage.googleapis.com/kubernetes-release/release/v${KUBEVER}/bin/linux/amd64/kubectl /usr/local/bin/kubectl
+RUN set -x && \
+    apt-get update && apt-get -y install curl ca-certificates make bash jq sudo git && \
+    chmod +x /usr/local/bin/kubectl && \
+    curl -sSL https://storage.googleapis.com/kubernetes-helm/helm-v${HELMVER}-linux-amd64.tar.gz | tar xz -C /usr/local/bin --strip-components=1 && \
+    curl -sSL https://github.com/garethr/kubeval/releases/download/${KUBEVALVER}/kubeval-linux-amd64.tar.gz | tar xvz -C /usr/local/bin && \
+    # Create root equivalent user
+    useradd -ms /bin/bash -d $HOME kubectl -G sudo && \
+    echo "%sudo ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
+    \
+    # Basic check that it works
+    kubectl version --client && \
+    shipcat --version && \
+    helm version -c && \
+    kubeval --version
+
+# Setup helm and plugins
+RUN set -x && \
+    helm init -c && \
+    curl -sSL https://github.com/databus23/helm-diff/releases/download/v${HELMDIFFVER}/helm-diff-linux.tgz | tar xvz -C $(helm home)/plugins
+
+# Add yamllint+yq for convenience
+RUN apt-get install -y python3 python3-pip yamllint && \
+    pip3 install yq
+
+USER kubectl
