@@ -14,13 +14,25 @@ use shipcat::*;
 use clap::{Arg, App, AppSettings, SubCommand, ArgMatches};
 use std::process;
 
-fn result_exit<T>(name: &str, x: Result<T>) {
-    let _ = x.map_err(|e| {
-        error!("{} error: {}", name, e);
-        // causes sometimes useful (like templating errors)
+fn print_error_debug(e: Error) {
+    use std::env;
+    // print causes of error if present
+    if let Ok(_) = env::var("CIRCLECI") {
+        // https://github.com/Babylonpartners/shipcat/issues/160
+        // only print debug implementation rather than unwinding
+        debug!("{:?}", e);
+    } else {
+        // normal case - unwind the error chain
         for e in e.iter().skip(1) {
             warn!("caused by: {}", e);
         }
+    }
+}
+
+fn result_exit<T>(name: &str, x: Result<T>) {
+    let _ = x.map_err(|e| {
+        error!("{} error: {}", name, e);
+        print_error_debug(e);
         process::exit(1);
     });
     process::exit(0);
@@ -28,10 +40,7 @@ fn result_exit<T>(name: &str, x: Result<T>) {
 fn conditional_exit<T>(x: Result<T>) -> T {
     x.map_err(|e| {
         error!("error: {}", e);
-        // causes sometimes useful (like templating errors)
-        for e in e.iter().skip(1) {
-            warn!("caused by: {}", e);
-        }
+        print_error_debug(e);
         process::exit(1);
     }).unwrap()
 }

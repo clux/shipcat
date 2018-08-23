@@ -75,8 +75,8 @@ fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Co
                 }
                 (false, v)
             } else {
-                warn!("Service {} has no version specified in manifest and is not installed", mf.name);
-                error!("Service {} must be installed manually in rolling environment", mf.name);
+                error!("Service {} has no version specified in manifest and is not installed", mf.name);
+                warn!("helm needs an explicit version to install {}", mf.name);
                 return Err(e);
             }
         }
