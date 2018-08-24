@@ -302,7 +302,7 @@ fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
             );
             // TODO: automate above? feels dangerous..
             // return empty diff to force the error on helms end
-            return Ok("helm will attempt and fail to upgrade".to_string());
+            return Ok(format!("no deployed releases of {} - needs purge", mf.name));
         }
         warn!("diff {} stderr: \n{}", mf.name, hdifferr);
         if ! hdifferr.contains("error copying from local connection to remote stream") &&
@@ -348,8 +348,13 @@ pub fn values(mf: &Manifest, output: Option<String>) -> Result<()> {
 /// Analogue of helm template
 ///
 /// Generates helm values to disk, then passes it to helm template
-pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>) -> Result<String> {
-    let mut mf = Manifest::completed(svc, &conf, region)?;
+pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>, mock: bool) -> Result<String> {
+    let mut mf = if mock {
+        Manifest::mocked(svc, &conf, region)?
+    } else {
+        Manifest::completed(svc, &conf, region)?
+    };
+
     mf.verify(&conf).chain_err(|| ErrorKind::ManifestVerifyFailure(svc.into()))?;
 
     // template or values does not need version - but respect passed in / manifest

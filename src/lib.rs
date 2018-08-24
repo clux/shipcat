@@ -37,6 +37,8 @@ extern crate semver;
 
 extern crate threadpool;
 
+extern crate base64;
+
 #[macro_use]
 extern crate error_chain;
 error_chain! {

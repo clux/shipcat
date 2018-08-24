@@ -1,6 +1,7 @@
 use serde_yaml;
 use walkdir::WalkDir;
 use regex::Regex;
+use base64;
 
 use std::io::prelude::*;
 use std::fs::File;
@@ -274,7 +275,11 @@ impl Manifest {
                 let vkey = format!("{}/{}", pth, k);
                 let secret = client.read(&vkey)?;
                 *v = secret.clone();
-                self._decoded_secrets.insert(vkey, secret);
+                self._decoded_secrets.insert(vkey.clone(), secret);
+                // sanity check; secretFiles are assumed base64 verify we can decode
+                if base64::decode(v).is_err() {
+                    bail!("Secret {} in vault is not base64 encoded", vkey);
+                }
             }
         }
         Ok(())
@@ -357,6 +362,24 @@ impl Manifest {
         }
         let mut mf = Manifest::read_from(&pth)?;
         mf.fill(conf, &region)?;
+        Ok(mf)
+    }
+
+    /// Completed manifest with mocked values
+    pub fn mocked(service: &str, conf: &Config, region: &str) -> Result<Manifest> {
+        let r = &conf.regions[region]; // tested for existence earlier
+        let v = Vault::mocked(&r.vault)?;
+        let pth = Path::new(".").join("services").join(service);
+        if !pth.exists() {
+            bail!("Service folder {} does not exist", pth.display())
+        }
+        let mut mf = Manifest::read_from(&pth)?;
+        // fill defaults and merge regions before extracting secrets
+        mf.fill(conf, region)?;
+        // secrets before templates (templates use raw secret values)
+        mf.secrets(&v, &r.vault)?;
+        // templates last by transitive property..
+        mf.template(&conf, region)?;
         Ok(mf)
     }
 
@@ -471,7 +494,6 @@ impl Manifest {
         if let Some(ref cmap) = self.configs {
             cmap.verify(&conf)?;
         }
-
         // misc minor properties
         if self.replicaCount.unwrap() == 0 {
             bail!("Need replicaCount to be at least 1");
