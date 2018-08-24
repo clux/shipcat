@@ -78,10 +78,10 @@ fn main() {
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
-            //.arg(Arg::with_name("mock-vault")
-            //    .long("mock-vault")
-            //    .help("Return empty strings from Vault"))
             .subcommand(SubCommand::with_name("template")
+                .arg(Arg::with_name("mock-vault")
+                    .long("mock-vault")
+                    .help("Return empty strings from Vault"))
                 //.arg(Arg::with_name("output")
                 //    .short("o")
                 //    .long("output")
@@ -384,10 +384,11 @@ fn main() {
                 &region, &conf, ver.clone());
             result_exit(a.subcommand_name().unwrap(), res)
         }
-        if let Some(_) = a.subcommand_matches("template") {
+        if let Some(b) = a.subcommand_matches("template") {
             //let _output = b.value_of("output").map(String::from);
+            let mock = b.is_present("mock-vault");
             let res = shipcat::helm::direct::template(svc,
-                &region, &conf, ver.clone());
+                &region, &conf, ver.clone(), mock);
             result_exit(a.subcommand_name().unwrap(), res)
         }
 

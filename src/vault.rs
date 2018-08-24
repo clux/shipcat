@@ -66,6 +66,8 @@ pub enum Mode {
     Standard,
     /// Using HTTP calls but masking secrets
     Masked,
+    /// Not using HTTP calls, just returning dummy data
+    Mocked,
 }
 
 impl Vault {
@@ -77,6 +79,11 @@ impl Vault {
     /// Initialize using VAULT_TOKEN evar + addr in shipcat.conf
     pub fn regional(vc: &VaultConfig) -> Result<Vault> {
         Vault::new(reqwest::Client::new(), &vc.url, default_token()?, Mode::Standard)
+    }
+
+    /// Initialize using dummy values and return garbage
+    pub fn mocked(vc: &VaultConfig) -> Result<Vault> {
+        Vault::new(reqwest::Client::new(), &vc.url, default_token()?, Mode::Mocked)
     }
 
     /// Initialize using vault evars, but return masked return values
@@ -160,6 +167,11 @@ impl Vault {
     /// Read secret from a Vault via an authenticated HTTP GET (or memory cache)
     pub fn read(&self, key: &str) -> Result<String> {
         let pth = format!("secret/{}", key);
+        if self.mode == Mode::Mocked {
+            // arbitrary base64 encoded value so it's compatible with everything
+            return Ok("aGVsbG8gd29ybGQ=".into());
+        }
+
         let secret = self.get_secret(&pth).chain_err(|| ErrorKind::SecretNotAccessible(pth.clone()))?;
 
         // NB: Currently assume each path in vault has a single `value`
