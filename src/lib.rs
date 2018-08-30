@@ -156,6 +156,9 @@ pub mod structs;
 mod manifest;
 pub use manifest::{Manifest};
 
+/// Product module
+pub mod product;
+
 /// Validation methods of manifests post merge
 pub mod validate;
 

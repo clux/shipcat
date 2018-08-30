@@ -234,12 +234,43 @@ fn main() {
         .subcommand(SubCommand::with_name("list-regions")
             .setting(AppSettings::Hidden)
             .about("list supported regions/clusters"))
+        .subcommand(SubCommand::with_name("list-locations")
+            .setting(AppSettings::Hidden)
+            .about("list supported product locations"))
         .subcommand(SubCommand::with_name("list-services")
             .setting(AppSettings::Hidden)
             .arg(Arg::with_name("region")
                 .required(true)
                 .help("Region to filter on"))
-            .about("list supported services for a specified"));
+            .about("list supported services for a specified"))
+        .subcommand(SubCommand::with_name("list-products")
+            .setting(AppSettings::Hidden)
+            .arg(Arg::with_name("location")
+                .required(true)
+                .help("Location to filter on"))
+            .about("list supported products"))
+        .subcommand(SubCommand::with_name("product")
+            .setting(AppSettings::SubcommandRequiredElseHelp)
+            .about("Run product interactions across manifests")
+            .subcommand(SubCommand::with_name("show")
+                .arg(Arg::with_name("product")
+                    .required(true)
+                    .help("Product name"))
+                .arg(Arg::with_name("location")
+                    .required(true)
+                    .help("Location name"))
+                .about("Show product information"))
+            .subcommand(SubCommand::with_name("verify")
+                .arg(Arg::with_name("products")
+                    .required(true)
+                    .help("Product names"))
+                .arg(Arg::with_name("location")
+                    .long("location")
+                    .short("l")
+                    .takes_value(true)
+                    .required(false)
+                    .help("Location name"))
+                .about("Verify product manifests")));
 
     // arg parse
     let args = app.get_matches();
@@ -267,16 +298,22 @@ fn main() {
     unreachable!("Subcommand valid, but not implemented");
 }
 
-
 /// Dispatch to small helpers that works without kubectl and ~/.kube/config
 fn handle_dependency_free_commands(args: &ArgMatches, conf: &Config) {
     // listers
     if args.subcommand_matches("list-regions").is_some() {
         result_exit(args.subcommand_name().unwrap(), shipcat::list::regions(&conf))
     }
+    if args.subcommand_matches("list-locations").is_some() {
+        result_exit(args.subcommand_name().unwrap(), shipcat::list::locations(&conf))
+    }
     if let Some(a) = args.subcommand_matches("list-services") {
         let r = a.value_of("region").unwrap().into();
         result_exit(args.subcommand_name().unwrap(), shipcat::list::services(&conf, r))
+    }
+    if let Some(a) = args.subcommand_matches("list-products") {
+        let l = a.value_of("location").unwrap().into();
+        result_exit(args.subcommand_name().unwrap(), shipcat::list::products(&conf, l))
     }
     // getters
     if let Some(a) = args.subcommand_matches("get") {
@@ -297,6 +334,21 @@ fn handle_dependency_free_commands(args: &ArgMatches, conf: &Config) {
         }
         else if let Some(_) = a.subcommand_matches("clusterinfo") {
             let res = shipcat::get::clusterinfo(&conf, &region);
+            result_exit(args.subcommand_name().unwrap(), res);
+        }
+    }
+    // product
+    if let Some(a) = args.subcommand_matches("product") {
+        if let Some(b) = a.subcommand_matches("verify") {
+            let location = b.value_of("location");
+            let products  = b.values_of("products").unwrap().map(String::from).collect::<Vec<_>>();
+            let res = shipcat::product::validate(products, &conf, location.map(String::from));
+            result_exit(args.subcommand_name().unwrap(), res);
+        }
+        else if let Some(b) = a.subcommand_matches("show") {
+            let product  = b.value_of("product").map(String::from);
+            let location = b.value_of("location");
+            let res = shipcat::product::show(product, &conf, location.unwrap());
             result_exit(args.subcommand_name().unwrap(), res);
         }
     }

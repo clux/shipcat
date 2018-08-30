@@ -62,7 +62,7 @@ pub mod autoscaling;
 pub mod tolerations;
 
 mod metadata;
-pub use self::metadata::Metadata;
+pub use self::metadata::{Metadata, Contact};
 
 /// Prometheus structs
 pub mod prometheus;

@@ -28,9 +28,6 @@ impl Default for DependencyProtocol {
 }
 
 /// Dependency of a service
-///
-/// We inject `{NAME}_ENDPOINT_API=kubeurl_to_service/api/{api}` as environment vars.
-/// API contracts are used for testing as part of kube lifecycle hooks
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct Dependency {

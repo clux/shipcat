@@ -1,0 +1,15 @@
+---
+name: triage
+description: "Anything related to triage"
+owner:
+  name: Tom Ford
+  email: foo@bar.com
+  slack: "@deadbeef"
+locations:
+- uk
+- space
+services:
+- name: fake-ask
+  region: dev-uk
+- name: fake-storage
+  region: dev-uk

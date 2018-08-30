@@ -10,6 +10,23 @@ pub struct Contact {
     pub name: String,
     /// Slack handle
     pub slack: String,
+    /// Email address
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+}
+impl Contact {
+    pub fn verify(&self) -> Result<()> {
+        if self.name.is_empty() {
+            bail!("Contact name cannot be empty")
+        }
+        if !self.slack.starts_with("@") {
+            bail!("Contact slack handle needs to start with the slack guid '@U...' - got {}", self.slack)
+        }
+        if self.slack.contains("|") {
+            bail!("Contact slack user id invalid - got {}", self.slack)
+        }
+        Ok(())
+    }
 }
 
 /// Metadata for a service
@@ -60,15 +77,7 @@ impl Verify for Metadata {
             bail!("Illegal team name {} not found in the config", self.team);
         }
         for cc in &self.contacts {
-            if cc.name.is_empty() {
-                bail!("Contact name cannot be empty")
-            }
-            if !cc.slack.starts_with("@") {
-                bail!("Contact slack handle needs to start with the slack guid '@U...' - got {}", cc.slack)
-            }
-            if cc.slack.contains("|") {
-                bail!("Contact slack user id invalid - got {}", cc.slack)
-            }
+            cc.verify()?;
         }
         let re = Regex::new(r"[a-z0-9\-\.\{\}]").unwrap();
         if !re.is_match(&self.gitTagTemplate) {
