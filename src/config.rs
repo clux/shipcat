@@ -212,6 +212,8 @@ pub struct Region {
     pub kafka: KafkaConfig,
     /// Vault configuration for the region
     pub vault: VaultConfig,
+    /// List of locations the region serves
+    pub locations: Vec<String>,
 }
 
 impl Region {
@@ -226,6 +228,14 @@ impl Region {
         self.kong.verify_secrets_exist(&v, region)?;
         Ok(())
     }
+}
+
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct Location {
+    /// Location name
+    pub name: String,
 }
 
 
@@ -251,6 +261,9 @@ pub struct Config {
 
     /// Region definitions
     pub regions: BTreeMap<String, Region>,
+
+    /// Location definitions
+    pub locations: BTreeMap<String, Location>,
 
     /// Team definitions
     pub teams: Vec<Team>,

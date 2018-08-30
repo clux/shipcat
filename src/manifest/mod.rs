@@ -11,7 +11,7 @@ pub use super::structs;
 /// Needs vault client for secrets
 pub use super::vault;
 
-/// Parallel helm invokers
+/// Main module
 pub mod manifest;
 
 // Exports
