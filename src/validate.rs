@@ -14,10 +14,8 @@ pub fn manifest(services: Vec<String>, conf: &Config, region: String, secrets: b
             let mf = if secrets {
                 Manifest::completed(&svc, conf, &region)?
             } else {
-                // ensure we also verify template against stubbed secrets
-                let mut mani = Manifest::stubbed(&svc, conf, &region)?;
-                mani.template(conf, &region)?;
-                mani
+                // ensure we also verify template against mocked secrets
+                Manifest::mocked(&svc, conf, &region)?
             };
             mf.verify(conf).chain_err(|| ErrorKind::ManifestVerifyFailure(svc.clone()))?;
             info!("validated {} for {}", svc, region);
