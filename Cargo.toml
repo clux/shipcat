@@ -7,7 +7,7 @@ authors = [
 ]
 name = "shipcat"
 readme = "README.md"
-version = "0.50.0"
+version = "0.51.0"
 
 [[bin]]
 doc = false

@@ -17,6 +17,7 @@ extern crate reqwest;
 extern crate serde_json;
 #[macro_use]
 extern crate hyper;
+extern crate openssl_probe;
 
 // jenkins api
 extern crate jenkins_api;
@@ -182,9 +183,10 @@ pub mod get;
 /// Smart initialiser with safety
 ///
 /// Tricks the library into reading from your manifest location.
-pub fn init() -> Result<Config> {
+pub fn init() -> Result<()> {
     use std::env;
     use std::path::Path;
+    openssl_probe::init_ssl_cert_env_vars(); // prerequisite for https clients
 
     // Allow shipcat calls to work from anywhere if we know where manifests are
     if let Ok(mdir) = env::var("SHIPCAT_MANIFEST_DIR") {
@@ -195,11 +197,7 @@ pub fn init() -> Result<Config> {
         env::set_current_dir(pth)?;
     }
 
-    // Read and validate shipcat.conf
-    let conf = Config::read()?;
-    conf.verify()?; // may as well block on this
-
-    Ok(conf)
+    Ok(())
 }
 
 // Test helpers

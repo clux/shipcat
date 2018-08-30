@@ -135,7 +135,7 @@ pub struct KongOauthConsumer {
 }
 
 impl KongConfig {
-    fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
+    pub fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
         for (svc, data) in &mut self.consumers {
             if data.oauth_client_id == "IN_VAULT" {
                 let vkey = format!("{}/kong/consumers/{}_oauth_client_id", region, svc);
@@ -328,21 +328,14 @@ impl Config {
         Ok(())
     }
 
-    // Populate placeholder fields with secrets from vault
-    fn secrets(&mut self, region: &str) -> Result<()> {
+    /// Populate placeholder fields with secrets from vault
+    pub fn secrets(&mut self, region: &str) -> Result<()> {
         if let Some(r) = self.regions.get_mut(region) {
             r.secrets(region)?;
         } else {
             bail!("Undefined region {}", region);
         }
         Ok(())
-    }
-
-    /// Read and populate a config with secrets for a region
-    pub fn completed(region: &str) -> Result<Config> {
-        let mut cfg = Config::read()?;
-        cfg.secrets(region)?;
-        Ok(cfg)
     }
 
     /// Read a config file in an arbitrary path
@@ -358,7 +351,7 @@ impl Config {
         Ok(serde_yaml::from_str(&data)?)
     }
 
-    /// Read a config in pwd
+    /// Read a config in pwd and leave placeholders
     pub fn read() -> Result<Config> {
         let pwd = Path::new(".");
         let conf = Config::read_from(&pwd.to_path_buf())?;

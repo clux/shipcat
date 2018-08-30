@@ -25,6 +25,12 @@ fn indent(v: Value, m: HashMap<String, Value>) -> tera::Result<Value> {
     Ok(serde_json::to_value(&xs.join("\n")).unwrap())
 }
 
+#[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
+fn as_secret(v: Value, _: HashMap<String, Value>) -> tera::Result<Value> {
+    let s = try_get_value!("secret", "value", String, v);
+    Ok(format!("SHIPCAT_SECRET::{}", s).into())
+}
+
 fn add_templates(tera: &mut Tera, dir: &PathBuf, svc: &str, depth: usize) -> Result<()> {
     let sdirs = WalkDir::new(&dir)
         .min_depth(depth)
@@ -77,8 +83,9 @@ pub fn init(service: &str) -> Result<Tera> {
     let mut tera = Tera::default();
     tera.autoescape_on(vec!["html"]);
     tera.register_filter("indent", indent);
+    tera.register_filter("as_secret", as_secret);
 
-    let services_root = Path::new("."); // TODO: manifests root evar
+    let services_root = Path::new("."); // NB: this is . or SHIPCAT_MANIFEST_DIR
     // adding templates from template subfolder first
     let tdir = Path::new(&services_root).join("templates");
     add_templates(&mut tera, &tdir, service, 1)?;
@@ -115,8 +122,10 @@ pub fn service_bound_renderer(svc: &str) -> Result<ContextBoundRenderer> {
 
 /// One off template
 pub fn one_off(tpl: &str, ctx: &Context) -> Result<String> {
-    let autoescape = false; // we template url with slashes in them
-    let res = Tera::one_off(tpl, ctx, autoescape)?;
+    let mut tera = Tera::default();
+    tera.add_raw_template("one_off", tpl)?;
+    tera.register_filter("as_secret", as_secret);
+    let res = tera.render("one_off", ctx)?;
     Ok(res)
 }
 
@@ -141,11 +150,12 @@ impl Manifest {
         ctx.add("service", &self.name.clone());
         ctx.add("region", &self.region.clone());
         ctx.add("base_urls", &reg.base_urls);
+        ctx.add("kong", &reg.kong);
         Ok(ctx)
     }
 
     /// Inline templates in values
-    fn inline_configs(&mut self, conf: &Config, region: &str) -> Result<()> {
+    pub fn inline_configs(&mut self, conf: &Config, region: &str) -> Result<()> {
         let svc = self.name.clone();
         let rdr = service_bound_renderer(&self.name)?;
         let ctx = self.make_template_context(conf, region)?;
@@ -161,19 +171,12 @@ impl Manifest {
         Ok(())
     }
 
-    /// Template evars
-    fn template_evars(&mut self, conf: &Config, region: &str) -> Result<()> {
+    /// Template evars - must happen before inline templates!
+    pub fn template_evars(&mut self, conf: &Config, region: &str) -> Result<()> {
         let ctx = self.make_template_context(conf, region)?;
         for (_, v) in &mut self.env {
             *v = one_off(v, &ctx)?;
         }
-        Ok(())
-    }
-
-    /// Template everything in the correct order
-    pub fn template(&mut self, conf: &Config, region: &str) -> Result<()> {
-        self.template_evars(conf, region)?;
-        self.inline_configs(conf, region)?;
         Ok(())
     }
 }

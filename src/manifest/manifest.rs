@@ -256,6 +256,7 @@ impl Manifest {
         let pth = self.get_vault_path(vc);
         debug!("Injecting secrets from vault {}", pth);
 
+        let special = "SHIPCAT_SECRET::".to_string();
         // iterate over key value evars and replace placeholders
         for (k, v) in &mut self.env {
             if v == "IN_VAULT" {
@@ -264,10 +265,15 @@ impl Manifest {
                 self.secrets.insert(k.to_string(), secret.clone());
                 self._decoded_secrets.insert(vkey, secret);
             }
+            // Special cases that were handled by `| as_secret` template fn
+            if v.starts_with(&special) {
+                self.secrets.insert(k.to_string(), v.split_off(special.len()));
+            }
         }
         // remove placeholders from env
         self.env = self.env.clone().into_iter()
             .filter(|&(_, ref v)| v != "IN_VAULT")
+            .filter(|&(_, ref v)| !v.starts_with(&special))
             .collect();
         // do the same for secret secrets
         for (k, v) in &mut self.secretFiles {
@@ -284,7 +290,6 @@ impl Manifest {
         }
         Ok(())
     }
-
 
     pub fn verify_secrets_exist(&self, vc: &VaultConfig) -> Result<()> {
         // what are we requesting
@@ -347,10 +352,12 @@ impl Manifest {
         let mut mf = Manifest::read_from(&pth)?;
         // fill defaults and merge regions before extracting secrets
         mf.fill(conf, region)?;
-        // secrets before templates (templates use raw secret values)
+        // replace one-off templates in evar strings with values
+        mf.template_evars(conf, region)?;
+        // secrets before configs (.j2 template files use raw secret values)
         mf.secrets(&v, &r.vault)?;
-        // templates last by transitive property..
-        mf.template(&conf, region)?;
+        // templates last
+        mf.inline_configs(&conf, region)?;
         Ok(mf)
     }
 
@@ -376,10 +383,12 @@ impl Manifest {
         let mut mf = Manifest::read_from(&pth)?;
         // fill defaults and merge regions before extracting secrets
         mf.fill(conf, region)?;
-        // secrets before templates (templates use raw secret values)
+        // replace one-off templates in evar strings with values
+        mf.template_evars(conf, region)?;
+        // (MOCKED) secrets before configs (.j2 template files use raw secret values)
         mf.secrets(&v, &r.vault)?;
-        // templates last by transitive property..
-        mf.template(&conf, region)?;
+        // templates last
+        mf.inline_configs(&conf, region)?;
         Ok(mf)
     }
 
@@ -623,9 +632,19 @@ mod tests {
         // verify templating
         let env = mf.env;
         assert_eq!(env["CORE_URL"], "https://woot.com/somesvc".to_string());
+        // check values from Config - one plain, one as_secret
+        assert_eq!(env["CLIENT_ID"], "FAKEASKID".to_string());
+        assert!(env.get("CLIENT_SECRET").is_none()); // moved to secret
+        let sec = mf.secrets;
+        assert_eq!(sec["CLIENT_SECRET"], "FAKEASKSECRET".to_string()); // via reg.kong consumers
+        assert_eq!(sec["FAKE_SECRET"], "hello".to_string()); // NB: ACTUALLY IN_VAULT
+
         let configs = mf.configs.clone().unwrap();
         let configini = configs.files[0].clone();
         let cfgtpl = configini.value.unwrap();
+        print!("{:?}", cfgtpl);
         assert!(cfgtpl.contains("CORE=https://woot.com/somesvc"));
+        assert!(cfgtpl.contains("CLIENT_ID"));
+        assert!(cfgtpl.contains("CLIENT_ID=FAKEASKID"));
     }
 }
