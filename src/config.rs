@@ -152,10 +152,10 @@ impl KongConfig {
         let mut expected = vec![];
         for (svc, data) in &self.consumers {
             if data.oauth_client_id == "IN_VAULT" {
-                expected.push(format!("{}/kong/consumers/{}_oauth_client_id", region, svc));
+                expected.push(format!("{}_oauth_client_id", svc));
             }
             if data.oauth_client_secret == "IN_VAULT" {
-                expected.push(format!("{}/kong/consumers/{}_oauth_client_secret", region, svc));
+                expected.push(format!("{}_oauth_client_secret", svc));
             }
         }
         if expected.is_empty() {
