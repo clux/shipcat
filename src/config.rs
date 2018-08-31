@@ -213,6 +213,7 @@ pub struct Region {
     /// Vault configuration for the region
     pub vault: VaultConfig,
     /// List of locations the region serves
+    #[serde(default)]
     pub locations: Vec<String>,
 }
 
