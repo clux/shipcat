@@ -264,6 +264,7 @@ pub struct Config {
     pub regions: BTreeMap<String, Region>,
 
     /// Location definitions
+    #[serde(default)]
     pub locations: BTreeMap<String, Location>,
 
     /// Team definitions
