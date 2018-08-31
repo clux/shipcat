@@ -352,6 +352,19 @@ fn handle_dependency_free_commands(args: &ArgMatches, conf: &Config) {
             result_exit(args.subcommand_name().unwrap(), res);
         }
     }
+    // validate can be done here without a kube region
+    if let Some(a) = args.subcommand_matches("validate") {
+        let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
+        // but it needs a kube context if you don't specify the region
+        let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
+            conditional_exit(conf.resolve_region())
+        });
+        // secret version is later
+        if !a.is_present("secrets") { // otherwise handle later
+            let res = shipcat::validate::manifest(services, &conf, region, false);
+            result_exit(args.subcommand_name().unwrap(), res)
+        }
+    }
 }
 
 /// Dispatch to helm module
@@ -370,9 +383,7 @@ fn handle_secret_using_commands(args: &ArgMatches, region: &str, conf: &mut Conf
     if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
         // this only needs a kube context if you don't specify it
-        let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
-            conditional_exit(conf.resolve_region())
-        });
+        let region = a.value_of("region").unwrap_or(region).to_string();
         if a.is_present("secrets") {
             conditional_exit(conf.secrets(&region));
         }
