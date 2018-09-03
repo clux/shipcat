@@ -516,6 +516,9 @@ impl Manifest {
             if k != &k.to_uppercase()  {
                 bail!("Env vars need to be uppercase, found: {}", k);
             }
+            if k.contains("-") {
+                bail!("Env vars need to use SCREAMING_SNAKE_CASE not dashes, found: {}", k);
+            }
         }
 
         // internal errors - implicits set these!
