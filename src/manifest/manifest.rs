@@ -350,6 +350,9 @@ impl Manifest {
             bail!("Service folder {} does not exist", pth.display())
         }
         let mut mf = Manifest::read_from(&pth)?;
+        if !mf.regions.contains(&region.to_string()) {
+            bail!("Service {} does not exist in the region {}", service, region);
+        }
         // fill defaults and merge regions before extracting secrets
         mf.fill(conf, region)?;
         // replace one-off templates in evar strings with values
@@ -434,10 +437,11 @@ impl Manifest {
         self
     }
 
-    /// Print manifest to debug output
+    /// Print manifest to stdout
     pub fn print(&self) -> Result<()> {
+        use std::io::{self, Write};
         let encoded = serde_yaml::to_string(self)?;
-        trace!("{}\n", encoded);
+        let _ = io::stdout().write(format!("{}\n", encoded).as_bytes());
         Ok(())
     }
 
@@ -576,6 +580,16 @@ impl Manifest {
         Ok(())
     }
 }
+
+/// Entry point for service show [service]
+pub fn show(svc: String, conf: &Config, region: &str) -> Result<()> {
+    use std::io::{self, Write};
+    let mf = Manifest::completed(&svc, conf, region)?; // TODO: mock
+    let encoded = serde_yaml::to_string(&mf)?;
+    let _ = io::stdout().write(&format!("{}\n", encoded).as_bytes());
+    Ok(())
+}
+
 
 
 #[cfg(test)]

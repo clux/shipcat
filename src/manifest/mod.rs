@@ -14,8 +14,9 @@ pub use super::vault;
 /// Main module
 pub mod manifest;
 
-// Exports
+// Re-exports
 pub use self::manifest::Manifest;
+pub use self::manifest::show;
 
 // private module to define merge behaviour
 mod merge;

@@ -153,7 +153,7 @@ pub use config::Config;
 /// Structs for the manifest
 pub mod structs;
 
-mod manifest;
+pub mod manifest;
 pub use manifest::{Manifest};
 
 /// Product module
