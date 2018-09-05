@@ -19,7 +19,7 @@ fn print_error_debug(e: Error) {
     if let Ok(_) = env::var("CIRCLECI") {
         // https://github.com/Babylonpartners/shipcat/issues/160
         // only print debug implementation rather than unwinding
-        debug!("{:?}", e);
+        warn!("{:?}", e);
     } else {
         // normal case - unwind the error chain
         for e in e.iter().skip(1) {
@@ -44,6 +44,14 @@ fn conditional_exit<T>(x: Result<T>) -> T {
     }).unwrap()
 }
 
+// helper for fns that work without kubectl
+// but will use it to resolve a region from current-context if not specified
+fn passed_region_or_current_context(args: &ArgMatches, conf: &Config) -> String {
+    args.value_of("region").map(String::from).unwrap_or_else(|| {
+       conditional_exit(conf.resolve_region())
+    })
+}
+
 fn main() {
     let app = App::new("shipcat")
         .version(crate_version!())
@@ -66,6 +74,7 @@ fn main() {
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name")))
+
         .subcommand(SubCommand::with_name("helm")
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .about("Run helm like commands on shipcat manifests")
@@ -78,9 +87,6 @@ fn main() {
                 .required(true)
                 .help("Service name"))
             .subcommand(SubCommand::with_name("template")
-                .arg(Arg::with_name("mock-vault")
-                    .long("mock-vault")
-                    .help("Return empty strings from Vault"))
                 .about("Generate helm template from a manifest"))
             .subcommand(SubCommand::with_name("values")
                 .about("Generate helm values from a manifest"))
@@ -101,6 +107,7 @@ fn main() {
                 .arg(Arg::with_name("dryrun")
                     .long("dry-run")
                     .help("Show the diff only"))))
+
         .subcommand(SubCommand::with_name("jenkins")
             .about("Query jenkins jobs named kube-deploy-{region}")
             .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -115,6 +122,7 @@ fn main() {
                 .about("Print the jenkins deployment history for a service"))
             .subcommand(SubCommand::with_name("latest")
                 .about("Print the latest jenkins deployment job for a service")))
+
         .subcommand(SubCommand::with_name("shell")
             .about("Shell into pods for a service described in a manifest")
             .arg(Arg::with_name("region")
@@ -132,6 +140,7 @@ fn main() {
                 .help("Service name"))
             .setting(AppSettings::TrailingVarArg)
             .arg(Arg::with_name("cmd").multiple(true)))
+
         .subcommand(SubCommand::with_name("port-forward")
             .about("Port forwards a pod from a service to localhost")
             .arg(Arg::with_name("pod")
@@ -142,6 +151,7 @@ fn main() {
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name")))
+
         .subcommand(SubCommand::with_name("slack")
             .arg(Arg::with_name("url")
                 .short("u")
@@ -161,6 +171,7 @@ fn main() {
                 .takes_value(true))
             .setting(AppSettings::TrailingVarArg)
             .about("Post message to slack"))
+
         .subcommand(SubCommand::with_name("validate")
               .arg(Arg::with_name("services")
                 .required(true)
@@ -176,6 +187,7 @@ fn main() {
                 .long("secrets")
                 .help("Verifies secrets exist everywhere"))
               .about("Validate the shipcat manifest"))
+
         .subcommand(SubCommand::with_name("secret")
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .subcommand(SubCommand::with_name("verify-region")
@@ -185,10 +197,12 @@ fn main() {
                     .help("Regions to validate all enabled services for"))
                 .about("Verify existence of secrets for entire regions"))
             .about("Secret interaction"))
+
         .subcommand(SubCommand::with_name("gdpr")
               .arg(Arg::with_name("service")
                 .help("Service names to show"))
               .about("Reduce data handling structs"))
+
         .subcommand(SubCommand::with_name("get")
               .arg(Arg::with_name("region")
                 .short("r")
@@ -204,10 +218,12 @@ fn main() {
                 .help("Reduce encoded cluster information"))
               .subcommand(SubCommand::with_name("versions")
                 .help("Reduce encoded version info")))
+        // kong helper
         .subcommand(SubCommand::with_name("kong")
             .about("Generate Kong config")
             .subcommand(SubCommand::with_name("config-url")
                 .help("Generate Kong config URL")))
+        // dependency graphing
         .subcommand(SubCommand::with_name("graph")
               .arg(Arg::with_name("service")
                 .help("Service name to graph around"))
@@ -215,6 +231,7 @@ fn main() {
                 .long("dot")
                 .help("Generate dot output for graphviz"))
               .about("Graph the dependencies of a service"))
+        // cluster admin operations
         .subcommand(SubCommand::with_name("cluster")
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .about("Perform cluster level recovery / reconcilation commands")
@@ -231,6 +248,7 @@ fn main() {
                     .about("Reconcile kubernetes region configs with local state"))
                 .subcommand(SubCommand::with_name("diff")
                     .about("Diff kubernetes region configs with local state"))))
+        // all the listers (hidden from cli output)
         .subcommand(SubCommand::with_name("list-regions")
             .setting(AppSettings::Hidden)
             .about("list supported regions/clusters"))
@@ -249,6 +267,41 @@ fn main() {
                 .required(true)
                 .help("Location to filter on"))
             .about("list supported products"))
+
+        // new service subcommands (absorbing some service manifest responsibility from helm/validate cmds)
+        .subcommand(SubCommand::with_name("status")
+              .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Specific region to check"))
+              .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service to check"))
+              .about("Show kubernetes status for all the resources for a service"))
+        .subcommand(SubCommand::with_name("values")
+              .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Specific region to use"))
+              .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service to generate values for"))
+              .about("Generate the completed service manifest that will be passed to the helm chart"))
+        .subcommand(SubCommand::with_name("template")
+              .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Specific region to template for"))
+              .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service to generate kube yaml for"))
+            .about("Generate kube yaml for a service (through helm)"))
+
+
+        // products
         .subcommand(SubCommand::with_name("product")
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .about("Run product interactions across manifests")
@@ -270,7 +323,8 @@ fn main() {
                     .takes_value(true)
                     .required(false)
                     .help("Location name"))
-                .about("Verify product manifests")));
+                .about("Verify product manifests"))
+            );
 
     // arg parse
     let args = app.get_matches();
@@ -352,13 +406,34 @@ fn handle_dependency_free_commands(args: &ArgMatches, conf: &Config) {
             result_exit(args.subcommand_name().unwrap(), res);
         }
     }
-    // validate can be done here without a kube region
+    // helpers that can work without a kube region, but will shell out to kubectl if not passed
+    if let Some(a) = args.subcommand_matches("status") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+        let region = passed_region_or_current_context(&a, &conf);
+        unimplemented!();
+    }
+    if let Some(a) = args.subcommand_matches("template") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+        let region = passed_region_or_current_context(&a, &conf);
+
+        if !a.is_present("secrets") { // otherwise handle later
+            let mock = true; // not with this entry point
+            let res = shipcat::helm::direct::template(&svc,
+                &region, &conf, None, mock);
+            result_exit(args.subcommand_name().unwrap(), res)
+        }
+        unimplemented!(); // secret version not implemented
+        // TODO: handle secret/non-secret split better..
+    }
+    if let Some(a) = args.subcommand_matches("values") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+        let region = passed_region_or_current_context(&a, &conf);
+        let res = shipcat::manifest::show(svc, &conf, &region);
+        result_exit(args.subcommand_name().unwrap(), res);
+    }
     if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
-        // but it needs a kube context if you don't specify the region
-        let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
-            conditional_exit(conf.resolve_region())
-        });
+        let region = passed_region_or_current_context(&a, &conf);
         // secret version is later
         if !a.is_present("secrets") { // otherwise handle later
             let res = shipcat::validate::manifest(services, &conf, region, false);
@@ -413,12 +488,7 @@ fn handle_secret_using_commands(args: &ArgMatches, region: &str, conf: &mut Conf
     if let Some(a) = args.subcommand_matches("helm") {
         let svc = a.value_of("service").unwrap(); // defined required above
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
-
-        let cmdname = a.subcommand_name().unwrap(); // SubcommandRequiredElseHelp
-        if cmdname != "template" {
-            // fill in secrets for all helm commands except potentially template
-            conditional_exit(conf.secrets(&region));
-        }
+        conditional_exit(conf.secrets(&region));
 
         // small wrapper around helm history does not need anything fancy
         if let Some(_) = a.subcommand_matches("history") {
@@ -437,12 +507,9 @@ fn handle_secret_using_commands(args: &ArgMatches, region: &str, conf: &mut Conf
                 &region, &conf, ver.clone());
             result_exit(a.subcommand_name().unwrap(), res)
         }
-        if let Some(b) = a.subcommand_matches("template") {
+        if let Some(_) = a.subcommand_matches("template") {
             //let _output = b.value_of("output").map(String::from);
-            let mock = b.is_present("mock-vault");
-            if !mock {
-                conditional_exit(conf.secrets(&region));
-            }
+            let mock = false; // not with this entry point
             let res = shipcat::helm::direct::template(svc,
                 &region, &conf, ver.clone(), mock);
             result_exit(a.subcommand_name().unwrap(), res)
