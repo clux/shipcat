@@ -5,6 +5,7 @@ ENV KUBEVER=1.10.1 \
     HELMDIFFVER="2.9.0%2B1" \
     KUBEVALVER=0.7.2 \
     KUBETESTVER=0.1.1 \
+    VAULTVER=0.11.1 \
     HOME=/config \
     SSL_CERT_DIR=/etc/ssl/certs/
 
@@ -18,10 +19,12 @@ ADD https://storage.googleapis.com/kubernetes-release/release/v${KUBEVER}/bin/li
 # NB: skipping https://github.com/garethr/kubetest because alpine dylibs fail
 RUN set -x && \
     apk update && \
-    apk add --no-cache curl ca-certificates make bash jq git && \
+    apk add --no-cache curl ca-certificates make bash jq git unzip && \
     chmod +x /usr/local/bin/kubectl && \
     curl -sSL https://storage.googleapis.com/kubernetes-helm/helm-v${HELMVER}-linux-amd64.tar.gz | tar xz -C /usr/local/bin --strip-components=1 && \
     curl -sSL https://github.com/garethr/kubeval/releases/download/${KUBEVALVER}/kubeval-linux-amd64.tar.gz | tar xvz -C /usr/local/bin && \
+    curl -sSL https://releases.hashicorp.com/vault/${VAULTVER}/vault_${VAULTVER}_linux_amd64.zip > vault.zip && \
+    unzip vault.zip && mv vault /usr/local/bin && \
     #curl -sSL https://github.com/garethr/kubetest/releases/download/${KUBETESTVER}/kubetest-linux-amd64.tar.gz | tar xzv -C /usr/local/bin && \
     # Create non-root user
     adduser kubectl -Du 1000 -h /config && \
