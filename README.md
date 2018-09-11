@@ -4,15 +4,17 @@
 
 [![Docker Repository on Quay](https://quay.io/repository/babylonhealth/kubecat/status?token=6de24c74-1576-467f-8658-ec224df9302d "Docker Repository on Quay")](https://quay.io/repository/babylonhealth/kubecat)
 
-A standardisation tool sitting in front of `helm` to help control deployments on `kubernetes` via `shipcat.yml` manifest files.
+A standardisation tool combining deployments on `kubernetes` via `shipcat.yml` manifest files.
 
 Lives [on your ship](https://en.wikipedia.org/wiki/Ship%27s_cat).
 
 ## Installation
 ### Prebuilt
-Grab a [prebuilt shipcat from github releases](https://github.com/Babylonpartners/shipcat/releases). This can be extracted to `/usr/local` or some place on your `$PATH`. Then add the line `source /usr/local/share/shipcat/shipcat.complete.sh` to `~/.bash_completion`.
+Grab a prebuilt from either [babylon-homebrew](https://github.com/Babylonpartners/homebrew-babylon/) or directly from [github releases](https://github.com/Babylonpartners/shipcat/releases).
 
-To use `shipcat` from outside a manifest repo, `export SHIPCAT_MANIFEST_DIR=~/repos/manifests`.
+Tarballs can be extracted to `/usr/local` or some place on your `$PATH`. Then add the line `source /usr/local/share/shipcat/shipcat.complete.sh` to `~/.bash_completion`.
+
+Then point `shipcat` at your manifest repo: `export SHIPCAT_MANIFEST_DIR=~/repos/manifests`.
 
 ### Building
 To build yourself, use [rustup](https://rustup.rs/) to get latest stable rust.
