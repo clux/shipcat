@@ -9,15 +9,6 @@ ENV KUBEVER=1.10.1 \
     HOME=/config \
     SSL_CERT_DIR=/etc/ssl/certs/
 
-# Add core dependencies of validation
-RUN apk update && \
-    apk add --no-cache curl ca-certificates make bash jq git python3 unzip && \
-    apk add --no-cache libffi-dev g++ python3-dev openssl-dev && \
-    pip3 install --upgrade pip && \
-    pip3 install yamllint yq && \
-    pip3 install semver jira && \
-    apk del libffi-dev g++ python3-dev openssl-dev
-
 # Install shipcat (built for musl outside)
 ADD shipcat.x86_64-unknown-linux-musl /usr/local/bin/shipcat
 
@@ -27,6 +18,8 @@ ADD https://storage.googleapis.com/kubernetes-release/release/v${KUBEVER}/bin/li
 # Install everything
 # NB: skipping https://github.com/garethr/kubetest because alpine dylibs fail
 RUN set -x && \
+    apk update && \
+    apk add --no-cache curl ca-certificates make bash jq git unzip && \
     chmod +x /usr/local/bin/kubectl && \
     curl -sSL https://storage.googleapis.com/kubernetes-helm/helm-v${HELMVER}-linux-amd64.tar.gz | tar xz -C /usr/local/bin --strip-components=1 && \
     curl -sSL https://github.com/garethr/kubeval/releases/download/${KUBEVALVER}/kubeval-linux-amd64.tar.gz | tar xvz -C /usr/local/bin && \
@@ -54,6 +47,11 @@ RUN set -x && \
 # Hack to have diff in the bin sub-directory
 RUN mkdir $(helm home)/plugins/diff/bin && \
     cp $(helm home)/plugins/diff/diff $(helm home)/plugins/diff/bin/
+
+# Add yamllint, yq, semver, pylint for convenience (useful in verification jobs)
+RUN apk add --no-cache python3 && \
+    pip3 install --upgrade pip && \
+    pip3 install yamllint yq
 
 # Install kong-configurator deps
 ADD kong-configurator kong-configurator
