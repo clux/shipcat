@@ -299,6 +299,21 @@ fn main() {
                 .required(true)
                 .help("Service to generate kube yaml for"))
             .about("Generate kube yaml for a service (through helm)"))
+        .subcommand(SubCommand::with_name("apply")
+              .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Specific region to apply the service configuration"))
+              .arg(Arg::with_name("tag")
+                .long("tag")
+                .short("t")
+                .takes_value(true)
+                .help("Image version to deploy"))
+              .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service to upgrad"))
+            .about("Apply a service's configuration in kubernetes (through helm)"))
 
 
         // products
@@ -473,6 +488,20 @@ fn handle_secret_using_commands(args: &ArgMatches, region: &str, conf: &mut Conf
             result_exit(a.subcommand_name().unwrap(), res)
         }
     }
+    // X. new gen service commands
+    if let Some(a) = args.subcommand_matches("apply") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+        let region = passed_region_or_current_context(&a, &conf);
+        conditional_exit(conf.secrets(&region)); // absolutely needs secrets..
+        let umode = shipcat::helm::UpgradeMode::UpgradeInstall;
+        let ver = a.value_of("tag").map(String::from); // needed for some subcommands
+        let res = shipcat::helm::direct::upgrade_wrapper(&svc,
+            umode, &region,
+            &conf, ver);
+        result_exit(args.subcommand_name().unwrap(), res);
+
+    }
+
 
     // 2. kong subcommands
     if let Some(a) = args.subcommand_matches("kong") {
