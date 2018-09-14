@@ -92,9 +92,8 @@ pub struct HostPort {
 #[serde(deny_unknown_fields)]
 pub struct KafkaConfig {
     /// Broker urls
-    pub brokers: Vec<HostPort>,
+    pub brokers: Vec<String>,
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]

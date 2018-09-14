@@ -1,10 +1,10 @@
-use config::{Region, HostPort};
+use config::{Region};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Kafka {
     /// Brokers for the region
     #[serde(default)]
-    pub brokers: Vec<HostPort>,
+    pub brokers: Vec<String>,
 }
 
 impl Kafka {
