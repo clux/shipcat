@@ -149,6 +149,7 @@ impl Manifest {
         ctx.add("env", &full_env);
         ctx.add("service", &self.name.clone());
         ctx.add("region", &self.region.clone());
+        ctx.add("kafka", &self.kafka.clone());
         ctx.add("base_urls", &reg.base_urls);
         ctx.add("kong", &reg.kong);
         Ok(ctx)
