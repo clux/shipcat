@@ -202,6 +202,10 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub secretFiles: BTreeMap<String, String>,
 
+    /// Load balancer source ranges
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sourceRanges: Vec<String>,
+
     // TODO: logging alerts
 }
 
