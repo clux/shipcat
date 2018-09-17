@@ -205,6 +205,9 @@ impl Manifest {
         if !mf.labels.is_empty() {
             self.labels = mf.labels;
         }
+        if !mf.sourceRanges.is_empty() {
+            self.sourceRanges = mf.sourceRanges;
+        }
 
         Ok(())
     }
