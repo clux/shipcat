@@ -9,6 +9,7 @@ compile:
 		-v "$$PWD:/volume" -w /volume \
 		--rm -it clux/muslrust:stable cargo build --release
 	cp target/x86_64-unknown-linux-musl/release/shipcat shipcat.x86_64-unknown-linux-musl
+	chmod +x shipcat.x86_64-unknown-linux-musl
 
 build:
 	docker build -t $(REPO)/$(NAME):$(VERSION) .

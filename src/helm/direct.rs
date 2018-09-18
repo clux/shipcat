@@ -6,7 +6,7 @@ use super::grafana;
 use super::slack;
 use super::kube;
 use super::Metadata;
-use super::{Result, ResultExt, ErrorKind, Error, Manifest, Config};
+use super::{Result, ResultExt, ErrorKind, Manifest, Config};
 use super::helpers::{self, hout, hexec};
 
 /// The different modes we allow `helm upgrade` to run in
@@ -24,6 +24,10 @@ pub enum UpgradeMode {
     UpgradeInstall,
     /// Upgrade or install, but always wait (reconcile)
     UpgradeInstallWait,
+
+    // new modes
+    /// Upgrade and Wait, or Install and don't wait (on first install)
+    Apply,
 }
 impl Default for UpgradeMode {
     fn default() -> Self {
@@ -40,6 +44,7 @@ impl fmt::Display for UpgradeMode {
             &UpgradeMode::UpgradeInstall => write!(f, "install"),
             &UpgradeMode::UpgradeWaitMaybeRollback => write!(f, "upgrade"),
             &UpgradeMode::UpgradeInstallWait => write!(f, "reconcile"),
+            &UpgradeMode::Apply => write!(f, "apply"),
         }
     }
 }
@@ -53,6 +58,7 @@ impl UpgradeMode {
             &UpgradeMode::UpgradeInstall => "installed",
             &UpgradeMode::UpgradeWaitMaybeRollback => "upgraded",
             &UpgradeMode::UpgradeInstallWait => "reconciled",
+            &UpgradeMode::Apply => "applied",
         }.into()
     }
 }
@@ -62,6 +68,8 @@ impl UpgradeMode {
 /// Always just rolls back using to the helm's previous release and doesn't block
 /// I.e. it assumes th previous release is stable and can be upgraded to.
 /// If this is not the case you might have degraded service (fewer replicas).
+///
+/// TODO: deprecate
 pub fn rollback(ud: &UpgradeData) -> Result<()> {
     assert!(ud.namespace.len() > 0);
     let rollbackvec = vec![
@@ -219,18 +227,15 @@ pub fn upgrade(data: &UpgradeData) -> Result<()> {
         format!("version={}", data.version),
     ];
 
+    // TODO: dedupe
     match data.mode {
         UpgradeMode::UpgradeWaitMaybeRollback | UpgradeMode::UpgradeWait => {
             upgradevec.extend_from_slice(&[
-                "--wait".into(),
-                format!("--timeout={}", data.waittime),
             ]);
         },
         UpgradeMode::UpgradeRecreateWait => {
             upgradevec.extend_from_slice(&[
                 "--recreate-pods".into(),
-                "--wait".into(),
-                format!("--timeout={}", data.waittime),
             ]);
         },
         UpgradeMode::UpgradeInstall => {
@@ -239,12 +244,11 @@ pub fn upgrade(data: &UpgradeData) -> Result<()> {
             ]);
         },
         UpgradeMode::UpgradeInstallWait => {
-              upgradevec.extend_from_slice(&[
+            upgradevec.extend_from_slice(&[
                 "--install".into(),
-                "--wait".into(),
-                format!("--timeout={}", data.waittime),
             ]);
         },
+        // TODO: handle apply correctly (depending on case)
         ref u => {
             unimplemented!("Somehow got an uncovered upgrade mode ({:?})", u);
         }
@@ -252,7 +256,9 @@ pub fn upgrade(data: &UpgradeData) -> Result<()> {
 
     // CC service contacts on result
     info!("helm {}", upgradevec.join(" "));
-    hexec(upgradevec).map_err(|e| ErrorKind::HelmUpgradeFailure(e.to_string()).into())
+    hexec(upgradevec).chain_err(||
+        ErrorKind::HelmUpgradeFailure(data.name.clone())
+    )
 }
 
 enum DiffMode {
@@ -345,10 +351,12 @@ pub fn values(mf: &Manifest, output: Option<String>) -> Result<()> {
     Ok(())
 }
 
+use std::path::{Path, PathBuf};
+use std::fs::File;
 /// Analogue of helm template
 ///
 /// Generates helm values to disk, then passes it to helm template
-pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>, mock: bool) -> Result<String> {
+pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>, mock: bool, output: Option<PathBuf>) -> Result<String> {
     let mut mf = if mock {
         Manifest::mocked(svc, &conf, region)?
     } else {
@@ -379,16 +387,16 @@ pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>, moc
         warn!("{} stderr: {}", tplvec.join(" "), tplerr);
         bail!("helm template failed");
     }
-    //if let Some(o) = output {
-    //    let pth = Path::new(".").join(o);
-    //    info!("Writing helm template for {} to {}", dep.service, pth.display());
-    //    let mut f = File::create(&pth)?;
-    //    write!(f, "{}\n", tpl)?;
-    //    debug!("Wrote helm template for {} to {}: \n{}", dep.service, pth.display(), tpl);
-    //} else {
+    if let Some(o) = output {
+        let pth = Path::new(".").join(o);
+        info!("Writing helm template for {} to {}", svc, pth.display());
+        let mut f = File::create(&pth)?;
+        write!(f, "{}\n", tpl)?;
+        debug!("Wrote helm template for {} to {}: \n{}", svc, pth.display(), tpl);
+    } else {
         //stdout only
         let _ = io::stdout().write(tpl.as_bytes());
-    //}
+    }
     fs::remove_file(hfile)?;
     Ok(tpl)
 }
@@ -410,8 +418,8 @@ pub fn history(svc: &str, conf: &Config, region: &str) -> Result<()> {
 
 
 /// Handle error for a single upgrade
-pub fn handle_upgrade_rollbacks(e: &Error, u: &UpgradeData, mf: &Manifest) -> Result<()> {
-    error!("{} from {}", e, u.name);
+/// TODO: deprecate (see #183)
+pub fn handle_upgrade_rollbacks(u: &UpgradeData, mf: &Manifest) -> Result<()> {
     match u.mode {
         UpgradeMode::UpgradeRecreateWait |
         UpgradeMode::UpgradeInstall |
@@ -427,8 +435,10 @@ pub fn handle_upgrade_rollbacks(e: &Error, u: &UpgradeData, mf: &Manifest) -> Re
 /// Notify slack upgrades from a single upgrade
 pub fn handle_upgrade_notifies(success: bool, u: &UpgradeData) -> Result<()> {
     let (color, text) = if success {
+        info!("successfully rolled out {}", u.name);
         ("good".into(), format!("{} `{}` in `{}`", u.mode.action_verb(), u.name, u.region))
     } else {
+        warn!("failed to roll out {}", u.name);
         ("danger".into(), format!("failed to {} `{}` in `{}`", u.mode, u.name, u.region))
     };
     let code = if u.diff.is_empty() { None } else { Some(u.diff.clone()) };
@@ -496,39 +506,32 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
     // Sanity step that gives canonical upgrade data
     let upgrade_opt = UpgradeData::new(&mf, &hfile, mode, exists)?;
     if let Some(ref udata) = upgrade_opt {
-        // while upgrade is ongoing, have a background thread report upgrade progress:
-        use std::{thread, time};
-        // NB: This polling thread will be killed by `main`
-        let mfcpy = mf.clone(); // for thread
-        let _joinhandle = thread::Builder::new().name("upgrade_status".to_string()).spawn(move || {
-            let waittime = mfcpy.estimate_wait_time();
-            let sec = time::Duration::from_millis(1000);
-            trace!("Upgrade status thread active;");
-            for i in 1..10 {
-                trace!("poll thread iteration {}", i);
-                let mut waited = 0;
-                // report status and sleep
-                while waited < waittime/10 {
-                    waited += 1;
-                    trace!("sleep 1s (waited {})", waited);
-                    thread::sleep(sec);
-                }
-                let _ = kube::debug_rollout_status(&mfcpy);
-            }
-        }).unwrap();
-
-        // Upgrade data exists so it necessary - start the upgrade:
         match upgrade(&udata) {
             Err(e) => {
+                // upgrade failed immediately - couldn't create resources
                 handle_upgrade_notifies(false, &udata)?;
-                handle_upgrade_rollbacks(&e, &udata, &mf)?;
+                // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
+                error!("{} from {}", e, udata.name);
+                handle_upgrade_rollbacks(&udata, &mf)?; // for now leave it in..
                 return Err(e);
             },
             Ok(_) => {
-                handle_upgrade_notifies(true, &udata)?
+                // after helm upgrade / kubectl apply, check rollout status in a loop:
+                if kube::await_rollout_status(&mf)? {
+                    handle_upgrade_notifies(true, &udata)?;
+                }
+                else {
+                    let _ = kube::debug_rollout_status(&mf);
+                    let _ = kube::debug(&mf);
+                    handle_upgrade_notifies(false, &udata)?;
+                    // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
+                    handle_upgrade_rollbacks(&udata, &mf)?; // for now leave it in..
+                    return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), mf.estimate_wait_time()).into());
+                }
             }
         };
     }
+
     let _ = fs::remove_file(&hfile); // try to remove temporary file
     Ok(upgrade_opt)
 }

@@ -41,6 +41,58 @@ pub fn current_context() -> Result<String> {
     Ok(res)
 }
 
+fn rollout_status(mf: &Manifest) -> Result<bool> {
+    // TODO: handle more than one deployment
+    // Even if this were called 10 times with 1/10th of waiting time, we still can't wait:
+    // - we'd still need to check other deploys...
+    // - we'd have to deal with `kubectl rollout status` not having a timeout flag..
+    let statusvec = vec![
+        "rollout".into(),
+        "status".into(),
+        format!("deployment/{}", mf.name.clone()), // always one deployment with same name
+        format!("-n={}", mf.namespace),
+        "--watch=false".into(), // always just print current status
+    ];
+    let rollres = kout(statusvec)?;
+    debug!("{}", rollres);
+    if rollres.contains("successfully rolled out") {
+        Ok(true)
+    } else {
+        // TODO: check if any of the new pods have restarts in them
+        // will avoid waiting for the full time
+        Ok(false)
+    }
+}
+
+/// A replacement for helm upgrade's --wait and --timeout
+pub fn await_rollout_status(mf: &Manifest) -> Result<bool> {
+    use std::{thread, time};
+    // Check for rollout progress
+    let waittime = mf.estimate_wait_time();
+    let sec = time::Duration::from_millis(1000);
+    // if this is called immediately after apply/upgrade, resources might not exist yet
+    match rollout_status(&mf) {
+        Ok(true) => return Ok(true), // can also insta-succeed on "noops"
+        Ok(false) => debug!("Ignoring rollout failure right after upgrade"),
+        Err(e) => warn!("Ignoring rollout failure right after upgrade: {}", e),
+    };
+    info!("Waiting {}s for deployment {} to rollout (not ready yet)", waittime, mf.name);
+    for i in 1..10 {
+        trace!("poll iteration {}", i);
+        let mut waited = 0;
+        // sleep until 1/10th of estimated upgrade time and poll for status
+        while waited < waittime/10 {
+            waited += 1;
+            trace!("sleep 1s (waited {})", waited);
+            thread::sleep(sec);
+        }
+        if rollout_status(&mf)? {
+            return Ok(true)
+        }
+    }
+    Ok(false) // timeout
+}
+
 fn get_pods(mf: &Manifest) -> Result<String> {
     //kubectl get pods -l=app=$* -o jsonpath='{.items[*].metadata.name}'
     let podargs = vec![

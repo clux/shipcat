@@ -5,6 +5,7 @@ use std::fs;
 use super::{UpgradeMode, UpgradeData};
 use super::direct;
 use super::helpers;
+use super::kube;
 use super::{Result, ResultExt, ErrorKind, Config, Manifest};
 
 
@@ -97,15 +98,32 @@ fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Co
     let upgrade_opt = UpgradeData::new(&mf, &hfile, mode, exists)?;
     if let Some(ref udata) = upgrade_opt {
         // upgrade in given mode, potentially rolling back a failure
-        let res = direct::upgrade(&udata);
-        // notify about the result directly as they happen
-        let _ = direct::handle_upgrade_notifies(res.is_ok(), &udata).map_err(|e| {
-            warn!("Failed to slack notify about upgrade: {}", e);
-            e
-        });
-        if let Err(e) = res {
-            direct::handle_upgrade_rollbacks(&e, &udata, &mf)?;
-            return Err(e);
+        match direct::upgrade(&udata) {
+            Err(e) => {
+                // upgrade failed immediately - couldn't create resources
+                kube::debug(&mf)?;
+                error!("{} from {}", e, udata.name);
+                return Err(e);
+            }
+            Ok(_)  => {
+                // after helm upgrade / kubectl apply, check rollout status in a loop:
+                if kube::await_rollout_status(&mf)? {
+                    // notify about the result directly as they happen
+                    let _ = direct::handle_upgrade_notifies(true, &udata).map_err(|e| {
+                        warn!("Failed to slack notify about upgrade: {}", e);
+                        e
+                    });
+                } else {
+                    error!("Rollout of {} timed out", mf.name);
+                    kube::debug(&mf)?;
+                    let _ = direct::handle_upgrade_notifies(false, &udata).map_err(|e| {
+                        warn!("Failed to slack notify about upgrade: {}", e);
+                        e
+                    });
+                    // need set this as a reconcile level error
+                    return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), mf.estimate_wait_time()).into());
+                }
+            }
         }
     }
     let _ = fs::remove_file(&hfile); // try to remove temporary file
