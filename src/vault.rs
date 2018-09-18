@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::env;
 use std::fs::File;
 use std::io::Read;
+use dirs;
 
 use super::{Result, ErrorKind, ResultExt, Error};
 use super::config::VaultConfig;
@@ -19,7 +20,7 @@ fn default_token() -> Result<String> {
     env::var("VAULT_TOKEN")
         .or_else(|_: env::VarError| -> Result<String> {
             // Build a path to ~/.vault-token.
-            let path = env::home_dir()
+            let path = dirs::home_dir()
                 .ok_or_else(|| { ErrorKind::NoHomeDirectory })?
                 .join(".vault-token");
 

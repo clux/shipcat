@@ -418,8 +418,8 @@ impl Manifest {
     // How long to wait for a kube rolling upgrade
     // Currently used by helm upgrade --wait
     pub fn estimate_wait_time(&self) -> u32 {
-        // 512 default => extra 60s wait
-        let pulltimeestimate = (((self.imageSize.unwrap()*60) as f64)/(1024 as f64)) as u32;
+        // 512 default => extra 120s wait
+        let pulltimeestimate = (((self.imageSize.unwrap()*120) as f64)/(1024 as f64)) as u32;
         let rcount = self.replicaCount.unwrap(); // this is set by defaults!
         // NB: we wait to pull on each node because of how rolling-upd
         if let Some(ref hc) = self.health {
@@ -612,7 +612,7 @@ mod tests {
     #[test]
     fn wait_time_check() {
         setup();
-        // DEFAULT SETUP: no values == defaults => 120s helm wait
+        // DEFAULT SETUP: no values == defaults => 180s helm wait
         let mut mf = Manifest::default();
         mf.imageSize = Some(512);
         mf.health = Some(HealthCheck {
@@ -622,7 +622,7 @@ mod tests {
         });
         mf.replicaCount = Some(2);
         let wait = mf.estimate_wait_time();
-        assert_eq!(wait, 30*2*2);
+        assert_eq!(wait, (30+60)*2);
 
         // setup with large image and short boot time:
         mf.imageSize = Some(4096);
@@ -632,7 +632,7 @@ mod tests {
             ..Default::default()
         });
         let wait2 = mf.estimate_wait_time();
-        assert_eq!(wait2, (20+240)*2);
+        assert_eq!(wait2, (20+480)*2);
     }
 
     #[test]

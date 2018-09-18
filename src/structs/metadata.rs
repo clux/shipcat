@@ -61,7 +61,7 @@ impl Metadata {
     pub fn version_template(&self, ver: &str) -> Result<String> {
         use tera::{Tera, Context};
         let mut ctx = Context::new();
-        ctx.add("version", &ver.to_string());
+        ctx.insert("version", &ver.to_string());
         let res = Tera::one_off(&self.gitTagTemplate, &ctx, false).map_err(|e| {
             warn!("Failed to template gitTagTemplate {}", self.gitTagTemplate);
             e

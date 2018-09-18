@@ -416,6 +416,20 @@ pub fn history(svc: &str, conf: &Config, region: &str) -> Result<()> {
     Ok(())
 }
 
+/// Helm status wrapper
+///
+/// Analogue to `helm status {service}` uses the right tiller namespace
+pub fn status(svc: &str, conf: &Config, region: &str) -> Result<()> {
+    let mf = Manifest::stubbed(svc, &conf, region)?;
+    let histvec = vec![
+        format!("--tiller-namespace={}", mf.namespace),
+        "status".into(),
+        svc.into(),
+    ];
+    debug!("helm {}", histvec.join(" "));
+    hexec(histvec)?;
+    Ok(())
+}
 
 /// Handle error for a single upgrade
 /// TODO: deprecate (see #183)
