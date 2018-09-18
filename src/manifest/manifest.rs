@@ -586,9 +586,15 @@ impl Manifest {
 }
 
 /// Entry point for service show [service]
-pub fn show(svc: String, conf: &Config, region: &str) -> Result<()> {
+pub fn show(svc: String, conf: &Config, region: &str, mock: bool) -> Result<()> {
     use std::io::{self, Write};
-    let mf = Manifest::completed(&svc, conf, region)?; // TODO: mock
+
+    let mf = if mock {
+        Manifest::stubbed(&svc, conf, region)?
+    } else {
+        Manifest::completed(&svc, conf, region)?
+    };
+
     let encoded = serde_yaml::to_string(&mf)?;
     let _ = io::stdout().write(&format!("{}\n", encoded).as_bytes());
     Ok(())

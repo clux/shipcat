@@ -285,6 +285,10 @@ fn main() {
                 .long("region")
                 .takes_value(true)
                 .help("Specific region to use"))
+              .arg(Arg::with_name("secrets")
+                .short("s")
+                .long("secrets")
+                .help("Use actual secrets from vault"))
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service to generate values for"))
@@ -295,6 +299,10 @@ fn main() {
                 .long("region")
                 .takes_value(true)
                 .help("Specific region to template for"))
+              .arg(Arg::with_name("secrets")
+                .short("s")
+                .long("secrets")
+                .help("Use actual secrets from vault"))
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service to generate kube yaml for"))
@@ -427,25 +435,6 @@ fn handle_dependency_free_commands(args: &ArgMatches, conf: &Config) {
         let region = passed_region_or_current_context(&a, &conf);
         unimplemented!();
     }
-    if let Some(a) = args.subcommand_matches("template") {
-        let svc = a.value_of("service").map(String::from).unwrap();
-        let region = passed_region_or_current_context(&a, &conf);
-
-        if !a.is_present("secrets") { // otherwise handle later
-            let mock = true; // not with this entry point
-            let res = shipcat::helm::direct::template(&svc,
-                &region, &conf, None, mock);
-            result_exit(args.subcommand_name().unwrap(), res)
-        }
-        unimplemented!(); // secret version not implemented
-        // TODO: handle secret/non-secret split better..
-    }
-    if let Some(a) = args.subcommand_matches("values") {
-        let svc = a.value_of("service").map(String::from).unwrap();
-        let region = passed_region_or_current_context(&a, &conf);
-        let res = shipcat::manifest::show(svc, &conf, &region);
-        result_exit(args.subcommand_name().unwrap(), res);
-    }
     if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
         let region = passed_region_or_current_context(&a, &conf);
@@ -478,6 +467,27 @@ fn handle_secret_using_commands(args: &ArgMatches, region: &str, conf: &mut Conf
             conditional_exit(conf.secrets(&region));
         }
         let res = shipcat::validate::manifest(services, &conf, region, a.is_present("secrets"));
+        result_exit(args.subcommand_name().unwrap(), res)
+    }
+    if let Some(a) = args.subcommand_matches("values") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+        let region = passed_region_or_current_context(&a, &conf);
+        if a.is_present("secrets") {
+            conditional_exit(conf.secrets(&region));
+        }
+        let mock = !a.is_present("secrets");
+        let res = shipcat::manifest::show(svc, &conf, &region, mock);
+        result_exit(args.subcommand_name().unwrap(), res);
+    }
+    if let Some(a) = args.subcommand_matches("template") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+        let region = passed_region_or_current_context(&a, &conf);
+        if a.is_present("secrets") {
+            conditional_exit(conf.secrets(&region));
+        }
+        let mock = !a.is_present("secrets");
+        let res = shipcat::helm::direct::template(&svc,
+                &region, &conf, None, mock, None);
         result_exit(args.subcommand_name().unwrap(), res)
     }
     if let Some(a) = args.subcommand_matches("secret") {
@@ -538,9 +548,10 @@ fn handle_secret_using_commands(args: &ArgMatches, region: &str, conf: &mut Conf
         }
         if let Some(_) = a.subcommand_matches("template") {
             //let _output = b.value_of("output").map(String::from);
+            let output = None;
             let mock = false; // not with this entry point
             let res = shipcat::helm::direct::template(svc,
-                &region, &conf, ver.clone(), mock);
+                &region, &conf, ver.clone(), mock, output);
             result_exit(a.subcommand_name().unwrap(), res)
         }
 

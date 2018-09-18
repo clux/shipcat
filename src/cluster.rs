@@ -31,6 +31,27 @@ fn mass_helm(conf: &Config, region: &str, umode: UpgradeMode, n_workers: usize) 
     helm::parallel::reconcile(svcs, conf, region, umode, n_workers)
 }
 
+/// Diff generated templates against master
+///
+/// NB: Will git diff, switch branch to master, git diff, then switch back again.
+/// The resulting data can then be presented.
+pub fn region_wide_git_diff_with_master(conf: &Config, region: &str) -> Result<()> {
+    let mut svcs = vec![];
+    for svc in Manifest::available()? {
+        let mf = Manifest::basic(&svc, conf, None)?;
+        if !mf.disabled && !mf.external && mf.regions.contains(&region.to_string()) {
+            svcs.push(svc);
+        }
+    }
+    use std::path::Path;
+    let pth = Path::new(".").join("output").join("new");
+    for s in svcs {
+        let mock = false;
+        let _tpl = helm::direct::template(&s, &region, &conf, None, mock, Some(pth.clone()));
+    }
+    unimplemented!();
+}
+
 /// Kong reconcile
 ///
 /// Shells out to kong-configurator (python cli) with right params

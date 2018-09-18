@@ -45,14 +45,11 @@ shipcat validate babylbot --secrets
 If you have `kubectl` read only credentials you can also create your helm values, template and diff a deployment against a current running one:
 
 ```sh
-# Generate helm values for your chart
-shipcat helm babylbot values
+# Generate completed manifest (what's passed to your chart)
+shipcat values gate-annotator
 
-# Pass the generated values through helm template
-shipcat helm babylbot template
-
-# Diff the helm template against the live deployment
-shipcat helm babylbot diff
+# Pass completed manifest to helm template
+shipcat template gate-annotator
 ```
 
 Note that this requires `helm` + [helm diff](https://github.com/databus23/helm-diff) installed to work, and it will work against the region in your context (`kubectl config current-context`).

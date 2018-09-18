@@ -128,9 +128,13 @@ error_chain! {
             description("manifest does not validate")
             display("manifest for {} does not validate", &svc)
         }
-        HelmUpgradeFailure(reason: String) {
+        HelmUpgradeFailure(svc: String) {
             description("Helm upgrade call failed")
-            display("Helm upgrade failed. Returned error {}", &reason)
+            display("Helm upgrade of {} failed", &svc)
+        }
+        UpgradeTimeout(svc: String, secs: u32) {
+            description("upgrade timed out")
+            display("{} upgrade timed out waiting {}s for deployment(s) to come online", &svc, secs)
         }
     }
 }
