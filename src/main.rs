@@ -433,7 +433,8 @@ fn handle_dependency_free_commands(args: &ArgMatches, conf: &Config) {
     if let Some(a) = args.subcommand_matches("status") {
         let svc = a.value_of("service").map(String::from).unwrap();
         let region = passed_region_or_current_context(&a, &conf);
-        unimplemented!();
+        let res = shipcat::helm::status(&svc, &conf, &region);
+        result_exit(args.subcommand_name().unwrap(), res);
     }
     if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();

@@ -146,12 +146,12 @@ impl Manifest {
         // TODO: switch to a bespoke `secrets` struct in manifests
         let mut full_env = self.env.clone();
         full_env.append(&mut self.secrets.clone());
-        ctx.add("env", &full_env);
-        ctx.add("service", &self.name.clone());
-        ctx.add("region", &self.region.clone());
-        ctx.add("kafka", &self.kafka.clone());
-        ctx.add("base_urls", &reg.base_urls);
-        ctx.add("kong", &reg.kong);
+        ctx.insert("env", &full_env);
+        ctx.insert("service", &self.name.clone());
+        ctx.insert("region", &self.region.clone());
+        ctx.insert("kafka", &self.kafka.clone());
+        ctx.insert("base_urls", &reg.base_urls);
+        ctx.insert("kong", &reg.kong);
         Ok(ctx)
     }
 

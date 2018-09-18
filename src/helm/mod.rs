@@ -17,7 +17,7 @@ pub mod parallel;
 /// Direct helm invokers (used by abstractions)
 pub mod direct;
 // Re-exports for main
-pub use self::direct::{history, template, values};
+pub use self::direct::{history, template, values, status};
 
 /// Helm related helpers
 pub mod helpers;

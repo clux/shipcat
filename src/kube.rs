@@ -424,12 +424,12 @@ pub fn port_forward(mf: &Manifest, desiredpod: Option<usize>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::env;
+    use dirs;
     use super::current_context;
 
     #[test]
     fn validate_ctx() {
-        let kubecfg = env::home_dir().unwrap().join(".kube").join("config");
+        let kubecfg = dirs::home_dir().unwrap().join(".kube").join("config");
         if kubecfg.is_file() {
             let ctx = current_context().unwrap();
             assert_eq!(ctx, "dev-uk".to_string());
