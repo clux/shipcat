@@ -331,7 +331,7 @@ impl Manifest {
 
     /// Fill in env overrides and apply merge rules
     pub fn fill(&mut self, conf: &Config, region: &str) -> Result<()> {
-        self.pre_merge_implicits(conf)?;
+        self.pre_merge_implicits(conf, Some(region.into()))?;
         // merge service specific env overrides if they exists
         let envlocals = Path::new(".")
             .join("services")
@@ -409,7 +409,7 @@ impl Manifest {
         if mf.name != service {
             bail!("Service name must equal the folder name");
         }
-        mf.pre_merge_implicits(conf)?;
+        mf.pre_merge_implicits(conf, None)?;
         // not merging here, but do all implicts we can anyway
         mf.post_merge_implicits(conf, region)?;
         Ok(mf)

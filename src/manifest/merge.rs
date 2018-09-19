@@ -17,9 +17,6 @@ impl Manifest {
         if let Some(r) = region {
             self.region = r.clone();
             let reg = &conf.regions[&r];
-            for (k, v) in reg.env.clone() {
-                self.env.insert(k, v);
-            }
 
             // Kong has implicit, region-scoped values
             if let Some(ref mut kong) = self.kong {
@@ -50,7 +47,16 @@ impl Manifest {
     ///
     /// Should be used by entries that have simple implicit results based on the config
     /// I.e. optional strings, integers etc.
-    pub fn pre_merge_implicits(&mut self, conf: &Config) -> Result<()> {
+    pub fn pre_merge_implicits(&mut self, conf: &Config, region: Option<String>) -> Result<()> {
+        if let Some(r) = region {
+            self.region = r.clone();
+            let reg = &conf.regions[&r];
+            // environment defaults for a region is merged before env overrides
+            // and only if they aren't explicitly set in manifests
+            for (k, v) in reg.env.clone() {
+                self.env.entry(k).or_insert(v);
+            }
+        }
         if self.image.is_none() {
             // image name defaults to some prefixed version of the service name
             self.image = Some(format!("{}/{}", conf.defaults.imagePrefix, self.name))
