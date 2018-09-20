@@ -33,11 +33,35 @@ fn default_token() -> Result<String> {
         .chain_err(|| ErrorKind::MissingVaultToken)
 }
 
+/// Secrets in vault values can be integers or strings
+///
+/// If they are integers, we coerce them to strings
+/// This is mostly a convenience because you can't easily quote integers in the UI
+/// without them ending up double quoted...
+///
+/// Use untagged feature to have serde autodetect the type, and implement string coerce.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(untagged)]
+enum SecretValue {
+    S(String),
+    I(i64),
+}
+impl From<SecretValue> for String {
+    fn from(sv: SecretValue) -> String {
+        match sv {
+            SecretValue::I(i) => i.to_string(),
+            SecretValue::S(s) => s,
+        }
+    }
+}
+
 /// Secret data retrieved from Vault using only standard fields
 #[derive(Debug, Deserialize)]
 struct Secret {
     /// The key-value pairs associated with this secret.
-    data: BTreeMap<String, String>,
+    ///
+    /// NB: If we put String instead of SecretValue we discard integer-like values
+    data: BTreeMap<String, SecretValue>,
     // How long this secret will remain valid for, in seconds.
     lease_duration: u64,
 }
@@ -184,7 +208,7 @@ impl Vault {
                 if self.mode == Mode::Masked {
                     "VAULT_VALIDATED".into()
                 } else {
-                    v.clone()
+                    v.clone().into()
                 }
             })
     }
@@ -194,18 +218,38 @@ impl Vault {
 #[cfg(test)]
 mod tests {
     use super::Vault;
+    use base64;
 
     #[test]
     fn get_dev_secret() {
         let client = Vault::from_evars().unwrap();
         let secret = client.read("dev-uk/test-shipcat/FAKE_SECRET").unwrap();
         assert_eq!(secret, "hello");
+
+        // integers in vault coerced to strings
+        let secretnum = client.read("dev-uk/test-shipcat/FAKE_NUMBER").unwrap();
+        assert_eq!(secretnum, "-2");
+
+        // secretfiles are valid base64
+        let secretfile = client.read("dev-uk/test-shipcat/fake-file").unwrap();
+        assert_eq!(secretfile, "aGVsbG8gd29ybGQgYmFzZTY0Cg==".to_string());
+        if let Ok(b) = base64::decode(&secretfile) {
+            let s = String::from_utf8(b).unwrap();
+            assert_eq!(s, "hello world base64\n");
+        } else {
+            assert!(false, "fake-file {} in vault is not base64 encoded", secretfile);
+        }
     }
 
     #[test]
     fn list_dev_secrets() {
         let client = Vault::from_evars().unwrap();
-        let secrets = client.list("dev-uk/test-shipcat").unwrap();
-        assert_eq!(secrets, vec!["FAKE_SECRET".to_string()]);
+        let mut secrets = client.list("dev-uk/test-shipcat").unwrap();
+        secrets.sort_unstable(); // ignore key order
+        assert_eq!(secrets, vec![
+            "FAKE_NUMBER".to_string(),
+            "FAKE_SECRET".to_string(),
+            "fake-file".to_string()
+        ]);
     }
 }
