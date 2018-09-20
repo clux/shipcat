@@ -70,17 +70,14 @@ impl UpgradeMode {
 /// If this is not the case you might have degraded service (fewer replicas).
 ///
 /// TODO: deprecate
-pub fn rollback(ud: &UpgradeData) -> Result<()> {
+pub fn rollback(ud: &UpgradeData, mf: &Manifest) -> Result<()> {
     assert!(ud.namespace.len() > 0);
     let rollbackvec = vec![
         format!("--tiller-namespace={}", ud.namespace),
         "rollback".into(),
         ud.name.clone(),
-        "--wait".into(),
-        format!("--timeout={}", ud.waittime),
         "0".into(), // magic helm number for previous
     ];
-    // TODO: diff this rollback? https://github.com/databus23/helm-diff/issues/6
     info!("helm {}", rollbackvec.join(" "));
     match hexec(rollbackvec) {
         Err(e) => {
@@ -94,6 +91,7 @@ pub fn rollback(ud: &UpgradeData) -> Result<()> {
             Err(e)
         },
         Ok(_) => {
+            let res = kube::await_rollout_status(&mf);
             let _ = grafana::create(grafana::Annotation {
                 event: grafana::Event::Rollback,
                 service: ud.name.clone(),
@@ -107,6 +105,7 @@ pub fn rollback(ud: &UpgradeData) -> Result<()> {
                 metadata: ud.metadata.clone(),
                 ..Default::default()
             })?;
+            res?; // propagate errors from rollback check if any
             Ok(())
         }
     }
@@ -116,7 +115,7 @@ pub fn rollback(ud: &UpgradeData) -> Result<()> {
 pub fn rollback_wrapper(svc: &str, conf: &Config, region: &str) -> Result<()> {
     let base = Manifest::stubbed(svc, conf, region)?;
     let ud = UpgradeData::from_rollback(&base);
-    rollback(&ud)
+    rollback(&ud, &base)
 }
 
 // All data needed for an upgrade
@@ -441,7 +440,7 @@ pub fn handle_upgrade_rollbacks(u: &UpgradeData, mf: &Manifest) -> Result<()> {
         _ => {}
     }
     if u.mode == UpgradeMode::UpgradeWaitMaybeRollback {
-        rollback(&u)?;
+        rollback(&u, mf)?;
     }
     Ok(())
 }
