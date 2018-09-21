@@ -227,6 +227,11 @@ fn main() {
         .subcommand(SubCommand::with_name("graph")
               .arg(Arg::with_name("service")
                 .help("Service name to graph around"))
+              .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Specific region to graph for"))
               .arg(Arg::with_name("dot")
                 .long("dot")
                 .help("Generate dot output for graphviz"))
@@ -443,6 +448,15 @@ fn handle_dependency_free_commands(args: &ArgMatches, conf: &Config) {
         if !a.is_present("secrets") { // otherwise handle later
             let res = shipcat::validate::manifest(services, &conf, region, false);
             result_exit(args.subcommand_name().unwrap(), res)
+        }
+    }
+    if let Some(a) = args.subcommand_matches("graph") {
+        let dot = a.is_present("dot");
+        let region = passed_region_or_current_context(&a, &conf);
+        if let Some(svc) = a.value_of("service") {
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(svc, &conf, dot, &region))
+        } else {
+            result_exit(args.subcommand_name().unwrap(), shipcat::graph::full(dot, &conf, &region))
         }
     }
 }
@@ -679,14 +693,6 @@ fn handle_basic_kube_commands(args: &ArgMatches, region: &str, conf: &Config) {
         };
         let msg = shipcat::slack::Message { text, link, color, metadata, ..Default::default() };
         result_exit(args.subcommand_name().unwrap(), shipcat::slack::send(msg))
-    }
-    if let Some(a) = args.subcommand_matches("graph") {
-        let dot = a.is_present("dot");
-        if let Some(svc) = a.value_of("service") {
-            result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(svc, &conf, dot, &region))
-        } else {
-            result_exit(args.subcommand_name().unwrap(), shipcat::graph::full(dot, &conf, &region))
-        }
     }
 
     if let Some(a) = args.subcommand_matches("gdpr") {
