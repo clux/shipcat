@@ -41,6 +41,30 @@ pub struct ProjectedVolumeSecret {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+pub struct DownwardApiWrapper {
+    pub items: Vec<DownwardApiItem>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct DownwardApiItem {
+    /// Kube path to string
+    pub path: String,
+    /// Specific kube paths to values
+    pub resourceFieldRef: DownWardApiResource,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct DownWardApiResource {
+    /// Name of container TODO: default to service name
+    pub containerName: String,
+    /// Raw accesssor, e.g. limits.cpu, status.podIP, etc TODO: validate
+    pub resource: String,
+    /// Format resource is returned in (defaults to 1 if missing), can set to 1m
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub divisor: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Volume {
     pub name: String,
     /// A projection combines multiple volume items
@@ -53,6 +77,9 @@ pub struct Volume {
     pub emptyDir: Option<BTreeMap<String, String>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub persistentVolumeClaim: BTreeMap<String, String>,
+    /// Items from the Downward API
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub downwardAPI: Option<DownwardApiWrapper>,
 }
 
 impl Verify for Volume {
