@@ -56,11 +56,11 @@ pub struct Probe {
 
     /// How long to wait before kube performs first probe
     #[serde(default = "initial_delay_seconds_default")]
-    initialDelaySeconds: u32,
+    pub initialDelaySeconds: u32,
 
     /// How long between each probe
     #[serde(default = "period_seconds_default")]
-    periodSeconds: u32,
+    pub periodSeconds: u32,
 }
 
 // 5 is kube standard delay default, we set it a little higher

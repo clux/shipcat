@@ -425,6 +425,9 @@ impl Manifest {
         if let Some(ref hc) = self.health {
             // wait for at most (bootTime + pulltimeestimate) * replicas
             (hc.wait + pulltimeestimate) * rcount
+        } else if let Some(ref rp) = self.readinessProbe {
+            // health equivalent for readinessProbes
+            (rp.initialDelaySeconds + pulltimeestimate) * rcount
         } else {
             // sensible guess for boot time (helm default is 300 without any context)
             (30 + pulltimeestimate) * rcount

@@ -9,7 +9,7 @@ use semver::Version;
 use serde_yaml;
 
 use super::vault::Vault;
-use super::Result;
+use super::{Result, Error};
 use super::structs::Kong;
 
 
@@ -333,11 +333,20 @@ impl Config {
             }
             data.kong.verify()?;
         }
+        Config::verify_version(&self.version)?;
+
+        Ok(())
+    }
+
+    fn verify_version(ver: &Version) -> Result<()> {
         let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-        if self.version > current {
+        if ver > &current {
             let url = "https://github.com/Babylonpartners/shipcat/releases";
-            info!("Precompiled releasese available at {}", url);
-            bail!("Your shipcat is out of date ({} < {})", current, self.version)
+            let brewurl = "https://github.com/Babylonpartners/homebrew-babylon";
+            let s1 = format!("Precompiled releases available at {}", url);
+            let s2 = format!("Homebrew releases available via {}", brewurl);
+
+            bail!("Your shipcat is out of date ({} < {})\n\t{}\n\t{}", current, ver, s1, s2)
         }
         Ok(())
     }
@@ -362,7 +371,36 @@ impl Config {
         let mut f = File::open(&mpath)?;
         let mut data = String::new();
         f.read_to_string(&mut data)?;
-        Ok(serde_yaml::from_str(&data)?)
+        let res = serde_yaml::from_str(&data);
+        match res {
+            Err(e) => {
+                // failed to parse the config common causes:
+
+                // 1. version change caused their config to be out of date
+                use regex::Regex;
+                // manually check version against running
+                let ver_re = Regex::new(r"^version:\s*(?P<version>.+)$").unwrap();
+                for l in data.lines() {
+                    if let Some(caps) = ver_re.captures(l) {
+                        debug!("got version from raw data: {:?}", caps);
+                        // take precedence over config parse error if we can get a version in config
+                        if let Ok(expected) = Version::parse(&caps["version"]) {
+                            let res2 = Config::verify_version(&expected);
+                            if let Err(e2) = res2 {
+                                return Err(Error::from(e).chain_err(|| e2));
+                            }
+                        }
+                    }
+                }
+                // 2. manifests out of date, but shipcat up to date (can happen with brew)
+                // TODO: git check in SHIPCAT_MANIFEST_DIR ?
+                warn!("Invalid shipcat.conf - either genuine error, or your manifests dir is out of date locally");
+
+                // 3. genuine mistake in shipcat.conf additions/removals
+                return Err(e.into()) // propagate normal error
+            }
+            Ok(d) => Ok(d)
+        }
     }
 
     /// Read a config in pwd and leave placeholders
