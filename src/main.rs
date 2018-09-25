@@ -221,6 +221,9 @@ fn main() {
         // kong helper
         .subcommand(SubCommand::with_name("kong")
             .about("Generate Kong config")
+            .arg(Arg::with_name("crd")
+                .long("crd")
+                .help("Produce gorilla.shipcat custom resource values for this kubernetes region"))
             .subcommand(SubCommand::with_name("config-url")
                 .help("Generate Kong config URL")))
         // dependency graphing
@@ -534,7 +537,12 @@ fn handle_secret_using_commands(args: &ArgMatches, region: &str, conf: &mut Conf
             result_exit(args.subcommand_name().unwrap(), shipcat::kong::config_url(&conf, &region))
         } else {
             conditional_exit(conf.secrets(&region));
-            result_exit(args.subcommand_name().unwrap(), shipcat::kong::output(&conf, &region))
+            let mode = if a.is_present("crd") {
+                kong::KongOutputMode::Crd
+            } else {
+                kong::KongOutputMode::Json
+            };
+            result_exit(args.subcommand_name().unwrap(), shipcat::kong::output(&conf, &region, mode))
         }
     }
 

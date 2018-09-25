@@ -1,4 +1,5 @@
 use serde_json;
+use serde_yaml;
 use std::io::{self, Write};
 use std::collections::BTreeMap;
 
@@ -11,6 +12,31 @@ use super::config::KongConfig;
 struct KongOutput {
     pub apis: BTreeMap<String, Kong>,
     pub kong: KongConfig,
+}
+
+/// KongOutput in CRD form
+#[derive(Serialize)]
+struct KongCrdOutput {
+    pub apiVersion: String,
+    pub kind: String,
+    pub metadata: Metadata,
+    pub spec: KongOutput,
+}
+#[derive(Serialize)]
+struct Metadata {
+    name: String
+}
+impl KongCrdOutput {
+    fn new(region: &str, data: KongOutput) -> Self {
+        KongCrdOutput {
+            apiVersion: "shipcat.babylontech.co.uk/v1".into(),
+            kind: "KongConfig".into(),
+            metadata: Metadata {
+                name: format!("shipcat-kong-{}", region),
+            },
+            spec: data,
+        }
+    }
 }
 
 fn generate_kong_output(conf: &Config, region: &str) -> Result<KongOutput> {
@@ -36,10 +62,25 @@ fn generate_kong_output(conf: &Config, region: &str) -> Result<KongOutput> {
     Ok(KongOutput { apis, kong: reg.kong })
 }
 
+pub enum KongOutputMode {
+    Json,
+    Crd,
+}
+
 /// Generate Kong config from a filled in global config
-pub fn output(conf: &Config, region: &str) -> Result<()> {
-    let output = generate_kong_output(conf, &region)?;
-    let _ = io::stdout().write(serde_json::to_string_pretty(&output)?.as_bytes());
+pub fn output(conf: &Config, region: &str, mode: KongOutputMode) -> Result<()> {
+    let data = generate_kong_output(conf, &region)?;
+    let output = match mode {
+        KongOutputMode::Json => {
+            serde_json::to_string_pretty(&data)?
+        },
+        KongOutputMode::Crd => {
+            let res = KongCrdOutput::new(region, data);
+            serde_yaml::to_string(&res)?
+        }
+    };
+    let _ = io::stdout().write(format!("{}\n", output).as_bytes());
+
     Ok(())
 }
 
