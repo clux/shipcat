@@ -6,7 +6,7 @@ use super::{UpgradeMode, UpgradeData};
 use super::direct;
 use super::helpers;
 use super::kube;
-use super::{Result, ResultExt, ErrorKind, Config, Manifest};
+use super::{Result, ResultExt, Error, ErrorKind, Config, Manifest};
 
 
 /// Stable threaded mass helm operation
@@ -41,14 +41,21 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &str, umode: Upgrad
         match &r {
             &Ok(Some(ref ud)) => debug!("{} {}", ud.mode, ud.name),
             &Ok(None) => {},
-            &Err(ref e) => error!("Failed to {}: {}", umode, e),
+            &Err(ref e) => warn!("{} error: {}", umode, e),
         }
         r
     }).filter_map(Result::err).collect::<Vec<_>>();
 
-    // propagate first error if exists
-    if let Some(e) = res.into_iter().next() {
-        return Err(e);
+    // propagate first non-ignorable error if exists
+    for e in res {
+        match e {
+            Error(ErrorKind::MissingRollingVersion(svc),_) => {
+                // This only happens in rolling envs because version is mandatory in other envs
+                warn!("'{}' missing version for {} - please add or install", svc, region);
+            },
+            // remaining cases not ignorable
+            e => return Err(e),
+        }
     }
     Ok(())
 }
@@ -76,9 +83,8 @@ fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Co
                 }
                 (false, v)
             } else {
-                error!("Service {} has no version specified in manifest and is not installed", mf.name);
-                warn!("helm needs an explicit version to install {}", mf.name);
-                return Err(e);
+                warn!("ignoring service {} without version as it is not installed in rolling environment", mf.name);
+                return Err(e.chain_err(|| ErrorKind::MissingRollingVersion(mf.name.clone())));
             }
         }
     };
