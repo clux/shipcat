@@ -36,11 +36,13 @@ doc:
 # Package up all built artifacts for ghr to release
 #
 # releases/
+# ├── shipcat.sha256
 # ├── shipcat.x86_64-apple-darwin.tar.gz
 # └── shipcat.x86_64-unknown-linux-musl.tar.gz
 releases:
 	make release-x86_64-unknown-linux-musl
 	make release-x86_64-apple-darwin
+	(cd releases; shasum -a 256 *.tar.gz | tee "shipcat.sha256")
 
 # Package a shipcat.$* up with complete script in a standard folder structure:
 #
