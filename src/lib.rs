@@ -122,6 +122,10 @@ error_chain! {
             description("secret could not be reached or accessed")
             display("secret '{}'", &key)
         }
+        MissingRollingVersion(svc: String) {
+            description("missing version for install")
+            display("{} has no version in manifest and is not installed yes", &svc)
+        }
         ManifestFailure(key: String) {
             description("Manifest key not propagated correctly internally")
             display("manifest key {} was not propagated internally - bug!", &key)
