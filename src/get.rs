@@ -1,4 +1,5 @@
 /// This file contains the `shipcat get` subcommand
+use std::io::{self, Write};
 use std::collections::BTreeMap;
 use semver::Version;
 use serde_json;
@@ -18,7 +19,8 @@ pub fn versions(conf: &Config, region: &str) -> Result<()> {
             }
         }
     }
-    let _ = println!("{}", serde_json::to_string_pretty(&output)?);
+    let res = serde_json::to_string_pretty(&output)?;
+    let _ = io::stdout().write(&format!("{}\n", res).as_bytes());
     Ok(())
 }
 
@@ -34,7 +36,32 @@ pub fn images(conf: &Config, region: &str) -> Result<()> {
             }
         }
     }
-    let _ = println!("{}", serde_json::to_string_pretty(&output)?);
+    let res = serde_json::to_string_pretty(&output)?;
+    let _ = io::stdout().write(&format!("{}\n", res).as_bytes());
+    Ok(())
+}
+
+/// Generate CODEOWNERS github syntax for services
+pub fn codeowners(conf: &Config, region: &str) -> Result<()> {
+    let services = Manifest::available()?;
+    let mut output = vec![];
+
+    for svc in services {
+        let mf = Manifest::stubbed(&svc, &conf, &region)?;
+        if let Some(md) = mf.metadata {
+            let mut ghids = vec![];
+            // unwraps guaranteed by validates on Manifest and Config
+            let owners = &conf.teams.iter().find(|t| t.name == md.team).unwrap().owners;
+            for o in owners.clone() {
+                ghids.push(format!("@{}", o.github.unwrap()));
+            }
+            if !owners.is_empty() {
+                output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
+            }
+        }
+    }
+    let res = output.join("\n");
+    let _ = io::stdout().write(&format!("{}\n", res).as_bytes());
     Ok(())
 }
 
@@ -61,7 +88,8 @@ pub fn clusterinfo(conf: &Config, ctx: &str) -> Result<()> {
         apiserver: cluster.api.clone(),
         cluster: cname.clone(),
     };
-    let _ = println!("{}", serde_json::to_string_pretty(&ci)?);
+    let res = serde_json::to_string_pretty(&ci)?;
+    let _ = io::stdout().write(&format!("{}\n", res).as_bytes());
     Ok(())
 }
 
@@ -121,6 +149,7 @@ pub fn apistatus(conf: &Config, region: &str) -> Result<()> {
     }
 
     let output = APIStatusOutput{environment, services};
-    let _ = println!("{}", serde_json::to_string_pretty(&output)?);
+    let res = serde_json::to_string_pretty(&output)?;
+    let _ = io::stdout().write(&format!("{}\n", res).as_bytes());
     Ok(())
 }

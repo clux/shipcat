@@ -13,6 +13,9 @@ pub struct Contact {
     /// Email address
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
+    /// Github username
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub github: Option<String>,
 }
 impl Contact {
     pub fn verify(&self) -> Result<()> {
@@ -24,6 +27,11 @@ impl Contact {
         }
         if self.slack.contains("|") {
             bail!("Contact slack user id invalid - got {}", self.slack)
+        }
+        if let Some(ref gh) = &self.github {
+            if gh.starts_with("@") || gh.contains("/") {
+               bail!("github id must be the raw username only - got {}", gh)
+            }
         }
         Ok(())
     }
