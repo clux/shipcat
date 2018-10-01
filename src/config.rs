@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use super::structs::Contact;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::fs::File;
@@ -243,8 +244,10 @@ pub struct Location {
 pub struct Team {
     /// Team name
     pub name: String,
+    /// Code owners for this team
+    #[serde(default)]
+    pub owners: Vec<Contact>,
 }
-
 
 /// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone)]
@@ -332,6 +335,15 @@ impl Config {
                 }
             }
             data.kong.verify()?;
+        }
+        for t in &self.teams {
+            for o in &t.owners {
+                o.verify()?; // not very strict
+                // verify optionals filled in for owners:
+                if o.github.is_none() {
+                    bail!("Every owner must have a github id attached");
+                }
+            }
         }
         Config::verify_version(&self.version)?;
 

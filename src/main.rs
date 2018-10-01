@@ -214,6 +214,8 @@ fn main() {
                 .help("Reduce encoded image info"))
               .subcommand(SubCommand::with_name("apistatus")
                 .help("Reduce encoded API info"))
+              .subcommand(SubCommand::with_name("codeowners")
+                .help("Reduce code owners across services"))
               .subcommand(SubCommand::with_name("clusterinfo")
                 .help("Reduce encoded cluster information"))
               .subcommand(SubCommand::with_name("versions")
@@ -411,6 +413,10 @@ fn handle_dependency_free_commands(args: &ArgMatches, conf: &Config) {
         }
         else if let Some(_) = a.subcommand_matches("images") {
             let res = shipcat::get::images(&conf, &region);
+            result_exit(args.subcommand_name().unwrap(), res)
+        }
+        else if let Some(_) = a.subcommand_matches("codeowners") {
+            let res = shipcat::get::codeowners(&conf, &region);
             result_exit(args.subcommand_name().unwrap(), res)
         }
         else if let Some(_) = a.subcommand_matches("apistatus") {
