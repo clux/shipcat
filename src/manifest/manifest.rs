@@ -125,6 +125,9 @@ pub struct Manifest {
     /// Http Port to expose
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub httpPort: Option<u32>,
+    /// Externally exposed port
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub externalPort: Option<u32>,
     /// Health check parameters
     #[serde(skip_serializing_if = "Option::is_none")]
     pub health: Option<HealthCheck>,
