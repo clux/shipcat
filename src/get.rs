@@ -72,6 +72,7 @@ struct ClusterInfo {
     environment: String,
     apiserver: String,
     cluster: String,
+    vault: String,
 }
 
 /// Entry point for clusterinfo
@@ -103,6 +104,7 @@ pub fn clusterinfo(conf: &Config, ctx: &str) -> Result<()> {
         environment: reg.environment,
         apiserver: cluster.api.clone(),
         cluster: cname.clone(),
+        vault: reg.vault.url.clone(),
     };
     let res = serde_json::to_string_pretty(&ci)?;
     let _ = io::stdout().write(&format!("{}\n", res).as_bytes());

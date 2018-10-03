@@ -460,6 +460,16 @@ fn handle_dependency_free_commands(args: &ArgMatches, conf: &Config) {
             result_exit(args.subcommand_name().unwrap(), res)
         }
     }
+    // TODO: remove this
+    if let Some(a) = args.subcommand_matches("secret") {
+        if let Some(b) = a.subcommand_matches("verify-region") {
+            let regions = b.values_of("regions").unwrap().map(String::from).collect::<Vec<_>>();
+            // NB: this does a cheap verify of both Config and Manifest (vault list)
+            let res = shipcat::validate::secret_presence(&conf, regions);
+            result_exit(a.subcommand_name().unwrap(), res)
+        }
+    }
+
     if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");
         let region = passed_region_or_current_context(&a, &conf);
@@ -514,14 +524,6 @@ fn handle_secret_using_commands(args: &ArgMatches, region: &str, conf: &mut Conf
         let res = shipcat::helm::direct::template(&svc,
                 &region, &conf, None, mock, None);
         result_exit(args.subcommand_name().unwrap(), res)
-    }
-    if let Some(a) = args.subcommand_matches("secret") {
-        if let Some(b) = a.subcommand_matches("verify-region") {
-            let regions = b.values_of("regions").unwrap().map(String::from).collect::<Vec<_>>();
-            // NB: this does a cheap verify of both Config and Manifest (vault list)
-            let res = shipcat::validate::secret_presence(&conf, regions);
-            result_exit(a.subcommand_name().unwrap(), res)
-        }
     }
     // X. new gen service commands
     if let Some(a) = args.subcommand_matches("apply") {
