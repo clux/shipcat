@@ -176,6 +176,9 @@ impl Manifest {
         if mf.httpPort.is_some() {
             self.httpPort = mf.httpPort;
         }
+        if mf.externalPort.is_some() {
+            self.externalPort = mf.externalPort;
+        }
 
         // vectors are replaced if they are non-empty in override
         if !mf.command.is_empty() {
