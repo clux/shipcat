@@ -101,9 +101,9 @@ impl Manifest {
             // these cannot be overridden - it's a service type property
             bail!("Regions must only be defined in the main shipcat.yml file");
         }
-        if self.version.is_some() {
-            warn!("{} locks versions across all environments in shipcat.yml", self.name);
-        }
+        //if self.version.is_some() {
+        //    debug!("{} locks versions across all environments in shipcat.yml", self.name);
+        //}
 
         // start merging:
 

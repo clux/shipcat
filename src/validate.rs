@@ -41,7 +41,7 @@ pub fn secret_presence(conf: &Config, regions: Vec<String>) -> Result<()> {
         for svc in services {
             let mut mf = Manifest::basic(&svc, conf, Some(r.clone()))?;
             if mf.regions.contains(&r) && !mf.external && !mf.disabled {
-                info!("validating secrets for {} in {}", svc, r);
+                debug!("validating secrets for {} in {}", svc, r);
                 mf.fill(&conf, &r)?;
                 mf.verify_secrets_exist(&reg.vault)?;
             }
