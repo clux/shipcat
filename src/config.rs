@@ -288,16 +288,11 @@ impl Config {
             bail!("image prefix must be non-empty and not end with a slash");
         }
 
-        let mut covered_regions = vec![];
         for (cname, clst) in &self.clusters {
             for r in &clst.regions {
                 if !self.regions.contains_key(r) {
                     bail!("cluster {} defines undefined region {}", cname, r);
                 }
-                if covered_regions.contains(r) {
-                    bail!("region {} is covered by multiple clusters", r);
-                }
-                covered_regions.push(r.to_string());
             }
         }
 
