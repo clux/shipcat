@@ -424,6 +424,7 @@ fn handle_dependency_free_commands(args: &ArgMatches, conf: &Config) {
             result_exit(args.subcommand_name().unwrap(), res)
         }
         else if let Some(_) = a.subcommand_matches("clusterinfo") {
+            assert!(a.is_present("region"), "explicit region needed for clusterinfo");
             let res = shipcat::get::clusterinfo(&conf, &region);
             result_exit(args.subcommand_name().unwrap(), res);
         }

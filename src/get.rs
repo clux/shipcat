@@ -73,16 +73,32 @@ struct ClusterInfo {
     apiserver: String,
     cluster: String,
 }
+
+/// Entry point for clusterinfo
+///
+/// Need explicit region: shipcat get -r preprodca-green clusterinfo
 pub fn clusterinfo(conf: &Config, ctx: &str) -> Result<()> {
     // a bit of magic here to work out region from context if given
     let (region, reg) = conf.get_region(ctx)?;
-    // find the cluster serving the region (guaranteed only one by Config::verify)
-    let (cname, cluster) = conf.clusters.iter().find(|(_k, v)| {
-        v.regions.contains(&region)
-    }).expect(&format!("region {} is served by a cluster", region));
-    // print out all the relevant data
+    // find the cluster serving the region (there's usually one, maybe a fallover)
+
+    // if the kube context is a literal cluster name (as created by tarmak)
+    // then find the associated cluster by looking up conf.clusters:
+    let (cname, cluster) = if let Some(r) = conf.clusters.get(ctx) {
+        (&region, r) // region == context name in this case
+    } else {
+        // otherwise: explicit context refers to a context served by exactly one cluster
+        // e.g. dev-global1 inside kops-global1
+        let candidates = conf.clusters.iter().filter(|(_k, v)| {
+            v.regions.contains(&region)
+        }).collect::<Vec<_>>();
+        if candidates.len() != 1 {
+            bail!("Ambiguous contexts must be served by exactly one cluster");
+        }
+        candidates[0]
+    };
     let ci = ClusterInfo {
-        region: region,
+        region: region.clone(),
         namespace: reg.namespace,
         environment: reg.environment,
         apiserver: cluster.api.clone(),
