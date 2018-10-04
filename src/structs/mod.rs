@@ -88,3 +88,6 @@ pub use self::sidecar::Sidecar;
 pub mod port;
 pub use self::port::Port;
 
+/// Rbac
+pub mod rbac;
+pub use self::rbac::Rbac;
