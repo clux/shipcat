@@ -85,3 +85,6 @@ pub use self::cronjob::CronJob;
 pub mod sidecar;
 pub use self::sidecar::Sidecar;
 
+pub mod port;
+pub use self::port::Port;
+

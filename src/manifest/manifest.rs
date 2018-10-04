@@ -26,6 +26,7 @@ use super::structs::RollingUpdate;
 use super::structs::autoscaling::AutoScaling;
 use super::structs::tolerations::Tolerations;
 use super::structs::Worker;
+use super::structs::Port;
 
 /// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -125,6 +126,9 @@ pub struct Manifest {
     /// Http Port to expose
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub httpPort: Option<u32>,
+    /// Ports to open
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ports: Vec<Port>,
     /// Externally exposed port
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub externalPort: Option<u32>,
@@ -514,6 +518,11 @@ impl Manifest {
         for wrk in &self.workers {
             wrk.verify(&conf)?;
         }
+
+        for p in &self.ports {
+            p.verify(&conf)?;
+        }
+
         if let Some(ref cmap) = self.configs {
             cmap.verify(&conf)?;
         }
