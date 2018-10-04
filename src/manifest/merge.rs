@@ -218,6 +218,10 @@ impl Manifest {
             self.sourceRanges = mf.sourceRanges;
         }
 
+        if !mf.ports.is_empty() {
+            self.ports = mf.ports;
+        }
+
         Ok(())
     }
 
