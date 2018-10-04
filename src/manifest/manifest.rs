@@ -21,7 +21,7 @@ use super::structs::{Metadata, VaultOpts, Dependency};
 use super::structs::security::DataHandling;
 use super::structs::Probe;
 use super::structs::{CronJob, Sidecar};
-use super::structs::{Kafka, Kong};
+use super::structs::{Kafka, Kong, Rbac};
 use super::structs::RollingUpdate;
 use super::structs::autoscaling::AutoScaling;
 use super::structs::tolerations::Tolerations;
@@ -212,6 +212,10 @@ pub struct Manifest {
     /// Load balancer source ranges
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sourceRanges: Vec<String>,
+
+    /// Role-Based Access Control
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rbac: Vec<Rbac>,
 
     // TODO: logging alerts
 }
@@ -518,11 +522,12 @@ impl Manifest {
         for wrk in &self.workers {
             wrk.verify(&conf)?;
         }
-
         for p in &self.ports {
             p.verify(&conf)?;
         }
-
+        for r in &self.rbac {
+            r.verify(&conf)?;
+        }
         if let Some(ref cmap) = self.configs {
             cmap.verify(&conf)?;
         }
