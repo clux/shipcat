@@ -94,7 +94,7 @@ pub fn clusterinfo(conf: &Config, ctx: &str) -> Result<()> {
             v.regions.contains(&region)
         }).collect::<Vec<_>>();
         if candidates.len() != 1 {
-            bail!("Ambiguous contexts must be served by exactly one cluster");
+            bail!("Ambiguous context {} must be served by exactly one cluster", ctx);
         }
         candidates[0]
     };
@@ -162,7 +162,7 @@ pub fn apistatus(conf: &Config, region: &str) -> Result<()> {
         services.insert(name, APIServiceParams {
             uris: api.uris.unwrap_or("".into()),
             hosts: api.hosts.unwrap_or("".into()),
-            publiclyAccessible: false,
+            publiclyAccessible: !api.internal,
         });
     }
 
