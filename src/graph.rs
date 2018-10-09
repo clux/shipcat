@@ -1,5 +1,3 @@
-use std::io::{self, Write};
-
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::dot;
 use serde_yaml;
@@ -95,7 +93,6 @@ fn recurse_manifest(idx: NodeIndex, mf: &Manifest, conf: &Config, graph: &mut Ca
 pub fn generate(service: &str, conf: &Config, dot: bool, reg: &str) -> Result<CatGraph> {
     let base = Manifest::stubbed(service, conf, &reg)?;
 
-
     let mut graph : CatGraph = DiGraph::<_, _>::new();
     let node = ManifestNode::new(&base);
     let baseidx = graph.add_node(node);
@@ -108,7 +105,7 @@ pub fn generate(service: &str, conf: &Config, dot: bool, reg: &str) -> Result<Ca
     else {
         format!("{}", serde_yaml::to_string(&graph)?)
     };
-    let _ = io::stdout().write(&out.as_bytes());
+    print!("{}\n", out);
     Ok(graph)
 }
 
@@ -149,7 +146,7 @@ pub fn full(dot: bool, conf: &Config, reg: &str) -> Result<CatGraph> {
     else {
         format!("{}", serde_yaml::to_string(&graph)?)
     };
-    let _ = io::stdout().write(&out.as_bytes());
+    print!("{}\n", out);
     Ok(graph)
 }
 

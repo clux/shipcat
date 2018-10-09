@@ -1,12 +1,11 @@
 /// This file contains all the hidden `shipcat list-*` subcommands
-use std::io::{self, Write};
 use super::product::Product;
 use super::{Result, Manifest, Config};
 
 /// Print the supported regions
 pub fn regions(conf: &Config) -> Result<()> {
     for (r, _) in &conf.regions {
-        let _ = io::stdout().write(format!("{}\n", r).as_bytes());
+        println!("{}", r);
     }
     Ok(())
 }
@@ -14,7 +13,7 @@ pub fn regions(conf: &Config) -> Result<()> {
 /// Print the supported locations
 pub fn locations(conf: &Config) -> Result<()> {
     for (r, _) in &conf.locations {
-        let _ = io::stdout().write(format!("{}\n", r).as_bytes());
+        println!("{}", r);
     }
     Ok(())
 }
@@ -25,7 +24,7 @@ pub fn products(conf: &Config, location: String) -> Result<()> {
         match Product::completed(&product, conf, &location) {
             Ok(p) => {
                 if p.locations.contains(&location) {
-                    let _ = io::stdout().write(&format!("{}\n", product).as_bytes());
+                    println!("{}", product);
                 }
             }
             Err(e) => {
@@ -49,7 +48,7 @@ pub fn services(conf: &Config, region: String) -> Result<()> {
         match Manifest::basic(&svc, conf, Some(region_guess.clone())) {
             Ok(mf) => {
                 if mf.regions.contains(&region_guess) {
-                    let _ = io::stdout().write(&format!("{}\n", svc).as_bytes());
+                    println!("{}", svc);
                 }
             }
             Err(e) => {

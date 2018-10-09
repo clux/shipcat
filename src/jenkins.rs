@@ -7,7 +7,6 @@ use jenkins_api::action::parameters::StringParameterValue;
 use jenkins_api::action::ParametersAction;
 use std::env;
 use std::collections::BTreeMap;
-use std::io::{self, Write};
 
 fn env_user() -> Result<String> {
     env::var("JENKINS_API_USER").map_err(|_| ErrorKind::MissingJenkinsUser.into())
@@ -167,7 +166,7 @@ pub fn latest_console(svc: &str, reg: &str) -> Result<()> {
     let jobname = format!("kube-deploy-{}", reg);
     if let Some(build) = find_build_by_parameter(&client, &jobname, svc)? {
         let console = build.get_console(&client).unwrap();
-        let _ = io::stdout().write(&console.as_bytes());
+        print!("{}", console);
     }
     Ok(())
 }
@@ -178,8 +177,7 @@ pub fn specific_console(svc: &str, nr: u32, reg: &str) -> Result<()> {
     let jobname = format!("kube-deploy-{}", reg);
     if let Some(build) = find_build_by_nr(&client, &jobname, nr, svc)? {
         let console = build.get_console(&client).unwrap();
-        // allow piping this
-        let _ = io::stdout().write(&console.as_bytes());
+        print!("{}", console);
     }
     Ok(())
 }

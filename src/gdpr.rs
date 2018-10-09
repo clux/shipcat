@@ -16,11 +16,10 @@ struct GdprOutput {
 ///
 /// Prints the cascaded structs from a manifests `dataHandling`
 pub fn show(svc: Option<String>, conf: &Config, region: &str) -> Result<()> {
-    use std::io::{self, Write};
     if let Some(s) = svc {
         let mf = Manifest::stubbed(&s, conf, region)?;
         let out = serde_yaml::to_string(&mf.dataHandling.unwrap_or_else(|| DataHandling::default()))?;
-        let _ = io::stdout().write(format!("{}\n", out).as_bytes());
+        print!("{}\n", out);
     } else {
         let mut mappings = BTreeMap::new();
         let mut services = vec![];
@@ -34,7 +33,7 @@ pub fn show(svc: Option<String>, conf: &Config, region: &str) -> Result<()> {
         }
         let data = GdprOutput { mappings, services };
         let out = serde_yaml::to_string(&data)?;
-        let _ = io::stdout().write(format!("{}\n", out).as_bytes());
+        print!("{}\n", out);
     }
     Ok(())
 }

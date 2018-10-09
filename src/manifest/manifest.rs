@@ -240,6 +240,7 @@ impl Manifest {
             let svcname = svccomp.as_os_str().to_str().unwrap();
             xs.push(svcname.into());
         }
+        xs.sort();
         Ok(xs)
     }
 
@@ -457,9 +458,7 @@ impl Manifest {
 
     /// Print manifest to stdout
     pub fn print(&self) -> Result<()> {
-        use std::io::{self, Write};
-        let encoded = serde_yaml::to_string(self)?;
-        let _ = io::stdout().write(format!("{}\n", encoded).as_bytes());
+        print!("{}\n", serde_yaml::to_string(self)?);
         Ok(())
     }
 
@@ -607,8 +606,6 @@ impl Manifest {
 
 /// Entry point for service show [service]
 pub fn show(svc: String, conf: &Config, region: &str, mock: bool) -> Result<()> {
-    use std::io::{self, Write};
-
     let mf = if mock {
         Manifest::stubbed(&svc, conf, region)?
     } else {
@@ -616,7 +613,7 @@ pub fn show(svc: String, conf: &Config, region: &str, mock: bool) -> Result<()> 
     };
 
     let encoded = serde_yaml::to_string(&mf)?;
-    let _ = io::stdout().write(&format!("{}\n", encoded).as_bytes());
+    print!("{}\n", encoded);
     Ok(())
 }
 

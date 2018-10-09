@@ -16,7 +16,7 @@ httpPort: 8080
 metadata:
   team: devops
   contacts:
-  - name: "Eirik McClux"
+  - name: "Eirik Override"
     slack: "@U82SKDQD9"
   repo: https://github.com/Babylonpartners/shipcat
   gitTagTemplate: "prefix-{{ version }}-suffix"

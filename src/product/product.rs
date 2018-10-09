@@ -262,7 +262,6 @@ pub fn validate(products: Vec<String>, conf: &Config, location: Option<String>) 
 
 /// Entry point for product show [product] [location]
 pub fn show(product: Option<String>, conf: &Config, location: &str) -> Result<()> {
-    use std::io::{self, Write};
     let encoded = if let Some(pname) = product {
         let p = Product::completed(&pname, conf, location)?;
         serde_yaml::to_string(&p)?
@@ -274,7 +273,7 @@ pub fn show(product: Option<String>, conf: &Config, location: &str) -> Result<()
         }
         serde_yaml::to_string(&px)?
     };
-    let _ = io::stdout().write(&format!("{}\n", encoded).as_bytes());
+    print!("{}\n", encoded);
     Ok(())
 }
 

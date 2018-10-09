@@ -1,69 +1,33 @@
 /// This file contains the `shipcat get` subcommand
-use std::io::{self, Write};
 use std::collections::BTreeMap;
-use semver::Version;
+
 use serde_json;
 use super::{Result, Manifest, Config};
 
-pub fn versions(conf: &Config, region: &str) -> Result<()> {
-    let services = Manifest::available()?;
-    let mut output : BTreeMap<String, Version> = BTreeMap::new();
 
-    for svc in services {
-        let mf = Manifest::stubbed(&svc, &conf, &region)?;
-        if mf.regions.contains(&region.to_string()) {
-            if let Some(v) = mf.version {
-                if let Ok(sv) = Version::parse(&v) {
-                    output.insert(svc, sv);
-                }
-            }
-        }
-    }
-    let res = serde_json::to_string_pretty(&output)?;
-    let _ = io::stdout().write(&format!("{}\n", res).as_bytes());
+// ----------------------------------------------------------------------------
+// Reducers from manifest::reducers
+
+pub fn versions(conf: &Config, region: &str) -> Result<()> {
+    let output = Manifest::get_versions(conf, region)?;
+    print!("{}\n", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
 
 pub fn images(conf: &Config, region: &str) -> Result<()> {
-    let services = Manifest::available()?;
-    let mut output : BTreeMap<String, String> = BTreeMap::new();
-
-    for svc in services {
-        let mf = Manifest::stubbed(&svc, &conf, &region)?;
-        if mf.regions.contains(&region.to_string()) {
-            if let Some(i) = mf.image {
-                output.insert(svc, i);
-            }
-        }
-    }
-    let res = serde_json::to_string_pretty(&output)?;
-    let _ = io::stdout().write(&format!("{}\n", res).as_bytes());
+    let output = Manifest::get_images(conf, region)?;
+    print!("{}\n", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
 
-/// Generate CODEOWNERS github syntax for services
 pub fn codeowners(conf: &Config, region: &str) -> Result<()> {
-    let services = Manifest::available()?;
-    let mut output = vec![];
-
-    for svc in services {
-        let mf = Manifest::stubbed(&svc, &conf, &region)?;
-        if let Some(md) = mf.metadata {
-            let mut ghids = vec![];
-            // unwraps guaranteed by validates on Manifest and Config
-            let owners = &conf.teams.iter().find(|t| t.name == md.team).unwrap().owners;
-            for o in owners.clone() {
-                ghids.push(format!("@{}", o.github.unwrap()));
-            }
-            if !owners.is_empty() {
-                output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
-            }
-        }
-    }
-    let res = output.join("\n");
-    let _ = io::stdout().write(&format!("{}\n", res).as_bytes());
+    let output = Manifest::get_codeowners(conf, region)?.join("\n");
+    print!("{}\n", output);
     Ok(())
 }
+
+// ----------------------------------------------------------------------------
+// Reducers for the Config
 
 #[derive(Serialize)]
 struct ClusterInfo {
@@ -106,11 +70,13 @@ pub fn clusterinfo(conf: &Config, ctx: &str) -> Result<()> {
         cluster: cname.clone(),
         vault: reg.vault.url.clone(),
     };
-    let res = serde_json::to_string_pretty(&ci)?;
-    let _ = io::stdout().write(&format!("{}\n", res).as_bytes());
+    print!("{}\n", serde_json::to_string_pretty(&ci)?);
     Ok(())
 }
 
+
+// ----------------------------------------------------------------------------
+// hybrid reducers
 
 #[derive(Serialize)]
 struct APIStatusOutput {
@@ -167,7 +133,6 @@ pub fn apistatus(conf: &Config, region: &str) -> Result<()> {
     }
 
     let output = APIStatusOutput{environment, services};
-    let res = serde_json::to_string_pretty(&output)?;
-    let _ = io::stdout().write(&format!("{}\n", res).as_bytes());
+    print!("{}\n", serde_json::to_string_pretty(&output)?);
     Ok(())
 }

@@ -1,6 +1,10 @@
 use std::fs;
 use std::fmt;
-use std::io::{self, Write};
+use std::path::{Path, PathBuf};
+use std::fs::File;
+use std::io::Write;
+
+use serde_yaml;
 
 use super::grafana;
 use super::slack;
@@ -331,12 +335,6 @@ fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
 ///
 /// Requires a completed manifest (with inlined configs)
 pub fn values(mf: &Manifest, output: Option<String>) -> Result<()> {
-    use std::io::prelude::*;
-    use std::io;
-    use serde_yaml;
-    use std::path::Path;
-    use std::fs::File;
-
     let encoded = serde_yaml::to_string(&mf)?;
     if let Some(o) = output {
         let pth = Path::new(".").join(o);
@@ -345,13 +343,11 @@ pub fn values(mf: &Manifest, output: Option<String>) -> Result<()> {
         write!(f, "{}\n", encoded)?;
         debug!("Wrote helm values for {} to {}: \n{}", mf.name, pth.display(), encoded);
     } else {
-        let _ = io::stdout().write(format!("{}\n", encoded).as_bytes());
+        print!("{}\n", encoded);
     }
     Ok(())
 }
 
-use std::path::{Path, PathBuf};
-use std::fs::File;
 /// Analogue of helm template
 ///
 /// Generates helm values to disk, then passes it to helm template
@@ -393,8 +389,7 @@ pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>, moc
         write!(f, "{}\n", tpl)?;
         debug!("Wrote helm template for {} to {}: \n{}", svc, pth.display(), tpl);
     } else {
-        //stdout only
-        let _ = io::stdout().write(tpl.as_bytes());
+        print!("{}\n", tpl);
     }
     fs::remove_file(hfile)?;
     Ok(tpl)

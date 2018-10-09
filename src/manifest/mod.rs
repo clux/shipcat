@@ -11,6 +11,9 @@ pub use super::structs;
 /// Needs vault client for secrets
 pub use super::vault;
 
+/// Reducers used by shipcat get
+pub mod reducers;
+
 /// Main module
 pub mod manifest;
 

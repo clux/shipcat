@@ -3,6 +3,7 @@ extern crate clap;
 #[macro_use]
 extern crate log;
 extern crate loggerv;
+extern crate libc;
 
 extern crate shipcat;
 
@@ -370,6 +371,12 @@ fn main() {
         .init()
         .unwrap();
     conditional_exit(shipcat::init());
+
+    // Ignore SIGPIPE errors to avoid having to use let _ = write! everywhere
+    // See https://github.com/rust-lang/rust/issues/46016
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
 
     // Read and validate shipcat.conf (can't rely on anything if config is invalid)
     let mut conf = conditional_exit(Config::read()); // no secrets fetched yet
