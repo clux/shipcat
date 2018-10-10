@@ -1,5 +1,4 @@
 use reqwest;
-use reqwest::header::Connection;
 use serde_json;
 use std::collections::BTreeMap;
 use std::env;
@@ -9,9 +8,6 @@ use dirs;
 
 use super::{Result, ErrorKind, ResultExt, Error};
 use super::config::VaultConfig;
-
-// hyper/reqwest header for Vault GET requests
-header! { (XVaultToken, "X-Vault-Token") => [String] }
 
 fn default_addr() -> Result<String> {
     env::var("VAULT_ADDR").map_err(|_| ErrorKind::MissingVaultAddr.into())
@@ -131,10 +127,7 @@ impl Vault {
 
         let mkerr = || ErrorKind::Url(url.clone());
         let mut res = self.client.get(url.clone())
-            // Leaving the connection open will cause errors on reconnect
-            // after inactivity.
-            .header(Connection::close())
-            .header(XVaultToken(self.token.clone()))
+            .header("X-Vault-Token", self.token.clone())
             .send()
             .chain_err(&mkerr)?;
 
@@ -160,10 +153,7 @@ impl Vault {
 
         let mkerr = || ErrorKind::Url(url.clone());
         let mut res = self.client.get(url.clone())
-            // Leaving the connection open will cause errors on reconnect
-            // after inactivity.
-            .header(Connection::close())
-            .header(XVaultToken(self.token.clone()))
+            .header("X-Vault-Token", self.token.clone())
             .send()
             .chain_err(&mkerr)?;
 

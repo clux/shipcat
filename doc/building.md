@@ -56,8 +56,8 @@ export SHIPCAT_MANIFEST_DIR=$HOME/repos/manifests
 ## CircleCI
 A few notes on how we build on CI.
 
-## Musl
-The exported `shipcat` executable (in the docker / linux worlds) is cross-linked to [musl-lib](https://www.musl-libc.org/) (for easier multi linux and alpine compatibility), we just reuse the build image that does that everywhere. The public [muslrust](https://github.com/clux/muslrust) image takes care of the complexity here w.r.t. statically linking with openssl (used by http clients).
+## musl
+The exported `shipcat` executable (in the docker / linux worlds) is cross-linked to [musl-libc](https://www.musl-libc.org/) (for easier multi linux and alpine compatibility), we just reuse the build image that does that everywhere. The public [muslrust](https://github.com/clux/muslrust) image takes care of the complexity here w.r.t. statically linking with openssl (used by http clients).
 
 ### Caching
 We cache two folders:

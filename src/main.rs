@@ -213,6 +213,8 @@ fn main() {
               .about("Reduce encoded info")
               .subcommand(SubCommand::with_name("images")
                 .help("Reduce encoded image info"))
+              .subcommand(SubCommand::with_name("resources")
+                .help("Reduce encoded resouce requests and limits"))
               .subcommand(SubCommand::with_name("apistatus")
                 .help("Reduce encoded API info"))
               .subcommand(SubCommand::with_name("codeowners")
@@ -417,6 +419,16 @@ fn handle_dependency_free_commands(args: &ArgMatches, conf: &Config) {
     }
     // getters
     if let Some(a) = args.subcommand_matches("get") {
+        if let Some(_) = a.subcommand_matches("resources") {
+            if let Some(r) = a.value_of("region") {
+                let res = shipcat::get::resources(&conf, r.into());
+                result_exit(args.subcommand_name().unwrap(), res)
+            } else {
+                let res = shipcat::get::totalresources(&conf);
+                result_exit(args.subcommand_name().unwrap(), res)
+            }
+        }
+
         let region = a.value_of("region").map(String::from).unwrap_or_else(|| {
             conditional_exit(conf.resolve_region())
         });
@@ -424,19 +436,19 @@ fn handle_dependency_free_commands(args: &ArgMatches, conf: &Config) {
             let res = shipcat::get::versions(&conf, &region);
             result_exit(args.subcommand_name().unwrap(), res)
         }
-        else if let Some(_) = a.subcommand_matches("images") {
+        if let Some(_) = a.subcommand_matches("images") {
             let res = shipcat::get::images(&conf, &region);
             result_exit(args.subcommand_name().unwrap(), res)
         }
-        else if let Some(_) = a.subcommand_matches("codeowners") {
+        if let Some(_) = a.subcommand_matches("codeowners") {
             let res = shipcat::get::codeowners(&conf, &region);
             result_exit(args.subcommand_name().unwrap(), res)
         }
-        else if let Some(_) = a.subcommand_matches("apistatus") {
+        if let Some(_) = a.subcommand_matches("apistatus") {
             let res = shipcat::get::apistatus(&conf, &region);
             result_exit(args.subcommand_name().unwrap(), res)
         }
-        else if let Some(_) = a.subcommand_matches("clusterinfo") {
+        if let Some(_) = a.subcommand_matches("clusterinfo") {
             assert!(a.is_present("region"), "explicit region needed for clusterinfo");
             let res = shipcat::get::clusterinfo(&conf, &region);
             result_exit(args.subcommand_name().unwrap(), res);

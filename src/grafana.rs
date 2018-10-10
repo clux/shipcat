@@ -3,7 +3,6 @@
 ///
 
 use reqwest;
-use hyper::header::{Headers, Authorization, Bearer, ContentType};
 use super::{Result, ErrorKind, ResultExt};
 use chrono::Utc;
 use std::env;
@@ -57,10 +56,10 @@ fn unix_timestamp(spec: &TimeSpec) -> Result<u64> {
 pub fn create(annotation: Annotation) -> Result<()> {
     let hook_url = env_hook_url()?;
     let hook_token = env_token()?;
-    
+
     let timestamp = unix_timestamp(&annotation.time)?;
 
-    let body = json!({
+    let data = json!({
         "time": timestamp,
         "text": format!("{} {}={} in {}",
             match annotation.event {
@@ -78,21 +77,13 @@ pub fn create(annotation: Annotation) -> Result<()> {
         ]
     });
 
-    let mut headers = Headers::new();
-    headers.set(
-        Authorization(Bearer { token: hook_token })
-    );
-    headers.set(
-        ContentType("application/json".parse().unwrap())
-    );
-
     let url = reqwest::Url::parse(&hook_url)?.join("api/annotations")?;
     let mkerr = || ErrorKind::Url(url.clone());
     let client = reqwest::Client::new();
 
     client.post(url.clone())
-        .headers(headers)
-        .body(body.to_string())
+        .bearer_auth(hook_token)
+        .json(&data)
         .send()
         .chain_err(&mkerr)?;
     Ok(())

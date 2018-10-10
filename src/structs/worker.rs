@@ -20,7 +20,7 @@ pub struct Worker {
     pub command: Vec<String>,
 
     /// Resource limits and requests
-    pub resources: Resources,
+    pub resources: Resources<String>,
     /// Replication limits
     pub replicaCount: u32,
 

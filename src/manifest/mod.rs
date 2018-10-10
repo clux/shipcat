@@ -17,6 +17,9 @@ pub mod reducers;
 /// Main module
 pub mod manifest;
 
+/// Computational helpers
+pub mod math;
+
 // Re-exports
 pub use self::manifest::Manifest;
 pub use self::manifest::show;

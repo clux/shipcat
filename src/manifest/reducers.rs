@@ -2,6 +2,7 @@ use semver::Version;
 use std::collections::BTreeMap;
 use super::{Result, Config, Manifest};
 
+/// Static reducers over available manifests
 impl Manifest {
 
     /// Find the hardcoded versions of services in a region

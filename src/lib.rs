@@ -16,8 +16,7 @@ extern crate walkdir;
 extern crate reqwest;
 #[macro_use]
 extern crate serde_json;
-#[macro_use]
-extern crate hyper;
+
 extern crate openssl_probe;
 
 // jenkins api
@@ -60,6 +59,7 @@ error_chain! {
         SerdeJ(serde_json::Error);
         Slack(slack_hook::Error);
         Reqw(reqwest::UrlError);
+        Reqe(reqwest::Error);
         Time(::std::time::SystemTimeError);
     }
     errors {

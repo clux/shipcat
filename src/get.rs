@@ -2,6 +2,7 @@
 use std::collections::BTreeMap;
 
 use serde_json;
+use serde_yaml;
 use super::{Result, Manifest, Config};
 
 
@@ -134,5 +135,110 @@ pub fn apistatus(conf: &Config, region: &str) -> Result<()> {
 
     let output = APIStatusOutput{environment, services};
     print!("{}\n", serde_json::to_string_pretty(&output)?);
+    Ok(())
+}
+
+// ----------------------------------------------------------------------------
+
+use super::structs::Resources;
+use super::manifest::math::ResourceTotals;
+
+#[derive(Serialize, Default)]
+pub struct ResourceBreakdown {
+    /// Total totals
+    pub totals: ResourceTotals,
+    /// A partition of totals info teams
+    pub teams: BTreeMap<String, ResourceTotals>,
+}
+
+
+pub fn resources(conf: &Config, region: &str) -> Result<()> {
+    let services = Manifest::available()?;
+    let mut bd = ResourceBreakdown::default(); // zero for all the things
+
+    let mut sum : Resources<f64> = Resources::default();
+    let mut extra : Resources<f64> = Resources::default(); // autoscaling limits
+
+    for svc in services {
+        let mf = Manifest::mocked(&svc, &conf, region)?;
+        if mf.external || !mf.regions.contains(&region.to_string()) {
+            continue; // only care about kube services in the current region
+        }
+        if let Some(ref md) = mf.metadata {
+            let ResourceTotals { base: sb, extra: se } = mf.compute_resource_totals()?;
+            sum += sb.clone();
+            extra += se.clone();
+            bd.teams.entry(md.team.clone())
+                .and_modify(|e| {
+                    e.base += sb.clone();
+                    e.extra += se.clone();
+                })
+                .or_insert_with(|| {
+                    ResourceTotals { base: sb, extra: se }
+                }
+            );
+        } else {
+            bail!("{} service does not have resources specification and metadata", mf.name)
+        }
+    }
+    // convert gigs for all teams
+    for (_, mut teamtot) in &mut bd.teams {
+        teamtot.base.round();
+        teamtot.extra.round();
+    }
+    // overall totals:
+    sum.round();
+    extra.round();
+    bd.totals.base = sum;
+    bd.totals.extra = extra;
+
+    print!("{}\n", serde_yaml::to_string(&bd)?);
+    Ok(())
+}
+
+pub fn totalresources(conf: &Config) -> Result<()> {
+    let services = Manifest::available()?;
+    let mut bd = ResourceBreakdown::default(); // zero for all the things
+
+    let mut sum : Resources<f64> = Resources::default();
+    let mut extra : Resources<f64> = Resources::default(); // autoscaling limits
+
+    for svc in services {
+        let tmpmf = Manifest::basic(&svc, &conf, None)?;
+        if tmpmf.external {
+            continue; // only care about kube services
+        }
+        for region in tmpmf.regions {
+            let mf = Manifest::mocked(&svc, &conf, &region)?;
+            if let Some(ref md) = mf.metadata {
+                let ResourceTotals { base: sb, extra: se } = mf.compute_resource_totals()?;
+                sum += sb.clone();
+                extra += se.clone();
+                bd.teams.entry(md.team.clone())
+                    .and_modify(|e| {
+                        e.base += sb.clone();
+                        e.extra += se.clone();
+                    })
+                    .or_insert_with(|| {
+                        ResourceTotals { base: sb, extra: se }
+                    }
+                );
+            } else {
+                bail!("{} service does not have resources specification and metadata", mf.name)
+            }
+        }
+    }
+    // convert gigs for all teams
+    for (_, mut teamtot) in &mut bd.teams {
+        teamtot.base.round();
+        teamtot.extra.round();
+    }
+    // overall totals:
+    sum.round();
+    extra.round();
+    bd.totals.base = sum;
+    bd.totals.extra = extra;
+
+    print!("{}\n", serde_yaml::to_string(&bd)?);
     Ok(())
 }
