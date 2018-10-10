@@ -88,14 +88,14 @@ fn preserve_host_default() -> bool { true }
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct Cors {
-    credentials: bool,
-    enabled: bool,
-    exposed_headers: String,
-    headers: String,
-    max_age: String,
-    methods: String,
-    origin: String,
-    preflight_continue: bool
+    pub credentials: bool,
+    pub enabled: bool,
+    pub exposed_headers: String,
+    pub headers: String,
+    pub max_age: String,
+    pub methods: String,
+    pub origin: String,
+    pub preflight_continue: bool
 }
 
 /// Babylon Auth Header plugin data

@@ -20,7 +20,11 @@ pub use self::jaeger::Jaeger;
 
 /// Kong configs
 pub mod kong;
-pub use self::kong::Kong;
+pub use self::kong::{Kong, Cors, BabylonAuthHeader};
+
+/// Kongfig configs
+pub mod kongfig;
+pub use self::kongfig::{Api, Consumer, Plugin, Upstream, Certificate};
 
 /// Kafka configs
 pub mod kafka;

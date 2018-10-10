@@ -5,6 +5,8 @@ use std::collections::BTreeMap;
 
 use super::{Manifest, Result, Config};
 use super::structs::Kong;
+use super::structs::kongfig::{kongfig_apis, kongfig_consumers};
+use super::structs::kongfig::{Api, Consumer, Plugin, Upstream, Certificate};
 use super::config::KongConfig;
 
 /// KongOutput matches the format expected by the Kong Configurator script
@@ -12,6 +14,32 @@ use super::config::KongConfig;
 struct KongOutput {
     pub apis: BTreeMap<String, Kong>,
     pub kong: KongConfig,
+}
+
+/// KongOutput for Kongfig
+#[derive(Serialize, Deserialize)]
+struct KongfigOutput {
+    pub host: String,
+    pub headers: Vec<String>,
+    pub apis: Vec<Api>,
+    pub consumers: Vec<Consumer>,
+    pub plugins: Vec<Plugin>,
+    pub upstreams: Vec<Upstream>,
+    pub certificates: Vec<Certificate>
+}
+
+impl KongfigOutput {
+    fn new(data: KongOutput) -> Self {
+        KongfigOutput {
+            host: data.kong.clone().config_url.into(),
+            headers: vec![],
+            apis: kongfig_apis(data.apis, data.kong.clone()),
+            consumers: kongfig_consumers(data.kong.clone()),
+            plugins: vec![],
+            upstreams: vec![],
+            certificates: vec![],
+        }
+    }
 }
 
 /// KongOutput in CRD form
@@ -62,9 +90,11 @@ fn generate_kong_output(conf: &Config, region: &str) -> Result<KongOutput> {
     Ok(KongOutput { apis, kong: reg.kong })
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub enum KongOutputMode {
     Json,
     Crd,
+    Kongfig,
 }
 
 /// Generate Kong config from a filled in global config
@@ -76,6 +106,10 @@ pub fn output(conf: &Config, region: &str, mode: KongOutputMode) -> Result<()> {
         },
         KongOutputMode::Crd => {
             let res = KongCrdOutput::new(region, data);
+            serde_yaml::to_string(&res)?
+        },
+        KongOutputMode::Kongfig => {
+            let res = KongfigOutput::new(data);
             serde_yaml::to_string(&res)?
         }
     };
@@ -121,5 +155,60 @@ pub fn reconcile(conf: &Config, region: &str) -> Result<()> {
     if !s.success() {
         bail!("Subprocess failure from kong configurator: {}", s.code().unwrap_or(1001))
     }
+    Ok(())
+}
+
+pub fn kongfig_reconcile(conf: &Config, region: &str) -> Result<()> {
+    use std::path::Path;
+    use std::fs::File;
+    use std::io::{Write};
+    let reg = conf.regions[&region.to_string()].clone();
+
+    let data = generate_kong_output(&conf, region)?;
+    let res = KongfigOutput::new(data);
+    let output = serde_yaml::to_string(&res)?;
+
+    // write kong-{region}.yaml
+    let fname = format!("kong-{}.yaml", region);
+    let pth = Path::new(".").join(&fname);
+    debug!("Writing kongfig values for {} to {}", region, pth.display());
+    let mut f = File::create(&pth)?;
+    write!(f, "{}\n", output)?;
+    debug!("Wrote kongfig values for {} to {}: \n{}", region, pth.display(), output);
+
+    // As it happens, we can only write the file from here, as we can't run
+    // `kongfig` from inside kubecat (we don't want to pull in node/npm, or do
+    // docker-in-docker).
+
+    // TODO later: pass this data to a CRD, and reconcile in-cluster! 🚀
+
+    // FYI, this is the actual reconcile command:
+    //
+    // docker run -t
+    //   -v $PWD:/volume quay.io/babylonhealth/kubecat:kongfig
+    //   kongfig apply
+    //   --host kong-admin-uk.dev.babylontech.co.uk
+    //   --path /volume/kong-{region}.yaml
+    //   --https # or not
+
+    let v = reg.kong.config_url.split("://").collect::<Vec<_>>();
+    assert_eq!(v.len(), 2);
+    let (protocol, host) = (v[0], v[1]);
+    let mut args = vec![
+        "docker".into(), "run".into(),
+        "-v".into(), "$PWD:/volume".into(),
+        "quay.io/babylonhealth/kubecat:kongfig".into(),
+        "kongfig".into(), "apply".into(),
+        "--host".into(), host.into(),
+        "--path".into(), format!("/volume/{}", fname)
+    ];
+    if protocol == "https" {
+        args.push("--https".into());
+    }
+    info!("Reconcile with: sudo {}", args.join(" "));
+    //let s = Command::new("sudo").args(&args).status()?;
+    //if !s.success() {
+    //    bail!("Subprocess failure from kong configurator: {}", s.code().unwrap_or(1001))
+    //}
     Ok(())
 }

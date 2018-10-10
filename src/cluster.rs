@@ -55,7 +55,11 @@ pub fn region_wide_git_diff_with_master(conf: &Config, region: &str) -> Result<(
 /// Kong reconcile
 ///
 /// Shells out to kong-configurator (python cli) with right params
-pub fn kong_reconcile(conf: &Config, region: &str) -> Result<()> {
-    kong::reconcile(conf, region)?;
+pub fn kong_reconcile(conf: &Config, region: &str, mode: kong::KongOutputMode) -> Result<()> {
+    debug!("Kong-reconcile with mode {:?}", mode);
+    match mode {
+        kong::KongOutputMode::Kongfig => kong::kongfig_reconcile(conf, region)?,
+        _                             => kong::reconcile(conf, region)?
+    }
     Ok(())
 }

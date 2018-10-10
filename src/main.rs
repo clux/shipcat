@@ -227,6 +227,9 @@ fn main() {
             .arg(Arg::with_name("crd")
                 .long("crd")
                 .help("Produce gorilla.shipcat custom resource values for this kubernetes region"))
+            .arg(Arg::with_name("kongfig")
+                .long("kongfig")
+                .help("Produce Kongfig-compatible output for this kubernetes region"))
             .subcommand(SubCommand::with_name("config-url")
                 .help("Generate Kong config URL")))
         // dependency graphing
@@ -248,7 +251,10 @@ fn main() {
             .about("Perform cluster level recovery / reconcilation commands")
             .subcommand(SubCommand::with_name("kong")
                 .subcommand(SubCommand::with_name("reconcile")
-                    .about("Reconcile kong region config with local state")))
+                .arg(Arg::with_name("kongfig")
+                    .long("kongfig")
+                    .help("Reconcile using Kongfig rather than kong-configurator"))
+                .about("Reconcile kong region config with local state")))
             .subcommand(SubCommand::with_name("helm")
                 .arg(Arg::with_name("num-jobs")
                     .short("j")
@@ -555,6 +561,8 @@ fn handle_secret_using_commands(args: &ArgMatches, region: &str, conf: &mut Conf
             conditional_exit(conf.secrets(&region));
             let mode = if a.is_present("crd") {
                 kong::KongOutputMode::Crd
+            } else if a.is_present("kongfig") {
+                kong::KongOutputMode::Kongfig
             } else {
                 kong::KongOutputMode::Json
             };
@@ -630,8 +638,13 @@ fn handle_secret_using_commands(args: &ArgMatches, region: &str, conf: &mut Conf
     if let Some(a) = args.subcommand_matches("cluster") {
         conditional_exit(conf.secrets(&region)); // absolutely need secrets here
         if let Some(b) = a.subcommand_matches("kong") {
-            if let Some(_) = b.subcommand_matches("reconcile") {
-                let res = shipcat::cluster::kong_reconcile(&conf, &region);
+            if let Some(c) = b.subcommand_matches("reconcile") {
+                let mode = if c.is_present("kongfig") {
+                    kong::KongOutputMode::Kongfig
+                } else {
+                    kong::KongOutputMode::Json
+                };
+                let res = shipcat::cluster::kong_reconcile(&conf, &region, mode);
                 result_exit(args.subcommand_name().unwrap(), res)
             }
         }

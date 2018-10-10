@@ -60,4 +60,15 @@ release-%:
 	tar tvf releases/shipcat.$*.tar.gz
 	rm -rf releases/$*/
 
+# Keep Kongfig separate
+kongfig-build:
+	docker build --file Dockerfile.kongfig -t $(REPO)/$(NAME):kongfig-$(VERSION) .
+
+kongfig-install:
+	docker push $(REPO)/$(NAME):kongfig-$(VERSION)
+
+kongfig-tag-latest:
+	docker tag  $(REPO)/$(NAME):kongfig-$(VERSION) $(REPO)/$(NAME):kongfig
+	docker push $(REPO)/$(NAME):kongfig
+
 .PHONY: doc install build compile releases
