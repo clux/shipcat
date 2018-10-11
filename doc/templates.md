@@ -21,9 +21,9 @@ then this will be interpolated by `shipcat values` by looking for files called `
 - `services/myservice` (service folder)
 - `templates` (global templates folder)
 
-Files from the global `templates` folder is only used if there's no file with the same name in your service folder.
+Files from the global `templates` folder are only used if there's no file with the same name in your service folder.
 
-When applied to the helm chart, `shipcat` will have templated these files and will return a struct like:
+When applied to the helm chart, `shipcat` will template these files and return a struct like:
 
 ```yaml
 configs:
@@ -85,6 +85,6 @@ env:
   INTERNAL_AUTH_CLIENTSECRET: "{{ kong.consumers['my-service'].oauth_client_secret | as_secret }}"
 ```
 
-The first two are filled in from the `base_urls` map in `shipcat.conf` for the region, while the second ones are fetched from `kong.consumers` for the service after first fetching the values from vault.
+The first two are filled in from the `base_urls` map in `shipcat.conf` for the region, while the other ones are fetched from `kong.consumers` for the service after first fetching the values from vault.
 
 The `| as_secret` template function lets shipcat know that this evar should be mounted as a kubernetes secret and not visible in plaintext on a kube dashboard.
