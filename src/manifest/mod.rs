@@ -17,15 +17,21 @@ pub mod reducers;
 /// Main module
 pub mod manifest;
 
+/// File backing
+pub mod filebacked;
+// merge behaviour for file backed manifests
+mod merge;
+
+// TODO: CRD backing
+
 /// Computational helpers
 pub mod math;
 
 // Re-exports
 pub use self::manifest::Manifest;
-pub use self::manifest::show;
+pub use self::filebacked::show;
 
-// private module to define merge behaviour
-mod merge;
+
 
 /// A renderer of `tera` templates (jinja style)
 ///

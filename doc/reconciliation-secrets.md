@@ -63,7 +63,7 @@ vault login -token-only -method=github token="$GITHUB_PAT"
 A valid slack hook url that can post to the slack channel defined above.
 
 ```bash
-export SLACK_SHIPCAT_HOOK_URL="https://hooks.slack.com/services/***REMOVED***/ZZZZZZZZZ/zzzzzzzzzzzzzzzzzzzzzzz"
+export SLACK_SHIPCAT_HOOK_URL="https://hooks.slack.com/services/ZZZZZZZZ/ZZZZZZZZZ/zzzzzzzzzzzzzzzzzzzzzzz"
 ```
 
 ## Putting it all together
