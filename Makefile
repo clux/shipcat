@@ -33,6 +33,12 @@ doc:
 	cargo doc
 	xdg-open target/doc/shipcat/index.html
 
+push-docs:
+	cargo doc
+	echo "<meta http-equiv=refresh content=0;url=shipcat/index.html>" > target/doc/index.html
+	ghp-import -n target/doc
+	git push -qf "git@github.com:Babylonpartners/shipcat.git" gh-pages
+
 # Package up all built artifacts for ghr to release
 #
 # releases/

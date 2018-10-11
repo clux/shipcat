@@ -80,11 +80,6 @@ kube-login() {
   local -r namespace="$(shipcat get -r "$KUBE_REGION" clusterinfo | jq ".namespace" -r)"
   local -r apiserver="$(shipcat get -r "$KUBE_REGION" clusterinfo | jq ".apiserver" -r)"
 
-  if [ -z "$namespace" ] || [ -z "$apiserver" ]; then
-    echo "Failed to get namespace=${namespace} or apiserver=${apiserver} from shipcat.conf for $KUBE_REGION"
-    exit 2
-  fi
-
   # Logs in to kubernetes with the jenkins sa credentials
   # Assumes that
   # - secrets have been created outside docker

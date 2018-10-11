@@ -146,6 +146,10 @@ impl KongConfig {
                 data.oauth_client_secret = vault.read(&vkey)?;
             }
         }
+        if self.oauth_provision_key == "IN_VAULT" {
+            let vkey = format!("{}/kong/oauth_provision_key", region);
+            self.oauth_provision_key = vault.read(&vkey)?;
+        }
         Ok(())
     }
     fn verify_secrets_exist(&self, vault: &Vault, region: &str) -> Result<()> {
