@@ -1,6 +1,6 @@
 name: webapp
 image: clux/webapp-rs
-version: 0.1.2-alpha3
+version: 0.2.0
 metadata:
   contacts:
   - name: "Eirik"
