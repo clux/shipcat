@@ -15,9 +15,6 @@ pub use self::dependency::{Dependency, DependencyProtocol};
 mod worker;
 pub use self::worker::Worker;
 
-mod jaeger;
-pub use self::jaeger::Jaeger;
-
 /// Kong configs
 pub mod kong;
 pub use self::kong::{Kong, Cors, BabylonAuthHeader};
@@ -67,9 +64,6 @@ pub mod tolerations;
 
 mod metadata;
 pub use self::metadata::{Metadata, Contact};
-
-/// Prometheus structs
-pub mod prometheus;
 
 
 /// Security related structs

@@ -11,7 +11,6 @@ use super::structs::{HealthCheck, ConfigMap};
 use super::structs::{InitContainer, Resources, HostAlias};
 use super::structs::volume::{Volume, VolumeMount};
 use super::structs::{Metadata, VaultOpts, Dependency};
-//use super::structs::prometheus::{Prometheus, Dashboard};
 use super::structs::security::DataHandling;
 use super::structs::Probe;
 use super::structs::{CronJob, Sidecar};
@@ -26,172 +25,337 @@ use super::structs::Port;
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct Manifest {
+    // ------------------------------------------------------------------------
+    // !! special properties first !!
+    //
+    // Manifest syntax extras should be added AFTER all these.
+    // These special properties, that are generally not overrideable, and should be
+    // marked with `skip_deserializing` serde field attributes.
+    // ------------------------------------------------------------------------
+
     /// Name of the service
+    ///
+    /// This must match the folder name in a manifests repository.
     #[serde(default)]
     pub name: String,
-    // Region injected in helm chart
+
+    /// Region injected into helm chart
+    ///
+    /// Exposed from shipcat, but not overrideable.
     #[serde(default, skip_deserializing)]
     pub region: String,
-    // Environment (not kube namespace) injected in helm chart
+
+    /// Environment injected into the helm chart
+    ///
+    /// Exposed from shipcat, but not overrideable.
     #[serde(default, skip_deserializing)]
     pub environment: String,
-    // Namespace (kube) injected in helm chart
+
+    /// Namespace injected in helm chart
+    ///
+    /// Exposed from shipcat, but not overrideable.
     #[serde(default, skip_deserializing)]
     pub namespace: String,
 
-    /// Wheter to ignore this service
-    #[serde(default, skip_serializing)]
-    pub disabled: bool,
-    /// Wheter the service is externally managed
-    #[serde(default, skip_serializing)]
-    pub external: bool,
-    /// Regions service is deployed to
+    /// Regions to deploy this service to.
+    ///
+    /// Every region must be listed in here.
+    /// Uncommenting a region in here will partially disable this service.
     #[serde(default, skip_serializing)]
     pub regions: Vec<String>,
+
     /// Wheter the service should be public
+    ///
+    /// This is a special flag not exposed to the charts at the moment.
     #[serde(default, skip_serializing)]
     pub publiclyAccessible: bool,
-
-    // Secret evars
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub secrets: BTreeMap<String, String>,
 
     // Decoded secrets - only used interally
     #[serde(default, skip_serializing, skip_deserializing)]
     pub _decoded_secrets: BTreeMap<String, String>,
 
+    /// Service is disabled
+    ///
+    /// This disallows usage of this service in all regions.
+    #[serde(default, skip_serializing)]
+    pub disabled: bool,
+
+    /// Service is external
+    ///
+    /// This cancels all validation and marks the manifest as a non-kube reference only.
+    #[serde(default, skip_serializing)]
+    pub external: bool,
+
+    /// Raw secrets from environment variables.
+    ///
+    /// The `env` Map fills in secrets in this via the `vault` client.
+    /// `Manifest::secrets` partitions `env` into `env` and `secrets`.
+    /// See `Manifest::env`.
+    ///
+    /// This means that this is an internal property that is actually exposed!
+    #[serde(default, skip_deserializing, skip_serializing_if = "BTreeMap::is_empty")]
+    pub secrets: BTreeMap<String, String>,
+
+
+    // ------------------------------------------------------------------------
+    // mergeable properties below
+    //
     // BEFORE ADDING PROPERTIES READ THIS
     // Below are properties that can be merged, above ones that are global
     // if you add anything below here, also add it to merge.rs!
+    // ------------------------------------------------------------------------
+
 
     /// Chart to use for the service
+    ///
+    /// All the properties in `Manifest` are tailored towards our `base` chart,
+    /// so this should be overridden with caution.
     #[serde(default)]
     pub chart: Option<String>,
-    /// Optional image name
+
+    /// Image name of the docker image to run
+    ///
+    /// This can be left out if imagePrefix is set in the config, and the image name
+    /// also matches the service name. Otherwise, this needs to be the full image name.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
-    /// Optional uncompressed image size (for estimating helm timeouts)
+
+    /// Optional uncompressed image size
+    ///
+    /// This is used to compute a more accurate wait time for rolling upgrades.
+    /// See `Manifest::estimate_wait_time`.
     #[serde(skip_serializing)]
     pub imageSize: Option<u32>,
-    /// Optional version/tag of docker image
+
+    /// Version aka. tag of docker image to run
+    ///
+    /// This does not have to be set in "rolling environments", where upgrades
+    /// re-use the current running versions. However, for complete control, production
+    /// environments should put the versions in manifests.
+    ///
+    /// Versions must satisfy `VersionScheme,::verify`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
-    /// Optional image command (if not using the default docker command)
+
+    /// Command to use for the docker image
+    ///
+    /// This can be left out to use the default image command.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub command: Vec<String>,
 
-    // misc metadata
-    /// Canonical data sources like repo, docs, team names
+
+    /// Important contacts and other metadata for the service
+    ///
+    /// Particular uses:
+    /// - notifying correct people on upgrades via slack
+    /// - providing direct links to code diffs on upgrades in slack
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Metadata>,
+
     /// Data sources and handling strategies
+    ///
+    /// An experimental abstraction around GDPR
     #[serde(default, skip_serializing)]
     pub dataHandling: Option<DataHandling>,
+
     /// Language the service is written in
+    ///
+    /// This does not provide any special behaviour at the moment.
     #[serde(skip_serializing)]
     pub language: Option<String>,
 
 
-    // Jaeger options CURRENTLY UNUSED
-    //#[serde(default)]
-    //pub jaeger: Jaeger,
-
-
-    // Kubernetes specific flags
-
-    /// Resource limits and requests
+    /// Kubernetes resource limits and requests
+    ///
+    /// Api straight from https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resources: Option<Resources<String>>,
-    /// Replication limits
+
+    /// Kubernetes replication count
+    ///
+    /// This is set on the `Deployment` object in kubernetes.
+    /// If you have `autoScaling` parameters set, then these take precedence.
     #[serde(default)]
     pub replicaCount: Option<u32>,
 
-    // our main abstractions for kube resources
 
     /// Environment variables to inject
+    ///
+    /// These have a few special convenience behaviours:
+    /// "IN_VAULT" values is replaced with value from vault/secret/folder/service/KEY
+    /// One off `tera` templates are calculated with a limited template context
+    ///
+    /// IN_VAULT secrets will all be put in a single kubernetes `Secret` object.
+    /// One off templates **can** be put in a `Secret` object if marked `| as_secret`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
-    /// Config files to inline in a configMap
+
+
+    /// Kubernetes Secret Files to inject
+    ///
+    /// These have the same special "IN_VAULT" behavior as `Manifest::env`:
+    /// "IN_VAULT" values is replaced with value from vault/secret/folder/service/key
+    ///
+    /// Note the lowercase restriction on keys.
+    /// All `secretFiles` are expected to be base64 in vault, and are placed into a
+    /// kubernetes `Secret` object.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub secretFiles: BTreeMap<String, String>,
+
+
+    /// Config files to inline in a kubernetes `ConfigMap`
+    ///
+    /// These are read and templated by `tera` before they are passed to helm.
+    /// A full `tera` context from `Manifest::make_template_context` is used.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub configs: Option<ConfigMap>,
+
     /// Vault options
+    ///
+    /// Allows overriding service names and regions for secrets.
+    /// DEPRECATED. Should only be set in rare cases.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vault: Option<VaultOpts>,
-    /// Http Port to expose
+
+    /// Http Port to expose in the kubernetes `Service`
+    ///
+    /// This is normally the service your application listens on.
+    /// Kong deals with mapping the port to a nicer one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub httpPort: Option<u32>,
+
     /// Ports to open
+    ///
+    /// For services outside Kong, expose these named ports in the kubernetes `Service`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ports: Vec<Port>,
+
     /// Externally exposed port
+    ///
+    /// Useful for `LoadBalancer` type `Service` objects.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub externalPort: Option<u32>,
+
     /// Health check parameters
+    ///
+    /// A small abstraction around `readinessProbe`.
+    /// DEPRECATED. Should use `readinessProbe`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub health: Option<HealthCheck>,
+
     /// Service dependencies
+    ///
+    /// Used to construct a dependency graph, and in the case of non-circular trees,
+    /// it can be used to arrange deploys in the correct order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<Dependency>,
 
-    /// Sidecars
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub sidecars: Vec<Sidecar>,
-    /// Worker side-deployments
+    /// Worker `Deployment` objects to additinally include
+    ///
+    /// These are more flexible than `sidecars`, because they scale independently of
+    /// the main `replicaCount`. However, they are considered separate rolling upgrades.
+    /// There is no guarantee that these switch over at the same time as your main
+    /// kubernetes `Deployment`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub workers: Vec<Worker>,
 
-    // pure kube yaml
-    /// Optional readiness probe (REPLACES health abstraction)
+    /// Sidecars to inject into every kubernetes `Deployment`
+    ///
+    /// Plain sidecars are injected into the main `Deployment` and all the workers' ones.
+    /// They scale directly with the sum of `replicaCount`s.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sidecars: Vec<Sidecar>,
+
+    /// `readinessProbe` for kubernetes
+    ///
+    /// This configures the service's health check, which is used to gate rolling upgrades.
+    /// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+    ///
+    /// This replaces shipcat's `Manifest::health` abstraction.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub readinessProbe: Option<Probe>,
-    /// Optional liveness probe
+
+    /// `livenessProbe` for kubernetes
+    ///
+    /// This configures a `readinessProbe` check, with the instruction to kill on failure.
+    /// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub livenessProbe: Option<Probe>,
+
     /// Rolling update Deployment parameters
+    ///
+    /// These tweak the speed and care kubernetes uses when doing a rolling update.
+    /// https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-update-deployment
+    /// This is attached onto the main `Deployment`
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rollingUpdate: Option<RollingUpdate>,
-    /// Horizontal Pod Auto Scaler parameters
+
+    /// `HorizontalPodAutoScaler` parameters for kubernetes
+    ///
+    /// Passed all parameters directly onto a `spec` of a kube HPA.
+    /// https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub autoScaling: Option<AutoScaling>,
-    /// Toleration parameters
+
+    /// Toleration parameters for kubernetes
+    ///
+    /// Bind a service to a particular type of kube `Node`.
+    /// https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tolerations: Vec<Tolerations>,
 
-    /// host aliases to inject in /etc/hosts
+    /// Host aliases to inject in /etc/hosts in every kubernetes `Pod`
+    ///
+    /// https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hostAliases: Vec<HostAlias>,
-    /// Volumes mounts
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub volumeMounts: Vec<VolumeMount>,
-    /// Init container intructions
+
+    /// `initContainer` list for every kubernetes `Pod`
+    ///
+    /// Allows database connectivity checks to be done as pre-boot init-step.
+    /// https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub initContainers: Vec<InitContainer>,
 
-    /// Volumes
+    /// Volumes that can be mounted in every kubernetes `Pod`
+    ///
+    /// Supports our subset of: https://kubernetes.io/docs/concepts/storage/volumes/
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub volumes: Vec<Volume>,
-    /// CronJobs
+
+    /// Volumes to mount to every kubernetes `Pod`
+    ///
+    /// Requires the `Manifest::volumes` entries.
+    /// https://kubernetes.io/docs/concepts/storage/volumes/
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub volumeMounts: Vec<VolumeMount>,
+
+
+    /// Cronjobs images to run as kubernetes `CronJob` objects
+    ///
+    /// Limited usefulness abstraction, that should be avoided.
+    /// https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cronJobs: Vec<CronJob>,
 
-
-    /// Service annotations (for internal services only)
+    /// Annotations to set on `Service` objects
+    ///
+    /// Useful for `LoadBalancer` type `Service` objects.
+    /// Not useful for kong balanced services.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub serviceAnnotations: BTreeMap<String, String>,
 
-    /// Extra labels
+    /// Labels for every kubernetes object
+    ///
+    /// Injected in all top-level kubernetes object as a prometheus convenience.
+    /// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub labels: BTreeMap<String, String>,
 
-    // Prometheus metric options CURRENTLY UNUSED
-    //#[serde(skip_serializing_if = "Option::is_none")]
-    //pub prometheus: Option<Prometheus>,
-
-    // Dashboards to generate CURRENTLY UNUSED
-    //#[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    //pub dashboards: BTreeMap<String, Dashboard>,
-
     /// Kong config
+    ///
+    /// A mostly straight from API configuration struct for Kong
+    /// Work in progress. `structs::kongfig` contain the newer abstractions.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kong: Option<Kong>,
     /// Hosts to override kong hosts
@@ -199,22 +363,26 @@ pub struct Manifest {
     pub hosts: Vec<String>,
 
     /// Kafka config
+    ///
+    /// A small convencience struct to indicate that the service uses `Kafka`.
+    /// The chart will inject a few environment variables and a kafka initContainer
+    /// if this is set to a `Some`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kafka: Option<Kafka>,
 
-    /// Kube Secret Files to append
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub secretFiles: BTreeMap<String, String>,
-
     /// Load balancer source ranges
+    ///
+    /// This is useful for charts that expose a `Service` of `LoadBalancer` type.
+    /// IP CIDR ranges, which Kubernetes will use to configure firewall exceptions.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sourceRanges: Vec<String>,
 
     /// Role-Based Access Control
+    ///
+    /// A list of resources to allow the service access to use.
+    /// This is a subset of kubernetes `Role::rules` parameters.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rbac: Vec<Rbac>,
-
-    // TODO: logging alerts
 }
 
 impl Manifest {

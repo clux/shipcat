@@ -14,12 +14,11 @@ This folder contains a sample manifest repository setup.
 ```
 
 ## Cluster setup
-Start minikube and vault in docker.
+Start minikube, and prepare an `apps` namespace:
 
 ```sh
 minikube start
 kubectl config set-context --cluster=minikube --user=minikube --namespace=apps minikube
-kubectl config use-context minikube
 kubectl create namespace apps
 ```
 
@@ -88,8 +87,13 @@ You can verify that `shipcat` picks up on this via: `shipcat values -s webapp`.
 Finally, let's deploy `webapp`!
 
 ```sh
+export SLACK_SHIPCAT_HOOK_URL=https://hooks.slack.com/services/.....
+export SLACK_SHIPCAT_CHANNEL=#test
+
 shipcat apply webapp
 ```
+
+The evars are used to send upgrade notifications to slack hooks (if they are valid).
 
 ## Cluster reconcile
 Let's pretend that our cluster died:
