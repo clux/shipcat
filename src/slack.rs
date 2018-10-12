@@ -147,7 +147,7 @@ pub fn send(msg: Message) -> Result<()> {
     p = p.attachments(ax);
 
     // Send everything. Phew.
-    slack.send(&p.build()?)?;
+    slack.send(&p.build()?).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
 
     Ok(())
 }
