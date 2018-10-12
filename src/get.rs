@@ -88,6 +88,7 @@ struct APIStatusOutput {
 struct APIServiceParams {
     hosts: String,
     uris: String,
+    internal: bool,
     publiclyAccessible: bool,
 }
 #[derive(Serialize)]
@@ -118,6 +119,7 @@ pub fn apistatus(conf: &Config, region: &str) -> Result<()> {
                 services.insert(svc, APIServiceParams {
                     uris: k.uris.unwrap_or("".into()),
                     hosts: k.hosts.unwrap_or("".into()),
+                    internal: k.internal,
                     publiclyAccessible: mf.publiclyAccessible,
                 });
             }
@@ -129,7 +131,8 @@ pub fn apistatus(conf: &Config, region: &str) -> Result<()> {
         services.insert(name, APIServiceParams {
             uris: api.uris.unwrap_or("".into()),
             hosts: api.hosts.unwrap_or("".into()),
-            publiclyAccessible: !api.internal,
+            internal: api.internal,
+            publiclyAccessible: api.publiclyAccessible,
         });
     }
 
