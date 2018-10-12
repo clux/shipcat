@@ -194,6 +194,9 @@ pub struct Manifest {
     /// Kong config
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kong: Option<Kong>,
+    /// Hosts to override kong hosts
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hosts: Vec<String>,
 
     /// Kafka config
     #[serde(default, skip_serializing_if = "Option::is_none")]

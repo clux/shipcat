@@ -1,0 +1,90 @@
+# Tiller account in the specified namespace.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tiller
+  namespace: apps
+
+# Allow Tiller to manage all resources in specified namespace through being
+# an `admin` of its own namespace
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: tiller-binding
+  namespace: apps
+subjects:
+- kind: ServiceAccount
+  name: tiller
+  namespace: apps
+roleRef:
+  kind: ClusterRole
+  name: admin
+  apiGroup: rbac.authorization.k8s.io
+
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: tiller-elevation
+  namespace: apps
+rules:
+- apiGroups: [""]
+  resources: ["role", "rolebinding"]
+  verbs: ["*"]
+
+# The actual Tiller deployment
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: helm
+    name: tiller
+  name: tiller-deploy
+  namespace: apps
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: helm
+        name: tiller
+    spec:
+      automountServiceAccountToken: true
+      containers:
+      - env:
+        - name: TILLER_NAMESPACE
+          value: apps
+        - name: TILLER_HISTORY_MAX
+          value: "20"
+        image: gcr.io/kubernetes-helm/tiller:v2.9.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /liveness
+            port: 44135
+          initialDelaySeconds: 1
+          timeoutSeconds: 1
+        name: tiller
+        ports: []
+        command: ["/tiller"]
+        args: ["--listen=localhost:44134"]
+        readinessProbe:
+          httpGet:
+            path: /readiness
+            port: 44135
+          initialDelaySeconds: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: "1"
+            memory: 750Mi
+          requests:
+            cpu: 500m
+            memory: 500Mi
+      serviceAccountName: tiller

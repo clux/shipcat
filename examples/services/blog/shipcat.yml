@@ -1,0 +1,31 @@
+name: blog
+image: clux/blog
+version: 0.1.0
+metadata:
+  contacts:
+  - name: "Eirik"
+    slack: "@clux"
+  team: Doves
+  repo: https://github.com/clux/blog
+
+# kubernetes resources
+resources:
+  requests:
+    cpu: 50m
+    memory: 100Mi
+  limits:
+    cpu: 100m
+    memory: 100Mi
+replicaCount: 1
+
+# health check used to gate upgrades / readinessProbe
+health:
+  uri: /
+  wait: 0
+
+# exposed Service port
+httpPort: 80
+
+# what regions it's deployed to
+regions:
+- minikube

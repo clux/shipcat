@@ -20,7 +20,7 @@ impl Manifest {
 
             // Kong has implicit, region-scoped values
             if let Some(ref mut kong) = self.kong {
-                kong.implicits(self.name.clone(), reg.clone());
+                kong.implicits(self.name.clone(), reg.clone(), self.hosts.clone());
             }
 
             if let Some(ref mut kafka) = self.kafka {
@@ -183,6 +183,9 @@ impl Manifest {
         // vectors are replaced if they are non-empty in override
         if !mf.command.is_empty() {
             self.command = mf.command;
+        }
+        if !mf.hosts.is_empty() {
+            self.hosts = mf.hosts;
         }
         if !mf.hostAliases.is_empty() {
             self.hostAliases = mf.hostAliases;

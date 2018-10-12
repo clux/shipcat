@@ -1,0 +1,9 @@
+name: base
+version: 0.3.0
+description: The Shipcat Microservice base chart
+home: https://github.com/Babylonpartners/shipcat/tree/master/examples/charts/base
+maintainers:
+  - name: Eirik Albrigtsen
+    url: https://github.com/clux
+  - name: Florent Delannoy
+    url: https://github.com/florent-babylon

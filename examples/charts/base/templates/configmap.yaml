@@ -1,0 +1,21 @@
+{{- if .Values.configs }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.name }}
+    type: {{ .Values.type | default "service" }}
+{{- if $.Values.labels }}
+{{ toYaml $.Values.labels | indent 4 }}
+{{- end }}
+    chart: {{ template "chart.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+{{- range .Values.configs.files }}
+  {{ .dest }}: |-
+{{ .value | indent 4}}
+{{- end }}
+{{- end }}

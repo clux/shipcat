@@ -1,0 +1,36 @@
+name: webapp
+image: clux/webapp-rs
+version: 0.1.2-alpha1
+metadata:
+  contacts:
+  - name: "Eirik"
+    slack: "@clux"
+  team: Doves
+  repo: https://github.com/clux/webapp-rs
+
+# kubernetes resources
+resources:
+  requests:
+    cpu: 200m
+    memory: 300Mi
+  limits:
+    cpu: 500m
+    memory: 500Mi
+replicaCount: 1
+
+# health check used to gate upgrades / readinessProbe
+health:
+  uri: /posts
+  wait: 0
+
+# exposed Service port
+httpPort: 8000
+
+# what regions it's deployed to
+regions:
+- minikube
+
+# evars
+env:
+  ROCKET_ENV: production
+  DATABASE_URL: IN_VAULT

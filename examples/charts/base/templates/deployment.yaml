@@ -1,0 +1,163 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.name }}
+    type: {{ .Values.type | default "service" }}
+{{- if $.Values.labels }}
+{{ toYaml $.Values.labels | indent 4 }}
+{{- end }}
+    chart: {{ template "chart.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 20
+  strategy:
+    rollingUpdate:
+{{- if .Values.rollingUpdate }}
+{{ toYaml .Values.rollingUpdate | indent 6 }}
+{{- else if eq (.Values.replicaCount | int) 1 }}
+      maxUnavailable: 0
+{{- end }}
+  minReadySeconds: 10
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+        release: {{ .Release.Name }}
+      annotations:
+{{- if .Values.configs }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+{{- end }}
+        checksum/secrets: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Values.name }}
+      #imagePullSecrets:
+      containers:
+      - name: {{ .Values.name }}
+        image: "{{ .Values.image }}:{{ .Values.version }}"
+{{- if .Values.command }}
+        command:
+{{ toYaml .Values.command | indent 8}}
+{{- end }}
+        imagePullPolicy: IfNotPresent
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+{{- if .Values.httpPort }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.httpPort }}
+          protocol: TCP
+{{- if .Values.health.port }}
+{{- if not (eq .Values.health.port .Values.httpPort) }}
+        - name: health-http
+          containerPort: {{ .Values.health.port }}
+          protocol: TCP
+{{- end }}
+{{- end }}
+{{- range $p := .Values.ports }}
+        - name: {{ $p.name }}
+          containerPort: {{ $p.port }}
+          protocol: {{ $p.protocol }}
+{{- end }}
+{{- if false }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.health.uri }}
+            port: http
+{{- end }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.health.uri }}
+{{- if .Values.health.port }}
+{{- if not (eq .Values.health.port .Values.httpPort) }}
+            port: health-http
+{{- else }}
+            port: http
+{{- end }}
+{{- else }}
+            port: http
+{{- end }}
+          initialDelaySeconds: {{ .Values.health.wait }}
+          periodSeconds: 5
+{{- end }}
+{{- if .Values.hostAliases }}
+        hostAliases:
+{{ toYaml .Values.hostAliases | indent 10 }}
+{{- end }}
+
+        env:
+{{- range $k, $v := .Values.env }}
+        - name: {{ $k }}
+          value: "{{ $v }}"
+{{- end }}
+{{- range $k, $v := $.Values.secrets }}
+        - name: {{ $k }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Values.name }}-secrets
+              key: {{ $k }}
+{{- end }}
+        - name: SERVICE_NAME
+          value: {{ .Values.name }}
+        - name: ENV_NAME
+          value: {{ .Values.environment }}
+        - name: REGION_NAME
+          value: {{ .Values.region }}
+        - name: SERVICE_VERSION
+          value: {{ .Values.version }}
+{{ if .Values.kafka }}
+  {{- if .Values.kafka.mountPodIp }}
+        - name: HOST_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+  {{- end }}
+{{- end }}
+        # volume mounts from the special case configMap or explicit mounts
+        volumeMounts:
+{{- if .Values.configs }}
+  {{- $cfg := .Values.configs }}
+  {{- range $cfg.files }}
+        - name: {{ $cfg.name }}-volume
+          mountPath: {{ $cfg.mount }}{{ .dest }}
+          subPath: {{ .dest }}
+  {{- end }}
+{{- end }}
+{{- if .Values.volumeMounts }}
+{{ toYaml .Values.volumeMounts | indent 8 }}
+{{- end }}
+
+      {{- range $index, $sidecar := .Values.sidecars }}
+      {{- $sidecar_template := printf "%s-sidecar" $sidecar.name -}}
+      {{- include $sidecar_template $sidecar | indent 6 }}
+      {{- end }}
+
+      volumes:
+      {{- if .Values.configs }}
+      # special case configmap first
+      - name: {{ .Values.configs.name }}-volume
+        configMap:
+          name: {{ .Values.configs.name }}
+        {{- end }}
+      #  other volumes
+      {{- range $v := .Values.volumes }}
+{{ toYaml (list $v) | indent 6 }}
+      {{- end }}
+{{ if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 6 }}
+{{- end }}
+{{- if or .Values.initContainers .Values.kafka }}
+      initContainers:
+{{- if .Values.initContainers }}
+{{ toYaml .Values.initContainers | indent 6 }}
+{{- end }}
+{{- end }}

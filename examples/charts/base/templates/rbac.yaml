@@ -1,0 +1,24 @@
+{{- if .Values.rbac }}
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: {{ .Values.namespace }}
+  name: {{ .Values.name }}-role
+rules:
+{{ toYaml .Values.rbac | indent 2 }}
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Values.name }}-binding
+  namespace: {{ .Values.namespace }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.name }}
+roleRef:
+  kind: Role
+  name: {{ .Values.name }}-role
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

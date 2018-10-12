@@ -1,0 +1,63 @@
+{{- range $v := $.Values.cronJobs }}
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: {{ $v.name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ $.Values.name }}
+    type: {{ $.Values.type | default "service" }}
+{{- if $.Values.labels }}
+{{ toYaml $.Values.labels | indent 4 }}
+{{- end }}
+    chart: {{ template "chart.chart" $ }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+spec:
+  concurrencyPolicy: Forbid
+  schedule: "{{ $v.schedule }}"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: {{ $.Values.name }}
+          #imagePullSecrets:
+          containers:
+          - name: {{ $.Values.name }}
+            image: "{{ $.Values.image }}:{{ $.Values.version }}"
+            imagePullPolicy: IfNotPresent
+            env:
+{{- range $k, $v := $.Values.env }}
+            - name: {{ $k }}
+              value: "{{ $v }}"
+{{- end }}
+            volumeMounts:
+{{- if $.Values.configs }}
+  {{- $cfg := $.Values.configs }}
+  {{- range $cfg.files }}
+            - name: {{ $cfg.name }}-volume
+              mountPath: {{ $cfg.mount }}{{ .dest }}
+              subPath: {{ .dest }}
+  {{- end }}
+{{- end }}
+{{- if $.Values.volumeMounts }}
+{{ toYaml $.Values.volumeMounts | indent 12 }}
+{{- end }}
+
+            args:
+{{ toYaml $v.command | indent 12 }}
+          volumes:
+          {{- if $.Values.configs }}
+          # special case configmap first
+          - name: {{ $.Values.configs.name }}-volume
+            configMap:
+              name: {{ $.Values.configs.name }}
+            {{- end }}
+          #  other volumes
+          {{- range $v := $.Values.volumes }}
+{{ toYaml (list $v) | indent 10 }}
+          {{- end }}
+
+          restartPolicy: Never
+{{- end }}

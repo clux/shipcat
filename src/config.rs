@@ -23,6 +23,17 @@ pub struct ManifestDefaults {
     pub chart: String,
     /// Default replication counts
     pub replicaCount: u32
+
+}
+// Allow smaller base configs
+impl Default for ManifestDefaults {
+    fn default() -> Self {
+        ManifestDefaults {
+            chart: "base".into(),
+            replicaCount: 1,
+            imagePrefix: "".into(),
+        }
+    }
 }
 
 /// Versioning Scheme used in region
@@ -207,6 +218,7 @@ pub struct Region {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
     /// Kong configuration for the region
+    #[serde(default)]
     pub kong: KongConfig,
     /// List of Whitelisted IPs
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -258,6 +270,7 @@ pub struct Team {
 #[serde(deny_unknown_fields)]
 pub struct Config {
     /// Global defaults for the manifests
+    #[serde(default)]
     pub defaults: ManifestDefaults,
 
     /// Cluster definitions
@@ -288,8 +301,8 @@ impl Config {
         if ! chart.is_file() {
             bail!("Default chart {} does not exist", self.defaults.chart);
         }
-        if defs.imagePrefix == "" || defs.imagePrefix.ends_with('/') {
-            bail!("image prefix must be non-empty and not end with a slash");
+        if defs.imagePrefix.ends_with('/') {
+            bail!("image prefix must not end with a slash");
         }
 
         for (cname, clst) in &self.clusters {
@@ -312,10 +325,6 @@ impl Config {
         }
 
         for (r, data) in &self.regions {
-            let region_parts : Vec<_> = r.split('-').collect();
-            if region_parts.len() != 2 {
-                bail!("invalid region {} of len {}", r, r.len());
-            };
             if data.namespace == "" {
                 bail!("Need to set `namespace` in {}", r);
             }

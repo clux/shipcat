@@ -1,0 +1,1 @@
+{{ .Values.name }} is now deployed at version {{ .Values.version }}

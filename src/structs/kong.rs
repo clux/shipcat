@@ -56,7 +56,7 @@ pub struct Kong {
 
 
 impl Kong {
-    pub fn implicits(&mut self, svc: String, reg: Region) {
+    pub fn implicits(&mut self, svc: String, reg: Region, tophosts: Vec<String>) {
         self.name = svc;
         if self.unauthenticated {
             self.auth = Some("none".into());
@@ -65,9 +65,14 @@ impl Kong {
         if self.upstream_url.is_empty() {
           self.upstream_url = format!("http://{}.{}.svc.cluster.local", self.name, reg.namespace);
         }
-        // If the `host` field is defined, generate a `hosts` field based on the environment
-        if let Some(h) = self.host.clone() {
-            self.hosts = Some(format!("{}{}", h, reg.kong.base_url));
+
+        if tophosts.is_empty() {
+            // If the `host` field is defined, generate a `hosts` field based on the environment
+            if let Some(h) = self.host.clone() {
+                self.hosts = Some(format!("{}{}", h, reg.kong.base_url));
+            }
+        } else {
+            self.hosts = Some(tophosts.join(","));
         }
     }
 
