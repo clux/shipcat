@@ -17,6 +17,8 @@ pub struct Kong {
     #[serde(default, skip_serializing_if = "Not::not")]
     pub internal: bool,
     #[serde(default, skip_serializing_if = "Not::not")]
+    pub publiclyAccessible: bool,
+    #[serde(default, skip_serializing_if = "Not::not")]
     pub cookie_auth: bool,
     #[serde(default, skip_serializing_if = "Not::not")]
     pub cookie_auth_csrf: bool,
