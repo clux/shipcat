@@ -143,6 +143,10 @@ error_chain! {
             description("upgrade timed out")
             display("{} upgrade timed out waiting {}s for deployment(s) to come online", &svc, secs)
         }
+        SlackSendFailure(hook: String) {
+            description("slack message send failed")
+            display("Failed to send the slack message to '{}' ", &hook)
+        }
     }
 }
 

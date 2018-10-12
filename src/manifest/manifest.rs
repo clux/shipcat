@@ -88,7 +88,7 @@ pub struct Manifest {
 
     /// Raw secrets from environment variables.
     ///
-    /// The `env` Map fills in secrets in this via the `vault` client.
+    /// The `env` map fills in secrets in this via the `vault` client.
     /// `Manifest::secrets` partitions `env` into `env` and `secrets`.
     /// See `Manifest::env`.
     ///
