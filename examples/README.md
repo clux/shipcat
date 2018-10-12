@@ -74,13 +74,13 @@ vault secrets enable -version=1 -path=secret kv
 and a simulated database for a `webapp`:
 
 ```
-helm install --set postgresUser=clux,postgresPassword=pw,postgresDatabase=webapp stable/postgresql
+helm install --tiller-namespace=apps --set postgresUser=clux,postgresPassword=pw,postgresDatabase=webapp -n=webapp-pg stable/postgresql
 ```
 
 Then we can write the external`DATABASE_URL` for `webapp`:
 
 ```sh
-vault write secret/minikube/webapp/DATABASE_URL value=postgres://clux:pw@knotted-rabbit-postgresql.apps.svc.cluster.local/webapp
+vault write secret/minikube/webapp/DATABASE_URL value=postgres://clux:pw@webapp-pg-postgresql.apps.svc.cluster.local/webapp
 ```
 
 You can verify that `shipcat` picks up on this via: `shipcat values -s webapp`.
@@ -111,6 +111,6 @@ You can hit your api by port-forwarding to it:
 ```sh
 kubectl port-forward deployment/webapp 8000
 curl -s -X POST http://0.0.0.0:8000/posts -H "Content-Type: application/json" \
-  -d '{"title": "hello", "body": "world"}')
+  -d '{"title": "hello", "body": "world"}'
 curl -s -X GET "http://0.0.0.0:8000/posts/1"
 ```

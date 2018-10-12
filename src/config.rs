@@ -277,6 +277,7 @@ pub struct Config {
     pub clusters: BTreeMap<String, Cluster>,
 
     /// Context aliases, e.g. prod-uk-green -> prod-uk
+    #[serde(default)]
     pub contextAliases: BTreeMap<String, String>,
 
     /// Region definitions

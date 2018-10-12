@@ -1,6 +1,6 @@
 name: webapp
 image: clux/webapp-rs
-version: 0.1.2-alpha1
+version: 0.2.0
 metadata:
   contacts:
   - name: "Eirik"
@@ -20,7 +20,7 @@ replicaCount: 1
 
 # health check used to gate upgrades / readinessProbe
 health:
-  uri: /posts
+  uri: /health
   wait: 0
 
 # exposed Service port
