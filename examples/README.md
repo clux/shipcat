@@ -53,7 +53,7 @@ shipcat apply blog
 If you would like to deploy using `kubectl`, or drop `tiller`, you could apply directly:
 
 ```sh
-shipcat template -s blog | kubectl apply --prune -lapp=blog --record --overwrite -f -
+shipcat template -s blog | kubectl apply --prune -lapp=blog -f -
 ```
 
 The rest of this example guide does rely on tiller somewhat though.
