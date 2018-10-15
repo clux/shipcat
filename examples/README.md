@@ -53,7 +53,7 @@ shipcat apply blog
 If you would like to deploy using `kubectl`, or drop `tiller`, you could apply directly:
 
 ```sh
-shipcat template -s blog | kubectl apply --prune -lapp=blog --record --overwrite -f -
+shipcat template -s blog | kubectl apply --prune -lapp=blog -f -
 ```
 
 The rest of this example guide does rely on tiller somewhat though.
@@ -73,7 +73,7 @@ vault secrets enable -version=1 -path=secret kv
 and a simulated database for a `webapp`:
 
 ```
-helm install --tiller-namespace=apps --set postgresUser=clux,postgresPassword=pw,postgresDatabase=webapp -n=webapp-pg stable/postgresql
+helm --tiller-namespace=apps install --set postgresUser=clux,postgresPassword=pw,postgresDatabase=webapp -n=webapp-pg stable/postgresql
 ```
 
 Then we can write the external`DATABASE_URL` for `webapp`:
@@ -99,8 +99,8 @@ The evars are used to send upgrade notifications to slack hooks (if they are val
 Let's pretend that our cluster died:
 
 ```sh
-helm del --purge webapp
-helm del --purge blog
+helm --tiller-namespace=apps del --purge webapp
+helm --tiller-namespace=apps del --purge blog
 ```
 
 then we can respond with:

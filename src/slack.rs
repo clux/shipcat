@@ -5,7 +5,7 @@ use semver::Version;
 
 use super::helm::helpers;
 use super::structs::Metadata;
-use super::{Result, ErrorKind};
+use super::{Result, ErrorKind, ResultExt};
 
 /// Slack message options we support
 ///
@@ -60,9 +60,9 @@ pub fn send(msg: Message) -> Result<()> {
     let hook_url : &str = &env_hook_url()?;
     let hook_chan : String = env_channel()?;
     let hook_user : String = env_username();
-    // TODO: check hook url non-empty?
 
-    let slack = Slack::new(hook_url).unwrap();
+    // if hook url is invalid, chain it so we know where it came from:
+    let slack = Slack::new(hook_url).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
     let mut p = PayloadBuilder::new().channel(hook_chan)
       .icon_emoji(":ship:")
       .username(hook_user);
@@ -147,7 +147,7 @@ pub fn send(msg: Message) -> Result<()> {
     p = p.attachments(ax);
 
     // Send everything. Phew.
-    slack.send(&p.build()?)?;
+    slack.send(&p.build()?).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
 
     Ok(())
 }

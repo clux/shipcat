@@ -22,8 +22,12 @@ install:
 	docker push $(REPO)/$(NAME):$(VERSION)
 
 tag-semver:
-	docker tag  $(REPO)/$(NAME):$(VERSION) $(REPO)/$(NAME):$(SEMVER_VERSION)
-	docker push $(REPO)/$(NAME):$(SEMVER_VERSION)
+	@if docker run -e DOCKER_REPO=babylonhealth/$(NAME) -e DOCKER_TAG=$(SEMVER_VERSION) quay.io/babylonhealth/tag-exists; \
+	    then echo "Tag $(SEMVER_VERSION) already exists - ignoring" && exit 0 ; \
+	else \
+			docker tag $(REPO)/$(NAME):$(VERSION) $(REPO)/$(NAME):$(SEMVER_VERSION); \
+			docker push $(REPO)/$(NAME):$(SEMVER_VERSION); \
+	fi
 
 tag-latest:
 	docker tag  $(REPO)/$(NAME):$(VERSION) $(REPO)/$(NAME):latest
