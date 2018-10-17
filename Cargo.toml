@@ -10,6 +10,7 @@ name = "shipcat"
 description = "Deploy right meow."
 readme = "README.md"
 version = "0.65.0"
+categories = ["command-line-utilities"]
 license = "Apache-2.0"
 license-file = "LICENSE"
 homepage = "https://github.com/Babylonpartners/shipcat"
