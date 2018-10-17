@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use super::{Resources, Probe};
+use super::{Resources, Probe, Port};
 
 use super::traits::Verify;
 use super::{Config, Result};
@@ -31,6 +31,9 @@ pub struct Worker {
     /// Http Port to expose
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub httpPort: Option<u32>,
+    /// Ports to open
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ports: Vec<Port>,
     /// Optional readiness probe
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub readinessProbe: Option<Probe>,
@@ -40,7 +43,7 @@ pub struct Worker {
 }
 
 impl Verify for Worker {
-    fn verify(&self, _: &Config) -> Result<()> {
+    fn verify(&self, conf: &Config) -> Result<()> {
         for (k, v) in &self.extraEnv {
             if v == "IN_VAULT" {
                 bail!("Secret evars must go in the root service (included in workers)");
@@ -49,6 +52,10 @@ impl Verify for Worker {
                 bail!("Env vars need to be uppercase, found: {}", k);
             }
         }
+        for p in &self.ports {
+            p.verify(&conf)?;
+        }
+
         // maybe the http ports shouldn't overlap? might not matter.
         Ok(())
     }
