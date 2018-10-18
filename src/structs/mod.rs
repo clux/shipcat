@@ -37,6 +37,8 @@ pub use self::configmap::{ConfigMap, ConfigMappedFile};
 mod healthcheck;
 pub use self::healthcheck::HealthCheck;
 
+mod env;
+pub use self::env::EnvVars;
 
 // translations - these are typically inlined in templates as yaml
 /// Kubernetes resource structs
