@@ -63,7 +63,7 @@ The rest of this example guide does rely on tiller somewhat though.
 Let's set up a simulated vault for our kube cluster:
 
 ```sh
-docker run --cap-add=IPC_LOCK -e 'VAULT_DEV_ROOT_TOKEN_ID=myroot' -e 'VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200' -p 8200:8200 -d --name vault vault:0.11.3
+docker run --cap-add=IPC_LOCK -e 'VAULT_DEV_ROOT_TOKEN_ID=myroot' -e 'VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200' -p 8200:8200 -d --rm --name vault vault:0.11.3
 export VAULT_ADDR=http://127.0.0.1:8200
 export VAULT_TOKEN=myroot
 vault secrets disable secret

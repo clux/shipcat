@@ -7,8 +7,14 @@ authors = [
   "Guy Leaver <guy.leaver@babylonhealth.com>"
 ]
 name = "shipcat"
+description = "Deploy right meow."
 readme = "README.md"
 version = "0.65.0"
+categories = ["command-line-utilities"]
+keywords = ["kubernetes", "helm", "deployment", "standardisation", "validation"]
+license = "Apache-2.0"
+license-file = "LICENSE"
+homepage = "https://github.com/Babylonpartners/shipcat"
 
 [[bin]]
 doc = false
