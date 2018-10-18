@@ -18,6 +18,7 @@ use super::structs::{Kafka, Kong, Rbac};
 use super::structs::RollingUpdate;
 use super::structs::autoscaling::AutoScaling;
 use super::structs::tolerations::Tolerations;
+use super::structs::LifeCycle;
 use super::structs::Worker;
 use super::structs::Port;
 
@@ -281,6 +282,13 @@ pub struct Manifest {
     /// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub livenessProbe: Option<Probe>,
+
+    /// Container lifecycle events for kubernetes
+    ///
+    /// This allows commands to be executed either `postStart` or `preStop`
+    /// https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lifecycle: Option<LifeCycle>,
 
     /// Rolling update Deployment parameters
     ///

@@ -63,6 +63,9 @@ pub use self::rollingupdate::RollingUpdate;
 pub mod autoscaling;
 /// Kuberneter tolerations
 pub mod tolerations;
+/// Kubernetes container lifecycle events
+mod lifecycle;
+pub use self::lifecycle::LifeCycle;
 
 mod metadata;
 pub use self::metadata::{Metadata, Contact};

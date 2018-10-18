@@ -166,6 +166,9 @@ impl Manifest {
         if mf.externalPort.is_some() {
             self.externalPort = mf.externalPort;
         }
+        if mf.lifecycle.is_some() {
+            self.lifecycle = mf.lifecycle;
+        }
 
         // vectors are replaced if they are non-empty in override
         if !mf.command.is_empty() {
