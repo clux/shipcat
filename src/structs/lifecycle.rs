@@ -16,14 +16,16 @@ pub struct LifeCycle {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct LifeCycleHandler {
-   pub  exec: ExecHandler,
+   pub exec: ExecAction,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct ExecHandler {
+pub struct ExecAction {
     command: Vec<String>,
 }
+
+// TODO: support HttpGetAction + TcpSocketAction
 
 impl Verify for LifeCycle {
     fn verify(&self, conf: &Config) -> Result<()> {
