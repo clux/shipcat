@@ -1,4 +1,5 @@
 use super::{Resources, Probe, Port, EnvVars};
+use super::autoscaling::AutoScaling;
 
 use super::traits::Verify;
 use super::{Config, Result};
@@ -22,6 +23,12 @@ pub struct Worker {
     pub resources: Resources<String>,
     /// Replication limits
     pub replicaCount: u32,
+
+    /// Autoscaling parameters
+    ///
+    /// Overrides the replicaCount for this worker.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub autoScaling: Option<AutoScaling>,
 
     /// Extra environment variables
     #[serde(default, skip_serializing_if = "EnvVars::is_empty")]
