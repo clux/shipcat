@@ -1179,7 +1179,7 @@ dependencies = [
  "serde_derive 1.0.79 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.32 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_yaml 0.8.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "slack-hook 0.7.0 (git+https://github.com/clux/rust-slack?rev=2a315852f732e640a968b21b96af0aca26b3ba83)",
+ "slack-hook-clux 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tera 0.11.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "threadpool 1.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir 2.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1211,9 +1211,9 @@ version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "slack-hook"
-version = "0.7.0"
-source = "git+https://github.com/clux/rust-slack?rev=2a315852f732e640a968b21b96af0aca26b3ba83#2a315852f732e640a968b21b96af0aca26b3ba83"
+name = "slack-hook-clux"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1910,7 +1910,7 @@ dependencies = [
 "checksum siphasher 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "0b8de496cf83d4ed58b6be86c3a275b8602f6ffe98d3024a869e124147a9a3ac"
 "checksum skeptic 0.13.3 (registry+https://github.com/rust-lang/crates.io-index)" = "c4474d6da9593171bcb086890fc344a3a12783cb24e5b141f8a5d0e43561f4b6"
 "checksum slab 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "5f9776d6b986f77b35c6cf846c11ad986ff128fe0b2b63a3628e3755e8d3102d"
-"checksum slack-hook 0.7.0 (git+https://github.com/clux/rust-slack?rev=2a315852f732e640a968b21b96af0aca26b3ba83)" = "<none>"
+"checksum slack-hook-clux 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2babb9852cedc041d356dcc96c0ac4d500a191627db14659bcf974d35887c096"
 "checksum slug 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "b3bc762e6a4b6c6fcaade73e77f9ebc6991b676f88bb2358bddb56560f073373"
 "checksum smallvec 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)" = "153ffa32fd170e9944f7e0838edf824a754ec4c1fc64746fcc9fe1f8fa602e5d"
 "checksum stable_deref_trait 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
