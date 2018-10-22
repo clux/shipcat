@@ -30,9 +30,19 @@ pub struct Worker {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub autoScaling: Option<AutoScaling>,
 
-    /// Extra environment variables
+    /// Environment variables for the workers
+    ///
+    /// These may be specified in addition to the main deployment `env` vars
+    /// or as fresh variables, depending on `preserveEnv`.
     #[serde(default, skip_serializing_if = "EnvVars::is_empty")]
-    pub extraEnv: EnvVars,
+    pub env: EnvVars,
+
+    /// Add environment variables from parent deployment into this worker
+    ///
+    /// This is off by default, which means you specify all the environment variables
+    /// you need for this worker in the corresponding `worker.env`.
+    #[serde(default)]
+    pub preserveEnv: bool,
 
     /// Http Port to expose
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -50,11 +60,20 @@ pub struct Worker {
 
 impl Verify for Worker {
     fn verify(&self, conf: &Config) -> Result<()> {
-        self.extraEnv.verify(conf)?;
+        self.env.verify(conf)?;
+        if let Some(hpa) = &self.autoScaling {
+            hpa.verify()?;
+        }
         for p in &self.ports {
             p.verify(&conf)?;
         }
         self.resources.verify(conf)?;
+        if let Some(rp) = &self.readinessProbe {
+            rp.verify(conf)?;
+        }
+        if let Some(lp) = &self.livenessProbe {
+            lp.verify(conf)?;
+        }
 
         // maybe the http ports shouldn't overlap? might not matter.
         Ok(())
