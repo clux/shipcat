@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
-use super::{Resources, Probe, Port};
+use super::{Resources, Probe, Port, EnvVars};
+use super::autoscaling::AutoScaling;
 
 use super::traits::Verify;
 use super::{Config, Result};
@@ -24,9 +24,25 @@ pub struct Worker {
     /// Replication limits
     pub replicaCount: u32,
 
-    /// Extra environment variables
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extraEnv: BTreeMap<String, String>,
+    /// Autoscaling parameters
+    ///
+    /// Overrides the replicaCount for this worker.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub autoScaling: Option<AutoScaling>,
+
+    /// Environment variables for the workers
+    ///
+    /// These may be specified in addition to the main deployment `env` vars
+    /// or as fresh variables, depending on `preserveEnv`.
+    #[serde(default, skip_serializing_if = "EnvVars::is_empty")]
+    pub env: EnvVars,
+
+    /// Add environment variables from parent deployment into this worker
+    ///
+    /// This is off by default, which means you specify all the environment variables
+    /// you need for this worker in the corresponding `worker.env`.
+    #[serde(default)]
+    pub preserveEnv: bool,
 
     /// Http Port to expose
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -44,16 +60,19 @@ pub struct Worker {
 
 impl Verify for Worker {
     fn verify(&self, conf: &Config) -> Result<()> {
-        for (k, v) in &self.extraEnv {
-            if v == "IN_VAULT" {
-                bail!("Secret evars must go in the root service (included in workers)");
-            }
-            if k != &k.to_uppercase()  {
-                bail!("Env vars need to be uppercase, found: {}", k);
-            }
+        self.env.verify(conf)?;
+        if let Some(hpa) = &self.autoScaling {
+            hpa.verify()?;
         }
         for p in &self.ports {
             p.verify(&conf)?;
+        }
+        self.resources.verify(conf)?;
+        if let Some(rp) = &self.readinessProbe {
+            rp.verify(conf)?;
+        }
+        if let Some(lp) = &self.livenessProbe {
+            lp.verify(conf)?;
         }
 
         // maybe the http ports shouldn't overlap? might not matter.

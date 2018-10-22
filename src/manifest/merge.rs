@@ -1,10 +1,5 @@
 // This file describes how manifests and environment manifest overrides are merged.
 
-use serde_yaml;
-use std::path::PathBuf;
-use std::io::prelude::*;
-use std::fs::File;
-
 use super::{Manifest, Result, Config};
 
 impl Manifest {
@@ -80,18 +75,10 @@ impl Manifest {
     /// Copies keys from environment files into the current manifest struct by default.
     /// One special cases are merged carefully:
     /// - env dict (merged by key)
-    pub fn merge(&mut self, pth: &PathBuf) -> Result<()> {
-        trace!("Merging {}", pth.display());
-        if !pth.exists() {
-            bail!("Defaults file {} does not exist", pth.display())
+    pub fn merge(&mut self, mf: Manifest) -> Result<()> {
+        if mf.name != "" {
+            bail!("Cannot override service names in other environments");
         }
-        let mut f = File::open(&pth)?;
-        let mut data = String::new();
-        f.read_to_string(&mut data)?;
-        // Because Manifest has most things implementing Default via serde
-        // we can put this straight into a Manifest struct
-        let mf: Manifest = serde_yaml::from_str(&data)?;
-
         // sanity asserts
         if self.kong.is_some() && mf.kong.is_some() {
             // Must override Kong per environment (overwrite full struct)
@@ -178,6 +165,9 @@ impl Manifest {
         }
         if mf.externalPort.is_some() {
             self.externalPort = mf.externalPort;
+        }
+        if mf.lifecycle.is_some() {
+            self.lifecycle = mf.lifecycle;
         }
 
         // vectors are replaced if they are non-empty in override

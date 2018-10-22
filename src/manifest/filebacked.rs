@@ -143,7 +143,20 @@ impl Manifest {
             .join(format!("{}.yml", region));
         if envlocals.is_file() {
             debug!("Merging environment locals from {}", envlocals.display());
-            self.merge(&envlocals)?;
+            if !envlocals.exists() {
+                bail!("Defaults file {} does not exist", envlocals.display())
+            }
+            let mut f = File::open(&envlocals)?;
+            let mut data = String::new();
+            f.read_to_string(&mut data)?;
+            if data.is_empty() {
+                bail!("Environment override file {} is empty", envlocals.display());
+            }
+            // Because Manifest has most things implementing Default via serde
+            // we can put this straight into a Manifest struct
+            let other: Manifest = serde_yaml::from_str(&data)?;
+
+            self.merge(other)?;
         }
         self.post_merge_implicits(conf, Some(region.into()))?;
         Ok(())

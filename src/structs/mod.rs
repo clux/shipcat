@@ -37,6 +37,8 @@ pub use self::configmap::{ConfigMap, ConfigMappedFile};
 mod healthcheck;
 pub use self::healthcheck::HealthCheck;
 
+mod env;
+pub use self::env::EnvVars;
 
 // translations - these are typically inlined in templates as yaml
 /// Kubernetes resource structs
@@ -61,6 +63,9 @@ pub use self::rollingupdate::RollingUpdate;
 pub mod autoscaling;
 /// Kuberneter tolerations
 pub mod tolerations;
+/// Kubernetes container lifecycle events
+mod lifecycle;
+pub use self::lifecycle::LifeCycle;
 
 mod metadata;
 pub use self::metadata::{Metadata, Contact};

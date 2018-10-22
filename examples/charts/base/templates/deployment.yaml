@@ -33,9 +33,7 @@ spec:
         app: {{ .Values.name }}
         release: {{ .Release.Name }}
       annotations:
-{{- if .Values.configs }}
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-{{- end }}
         checksum/secrets: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
     spec:
       serviceAccountName: {{ .Values.name }}
