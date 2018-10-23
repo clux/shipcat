@@ -163,7 +163,7 @@ pub fn resources(conf: &Config, region: &str) -> Result<()> {
     let mut extra : Resources<f64> = Resources::default(); // autoscaling limits
 
     for svc in services {
-        let mf = Manifest::mocked(&svc, &conf, region)?;
+        let mf = Manifest::basic(&svc, &conf, None)?;
         if mf.external || !mf.regions.contains(&region.to_string()) {
             continue; // only care about kube services in the current region
         }

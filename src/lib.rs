@@ -24,7 +24,7 @@ extern crate jenkins_api;
 extern crate chrono;
 
 // notifications
-extern crate slack_hook_clux as slack_hook;
+extern crate slack_hook;
 
 // graphing
 extern crate petgraph;

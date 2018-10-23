@@ -32,6 +32,7 @@ impl Contact {
             if gh.starts_with("@") || gh.contains("/") {
                bail!("github id must be the raw username only - got {}", gh)
             }
+            // TODO: check members of org!
         }
         Ok(())
     }
