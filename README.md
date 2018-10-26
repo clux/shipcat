@@ -15,22 +15,22 @@ Lives [on your ship](https://en.wikipedia.org/wiki/Ship%27s_cat).
 See the [building guide](./doc/building.md), for setting up auto-complete, and being able to use from outside a manifests repo.
 
 ## Usage
-In general, define your `shipcat.yml` file in the [manifests repo](https://github.com/Babylonpartners/manifests) and make sure `shipcat validate` passes.
+In general, define your `shipcat.yml` file in a [manifests repo](https://github.com/Babylonpartners/shipcat/blob/master/examples) and make sure `shipcat validate` passes.
 
 If you have `vault` read credentials (a `VAULT_TOKEN` evar, or a `~/.vault-token` file) you can also validate secret existence and generate the completed manifest (values):
 
 ```sh
-shipcat validate gate-annotator --secrets
+shipcat validate webapp --secrets
 
 # Generate completed manifest (what's passed to your chart)
-shipcat values gate-annotator
+shipcat values webapp
 ```
 
 If you have `helm` installed you can generate the helm template via the associated helm chart:
 
 ```sh
 # Pass completed manifest to helm template
-shipcat template gate-annotator
+shipcat template webapp
 ```
 
 ### Upgrading and diffing
@@ -38,7 +38,7 @@ With rollout access (`kubectl auth can-i rollout Deployment`) you can also perfo
 
 ```sh
 # helm upgrade corresponding service (check your context first)
-shipcat apply gate-annotator
+shipcat apply webapp
 ```
 
 This requires [helm diff](https://github.com/databus23/helm-diff) installed to work, and it will work against the region in your context (`kubectl config current-context`).
