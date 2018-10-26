@@ -8,9 +8,9 @@ Lives [on your ship](https://en.wikipedia.org/wiki/Ship%27s_cat).
 
 ## Installation
 
-- Babylon employees can use `brew install shipcat` via [homebrew-babylon](https://github.com/Babylonpartners/homebrew-babylon)
 - Mac/Linux users can install from the [releases page](https://github.com/Babylonpartners/shipcat/releases)
 - Users with [rust](https://rustup.rs/) installed can use `git pull && cargo build`
+- Babylon employees can use `brew install shipcat` via the internal brew tap
 
 See the [building guide](./doc/building.md), for setting up auto-complete, and being able to use from outside a manifests repo.
 
