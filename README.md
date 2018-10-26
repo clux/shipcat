@@ -23,7 +23,7 @@ If you have `vault` read credentials (a `VAULT_TOKEN` evar, or a `~/.vault-token
 shipcat validate webapp --secrets
 
 # Generate completed manifest (what's passed to your chart)
-shipcat values webapp
+shipcat values webapp -s
 ```
 
 If you have `helm` installed you can generate the helm template via the associated helm chart:
