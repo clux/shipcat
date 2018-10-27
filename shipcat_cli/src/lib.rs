@@ -8,8 +8,8 @@ extern crate serde_yaml;
 extern crate serde;
 
 // templating
-#[macro_use]
-extern crate tera;
+//#[macro_use]
+//extern crate tera;
 extern crate walkdir;
 
 // vault api
@@ -22,6 +22,7 @@ extern crate openssl_probe;
 // jenkins api
 extern crate jenkins_api;
 extern crate chrono;
+
 
 // notifications
 extern crate slack_hook;
@@ -42,6 +43,7 @@ extern crate base64;
 
 extern crate dirs;
 
+
 #[macro_use]
 extern crate error_chain;
 error_chain! {
@@ -54,7 +56,8 @@ error_chain! {
         Io(::std::io::Error) #[cfg(unix)];
         Float(::std::num::ParseFloatError);
         Int(::std::num::ParseIntError);
-        Tmpl(tera::Error);
+        Mani(shipcat_definitions::Error);
+        //Tmpl(tera::Error);
         SerdeY(serde_yaml::Error);
         SerdeJ(serde_json::Error);
         Slack(slack_hook::Error);
@@ -86,14 +89,6 @@ error_chain! {
         MissingGrafanaToken {
             description("GRAFANA_SHIPCAT_TOKEN not specified")
             display("GRAFANA_SHIPCAT_TOKEN not specified")
-        }
-        MissingVaultAddr {
-            description("VAULT_ADDR not specified")
-            display("VAULT_ADDR not specified")
-        }
-        MissingVaultToken {
-            description("VAULT_TOKEN not specified")
-            display("VAULT_TOKEN not specified")
         }
         MissingJenkinsUrl {
             description("JENKINS_API_URL not specified")
@@ -150,8 +145,12 @@ error_chain! {
     }
 }
 
-/// A Hashicorp Vault HTTP client using `reqwest`
-pub mod vault;
+extern crate shipcat_definitions;
+pub use shipcat_definitions::{Manifest, Product};
+pub use shipcat_definitions::structs;
+pub use shipcat_definitions::config::{self, Config, VersionScheme};
+
+
 /// Convenience listers
 pub mod list;
 /// A post interface to slack using `slack_hook`
@@ -160,19 +159,6 @@ pub mod slack;
 pub mod grafana;
 /// Cluster level operations
 pub mod cluster;
-
-/// Master config for manifests repositories
-pub mod config;
-pub use config::Config;
-
-/// Structs for the manifest
-pub mod structs;
-
-pub mod manifest;
-pub use manifest::{Manifest};
-
-/// Product module
-pub mod product;
 
 /// Validation methods of manifests post merge
 pub mod validate;

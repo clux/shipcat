@@ -29,6 +29,9 @@ fn kout(args: Vec<String>) -> Result<String> {
     Ok(out)
 }
 
+/// CLI way to resolve kube context
+///
+/// Should only be used from main.
 pub fn current_context() -> Result<String> {
     let mut res = kout(vec!["config".into(), "current-context".into()]).map_err(|e| {
         error!("Failed to Get kubectl config current-context. Is kubectl installed?");
@@ -40,6 +43,7 @@ pub fn current_context() -> Result<String> {
     }
     Ok(res)
 }
+
 
 fn rollout_status(mf: &Manifest) -> Result<bool> {
     // TODO: handle more than one deployment

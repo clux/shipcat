@@ -7,9 +7,8 @@ use std::fs::File;
 use std::io::prelude::*;
 
 use semver::Version;
-use serde_yaml;
 
-use super::vault::Vault;
+use super::Vault;
 use super::{Result, Error};
 use super::structs::Kong;
 
@@ -431,13 +430,11 @@ impl Config {
         Ok(conf)
     }
 
-    /// Retrieve region config from kube current context
+    /// Retrieve region config from a kube context
     ///
     /// This should only be done once early on.
     /// The resulting name should be passed around internally as `region`.
-    pub fn resolve_region(&self) -> Result<String> {
-        use super::kube; // this should be the only user of current_context!
-        let context = kube::current_context()?;
+    pub fn resolve_region(&self, context: String) -> Result<String> {
         if let Some(_) = self.regions.get(&context) {
             return Ok(context);
         }

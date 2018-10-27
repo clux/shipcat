@@ -1,8 +1,7 @@
 /// This file contains the `shipcat get` subcommand
+use shipcat_definitions::math::ResourceTotals;
 use std::collections::BTreeMap;
 
-use serde_json;
-use serde_yaml;
 use super::{Result, Manifest, Config};
 
 
@@ -142,9 +141,9 @@ pub fn apistatus(conf: &Config, region: &str) -> Result<()> {
 }
 
 // ----------------------------------------------------------------------------
-
+/*
 use super::structs::Resources;
-use super::manifest::math::ResourceTotals;
+use shipcat_definitions::manifest::math::ResourceTotals;
 
 #[derive(Serialize, Default)]
 pub struct ResourceBreakdown {
@@ -245,3 +244,4 @@ pub fn totalresources(conf: &Config) -> Result<()> {
     print!("{}\n", serde_yaml::to_string(&bd)?);
     Ok(())
 }
+*/

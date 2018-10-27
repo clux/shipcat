@@ -234,20 +234,6 @@ impl Manifest {
 
 }
 
-/// Entry point for service show [service]
-pub fn show(svc: String, conf: &Config, region: &str, mock: bool) -> Result<()> {
-    let mf = if mock {
-        Manifest::stubbed(&svc, conf, region)?
-    } else {
-        Manifest::completed(&svc, conf, region)?
-    };
-
-    let encoded = serde_yaml::to_string(&mf)?;
-    print!("{}\n", encoded);
-    Ok(())
-}
-
-
 #[cfg(test)]
 mod tests {
     use tests::setup;
