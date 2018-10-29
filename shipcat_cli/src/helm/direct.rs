@@ -300,7 +300,7 @@ fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
     let (hdiffunobfusc, hdifferr, _) = hout(diffvec.clone())?;
     let helmdiff = helpers::obfuscate_secrets(
         hdiffunobfusc,
-        mf._decoded_secrets.values().cloned().collect()
+        mf.get_decoded_secrets()
     );
     if !hdifferr.is_empty() {
         if hdifferr.starts_with(&format!("Error: \"{}\" has no deployed releases", mf.name)) {

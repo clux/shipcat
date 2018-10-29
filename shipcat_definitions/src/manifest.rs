@@ -1,5 +1,6 @@
+use vault::Vault;
+use config::VaultConfig;
 use std::collections::BTreeMap;
-//use serde_yaml;
 use regex::Regex;
 
 
@@ -73,7 +74,7 @@ pub struct Manifest {
 
     // Decoded secrets - only used interally
     #[serde(default, skip_serializing, skip_deserializing)]
-    pub _decoded_secrets: BTreeMap<String, String>,
+    _decoded_secrets: BTreeMap<String, String>,
 
     /// Service is disabled
     ///
@@ -546,6 +547,99 @@ impl Manifest {
             warn!("serviceAnnotation is an experimental/temporary feature")
         }
 
+        Ok(())
+    }
+
+    fn get_vault_path(&self, vc: &VaultConfig) -> String {
+        // some services use keys from other services
+        let (svc, reg) = if let Some(ref vopts) = self.vault {
+            (vopts.name.clone(), vopts.region.clone().unwrap_or_else(|| vc.folder.clone()))
+        } else {
+            (self.name.clone(), vc.folder.clone())
+        };
+        format!("{}/{}", reg, svc)
+    }
+    /// Populate placeholder fields with secrets from vault
+    ///
+    /// This will use the HTTP api of Vault using the configuration parameters
+    /// in the `Config`.
+    pub fn secrets(&mut self, client: &Vault, vc: &VaultConfig) -> Result<()> {
+        let pth = self.get_vault_path(vc);
+        debug!("Injecting secrets from vault {}", pth);
+
+        let special = "SHIPCAT_SECRET::".to_string();
+        // iterate over key value evars and replace placeholders
+        for (k, v) in &mut self.env {
+            if v == "IN_VAULT" {
+                let vkey = format!("{}/{}", pth, k);
+                let secret = client.read(&vkey)?;
+                self.secrets.insert(k.to_string(), secret.clone());
+                self._decoded_secrets.insert(vkey, secret);
+            }
+            // Special cases that were handled by `| as_secret` template fn
+            if v.starts_with(&special) {
+                self.secrets.insert(k.to_string(), v.split_off(special.len()));
+            }
+        }
+        // remove placeholders from env
+        self.env = self.env.clone().into_iter()
+            .filter(|&(_, ref v)| v != "IN_VAULT")
+            .filter(|&(_, ref v)| !v.starts_with(&special))
+            .collect();
+        // do the same for secret secrets
+        for (k, v) in &mut self.secretFiles {
+            if v == "IN_VAULT" {
+                let vkey = format!("{}/{}", pth, k);
+                let secret = client.read(&vkey)?;
+                *v = secret.clone();
+                self._decoded_secrets.insert(vkey.clone(), secret);
+                // sanity check; secretFiles are assumed base64 verify we can decode
+                if base64::decode(v).is_err() {
+                    bail!("Secret {} in vault is not base64 encoded", vkey);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Get a list of raw secrets (without associated keys)
+    ///
+    /// Useful for obfuscation mechanisms so it knows what to obfuscate.
+    pub fn get_decoded_secrets(&self) -> Vec<String> {
+        self._decoded_secrets.values().cloned().collect()
+    }
+
+    pub fn verify_secrets_exist(&self, vc: &VaultConfig) -> Result<()> {
+        // what are we requesting
+        let keys = self.env.clone().into_iter()
+            .filter(|(_,v)| v == "IN_VAULT")
+            .map(|(k,_)| k)
+            .collect::<Vec<_>>();
+        let files = self.secretFiles.clone().into_iter()
+            .filter(|(_,v)| v == "IN_VAULT")
+            .map(|(k, _)| k)
+            .collect::<Vec<_>>();
+        if keys.is_empty() && files.is_empty() {
+            return Ok(()); // no point trying to cross reference
+        }
+
+        // what we have
+        let v = Vault::masked(vc)?; // masked doesn't matter - only listing anyway
+        let secpth = self.get_vault_path(vc);
+        let found = v.list(&secpth)?; // can fail if folder is empty
+        debug!("Found secrets {:?} for {}", found, self.name);
+
+        // compare
+        for k in keys {
+            if !found.contains(&k) {
+                bail!("Secret {} not found in vault {} for {}", k, secpth, self.name);
+            }
+        }
+        for k in files {
+            if !found.contains(&k) {
+                bail!("Secret file {} not found in vault {} for {}", k, secpth, self.name);
+            }
+        }
         Ok(())
     }
 }
