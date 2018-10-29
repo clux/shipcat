@@ -6,23 +6,17 @@
 extern crate serde_derive;
 extern crate serde_yaml;
 extern crate serde;
-
-// templating
-//#[macro_use]
-//extern crate tera;
-extern crate walkdir;
-
-// vault api
-extern crate reqwest;
 #[macro_use]
 extern crate serde_json;
+
+// grafana / slack
+extern crate reqwest;
 
 extern crate openssl_probe;
 
 // jenkins api
 extern crate jenkins_api;
 extern crate chrono;
-
 
 // notifications
 extern crate slack_hook;
@@ -33,16 +27,13 @@ extern crate petgraph;
 #[macro_use]
 extern crate log;
 
+// sanity
+extern crate dirs;
 extern crate regex;
-
 extern crate semver;
 
+// parallel upgrades:
 extern crate threadpool;
-
-extern crate base64;
-
-extern crate dirs;
-
 
 #[macro_use]
 extern crate error_chain;
@@ -57,7 +48,6 @@ error_chain! {
         Float(::std::num::ParseFloatError);
         Int(::std::num::ParseIntError);
         Mani(shipcat_definitions::Error);
-        //Tmpl(tera::Error);
         SerdeY(serde_yaml::Error);
         SerdeJ(serde_json::Error);
         Slack(slack_hook::Error);
@@ -102,21 +92,9 @@ error_chain! {
             description("unexpected HTTP status")
             display("unexpected HTTP status: {}", &status)
         }
-        NoHomeDirectory {
-            description("can't find home directory")
-            display("can't find home directory")
-        }
         Url(url: reqwest::Url) {
             description("could not access URL")
             display("could not access URL '{}'", &url)
-        }
-        InvalidSecretForm(key: String) {
-            description("secret is of incorrect form")
-            display("secret '{}' not have the 'value' key", &key)
-        }
-        SecretNotAccessible(key: String) {
-            description("secret could not be reached or accessed")
-            display("secret '{}'", &key)
         }
         MissingRollingVersion(svc: String) {
             description("missing version for install")
