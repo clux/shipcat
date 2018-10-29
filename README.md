@@ -1,10 +1,54 @@
 # shipcat
 [![CircleCI](https://circleci.com/gh/Babylonpartners/shipcat.svg?style=shield&circle-token=1e5d93bf03a4c9d9c7f895d7de7bb21055d431ef)](https://circleci.com/gh/Babylonpartners/shipcat)
 [![Docker Repository on Quay](https://quay.io/repository/babylonhealth/kubecat/status?token=6de24c74-1576-467f-8658-ec224df9302d "Docker Repository on Quay")](https://quay.io/repository/babylonhealth/kubecat?tab=tags)
+[![Crates.io](https://img.shields.io/crates/v/shipcat.svg)](https://crates.io/crates/shipcat)
 
-A standardisation tool and yaml abstraction on top of `kubernetes` via `shipcat.yml` manifest files. [Introduction to shipcat](https://github.com/Babylonpartners/shipcat/blob/master/doc/intro.md).
+A standardisation tool and security layer on top of `kubernetes` to config manage microservices. Developers write manifests:
 
-Lives [on your ship](https://en.wikipedia.org/wiki/Ship%27s_cat).
+```yaml
+name: webapp
+image: clux/webapp-rs
+version: 0.2.0
+env:
+  DATABASE_URL: IN_VAULT
+resources:
+  requests:
+    cpu: 100m
+    memory: 100Mi
+  limits:
+    cpu: 300m
+    memory: 300Mi
+replicaCount: 2
+health:
+  uri: /health
+httpPort: 8000
+regions:
+- minikube
+metadata:
+  contacts:
+  - name: "Eirik"
+    slack: "@clux"
+  team: Doves
+  repo: https://github.com/clux/webapp-rs
+```
+
+and `shipcat` creates a 2 replica [kubernetes deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) for [this sample webapp](https://github.com/clux/webapp-rs), with a [health check](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/) to ensure smooth upgrades. Contacts will be slack notified on upgrades.
+
+Secrets are managed by [Vault](https://www.vaultproject.io/) and resolved by `shipcat` pre-merge, and pre-upgrade.
+
+## Documentation
+Browse the API documentation, or the setup guides availble at:
+
+- [Introduction to shipcat](https://github.com/Babylonpartners/shipcat/blob/master/doc/intro.md)
+- [Shipcat Definitions](https://babylonpartners.github.io/shipcat/shipcat_definitions/index.html)
+- [Setup for operations](./doc/reconciliation-secrets.md)
+- [Building](https://github.com/Babylonpartners/shipcat/blob/master/doc/building.md)
+- [Clusters & Regions](https://github.com/Babylonpartners/shipcat/blob/master/doc/clusters.md)
+- [Extending shipcat](https://github.com/Babylonpartners/shipcat/blob/master/doc/extending.md)
+- [Templates](https://github.com/Babylonpartners/shipcat/blob/master/doc/templates.md)
+- [Vault](https://github.com/Babylonpartners/shipcat/blob/master/doc/vault.md)
+- [Error handling](https://github.com/Babylonpartners/shipcat/blob/master/doc/errors.md)
+- [Nautical terminology](https://en.wikipedia.org/wiki/Ship%27s_cat).
 
 ## Installation
 
@@ -12,12 +56,12 @@ Lives [on your ship](https://en.wikipedia.org/wiki/Ship%27s_cat).
 - Users with [rust](https://rustup.rs/) installed can use `git pull && cargo build`
 - Babylon employees can use `brew install shipcat` via the internal brew tap
 
-See the [building guide](./doc/building.md), for setting up auto-complete, and being able to use from outside a manifests repo.
+See the [building guide](https://github.com/Babylonpartners/shipcat/blob/master/doc/building.md), for setting up auto-complete, and being able to use from outside a manifests repo.
 
-## Usage
-In general, define your `shipcat.yml` file in a [manifests repo](https://github.com/Babylonpartners/shipcat/blob/master/examples) and make sure `shipcat validate` passes.
+## CLI Usage
+Define your `shipcat.yml` file in a [manifests repo](https://github.com/Babylonpartners/shipcat/blob/master/examples), make sure `shipcat validate` passes.
 
-If you have `vault` read credentials (a `VAULT_TOKEN` evar, or a `~/.vault-token` file) you can also validate secret existence and generate the completed manifest (values):
+If you have `vault` read credentials (a `VAULT_TOKEN` evar, or a `~/.vault-token` file) you can validate secret existence and generate the completed manifest (values):
 
 ```sh
 shipcat validate webapp --secrets
@@ -34,7 +78,7 @@ shipcat template webapp
 ```
 
 ### Upgrading and diffing
-With rollout access (`kubectl auth can-i rollout Deployment`) you can also perform upgrades:
+With rollout access you can also perform upgrades:
 
 ```sh
 # helm upgrade corresponding service (check your context first)
@@ -49,17 +93,3 @@ For auditing; this also uses slack credentials to notify about these upgrades:
 export SLACK_SHIPCAT_HOOK_URL=...
 export SLACK_SHIPCAT_CHANNEL="#kubernetes"
 ```
-
-## Documentation
-- [API documentation](https://babylonpartners.github.io/shipcat) (from `cargo doc`)
-
-Explicit guides for shipcat is available in the [doc directory](https://github.com/Babylonpartners/shipcat/tree/master/doc). In particular:
-
-- [introduction](./doc/intro.md)
-- [extending shipcat](./doc/extending.md)
-- [error handling](./doc/errors.md)
-- [building + circleci](./doc/building.md)
-- [clusters & regions](./doc/clusters.md)
-- [reconciliation + secrets](./doc/reconciliation-secrets.md)
-- [templates](./doc/templates.md)
-- [vault](./doc/vault.md)

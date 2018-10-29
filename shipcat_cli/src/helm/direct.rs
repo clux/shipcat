@@ -300,7 +300,7 @@ fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
     let (hdiffunobfusc, hdifferr, _) = hout(diffvec.clone())?;
     let helmdiff = helpers::obfuscate_secrets(
         hdiffunobfusc,
-        mf._decoded_secrets.values().cloned().collect()
+        mf.get_secrets()
     );
     if !hdifferr.is_empty() {
         if hdifferr.starts_with(&format!("Error: \"{}\" has no deployed releases", mf.name)) {
@@ -542,27 +542,4 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
 
     let _ = fs::remove_file(&hfile); // try to remove temporary file
     Ok(upgrade_opt)
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::super::Manifest;
-    use super::values;
-    use tests::setup;
-    use super::super::Config;
-
-    #[test]
-    fn helm_values() {
-        setup();
-        let conf = Config::read().unwrap();
-        let mf = Manifest::stubbed("fake-ask", &conf, "dev-uk".into()).unwrap();
-        if let Err(e) = values(&mf, None) {
-            println!("Failed to create helm values for fake-ask");
-            print!("{}", e);
-            assert!(false);
-        }
-        // can verify output here matches what we want if we wanted to,
-        // but type safety proves 99% of that anyway
-    }
 }

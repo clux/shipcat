@@ -276,20 +276,3 @@ pub fn show(product: Option<String>, conf: &Config, location: &str) -> Result<()
     print!("{}\n", encoded);
     Ok(())
 }
-
-
-#[cfg(test)]
-mod tests {
-    use tests::setup;
-    use super::Config;
-    use super::Product;
-
-    #[test]
-    fn product_test() {
-        setup();
-        let conf = Config::read().unwrap();
-        let p = Product::completed("triage", &conf, "uk").unwrap();
-        let res = p.verify(&conf);
-        assert!(res.is_ok(), "verified product");
-    }
-}

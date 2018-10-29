@@ -2,3 +2,4 @@
 **/*.rs.bk
 tests/OUTPUT
 shipcat.x86_64-unknown-linux-musl
+shipcat_*/target

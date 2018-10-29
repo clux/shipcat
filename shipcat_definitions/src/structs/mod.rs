@@ -65,7 +65,7 @@ pub mod autoscaling;
 pub mod tolerations;
 /// Kubernetes container lifecycle events
 mod lifecycle;
-pub use self::lifecycle::LifeCycle;
+pub use self::lifecycle::{LifeCycle, LifeCycleHandler};
 
 mod metadata;
 pub use self::metadata::{Metadata, Contact};

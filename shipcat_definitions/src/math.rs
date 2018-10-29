@@ -1,6 +1,9 @@
 use super::structs::Resources;
 use super::{Result, Manifest};
 
+/// Total resource usage for a Manifest
+///
+/// Accounting for workers, replicas, sidecars, and autoscaling policies for these.
 #[derive(Serialize, Default)]
 pub struct ResourceTotals {
     /// Sum of basic resource structs (ignoring autoscaling limits)
@@ -76,39 +79,4 @@ impl Manifest {
         Ok(ResourceTotals { base, extra })
     }
 
-}
-
-
-
-#[cfg(test)]
-mod tests {
-    use tests::setup;
-    use super::super::structs::HealthCheck;
-    use super::Manifest;
-
-    #[test]
-    fn wait_time_check() {
-        setup();
-        // DEFAULT SETUP: no values == defaults => 180s helm wait
-        let mut mf = Manifest::default();
-        mf.imageSize = Some(512);
-        mf.health = Some(HealthCheck {
-            uri: "/".into(),
-            wait: 30,
-            ..Default::default()
-        });
-        mf.replicaCount = Some(2);
-        let wait = mf.estimate_wait_time();
-        assert_eq!(wait, (30+60)*2);
-
-        // setup with large image and short boot time:
-        mf.imageSize = Some(4096);
-        mf.health = Some(HealthCheck {
-            uri: "/".into(),
-            wait: 20,
-            ..Default::default()
-        });
-        let wait2 = mf.estimate_wait_time();
-        assert_eq!(wait2, (20+480)*2);
-    }
 }

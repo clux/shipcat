@@ -1,6 +1,6 @@
 NAME=kubecat
 VERSION=$(shell git rev-parse HEAD)
-SEMVER_VERSION=$(shell grep version Cargo.toml | awk -F"\"" '{print $$2}' | head -n 1)
+SEMVER_VERSION=$(shell grep version shipcat_cli/Cargo.toml | awk -F"\"" '{print $$2}' | head -n 1)
 REPO=quay.io/babylonhealth
 
 compile:
@@ -34,11 +34,11 @@ tag-latest:
 	docker push $(REPO)/$(NAME):latest
 
 doc:
-	cargo doc
+	cargo doc --all --all-features
 	xdg-open target/doc/shipcat/index.html
 
 push-docs:
-	cargo doc
+	cargo doc --all --all-features
 	echo "<meta http-equiv=refresh content=0;url=shipcat/index.html>" > target/doc/index.html
 	ghp-import -n target/doc
 	git push -qf "git@github.com:Babylonpartners/shipcat.git" gh-pages
@@ -63,7 +63,7 @@ releases:
 release-%:
 	mkdir -p releases/$*/bin
 	mkdir -p releases/$*/share/shipcat
-	cp shipcat.complete.sh releases/$*/share/shipcat
+	cp shipcat_cli/shipcat.complete.sh releases/$*/share/shipcat
 	cp shipcat.$* releases/$*/bin/shipcat
 	chmod +x releases/$*/bin/shipcat
 	cd releases && tar czf shipcat.$*.tar.gz --transform=s,^$*/,, $$(find $*/ -type f -o -type l)

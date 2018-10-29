@@ -1,10 +1,7 @@
-use reqwest;
-use serde_json;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs::File;
 use std::io::Read;
-use dirs;
 
 use super::{Result, ErrorKind, ResultExt, Error};
 use super::config::VaultConfig;

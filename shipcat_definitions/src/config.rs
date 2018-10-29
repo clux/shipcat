@@ -7,9 +7,8 @@ use std::fs::File;
 use std::io::prelude::*;
 
 use semver::Version;
-use serde_yaml;
 
-use super::vault::Vault;
+use super::Vault;
 use super::{Result, Error};
 use super::structs::Kong;
 
@@ -37,18 +36,19 @@ impl Default for ManifestDefaults {
 }
 
 /// Versioning Scheme used in region
+///
+/// This is valdiated strictly using `shipcat validate` when versions are found in manifests.
+/// Otherwise, it's validated on upgrade time (via `shipcat apply`) when it's passed.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum VersionScheme {
     /// Version must be valid semver (no leading v)
+    ///
+    /// This is the assumed default for regions that lock versions in manifests.
     Semver,
     /// Version must be valid semver or a 40 character hex (git sha)
+    ///
+    /// This can be used for rolling environments that does not lock versions in manifests.
     GitShaOrSemver,
-}
-
-impl Default for VersionScheme {
-    fn default() -> Self {
-        VersionScheme::GitShaOrSemver
-    }
 }
 
 /// Version validator
@@ -73,40 +73,48 @@ impl VersionScheme {
 }
 
 
+/// Kubernetes cluster information
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Cluster {
-    /// Url to the api server
+    /// Url to the Kubernetes api server
     pub api: String,
     /// What regions this cluster control (perhaps not exclusively)
     pub regions: Vec<String>,
 }
 
+/// Vault configuration for a region
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct VaultConfig {
     /// Vault url up to and including port
     pub url: String,
-    /// Root folder under secret
+    /// Root folder under secret/
+    ///
+    /// Typically, the name of the region to disambiguate.
     pub folder: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
-pub struct HostPort {
-    /// Hostname || IP || FQDN
-    pub host: String,
-    /// Port
-    pub port: u32,
-}
+//#[derive(Serialize, Deserialize, Clone, Default)]
+//#[serde(deny_unknown_fields)]
+//pub struct HostPort {
+//    /// Hostname || IP || FQDN
+//    pub host: String,
+//    /// Port
+//    pub port: u32,
+//}
 
+/// Kafka configuration for a region
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct KafkaConfig {
-    /// Broker urls
+    /// Broker urls in "hostname:port" format.
+    ///
+    /// These are injected in to the manifest.kafka struct if it's set.
     pub brokers: Vec<String>,
 }
 
+/// Kong configuration for a region
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct KongConfig {
@@ -431,13 +439,11 @@ impl Config {
         Ok(conf)
     }
 
-    /// Retrieve region config from kube current context
+    /// Retrieve region config from a kube context
     ///
     /// This should only be done once early on.
     /// The resulting name should be passed around internally as `region`.
-    pub fn resolve_region(&self) -> Result<String> {
-        use super::kube; // this should be the only user of current_context!
-        let context = kube::current_context()?;
+    pub fn resolve_region(&self, context: String) -> Result<String> {
         if let Some(_) = self.regions.get(&context) {
             return Ok(context);
         }
@@ -476,7 +482,7 @@ mod tests {
     use super::VersionScheme;
     #[test]
     fn version_validate_test() {
-        let scheme = VersionScheme::default();
+        let scheme = VersionScheme::GitShaOrSemver;
         assert!(scheme.verify("2.3.4").is_ok());
         assert!(scheme.verify("2.3.4-alpine").is_ok());
         assert!(scheme.verify("e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19").is_ok());
