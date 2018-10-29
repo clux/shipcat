@@ -55,7 +55,10 @@ impl DepEdge {
 /// We can also convert this to `graphviz` format via some of the `petgraph` helpers.
 pub type CatGraph = DiGraph<ManifestNode, DepEdge>;
 
-fn nodeidx_from_name(name: &str, graph: &CatGraph) -> Option<NodeIndex> {
+
+/// Helper function that should be an impl on CatGraph
+/// Left public for tests
+pub fn nodeidx_from_name(name: &str, graph: &CatGraph) -> Option<NodeIndex> {
     for id in graph.node_indices() {
         if let Some(n) = graph.node_weight(id) {
             if n.name == name {
@@ -148,30 +151,4 @@ pub fn full(dot: bool, conf: &Config, reg: &str) -> Result<CatGraph> {
     };
     print!("{}\n", out);
     Ok(graph)
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_yaml;
-    use super::{generate, nodeidx_from_name};
-    use tests::setup;
-    use super::Config;
-
-    #[test]
-    fn graph_generate() {
-        setup();
-        let conf = Config::read().unwrap();
-        let graph = generate("fake-ask", &conf, true, "dev-uk").unwrap();
-        assert!(graph.edge_count() > 0);
-        print!("got struct: \n{:?}\n", serde_yaml::to_string(&graph));
-        let askidx = nodeidx_from_name("fake-ask", &graph).unwrap();
-        debug!("ask idx {:?}", askidx);
-        let strgidx = nodeidx_from_name("fake-storage", &graph).unwrap();
-        debug!("strg idx {:?}", strgidx);
-        let edgeidx = graph.find_edge(askidx, strgidx).unwrap();
-        debug!("edge idx {:?}", edgeidx);
-        let edge = graph.edge_weight(edgeidx).unwrap();
-        debug!("edge: {:?}", edge);
-        assert_eq!(edge.intent, Some("testing graph module".into()));
-    }
 }

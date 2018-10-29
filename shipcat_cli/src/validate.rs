@@ -49,20 +49,3 @@ pub fn secret_presence(conf: &Config, regions: Vec<String>) -> Result<()> {
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use tests::setup;
-    use super::manifest as validate;
-    use super::Config;
-
-    #[test]
-    fn validate_test() {
-        setup();
-        let conf = Config::read().unwrap();
-        let res = validate(vec!["fake-ask".into()], &conf, "dev-uk".into(), true);
-        assert!(res.is_ok());
-        let res2 = validate(vec!["fake-storage".into(), "fake-ask".into()], &conf, "dev-uk".into(), false);
-        assert!(res2.is_ok())
-    }
-}

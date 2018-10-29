@@ -417,11 +417,11 @@ fn dispatch_commands(args: &ArgMatches, conf: &mut Config) -> Result<()> {
     // getters
     if let Some(a) = args.subcommand_matches("get") {
         if let Some(_) = a.subcommand_matches("resources") {
-            /*if let Some(r) = a.value_of("region") {
+            if let Some(r) = a.value_of("region") {
                 return shipcat::get::resources(&conf, r.into());
             } else {
                 return shipcat::get::totalresources(&conf);
-            }*/
+            }
         }
 
         let region = passed_region_or_current_context(a, conf)?;

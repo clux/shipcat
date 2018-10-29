@@ -89,6 +89,7 @@ pub use manifest::{Manifest};
 
 /// Reducers used by shipcat get
 pub mod reducers;
+pub use reducers::ResourceBreakdown;
 
 /// File backing
 pub mod filebacked;

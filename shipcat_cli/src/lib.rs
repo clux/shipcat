@@ -203,37 +203,3 @@ pub fn init() -> Result<()> {
 
     Ok(())
 }
-
-// Test helpers
-#[cfg(test)]
-extern crate loggerv;
-#[cfg(test)]
-mod tests {
-    use std::env;
-    use loggerv;
-    use std::fs;
-    use std::path::Path;
-
-    use std::sync::{Once, ONCE_INIT};
-    static START: Once = ONCE_INIT;
-
-    /// Set cwd to tests directory to be able to test manifest functionality
-    ///
-    /// The tests directory provides a couple of fake services for verification
-     pub fn setup() {
-        START.call_once(|| {
-            env::set_var("SHIPCAT_MANIFEST_DIR", env::current_dir().unwrap());
-            loggerv::Logger::new()
-                .verbosity(1) // TODO: filter tokio/hyper and bump
-                .module_path(true)
-                .line_numbers(true)
-                .init()
-                .unwrap();
-            // TODO: stop creating multiple reqwest clients in tests, might not be safe
-            let pwd = env::current_dir().unwrap();
-            let testdir = fs::canonicalize(Path::new(&pwd).join("tests")).unwrap();
-            info!("Initializing tests - using testdir {}", testdir.display());
-            assert!(env::set_current_dir(testdir).is_ok());
-        });
-    }
-}
