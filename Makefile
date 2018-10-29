@@ -34,11 +34,11 @@ tag-latest:
 	docker push $(REPO)/$(NAME):latest
 
 doc:
-	cargo doc
+	cargo doc --all --all-features
 	xdg-open target/doc/shipcat/index.html
 
 push-docs:
-	cargo doc
+	cargo doc --all --all-features
 	echo "<meta http-equiv=refresh content=0;url=shipcat/index.html>" > target/doc/index.html
 	ghp-import -n target/doc
 	git push -qf "git@github.com:Babylonpartners/shipcat.git" gh-pages
