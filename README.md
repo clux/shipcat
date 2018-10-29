@@ -3,26 +3,24 @@
 [![Docker Repository on Quay](https://quay.io/repository/babylonhealth/kubecat/status?token=6de24c74-1576-467f-8658-ec224df9302d "Docker Repository on Quay")](https://quay.io/repository/babylonhealth/kubecat?tab=tags)
 [![Crates.io](https://img.shields.io/crates/v/shipcat.svg)](https://crates.io/crates/shipcat)
 
-A standardisation tool and security layer on top of `kubernetes` for config managed microservice automation. Developers write manifests:
+A standardisation tool and security layer on top of `kubernetes` to config manage microservices. Developers write manifests:
 
 ```yaml
 name: webapp
 image: clux/webapp-rs
 version: 0.2.0
 env:
-  ROCKET_ENV: production
   DATABASE_URL: IN_VAULT
 resources:
   requests:
-    cpu: 200m
-    memory: 300Mi
+    cpu: 100m
+    memory: 100Mi
   limits:
-    cpu: 500m
-    memory: 500Mi
+    cpu: 300m
+    memory: 300Mi
 replicaCount: 2
 health:
   uri: /health
-  wait: 5
 httpPort: 8000
 regions:
 - minikube
@@ -34,7 +32,7 @@ metadata:
   repo: https://github.com/clux/webapp-rs
 ```
 
-Then, `shipcat` creates a 2 replica [kubernetes deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) for [the sample webapp](https://github.com/clux/webapp-rs), with a [health check](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/) to ensure smooth upgrades. Contacts will be slack notified on upgrades.
+and `shipcat` creates a 2 replica [kubernetes deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) for [this sample webapp](https://github.com/clux/webapp-rs), with a [health check](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/) to ensure smooth upgrades. Contacts will be slack notified on upgrades.
 
 Secrets are managed by [Vault](https://www.vaultproject.io/) and resolved by `shipcat` pre-merge, and pre-upgrade.
 

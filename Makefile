@@ -63,7 +63,7 @@ releases:
 release-%:
 	mkdir -p releases/$*/bin
 	mkdir -p releases/$*/share/shipcat
-	cp shipcat.complete.sh releases/$*/share/shipcat
+	cp shipcat_cli/shipcat.complete.sh releases/$*/share/shipcat
 	cp shipcat.$* releases/$*/bin/shipcat
 	chmod +x releases/$*/bin/shipcat
 	cd releases && tar czf shipcat.$*.tar.gz --transform=s,^$*/,, $$(find $*/ -type f -o -type l)
