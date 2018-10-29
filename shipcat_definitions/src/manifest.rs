@@ -72,10 +72,6 @@ pub struct Manifest {
     #[serde(default, skip_serializing)]
     pub publiclyAccessible: bool,
 
-    // Decoded secrets - only used interally
-    #[serde(default, skip_serializing, skip_deserializing)]
-    _decoded_secrets: BTreeMap<String, String>,
-
     /// Service is disabled
     ///
     /// This disallows usage of this service in all regions.
@@ -94,7 +90,7 @@ pub struct Manifest {
     /// `Manifest::secrets` partitions `env` into `env` and `secrets`.
     /// See `Manifest::env`.
     ///
-    /// This means that this is an internal property that is actually exposed!
+    /// This is an internal property that is exposed as an output only.
     #[serde(default, skip_deserializing, skip_serializing_if = "BTreeMap::is_empty")]
     pub secrets: BTreeMap<String, String>,
 
@@ -572,9 +568,7 @@ impl Manifest {
         for (k, v) in &mut self.env {
             if v == "IN_VAULT" {
                 let vkey = format!("{}/{}", pth, k);
-                let secret = client.read(&vkey)?;
-                self.secrets.insert(k.to_string(), secret.clone());
-                self._decoded_secrets.insert(vkey, secret);
+                self.secrets.insert(k.to_string(), client.read(&vkey)?);
             }
             // Special cases that were handled by `| as_secret` template fn
             if v.starts_with(&special) {
@@ -590,9 +584,7 @@ impl Manifest {
         for (k, v) in &mut self.secretFiles {
             if v == "IN_VAULT" {
                 let vkey = format!("{}/{}", pth, k);
-                let secret = client.read(&vkey)?;
-                *v = secret.clone();
-                self._decoded_secrets.insert(vkey.clone(), secret);
+                *v = client.read(&vkey)?;
                 // sanity check; secretFiles are assumed base64 verify we can decode
                 if base64::decode(v).is_err() {
                     bail!("Secret {} in vault is not base64 encoded", vkey);
@@ -605,8 +597,8 @@ impl Manifest {
     /// Get a list of raw secrets (without associated keys)
     ///
     /// Useful for obfuscation mechanisms so it knows what to obfuscate.
-    pub fn get_decoded_secrets(&self) -> Vec<String> {
-        self._decoded_secrets.values().cloned().collect()
+    pub fn get_secrets(&self) -> Vec<String> {
+        self.secrets.values().cloned().collect()
     }
 
     pub fn verify_secrets_exist(&self, vc: &VaultConfig) -> Result<()> {
