@@ -36,6 +36,7 @@ struct ClusterInfo {
     apiserver: String,
     cluster: String,
     vault: String,
+    kong: String,
 }
 
 /// Entry point for clusterinfo
@@ -68,6 +69,7 @@ pub fn clusterinfo(conf: &Config, ctx: &str) -> Result<()> {
         apiserver: cluster.api.clone(),
         cluster: cname.clone(),
         vault: reg.vault.url.clone(),
+        kong: reg.kong.config_url.clone(),
     };
     print!("{}\n", serde_json::to_string_pretty(&ci)?);
     Ok(())
@@ -97,7 +99,6 @@ struct EnvironmentInfo {
     ip_whitelist: Vec<String>,
 }
 pub fn apistatus(conf: &Config, region: &str) -> Result<()> {
-    let all_services = Manifest::available()?;
     let mut services = BTreeMap::new();
     let reg = conf.regions[region].clone();
 
@@ -110,7 +111,7 @@ pub fn apistatus(conf: &Config, region: &str) -> Result<()> {
     };
 
     // Get API Info from Manifests
-    for svc in all_services {
+    for svc in Manifest::available()? {
         let mf = Manifest::stubbed(&svc, &conf, &region)?;
         if mf.regions.contains(&region.to_string()) {
             if let Some(k) = mf.kong {

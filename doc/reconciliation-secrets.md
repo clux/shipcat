@@ -111,9 +111,7 @@ vault-login() {
     return
   fi
 
-  if shipcat get -r "$KUBE_REGION" clusterinfo 2> /dev/null; then
-    export VAULT_ADDR=$(shipcat get -r "$KUBE_REGION" clusterinfo | yq ".vault" -r)
-  fi
+  export VAULT_ADDR=$(shipcat get -r "$KUBE_REGION" clusterinfo | yq ".vault" -r)
   export VAULT_TOKEN="$(vault login -token-only -method=github token="$GITHUB_PAT")"
 }
 

@@ -211,6 +211,8 @@ pub struct KongTcpLogConfig {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Region {
+    /// Name of region
+    pub name: String,
     /// Kubernetes namespace
     pub namespace: String,
     /// Environment (e.g. `dev` or `staging`)
@@ -334,6 +336,9 @@ impl Config {
         }
 
         for (r, data) in &self.regions {
+            if r != &data.name {
+                bail!("region '{}' must have a '.name' equal to its key in regions", r);
+            }
             if data.namespace == "" {
                 bail!("Need to set `namespace` in {}", r);
             }
