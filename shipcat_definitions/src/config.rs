@@ -115,7 +115,7 @@ pub struct KafkaConfig {
 }
 
 /// Kong configuration for a region
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
 #[serde(deny_unknown_fields)]
 pub struct KongConfig {
     /// Base URL to use (e.g. uk.dev.babylontech.co.uk)
