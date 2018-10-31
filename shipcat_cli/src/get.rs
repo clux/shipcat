@@ -35,6 +35,7 @@ struct ClusterInfo {
     environment: String,
     apiserver: String,
     cluster: String,
+    // TODO: these two optional
     vault: String,
     kong: String,
 }
