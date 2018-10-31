@@ -14,7 +14,7 @@ use shipcat::*;
 use clap::{Arg, App, AppSettings, SubCommand, ArgMatches};
 use std::process;
 
-fn print_error_debug(e: Error) {
+fn print_error_debug(e: &Error) {
     use std::env;
     // print causes of error if present
     if let Ok(_) = env::var("CIRCLECI") {
@@ -227,12 +227,6 @@ fn main() {
         .subcommand(SubCommand::with_name("cluster")
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .about("Perform cluster level recovery / reconcilation commands")
-            .subcommand(SubCommand::with_name("kong")
-                .subcommand(SubCommand::with_name("reconcile")
-                .arg(Arg::with_name("kongfig")
-                    .long("kongfig")
-                    .help("Reconcile using Kongfig rather than kong-configurator"))
-                .about("Reconcile kong region config with local state")))
             .subcommand(SubCommand::with_name("helm")
                 .arg(Arg::with_name("num-jobs")
                     .short("j")
@@ -349,7 +343,7 @@ fn main() {
     let name = args.subcommand_name().unwrap();
     let _ = run(&args).map_err(|e| {
         error!("{} error: {}", name, e);
-        print_error_debug(e);
+        print_error_debug(&e);
         process::exit(1);
     });
     process::exit(0);
@@ -418,7 +412,7 @@ fn dispatch_commands(args: &ArgMatches, conf: &mut Config) -> Result<()> {
     if let Some(a) = args.subcommand_matches("get") {
         if let Some(_) = a.subcommand_matches("resources") {
             if let Some(r) = a.value_of("region") {
-                return shipcat::get::resources(&conf, r.into());
+                return shipcat::get::resources(&conf, r);
             } else {
                 return shipcat::get::totalresources(&conf);
             }
@@ -483,11 +477,11 @@ fn dispatch_commands(args: &ArgMatches, conf: &mut Config) -> Result<()> {
     if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");
         let region = passed_region_or_current_context(&a, &conf)?;
-        if let Some(svc) = a.value_of("service") {
-            return shipcat::graph::generate(svc, &conf, dot, &region).map(void);
+        return if let Some(svc) = a.value_of("service") {
+            shipcat::graph::generate(svc, &conf, dot, &region).map(void)
         } else {
-            return shipcat::graph::full(dot, &conf, &region).map(void);
-        }
+            shipcat::graph::full(dot, &conf, &region).map(void)
+        };
     }
 
     // helm dispatch
@@ -524,7 +518,8 @@ fn dispatch_commands(args: &ArgMatches, conf: &mut Config) -> Result<()> {
         } else {
             Manifest::stubbed(&svc, conf, &region)?
         };
-        return Ok(mf.print()?);
+        mf.print()?;
+        return Ok(());
     }
     if let Some(a) = args.subcommand_matches("template") {
         let svc = a.value_of("service").map(String::from).unwrap();
@@ -557,10 +552,8 @@ fn dispatch_commands(args: &ArgMatches, conf: &mut Config) -> Result<()> {
             conf.secrets(&region)?;
             let mode = if a.is_present("crd") {
                 kong::KongOutputMode::Crd
-            } else if a.is_present("kongfig") {
-                kong::KongOutputMode::Kongfig
             } else {
-                kong::KongOutputMode::Json
+                kong::KongOutputMode::Kongfig
             };
             shipcat::kong::output(&conf, &region, mode)
         };
@@ -627,16 +620,6 @@ fn dispatch_commands(args: &ArgMatches, conf: &mut Config) -> Result<()> {
     // 4. cluster level commands
     if let Some(a) = args.subcommand_matches("cluster") {
         conf.secrets(&region)?; // absolutely need secrets here
-        if let Some(b) = a.subcommand_matches("kong") {
-            if let Some(c) = b.subcommand_matches("reconcile") {
-                let mode = if c.is_present("kongfig") {
-                    kong::KongOutputMode::Kongfig
-                } else {
-                    kong::KongOutputMode::Json
-                };
-                return shipcat::cluster::kong_reconcile(&conf, &region, mode);
-            }
-        }
         if let Some(b) = a.subcommand_matches("helm") {
             conf.secrets(&region)?;
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();

@@ -323,8 +323,8 @@ fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
     let smalldiff = helpers::diff_format(helmdiff.clone());
 
     if !helmdiff.is_empty() {
-        debug!("{}\n", helmdiff); // full diff for logs
-        print!("{}\n", smalldiff);
+        debug!("{}", helmdiff); // full diff for logs
+        println!("{}", smalldiff);
     } else {
         info!("{} is up to date", mf.name);
     }
@@ -340,10 +340,10 @@ pub fn values(mf: &Manifest, output: Option<String>) -> Result<()> {
         let pth = Path::new(".").join(o);
         debug!("Writing helm values for {} to {}", mf.name, pth.display());
         let mut f = File::create(&pth)?;
-        write!(f, "{}\n", encoded)?;
+        writeln!(f, "{}", encoded)?;
         debug!("Wrote helm values for {} to {}: \n{}", mf.name, pth.display(), encoded);
     } else {
-        print!("{}\n", encoded);
+        println!("{}\n", encoded);
     }
     Ok(())
 }
@@ -386,10 +386,10 @@ pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>, moc
         let pth = Path::new(".").join(o);
         info!("Writing helm template for {} to {}", svc, pth.display());
         let mut f = File::create(&pth)?;
-        write!(f, "{}\n", tpl)?;
+        writeln!(f, "{}", tpl)?;
         debug!("Wrote helm template for {} to {}: \n{}", svc, pth.display(), tpl);
     } else {
-        print!("{}\n", tpl);
+        println!("{}", tpl);
     }
     fs::remove_file(hfile)?;
     Ok(tpl)

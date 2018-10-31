@@ -108,7 +108,7 @@ pub fn generate(service: &str, conf: &Config, dot: bool, reg: &str) -> Result<Ca
     else {
         format!("{}", serde_yaml::to_string(&graph)?)
     };
-    print!("{}\n", out);
+    println!("{}", out);
     Ok(graph)
 }
 
@@ -149,6 +149,6 @@ pub fn full(dot: bool, conf: &Config, reg: &str) -> Result<CatGraph> {
     else {
         format!("{}", serde_yaml::to_string(&graph)?)
     };
-    print!("{}\n", out);
+    println!("{}", out);
     Ok(graph)
 }

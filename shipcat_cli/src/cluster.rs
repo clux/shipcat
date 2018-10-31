@@ -1,5 +1,4 @@
 use super::helm::{self, UpgradeMode};
-use super::kong;
 use super::{Result, Config, Manifest};
 
 /// Helm upgrade the region (reconcile)
@@ -50,16 +49,4 @@ pub fn region_wide_git_diff_with_master(conf: &Config, region: &str) -> Result<(
         let _tpl = helm::direct::template(&s, &region, &conf, None, mock, Some(pth.clone()));
     }
     unimplemented!();
-}
-
-/// Kong reconcile
-///
-/// Shells out to kong-configurator (python cli) with right params
-pub fn kong_reconcile(conf: &Config, region: &str, mode: kong::KongOutputMode) -> Result<()> {
-    debug!("Kong-reconcile with mode {:?}", mode);
-    match mode {
-        kong::KongOutputMode::Kongfig => kong::kongfig_reconcile(conf, region)?,
-        _                             => kong::reconcile(conf, region)?
-    }
-    Ok(())
 }

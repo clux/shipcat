@@ -171,7 +171,7 @@ pub fn debug(mf: &Manifest) -> Result<()> {
                     warn!("No logs for pod {} found", pod);
                 } else {
                     warn!("Last 30 log lines:");
-                    print!("{}\n", l);
+                    println!("{}", l);
                 }
             },
             Err(e) => {
@@ -192,7 +192,7 @@ pub fn debug(mf: &Manifest) -> Result<()> {
         match kout(descvec) {
             Ok(mut o) => {
                 if let Some(idx) = o.find("Events:\n") {
-                    print!("{}\n", o.split_off(idx))
+                    println!("{}", o.split_off(idx))
                 }
                 else {
                     // Not printing in this case, tons of secrets in here

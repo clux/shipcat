@@ -3,3 +3,6 @@ members = [
   "shipcat_definitions",
   "shipcat_cli"
 ]
+
+#[profile.release]
+#debug = true
