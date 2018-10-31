@@ -53,8 +53,4 @@ RUN apk add --no-cache --virtual virtualbuild libffi-dev g++ python3-dev openssl
     pip3 install semver jira && \
     apk del virtualbuild
 
-# Install kong-configurator deps
-ADD kong-configurator kong-configurator
-RUN pip3 install -r kong-configurator/requirements.txt
-
 USER kubectl
