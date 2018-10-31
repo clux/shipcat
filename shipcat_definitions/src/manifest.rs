@@ -23,41 +23,61 @@ use super::structs::LifeCycle;
 use super::structs::Worker;
 use super::structs::Port;
 
-/// Main manifest, serializable from shipcat.yml
+/// Main manifest, serializable from shipcat.yml or the shipcat CRD.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct Manifest {
     // ------------------------------------------------------------------------
-    // !! special properties first !!
+    // Non-mergeable global properties
     //
-    // Manifest syntax extras should be added AFTER all these.
-    // These special properties, that are generally not overrideable, and should be
-    // marked with `skip_deserializing` serde field attributes.
+    // A few global properties that cannot be overridden in region override manifests.
+    // These are often not exposed to kube and marked with `skip_serializing`,
+    // but more often data that is used internally and assumed global.
     // ------------------------------------------------------------------------
 
     /// Name of the service
     ///
-    /// This must match the folder name in a manifests repository.
+    /// This must match the folder name in a manifests repository, and additionally;
+    /// - length limits imposed by kube dns
+    /// - dash separated, alpha numeric names (for dns readability)
+    ///
+    /// The main validation regex is: `^[0-9a-z\-]{1,50}$`.
+    ///
+    /// ```yaml
+    /// name: webapp
+    /// ```
     #[serde(default)]
     pub name: String,
 
-    /// Region injected into helm chart
+    /// Whether the service should be public
     ///
-    /// Exposed from shipcat, but not overrideable.
-    #[serde(default, skip_deserializing)]
-    pub region: String,
+    /// This is a special flag not exposed to the charts at the moment.
+    ///
+    /// ```yaml
+    /// publiclyAccessible: true
+    /// ```
+    #[serde(default, skip_serializing)]
+    pub publiclyAccessible: bool,
 
-    /// Environment injected into the helm chart
+    /// Service is external
     ///
-    /// Exposed from shipcat, but not overrideable.
-    #[serde(default, skip_deserializing)]
-    pub environment: String,
+    /// This cancels all validation and marks the manifest as a non-kube reference only.
+    ///
+    /// ```yaml
+    /// external: true
+    /// ```
+    #[serde(default, skip_serializing)]
+    pub external: bool,
 
-    /// Namespace injected in helm chart
+    /// Service is disabled
     ///
-    /// Exposed from shipcat, but not overrideable.
-    #[serde(default, skip_deserializing)]
-    pub namespace: String,
+    /// This disallows usage of this service in all regions.
+    ///
+    /// ```yaml
+    /// disabled: true
+    /// ```
+    #[serde(default, skip_serializing)]
+    pub disabled: bool,
 
     /// Regions to deploy this service to.
     ///
@@ -66,41 +86,12 @@ pub struct Manifest {
     #[serde(default, skip_serializing)]
     pub regions: Vec<String>,
 
-    /// Wheter the service should be public
-    ///
-    /// This is a special flag not exposed to the charts at the moment.
-    #[serde(default, skip_serializing)]
-    pub publiclyAccessible: bool,
-
-    /// Service is disabled
-    ///
-    /// This disallows usage of this service in all regions.
-    #[serde(default, skip_serializing)]
-    pub disabled: bool,
-
-    /// Service is external
-    ///
-    /// This cancels all validation and marks the manifest as a non-kube reference only.
-    #[serde(default, skip_serializing)]
-    pub external: bool,
-
-    /// Raw secrets from environment variables.
-    ///
-    /// The `env` map fills in secrets in this via the `vault` client.
-    /// `Manifest::secrets` partitions `env` into `env` and `secrets`.
-    /// See `Manifest::env`.
-    ///
-    /// This is an internal property that is exposed as an output only.
-    #[serde(default, skip_deserializing, skip_serializing_if = "BTreeMap::is_empty")]
-    pub secrets: BTreeMap<String, String>,
-
-
     // ------------------------------------------------------------------------
-    // mergeable properties below
+    // Regular mergeable properties
     //
-    // BEFORE ADDING PROPERTIES READ THIS
-    // Below are properties that can be merged, above ones that are global
-    // if you add anything below here, also add it to merge.rs!
+    // New syntax goes in here!
+    // All properties in here should be mergeable, so ensure you add merge behaviour.
+    // Merge behaviour is defined in the merge module.
     // ------------------------------------------------------------------------
 
 
@@ -662,6 +653,42 @@ pub struct Manifest {
     /// ```
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rbac: Vec<Rbac>,
+
+    // ------------------------------------------------------------------------
+    // Output variables
+    //
+    // Properties here cannot be deserialized and are illegal in manifests!
+    // if you add anything below here, you need to handle behaviour for it.
+    // These must be marked with `skip_deserializing` serde attributes.
+    // ------------------------------------------------------------------------
+
+    /// Region injected into helm chart
+    ///
+    /// Exposed from shipcat, but not overrideable.
+    #[serde(default, skip_deserializing)]
+    pub region: String,
+
+    /// Environment injected into the helm chart
+    ///
+    /// Exposed from shipcat, but not overrideable.
+    #[serde(default, skip_deserializing)]
+    pub environment: String,
+
+    /// Namespace injected in helm chart
+    ///
+    /// Exposed from shipcat, but not overrideable.
+    #[serde(default, skip_deserializing)]
+    pub namespace: String,
+
+    /// Raw secrets from environment variables.
+    ///
+    /// The `env` map fills in secrets in this via the `vault` client.
+    /// `Manifest::secrets` partitions `env` into `env` and `secrets`.
+    /// See `Manifest::env`.
+    ///
+    /// This is an internal property that is exposed as an output only.
+    #[serde(default, skip_deserializing, skip_serializing_if = "BTreeMap::is_empty")]
+    pub secrets: BTreeMap<String, String>,
 }
 
 impl Manifest {
@@ -859,10 +886,10 @@ impl Manifest {
             if v == "IN_VAULT" {
                 let vkey = format!("{}/{}", pth, k);
                 *v = client.read(&vkey)?;
-                // sanity check; secretFiles are assumed base64 verify we can decode
-                if base64::decode(v).is_err() {
-                    bail!("Secret {} in vault is not base64 encoded", vkey);
-                }
+            }
+            // sanity check; secretFiles are assumed base64 verify we can decode
+            if base64::decode(v).is_err() {
+                bail!("Secret {} is not base64 encoded", k);
             }
         }
         Ok(())

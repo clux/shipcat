@@ -93,10 +93,11 @@ pub use reducers::ResourceBreakdown;
 
 /// File backing
 pub mod filebacked;
-// merge behaviour for file backed manifests
-mod merge;
 
 // TODO: CRD backing
+
+// Merge behaviour for manifests
+mod merge;
 
 /// Computational helpers
 pub mod math;

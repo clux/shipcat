@@ -3,7 +3,6 @@
 use super::{Manifest, Result, Config};
 
 impl Manifest {
-
     /// Add implicit defaults to self after merging in region overrides
     ///
     /// Should be used by entries that have complex implicit results that can be partially overridden
@@ -217,5 +216,4 @@ impl Manifest {
 
         Ok(())
     }
-
 }

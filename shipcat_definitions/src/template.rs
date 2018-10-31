@@ -148,7 +148,7 @@ impl Manifest {
         full_env.append(&mut self.secrets.clone());
         ctx.insert("env", &full_env);
         ctx.insert("service", &self.name.clone());
-        ctx.insert("region", &self.region.clone());
+        ctx.insert("region", region);
         ctx.insert("kafka", &self.kafka.clone());
         ctx.insert("base_urls", &reg.base_urls);
         ctx.insert("kong", &reg.kong);

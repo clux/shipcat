@@ -48,7 +48,7 @@ Browse the API documentation, or the setup guides availble at:
 - [Templates](https://github.com/Babylonpartners/shipcat/blob/master/doc/templates.md)
 - [Vault](https://github.com/Babylonpartners/shipcat/blob/master/doc/vault.md)
 - [Error handling](https://github.com/Babylonpartners/shipcat/blob/master/doc/errors.md)
-- [Nautical terminology](https://en.wikipedia.org/wiki/Ship%27s_cat).
+- [Nautical terminology](https://en.wikipedia.org/wiki/Ship%27s_cat)
 
 ## Installation
 
