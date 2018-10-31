@@ -33,6 +33,9 @@ tag-latest:
 	docker tag  $(REPO)/$(NAME):$(VERSION) $(REPO)/$(NAME):latest
 	docker push $(REPO)/$(NAME):latest
 
+clippy:
+	cargo clippy -- --allow clippy::if_let_redundant_pattern_matching
+
 doc:
 	cargo doc --all --all-features
 	xdg-open target/doc/shipcat/index.html
