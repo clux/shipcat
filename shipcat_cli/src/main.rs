@@ -227,12 +227,6 @@ fn main() {
         .subcommand(SubCommand::with_name("cluster")
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .about("Perform cluster level recovery / reconcilation commands")
-            .subcommand(SubCommand::with_name("kong")
-                .subcommand(SubCommand::with_name("reconcile")
-                .arg(Arg::with_name("kongfig")
-                    .long("kongfig")
-                    .help("Reconcile using Kongfig rather than kong-configurator"))
-                .about("Reconcile kong region config with local state")))
             .subcommand(SubCommand::with_name("helm")
                 .arg(Arg::with_name("num-jobs")
                     .short("j")
@@ -557,10 +551,8 @@ fn dispatch_commands(args: &ArgMatches, conf: &mut Config) -> Result<()> {
             conf.secrets(&region)?;
             let mode = if a.is_present("crd") {
                 kong::KongOutputMode::Crd
-            } else if a.is_present("kongfig") {
-                kong::KongOutputMode::Kongfig
             } else {
-                kong::KongOutputMode::Json
+                kong::KongOutputMode::Kongfig
             };
             shipcat::kong::output(&conf, &region, mode)
         };
@@ -627,16 +619,6 @@ fn dispatch_commands(args: &ArgMatches, conf: &mut Config) -> Result<()> {
     // 4. cluster level commands
     if let Some(a) = args.subcommand_matches("cluster") {
         conf.secrets(&region)?; // absolutely need secrets here
-        if let Some(b) = a.subcommand_matches("kong") {
-            if let Some(c) = b.subcommand_matches("reconcile") {
-                let mode = if c.is_present("kongfig") {
-                    kong::KongOutputMode::Kongfig
-                } else {
-                    kong::KongOutputMode::Json
-                };
-                return shipcat::cluster::kong_reconcile(&conf, &region, mode);
-            }
-        }
         if let Some(b) = a.subcommand_matches("helm") {
             conf.secrets(&region)?;
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
