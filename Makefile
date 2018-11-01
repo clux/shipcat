@@ -11,6 +11,9 @@ compile:
 	cp target/x86_64-unknown-linux-musl/release/shipcat shipcat.x86_64-unknown-linux-musl
 	chmod +x shipcat.x86_64-unknown-linux-musl
 
+test:
+	cargo test
+
 build:
 	docker build -t $(REPO)/$(NAME):$(VERSION) .
 
