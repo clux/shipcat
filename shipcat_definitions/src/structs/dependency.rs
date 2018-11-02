@@ -1,8 +1,5 @@
 use std::path::Path;
-
-use super::traits::Verify;
-use super::{Config, Result};
-
+use super::Result;
 
 /// Supported dependency protocols
 ///
@@ -33,8 +30,9 @@ impl Default for DependencyProtocol {
 pub struct Dependency {
     /// Name of service relied upon (used to goto dependent manifest)
     pub name: String,
-    /// API version relied upon (v1 default)
-    pub api: Option<String>,
+    /// API version relied upon
+    #[serde(default = "default_api_version")]
+    pub api: String,
     /// Contract name for dependency
     pub contract: Option<String>,
     /// Protocol/message passing service used to depend on a service
@@ -44,28 +42,21 @@ pub struct Dependency {
     pub intent: Option<String>,
 }
 
-impl Verify for Dependency {
-    fn verify(&self, _: &Config) -> Result<()> {
+fn default_api_version() -> String { "v1".into() }
+
+
+impl Dependency {
+    pub fn verify(&self) -> Result<()> {
         // self.name must exist in services/
         let dpth = Path::new(".").join("services").join(self.name.clone());
         if !dpth.is_dir() {
             bail!("Service {} does not exist in services/", self.name);
         }
-        // self.api must parse as an integer
-        assert!(self.api.is_some(), "api version set by implicits");
-        if let Some(ref apiv) = self.api {
-            let vstr = apiv.chars().skip_while(|ch| *ch == 'v').collect::<String>();
+        if self.api != "" {
+            let vstr = self.api.chars().skip_while(|ch| *ch == 'v').collect::<String>();
             let ver : usize = vstr.parse()?;
             trace!("Parsed api version of dependency {} as {}", self.name.clone(), ver);
         }
         Ok(())
-    }
-}
-
-impl Dependency {
-    pub fn implicits(&mut self) {
-        if self.api.is_none() {
-            self.api = Some("v1".to_string());
-        }
     }
 }

@@ -1,7 +1,5 @@
 use std::path::Path;
-
-use super::traits::Verify;
-use super::{Result, Config};
+use super::Result;
 
 /// What sensitive data is managed and how
 ///
@@ -84,6 +82,7 @@ impl DataStore {
 /// Canonical names for data fields
 ///
 /// This is to indicate the canonical data type, not the actual field names.
+/// TODO: into Config!
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum DataFieldType {
     FullName,
@@ -168,8 +167,8 @@ pub struct DataProcess {
     pub source: String,
 }
 
-impl Verify for DataHandling {
-    fn verify(&self, _: &Config) -> Result<()> {
+impl DataHandling {
+    pub fn verify(&self) -> Result<()> {
         for s in &self.stores {
             for f in &s.fields {
                 let enc = f.encrypted.unwrap(); // filled by implicits

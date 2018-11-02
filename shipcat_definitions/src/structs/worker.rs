@@ -1,8 +1,7 @@
 use super::{Resources, Probe, Port, EnvVars};
 use super::autoscaling::AutoScaling;
 
-use super::traits::Verify;
-use super::{Config, Result};
+use super::Result;
 
 
 /// Worker for a service
@@ -58,21 +57,21 @@ pub struct Worker {
     pub livenessProbe: Option<Probe>,
 }
 
-impl Verify for Worker {
-    fn verify(&self, conf: &Config) -> Result<()> {
-        self.env.verify(conf)?;
+impl Worker {
+    pub fn verify(&self) -> Result<()> {
+        self.env.verify()?;
         if let Some(hpa) = &self.autoScaling {
             hpa.verify()?;
         }
         for p in &self.ports {
-            p.verify(&conf)?;
+            p.verify()?;
         }
-        self.resources.verify(conf)?;
+        self.resources.verify()?;
         if let Some(rp) = &self.readinessProbe {
-            rp.verify(conf)?;
+            rp.verify()?;
         }
         if let Some(lp) = &self.livenessProbe {
-            lp.verify(conf)?;
+            lp.verify()?;
         }
 
         // maybe the http ports shouldn't overlap? might not matter.

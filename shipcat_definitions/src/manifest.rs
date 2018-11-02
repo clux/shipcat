@@ -1,13 +1,12 @@
+use config::{Team, Region, VaultConfig};
 use vault::Vault;
-use config::VaultConfig;
 use std::collections::BTreeMap;
 use regex::Regex;
 
 
-use super::{Result, Config};
+use super::Result;
 
 // All structs come from the structs directory
-use super::structs::traits::Verify;
 use super::structs::{HealthCheck, ConfigMap};
 use super::structs::{InitContainer, Resources, HostAlias};
 use super::structs::volume::{Volume, VolumeMount};
@@ -22,6 +21,60 @@ use super::structs::tolerations::Tolerations;
 use super::structs::LifeCycle;
 use super::structs::Worker;
 use super::structs::Port;
+
+/// Various states a manifest can exist in depending on resolution.
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub enum ManifestType {
+    /// A completed manifest
+    ///
+    /// This is fully ready to pass to `helm template`, i.e.:
+    /// - evars are templated
+    /// - secrets are available
+    /// - configs inlined and templated
+    ///
+    /// This is the `shipcat values -s` equivalent of a manifest.
+    ///
+    /// A `RawData` Manifest can become a `Completed` Manifest by:
+    /// - filling in global defaults
+    /// - evaluating secrets
+    /// - templating evars
+    /// - templating configs
+    Completed,
+
+    /// A stubbed manifest
+    ///
+    /// Indistinguishable from a `Completed` manifest except from secrets:
+    /// - secrets populated with garbage values (not resolved from vault)
+    /// - configs templated with garbage secret values
+    /// - evars templated with garbage secret values
+    ///
+    /// This is the `shipcat values` equivalent of a manifest.
+    Stubbed,
+
+    /// The RawData manifest
+    ///
+    /// This should be mostly useful internally, and inspecteable on kube, i.e.:
+    /// - templates left in template form
+    /// - configs inlined in template form
+    /// - secrets unresolved
+    ///
+    /// This is the CRD equivalent of a manifest.
+    /// It's important that the CRD equivalent abstracts away config files, but not secrets.
+    /// Thus files have to be read, and not templated for this, then shipped off to kube.
+    RawData,
+
+    /// A Manifest File
+    ///
+    /// This is an unmerged file, and should not be used for anything except merging.
+    SingleFile,
+}
+
+impl Default for ManifestType {
+    fn default() -> Self {
+        ManifestType::SingleFile
+    }
+}
+
 
 /// Main manifest, serializable from shipcat.yml or the shipcat CRD.
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -689,6 +742,13 @@ pub struct Manifest {
     /// This is an internal property that is exposed as an output only.
     #[serde(default, skip_deserializing, skip_serializing_if = "BTreeMap::is_empty")]
     pub secrets: BTreeMap<String, String>,
+
+    /// Internal kind of the manifest
+    ///
+    /// A manifest goes through different stages of serialization, templating,
+    /// config loading, secret injection. This property keeps track of it.
+    #[serde(default, skip_deserializing)]
+    pub kind: ManifestType,
 }
 
 impl Manifest {
@@ -709,9 +769,8 @@ impl Manifest {
     /// Verify assumptions about manifest
     ///
     /// Assumes the manifest has been populated with `implicits`
-    pub fn verify(&self, conf: &Config) -> Result<()> {
+    pub fn verify(&self, teams: &[Team], region: &Region) -> Result<()> {
         assert!(self.region != ""); // needs to have been set by implicits!
-        let region = &conf.regions[&self.region]; // tested for existence earlier
         // limit to 50 characters, alphanumeric, dashes for sanity.
         // 63 is kube dns limit (13 char suffix buffer)
         let re = Regex::new(r"^[0-9a-z\-]{1,50}$").unwrap();
@@ -723,11 +782,11 @@ impl Manifest {
         }
 
         if let Some(ref dh) = self.dataHandling {
-            dh.verify(&conf)?
+            dh.verify()?
         } // TODO: mandatory for later environments!
 
         if let Some(ref md) = self.metadata {
-            md.verify(&conf)?;
+            md.verify(teams)?;
         } else {
             bail!("Missing metadata for {}", self.name);
         }
@@ -744,35 +803,35 @@ impl Manifest {
         // run the `Verify` trait on all imported structs
         // mandatory structs first
         if let Some(ref r) = self.resources {
-            r.verify(&conf)?;
+            r.verify()?;
         } else {
             bail!("Resources is mandatory");
         }
 
         // optional/vectorised entries
         for d in &self.dependencies {
-            d.verify(&conf)?;
+            d.verify()?;
         }
         for ha in &self.hostAliases {
-            ha.verify(&conf)?;
+            ha.verify()?;
         }
         for tl in &self.tolerations {
             tl.verify()?;
         }
         for ic in &self.initContainers {
-            ic.verify(&conf)?;
+            ic.verify()?;
         }
         for wrk in &self.workers {
-            wrk.verify(&conf)?;
+            wrk.verify()?;
         }
         for p in &self.ports {
-            p.verify(&conf)?;
+            p.verify()?;
         }
         for r in &self.rbac {
-            r.verify(&conf)?;
+            r.verify()?;
         }
         if let Some(ref cmap) = self.configs {
-            cmap.verify(&conf)?;
+            cmap.verify()?;
         }
         // misc minor properties
         if self.replicaCount.unwrap() == 0 {
@@ -806,12 +865,6 @@ impl Manifest {
             bail!("namespace must be set at this point");
         }
 
-        // regions must have a defaults file in ./environments
-        for r in &self.regions {
-            if conf.regions.get(r).is_none() {
-                bail!("Unsupported region {} without entry in config", r);
-            }
-        }
         if !self.regions.contains(&self.region.to_string()) {
             bail!("Unsupported region {} for service {}", self.region, self.name);
         }

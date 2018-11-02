@@ -1,14 +1,11 @@
 use std::collections::HashMap;
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::io::prelude::*;
 use std::iter;
 
-use walkdir::WalkDir;
-
 use tera::{self, Value, Tera, Context};
-use serde_json;
-use super::Result;
+use super::{Result, ErrorKind, ResultExt};
 
 #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
 fn indent(v: Value, m: HashMap<String, Value>) -> tera::Result<Value> {
@@ -31,93 +28,45 @@ fn as_secret(v: Value, _: HashMap<String, Value>) -> tera::Result<Value> {
     Ok(format!("SHIPCAT_SECRET::{}", s).into())
 }
 
-fn add_templates(tera: &mut Tera, dir: &PathBuf, svc: &str, depth: usize) -> Result<()> {
-    let sdirs = WalkDir::new(&dir)
-        .min_depth(depth)
-        .max_depth(depth)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        // files only
-        .filter(|e| e.file_type().is_file())
-        // only add files that end in .j2
-        .filter(|e| {
-            e.file_name().to_string_lossy().ends_with(".j2")
-        })
-        // if subdirectoried files, only from the directory of the relevant service
-        .filter(|e| {
-            let mut cmps = e.path().components();
-            cmps.next(); // .
-            cmps.next(); // services or templates
-            // this next bit is only relevant if maxdepth is 2 and we don't want directories
-            let last_comp = cmps.next().unwrap(); // folder name or file name!
-            let dirname = last_comp.as_os_str().to_str().unwrap();
-            let dirpth = dir.join(dirname);
-            (!dirpth.is_dir() || dirname == svc)
-        });
-
-    // add all templates to the templating engine
-    for entry in sdirs {
-        let tpth = entry.path();
-        debug!("Reading {}", entry.path().display());
-
-        // read it
-        let mut f = File::open(&tpth)?;
-        let mut data = String::new();
-        f.read_to_string(&mut data)?;
-
-        // store in template engine internal hashmap under a easy name
-        let fname = tpth.file_name().unwrap().to_string_lossy();
-        debug!("Storing {}", fname);
-        tera.add_raw_template(&fname, &data)?;
-    }
-    Ok(())
+fn read_template_file(svc: &str, tmpl: &str) -> Result<String> {
+    // try to read file from ./services/{svc}/{tmpl} into `tpl` sting
+    let pth = Path::new(".").join("services").join(svc).join(tmpl);
+    let gpth = Path::new(".").join("templates").join(tmpl);
+    let found_pth = if pth.exists() {
+        trace!("Using template in {}", pth.display());
+        pth
+    } else {
+        if !gpth.exists() {
+            bail!("Template {} does not exist in neither {} nor {}", tmpl, pth.display(), gpth.display());
+        }
+        trace!("Using template in {}", gpth.display());
+        gpth
+    };
+    // read the template - should work now
+    let mut f = File::open(&found_pth)?;
+    let mut data = String::new();
+    f.read_to_string(&mut data)?;
+    Ok(data)
 }
 
-/// Initialise the `tera` templating engine with templates for a service
+/// Render convenience function that also trims whitespace
 ///
-/// This will add global templates, and service specific templates that will be
-/// globally available (i.e. by filename as the key).
-///
-/// Thus, a `Tera` instance is only suitable for one service at a time.
-pub fn init(service: &str) -> Result<Tera> {
+/// Takes a template to render either in the service folder or the templates folder.
+/// The first takes precendense if it exists.
+pub fn render_file_data(data: String, context: &Context) -> Result<String> {
     let mut tera = Tera::default();
+    tera.add_raw_template("one_off", &data)?;
     tera.autoescape_on(vec!["html"]);
     tera.register_filter("indent", indent);
     tera.register_filter("as_secret", as_secret);
 
-    let services_root = Path::new("."); // NB: this is . or SHIPCAT_MANIFEST_DIR
-    // adding templates from template subfolder first
-    let tdir = Path::new(&services_root).join("templates");
-    add_templates(&mut tera, &tdir, service, 1)?;
-    // then templates from service subfolder (as they override)
-    let sdir = Path::new(&services_root).join("services");
-    add_templates(&mut tera, &sdir, service, 2)?;
-
-    Ok(tera)
-}
-
-/// Render convenience function that also trims whitespace
-pub fn render(tera: &Tera, tmpl: &str, context: &Context) -> Result<String> {
-    let result = tera.render(tmpl, context)?;
+    let result = tera.render("one_off", context)?;
     let mut xs = vec![];
     for l in result.lines() {
         // trim whitespace (mostly to satisfy linters)
         xs.push(l.trim_right());
     }
     Ok(xs.join("\n"))
-}
-
-/// A function that can render templates for a service
-pub type ContextBoundRenderer = Box<Fn(&str, &Context) -> Result<(String)>>;
-
-/// Create a one of boxed template renderer for a service
-///
-/// Use lightly as it invokes a full template scan per creation
-pub fn service_bound_renderer(svc: &str) -> Result<ContextBoundRenderer> {
-    let tera = init(svc)?;
-    Ok(Box::new(move |tmpl, context| {
-        render(&tera, tmpl, context)
-    }))
 }
 
 /// One off template
@@ -131,50 +80,60 @@ pub fn one_off(tpl: &str, ctx: &Context) -> Result<String> {
 
 
 // main helpers for the manifest
-use super::{Config, Manifest};
+use super::{Manifest};
+use super::config::Region;
 impl Manifest {
     // This function defines what variables are available within .j2 templates and evars
-    fn make_template_context(&self, conf: &Config, region: &str) -> Result<Context> {
-        // need regional specifics here
-        if conf.regions.get(region).is_none() {
-            bail!("Unknown region {} in regions in config", region);
-        }
-        let reg = conf.regions[region].clone(); // must exist
+    fn make_template_context(&self, reg: &Region) -> Result<Context> {
         // same context as normal templates + base_urls
         let mut ctx = Context::new();
+
         // not great: pass env & secrets in a single btree for backwards compatibility
         // TODO: switch to a bespoke `secrets` struct in manifests
         let mut full_env = self.env.clone();
         full_env.append(&mut self.secrets.clone());
+
         ctx.insert("env", &full_env);
         ctx.insert("service", &self.name.clone());
-        ctx.insert("region", region);
+        ctx.insert("region", &reg.name.clone());
         ctx.insert("kafka", &self.kafka.clone());
         ctx.insert("base_urls", &reg.base_urls);
         ctx.insert("kong", &reg.kong);
         Ok(ctx)
     }
 
-    /// Inline templates in values
-    pub fn inline_configs(&mut self, conf: &Config, region: &str) -> Result<()> {
-        let svc = self.name.clone();
-        let rdr = service_bound_renderer(&self.name)?;
-        let ctx = self.make_template_context(conf, region)?;
+    /// Read templates from disk and put them into value for ConfigMappedFile
+    pub fn read_configs_files(&mut self) -> Result<()> {
         if let Some(ref mut cfg) = self.configs {
             for f in &mut cfg.files {
-                f.value = Some((rdr)(&f.name, &ctx).map_err(|e| {
-                    // help out interleaved reconciles with service name
-                    error!("{} failed templating: {}", &svc, e);
-                    e
-                })?);
+                f.value = Some(read_template_file(&self.name, &f.name)?);
+            }
+        }
+        Ok(())
+    }
+
+    /// Replace template in values with template result inplace
+    pub fn template_configs(&mut self, reg: &Region) -> Result<()> {
+        let ctx = self.make_template_context(reg)?;
+        if let Some(ref mut cfg) = self.configs {
+            for f in &mut cfg.files {
+                if let Some(ref mut v) = f.value {
+                    let data : String = v.clone();
+                    let svc = self.name.clone();
+                    *v = render_file_data(data, &ctx).chain_err(|| {
+                        ErrorKind::InvalidTemplate(svc)
+                    })?;
+                } else {
+                    bail!("configs must be read first!"); // internal error
+                }
             }
         }
         Ok(())
     }
 
     /// Template evars - must happen before inline templates!
-    pub fn template_evars(&mut self, conf: &Config, region: &str) -> Result<()> {
-        let ctx = self.make_template_context(conf, region)?;
+    pub fn template_evars(&mut self, reg: &Region) -> Result<()> {
+        let ctx = self.make_template_context(reg)?;
         for (_, v) in &mut self.env {
             *v = one_off(v, &ctx)?;
         }

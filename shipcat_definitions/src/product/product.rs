@@ -49,12 +49,12 @@ impl Service {
         }
 
         // specified region must be valid
-        let manifest = Manifest::basic(&self.name, config, None)?;
-        if self.region == "" {
-            bail!("Service {} has no region specified", self.name);
-        } else if !manifest.regions.contains(&self.region) {
-            bail!("Service {} does not exist in region {}", self.name, self.region);
-        }
+        //let manifest = Manifest::raw(&self.name, config.region, None)?;
+        //if self.region == "" {
+        //    bail!("Service {} has no region specified", self.name);
+        //} else if !manifest.regions.contains(&self.region) {
+        //    bail!("Service {} does not exist in region {}", self.name, self.region);
+        //}
 
         // region must service this location
         if !config.regions[&self.region].locations.contains(&location.to_string()) {

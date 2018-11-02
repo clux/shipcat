@@ -1,5 +1,4 @@
-use super::{Result, Config};
-use super::traits::Verify;
+use super::Result;
 
 /// RBAC (Role-Based Access Control)
 ///
@@ -57,8 +56,8 @@ pub enum AllowedVerbs {
     Watch,
 }
 
-impl Verify for Rbac {
-    fn verify(&self, _: &Config) -> Result<()> {
+impl Rbac {
+    pub fn verify(&self) -> Result<()> {
         if self.apiGroups.is_empty() {
             bail!("RBAC needs to have at least one item in apiGroups");
         }

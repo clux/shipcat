@@ -2,8 +2,8 @@
 
 /// Allow normal error handling from structs
 pub use super::Result;
-/// Verify trait gets the Config
-pub use super::Config;
+/// Verify trait gets the Region and Team
+pub use super::{Region, Team};
 /// Verify traits sometimes need to cross reference stuff from other manifests
 pub use super::Manifest;
 
@@ -76,9 +76,6 @@ pub mod security;
 
 mod vault;
 pub use self::vault::VaultOpts;
-
-/// Traits that the structs can implement
-pub mod traits;
 
 /// Cron Jobs
 pub mod cronjob;
