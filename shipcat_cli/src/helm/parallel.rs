@@ -69,7 +69,7 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
 /// NB: This can reconcile lock-step upgraded services at the moment.
 fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, conf: Config, region: Region) -> Result<Option<UpgradeData>> {
     let svc = tmpmf.name;
-    let mut mf = Manifest::completed(&svc, &conf.defaults, &region)?;
+    let mut mf = Manifest::completed(&svc, &conf, &region)?;
 
     // get version running now (to limit race condition with deploys)
     // this query also lets us detect if we have to install or simply upgrade

@@ -750,7 +750,7 @@ pub struct Manifest {
     ///
     /// A manifest goes through different stages of serialization, templating,
     /// config loading, secret injection. This property keeps track of it.
-    #[serde(default, skip_deserializing)]
+    #[serde(default, skip_deserializing, skip_serializing)]
     pub kind: ManifestType,
 }
 
@@ -917,7 +917,7 @@ impl Manifest {
     /// in the `Config`.
     pub fn secrets(&mut self, client: &Vault, vc: &VaultConfig) -> Result<()> {
         let pth = self.get_vault_path(vc);
-        debug!("Injecting secrets from vault {}", pth);
+        debug!("Injecting secrets from vault {} ({:?})", pth, client.mode());
 
         let special = "SHIPCAT_SECRET::".to_string();
         // iterate over key value evars and replace placeholders
@@ -972,7 +972,7 @@ impl Manifest {
         }
 
         // what we have
-        let v = Vault::masked(vc)?; // masked doesn't matter - only listing anyway
+        let v = Vault::regional(vc)?; // only listing anyway
         let secpth = self.get_vault_path(vc);
         let found = v.list(&secpth)?; // can fail if folder is empty
         debug!("Found secrets {:?} for {}", found, self.name);

@@ -1,9 +1,8 @@
-use config::Team;
-use semver::Version;
 use std::collections::BTreeMap;
-use config::{Region, ManifestDefaults};
+use semver::Version;
 
-use super::{Result, Manifest};
+use super::{Region, Manifest, Config, Team};
+use super::{Result};
 use traits::Backend;
 
 /// Static reducers over available manifests
@@ -12,12 +11,12 @@ impl Manifest {
     /// Find the hardcoded versions of services in a region
     ///
     /// Services without a hardcoded version are not returned.
-    pub fn get_versions(region: &Region) -> Result<BTreeMap<String, Version>> {
+    pub fn get_versions(conf: &Config, region: &Region) -> Result<BTreeMap<String, Version>> {
         let services = Manifest::available(&region.name)?;
         let mut output = BTreeMap::new();
 
         for svc in services {
-            let mf = Manifest::base(&svc, &region)?;
+            let mf = Manifest::base(&svc, &conf, &region)?;
             if let Some(v) = mf.version {
                 if let Ok(sv) = Version::parse(&v) {
                     output.insert(svc, sv);
@@ -30,13 +29,13 @@ impl Manifest {
     /// Find the hardcoded images of services in a region
     ///
     /// Services without a hardcoded image will assume the shipcat.conf specific default
-    pub fn get_images(defs: &ManifestDefaults, region: &Region) -> Result<BTreeMap<String, String>> {
+    pub fn get_images(conf: &Config, region: &Region) -> Result<BTreeMap<String, String>> {
         let services = Manifest::available(&region.name)?;
         let mut output = BTreeMap::new();
 
         for svc in services {
             // NB: needs > raw version of manifests because we need image implicits..
-            let mf = Manifest::stubbed(&svc, &defs, &region)?;
+            let mf = Manifest::stubbed(&svc, &conf, &region)?;
             if let Some(i) = mf.image {
                 output.insert(svc, i);
             }
@@ -48,16 +47,16 @@ impl Manifest {
     ///
     /// Cross references config.teams with manifest.metadata.team
     /// Each returned string is Github CODEOWNER syntax
-    pub fn get_codeowners(teams: &[Team], region: &Region) -> Result<Vec<String>> {
+    pub fn get_codeowners(conf: &Config, region: &Region) -> Result<Vec<String>> {
         let services = Manifest::available(&region.name)?;
         let mut output = vec![];
 
         for svc in services {
-            let mf = Manifest::base(&svc, &region)?;
+            let mf = Manifest::base(&svc, &conf, &region)?;
             if let Some(md) = mf.metadata {
                 let mut ghids = vec![];
                 // unwraps guaranteed by validates on Manifest and Config
-                let owners = &teams.iter().find(|t| t.name == md.team).unwrap().owners;
+                let owners = &conf.teams.iter().find(|t| t.name == md.team).unwrap().owners;
                 for o in owners.clone() {
                     ghids.push(format!("@{}", o.github.unwrap()));
                 }
@@ -109,15 +108,15 @@ use super::math::ResourceTotals;
 
 impl Manifest {
     /// Compute resource usage for all available manifests in a region.
-    pub fn resources(teams: &[Team], region: &Region) -> Result<ResourceBreakdown> {
+    pub fn resources(conf: &Config, region: &Region) -> Result<ResourceBreakdown> {
         let services = Manifest::available(&region.name)?;
-        let mut bd = ResourceBreakdown::new(teams.to_vec()); // zero for all the things
+        let mut bd = ResourceBreakdown::new(conf.teams.clone()); // zero for all the things
 
         let mut sum : Resources<f64> = Default::default();
         let mut extra : Resources<f64> = Default::default(); // autoscaling limits
 
         for svc in services {
-            let mf = Manifest::base(&svc, region)?;
+            let mf = Manifest::base(&svc, conf, region)?;
             if let Some(ref md) = mf.metadata {
                 let ResourceTotals { base: sb, extra: se } = mf.compute_resource_totals()?;
                 sum += sb.clone();

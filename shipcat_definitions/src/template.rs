@@ -33,13 +33,13 @@ fn read_template_file(svc: &str, tmpl: &str) -> Result<String> {
     let pth = Path::new(".").join("services").join(svc).join(tmpl);
     let gpth = Path::new(".").join("templates").join(tmpl);
     let found_pth = if pth.exists() {
-        trace!("Using template in {}", pth.display());
+        debug!("Reading template in {}", pth.display());
         pth
     } else {
         if !gpth.exists() {
             bail!("Template {} does not exist in neither {} nor {}", tmpl, pth.display(), gpth.display());
         }
-        trace!("Using template in {}", gpth.display());
+        debug!("Reading template in {}", gpth.display());
         gpth
     };
     // read the template - should work now
@@ -124,7 +124,7 @@ impl Manifest {
                         ErrorKind::InvalidTemplate(svc)
                     })?;
                 } else {
-                    bail!("configs must be read first!"); // internal error
+                    bail!("configs must be read first - missing {}", f.name); // internal error
                 }
             }
         }

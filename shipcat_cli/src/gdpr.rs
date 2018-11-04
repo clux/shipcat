@@ -15,9 +15,9 @@ struct GdprOutput {
 /// Show GDPR related info for a service
 ///
 /// Prints the cascaded structs from a manifests `dataHandling`
-pub fn show(svc: Option<String>, _: &Config, region: &Region) -> Result<()> {
+pub fn show(svc: Option<String>, conf: &Config, region: &Region) -> Result<()> {
     let out = if let Some(s) = svc {
-        let mf = Manifest::base(&s, region)?;
+        let mf = Manifest::base(&s, conf, region)?;
         let data = if let Some(mut dh) = mf.dataHandling {
                 dh.implicits();
                 dh
@@ -29,7 +29,7 @@ pub fn show(svc: Option<String>, _: &Config, region: &Region) -> Result<()> {
         let mut mappings = BTreeMap::new();
         let mut services = vec![];
         for s in Manifest::available(&region.name)? {
-            let mf = Manifest::base(&s, region)?;
+            let mf = Manifest::base(&s, conf, region)?;
             if let Some(mut dh) = mf.dataHandling {
                 dh.implicits();
                 mappings.insert(s.clone(), dh);

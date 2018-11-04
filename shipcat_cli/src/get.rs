@@ -7,20 +7,20 @@ use super::{Result, Manifest, Config, Backend, Region};
 // ----------------------------------------------------------------------------
 // Reducers from manifest::reducers
 
-pub fn versions(region: &Region) -> Result<()> {
-    let output = Manifest::get_versions(region)?;
+pub fn versions(conf: &Config, region: &Region) -> Result<()> {
+    let output = Manifest::get_versions(conf, region)?;
     print!("{}\n", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
 
 pub fn images(conf: &Config, region: &Region) -> Result<()> {
-    let output = Manifest::get_images(&conf.defaults, region)?;
+    let output = Manifest::get_images(conf, region)?;
     print!("{}\n", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
 
 pub fn codeowners(conf: &Config, region: &Region) -> Result<()> {
-    let output = Manifest::get_codeowners(&conf.teams, region)?.join("\n");
+    let output = Manifest::get_codeowners(conf, region)?.join("\n");
     print!("{}\n", output);
     Ok(())
 }
@@ -112,7 +112,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
 
     // Get API Info from Manifests
     for svc in Manifest::available(&reg.name)? {
-        let mf = Manifest::stubbed(&svc, &conf.defaults, &reg)?;
+        let mf = Manifest::stubbed(&svc, &conf, &reg)?;
         if let Some(k) = mf.kong {
             services.insert(svc, APIServiceParams {
                 uris: k.uris.unwrap_or("".into()),
@@ -144,7 +144,7 @@ use shipcat_definitions::ResourceBreakdown;
 
 /// Resource use for a single region
 pub fn resources(conf: &Config, region: &Region) -> Result<()> {
-    let bd = Manifest::resources(&conf.teams, region)?.normalise();
+    let bd = Manifest::resources(&conf, region)?.normalise();
     println!("{}", serde_json::to_string_pretty(&bd)?);
     Ok(())
 }
@@ -154,7 +154,7 @@ pub fn totalresources(conf: &Config) -> Result<()> {
     let mut bd = ResourceBreakdown::new(conf.teams.clone()); // zero for all the things
     for r in conf.list_regions() {
         let (_, reg) = conf.get_region(&r)?;
-        let res = Manifest::resources(&conf.teams, &reg)?;
+        let res = Manifest::resources(&conf, &reg)?;
         bd.totals.base += res.totals.base;
         bd.totals.extra += res.totals.extra;
         for t in &conf.teams {

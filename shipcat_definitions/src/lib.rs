@@ -86,7 +86,7 @@ error_chain! {
 
 /// Master config for manifests repositories
 pub mod config;
-pub use config::{Config, Region, Team, VaultConfig, VersionScheme};
+pub use config::{Config, Region, Team, VaultConfig, VersionScheme, ManifestDefaults};
 
 
 /// Structs for the manifest

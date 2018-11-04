@@ -23,7 +23,7 @@ fn mass_helm(conf: &Config, region: &Region, umode: UpgradeMode, n_workers: usiz
     let mut svcs = vec![];
     for svc in Manifest::available(&region.name)? {
         debug!("Scanning service {:?}", svc);
-        svcs.push(Manifest::base(&svc, &region)?);
+        svcs.push(Manifest::base(&svc, conf, region)?);
     }
     helm::parallel::reconcile(svcs, conf, region, umode, n_workers)
 }

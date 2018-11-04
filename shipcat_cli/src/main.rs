@@ -411,7 +411,7 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
 
         let region = resolve_region(a, conf)?;
         if let Some(_) = a.subcommand_matches("versions") {
-            return shipcat::get::versions(&region);
+            return shipcat::get::versions(&conf, &region);
         }
         if let Some(_) = a.subcommand_matches("images") {
             return shipcat::get::images(&conf, &region);
@@ -470,15 +470,16 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
         let dot = a.is_present("dot");
         let region = resolve_region(a, conf)?;
         return if let Some(svc) = a.value_of("service") {
-            shipcat::graph::generate(svc, &region, dot).map(void)
+            shipcat::graph::generate(svc, &conf, &region, dot).map(void)
         } else {
-            shipcat::graph::full(dot, &region).map(void)
+            shipcat::graph::full(dot, &conf, &region).map(void)
         };
     }
 
     // helm dispatch
 
     // definitely need kube context from this point
+    // TODO: prevent double read further down - shadowed
     let mut region = resolve_region(args, conf)?; // sanity matchup with shipcat.conf
 
     // Read and validate shipcat.conf
@@ -501,14 +502,14 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
     }
     if let Some(a) = args.subcommand_matches("values") {
         let svc = a.value_of("service").map(String::from).unwrap();
+        let mut region = resolve_region(a, conf)?;
         if a.is_present("secrets") {
             region.secrets()?;
         }
-        let region = resolve_region(a, conf)?;
         let mf = if a.is_present("secrets") {
-            Manifest::completed(&svc, &conf.defaults, &region)?
+            Manifest::completed(&svc, &conf, &region)?
         } else {
-            Manifest::stubbed(&svc, &conf.defaults, &region)?
+            Manifest::stubbed(&svc, &conf, &region)?
         };
         mf.print()?;
         return Ok(());
@@ -641,19 +642,19 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
             None
         };
         let region = resolve_region(a, conf)?;
-        let mf = Manifest::stubbed(service, &conf.defaults, &region)?;
+        let mf = Manifest::stubbed(service, &conf, &region)?;
         return shipcat::kube::shell(&mf, pod, cmd);
     }
 
     if let Some(a) = args.subcommand_matches("port-forward") {
         let service = a.value_of("service").unwrap();
-        let mf = Manifest::stubbed(service, &conf.defaults, &region)?;
+        let mf = Manifest::stubbed(service, &conf, &region)?;
         return shipcat::kube::port_forward(&mf);
     }
 
     if let Some(a) = args.subcommand_matches("debug") {
         let service = a.value_of("service").unwrap();
-        let mf = Manifest::stubbed(service, &conf.defaults, &region)?;
+        let mf = Manifest::stubbed(service, &conf, &region)?;
         return shipcat::kube::debug(&mf);
     }
 
@@ -683,7 +684,7 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
         let link = a.value_of("url").map(String::from);
         let color = a.value_of("color").map(String::from);
         let metadata = if let Some(svc) = a.value_of("service") {
-            Manifest::stubbed(svc, &conf.defaults, &region)?.metadata
+            Manifest::stubbed(svc, &conf, &region)?.metadata
         } else {
             None
         };
