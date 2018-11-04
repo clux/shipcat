@@ -17,7 +17,7 @@ impl Manifest {
         let mut output = BTreeMap::new();
 
         for svc in services {
-            let mf = Manifest::raw(&svc, &region)?;
+            let mf = Manifest::base(&svc, &region)?;
             if let Some(v) = mf.version {
                 if let Ok(sv) = Version::parse(&v) {
                     output.insert(svc, sv);
@@ -53,7 +53,7 @@ impl Manifest {
         let mut output = vec![];
 
         for svc in services {
-            let mf = Manifest::raw(&svc, &region)?;
+            let mf = Manifest::base(&svc, &region)?;
             if let Some(md) = mf.metadata {
                 let mut ghids = vec![];
                 // unwraps guaranteed by validates on Manifest and Config
@@ -117,7 +117,7 @@ impl Manifest {
         let mut extra : Resources<f64> = Default::default(); // autoscaling limits
 
         for svc in services {
-            let mf = Manifest::raw(&svc, region)?;
+            let mf = Manifest::base(&svc, region)?;
             if let Some(ref md) = mf.metadata {
                 let ResourceTotals { base: sb, extra: se } = mf.compute_resource_totals()?;
                 sum += sb.clone();

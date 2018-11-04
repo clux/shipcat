@@ -69,6 +69,10 @@ error_chain! {
             description("invalid template")
             display("service '{}' has invalid templates", svc)
         }
+        InvalidManifest(svc: String) {
+            description("manifest does not validate")
+            display("manifest for {} does not validate", &svc)
+        }
         InvalidSecretForm(key: String) {
             description("secret is of incorrect form")
             display("secret '{}' not have the 'value' key", &key)

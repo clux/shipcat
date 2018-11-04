@@ -1,10 +1,10 @@
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::dot;
-use serde_yaml;
-
-use super::structs::{Dependency, DependencyProtocol};
 use std::fmt::{self, Debug};
-use super::{Manifest, Result, Config};
+
+use super::{Manifest, Backend, Region};
+use super::structs::{Dependency, DependencyProtocol};
+use super::{Result};
 
 /// The node type in `CatGraph` representing a `Manifest`
 #[derive(Serialize, Deserialize, Clone)]
@@ -39,7 +39,7 @@ pub struct DepEdge {
 impl DepEdge {
     fn new(dep: &Dependency) -> Self {
         DepEdge {
-            api: dep.api.clone().unwrap(),
+            api: dep.api.clone(),
             contract: dep.contract.clone(),
             protocol: dep.protocol.clone(),
             intent: dep.intent.clone(),
@@ -69,7 +69,7 @@ pub fn nodeidx_from_name(name: &str, graph: &CatGraph) -> Option<NodeIndex> {
     None
 }
 
-fn recurse_manifest(idx: NodeIndex, mf: &Manifest, conf: &Config, graph: &mut CatGraph, reg: &str) -> Result<()> {
+fn recurse_manifest(idx: NodeIndex, mf: &Manifest, reg: &Region, graph: &mut CatGraph) -> Result<()> {
     for dep in &mf.dependencies {
         debug!("Recursing into {}", dep.name);
         // skip if node exists to avoid infinite loop
@@ -80,27 +80,27 @@ fn recurse_manifest(idx: NodeIndex, mf: &Manifest, conf: &Config, graph: &mut Ca
             continue;
         }
 
-        let depmf = Manifest::stubbed(&dep.name, conf, reg)?;
+        let depmf = Manifest::base(&dep.name, reg)?;
 
         let depnode = ManifestNode::new(&depmf);
         let depidx = graph.add_node(depnode);
 
         graph.update_edge(idx, depidx, DepEdge::new(&dep));
-        recurse_manifest(depidx, &depmf, conf, graph, reg)?;
+        recurse_manifest(depidx, &depmf, reg, graph)?;
     }
 
     Ok(())
 }
 
 /// Generate dependency graph from an entry point via recursion
-pub fn generate(service: &str, conf: &Config, dot: bool, reg: &str) -> Result<CatGraph> {
-    let base = Manifest::stubbed(service, conf, &reg)?;
+pub fn generate(service: &str, reg: &Region, dot: bool) -> Result<CatGraph> {
+    let base = Manifest::base(service, reg)?;
 
     let mut graph : CatGraph = DiGraph::<_, _>::new();
     let node = ManifestNode::new(&base);
     let baseidx = graph.add_node(node);
 
-    recurse_manifest(baseidx, &base, conf, &mut graph, reg)?;
+    recurse_manifest(baseidx, &base, reg, &mut graph)?;
 
     let out = if dot {
         format!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel]))
@@ -118,13 +118,13 @@ pub fn generate(service: &str, conf: &Config, dot: bool, reg: &str) -> Result<Ca
 /// one or more services as we could also show grahps reaching into the ecosystem.
 ///
 /// But it would require: TODO: optionally filter edges around node(s)
-pub fn full(dot: bool, conf: &Config, reg: &str) -> Result<CatGraph> {
+pub fn full(dot: bool, reg: &Region) -> Result<CatGraph> {
     let mut graph : CatGraph = DiGraph::<_, _>::new();
-    let services = Manifest::available()?;
+    let services = Manifest::available(&reg.name)?;
     for svc in services {
         debug!("Scanning service {:?}", svc);
 
-        let mf = Manifest::stubbed(&svc, conf, reg)?;
+        let mf = Manifest::base(&svc, reg)?;
         let node = ManifestNode::new(&mf);
         let idx = graph.add_node(node);
 
@@ -134,7 +134,7 @@ pub fn full(dot: bool, conf: &Config, reg: &str) -> Result<CatGraph> {
                 id
             } else {
                 trace!("Found dependency new in graph: {}", dep.name);
-                let depmf = Manifest::stubbed(&dep.name, conf, &reg)?;
+                let depmf = Manifest::base(&dep.name, &reg)?;
                 let depnode = ManifestNode::new(&depmf);
                 let depidx = graph.add_node(depnode);
                 depidx

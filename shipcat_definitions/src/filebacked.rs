@@ -1,11 +1,11 @@
-use config::{Region, ManifestDefaults};
+use config::{Config, Region, ManifestDefaults};
 use walkdir::WalkDir;
 
 use std::io::prelude::*;
 use std::path::{PathBuf, Path};
 use std::fs::File;
 use super::vault::Vault;
-use super::{Result, Manifest, ManifestType};
+use super::{Result, ResultExt, ErrorKind, Manifest, ManifestType};
 use traits::Backend;
 
 /// Private helpers for a filebacked Manifest Backend
@@ -25,8 +25,7 @@ impl Manifest {
 
 
     /// Fill in env overrides and apply merge rules
-    /// TODO: make private (fix validate)
-    pub fn fill(&mut self, defaults: &ManifestDefaults, region: &Region) -> Result<()> {
+    fn fill(&mut self, defaults: &ManifestDefaults, region: &Region) -> Result<()> {
         // merge service specific env overrides if they exists
         let envlocals = Path::new(".")
             .join("services")
@@ -75,30 +74,6 @@ impl Manifest {
         //self.add_region_implicits(region)?; (if option is Some)
         Ok(mf)
     }
-
-    /// Upgrade a Raw manifest to either a Complete or a Stubbed one
-    ///
-    /// TODO: make part of trait?
-    fn upgrade(&mut self, defs: &ManifestDefaults, reg: &Region, kind: ManifestType) -> Result<()> {
-        assert_eq!(self.kind, ManifestType::RawData); // sanity
-        let v = match kind {
-            ManifestType::Completed => Vault::regional(&reg.vault)?,
-            ManifestType::Stubbed => Vault::mocked(&reg.vault)?,
-            _ => bail!("Can only upgrade a RawData manifest to Completed or Stubbed"),
-        };
-        self.fill(defs, reg)?;
-        // replace one-off templates in evar strings with values
-        // note that this happens before secrets because:
-        // secrets may be injected at this step from the Region
-        self.template_evars(reg)?;
-        // secrets before configs (.j2 template files use raw secret values)
-        self.secrets(&v, &reg.vault)?;
-
-        // templates last
-        self.template_configs(reg)?;
-        self.kind = kind;
-        Ok(())
-    }
 }
 
 
@@ -121,7 +96,7 @@ impl Backend for Manifest {
             let svccomp = cmps.next().unwrap();
             let svcname = svccomp.as_os_str().to_str().unwrap();
             let mf = Manifest::blank(svcname)?;
-            if mf.regions.contains(&region.to_string()) {
+            if mf.regions.contains(&region.to_string()) && !mf.disabled && !mf.external {
                 xs.push(svcname.into());
             }
         }
@@ -130,12 +105,12 @@ impl Backend for Manifest {
     }
 
     fn completed(service: &str, defs: &ManifestDefaults, reg: &Region) -> Result<Manifest> {
-        let mut mf = Manifest::raw(service, reg)?;
+        let mut mf = Manifest::base(service, reg)?;
         mf.upgrade(defs, reg, ManifestType::Completed)?;
         Ok(mf)
     }
 
-    fn raw(service: &str, reg: &Region) -> Result<Manifest> {
+    fn base(service: &str, reg: &Region) -> Result<Manifest> {
         let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
@@ -147,14 +122,55 @@ impl Backend for Manifest {
         // TODO: read template files + fill only!
         // fill defaults and merge regions before extracting secrets
         mf.read_configs_files()?;
-        mf.kind = ManifestType::RawData;
+        mf.kind = ManifestType::Base;
 
         Ok(mf)
     }
 
     fn stubbed(service: &str, defs: &ManifestDefaults, reg: &Region) -> Result<Manifest> {
-        let mut mf = Manifest::raw(service, reg)?;
+        let mut mf = Manifest::base(service, reg)?;
         mf.upgrade(defs, reg, ManifestType::Stubbed)?;
         Ok(mf)
+    }
+
+    /// Upgrade a `Base` manifest to either a Complete or a Stubbed one
+    fn upgrade(&mut self, defs: &ManifestDefaults, reg: &Region, kind: ManifestType) -> Result<()> {
+        assert_eq!(self.kind, ManifestType::Base); // sanity
+        let v = match kind {
+            ManifestType::Completed => Vault::regional(&reg.vault)?,
+            ManifestType::Stubbed => Vault::mocked(&reg.vault)?,
+            _ => bail!("Can only upgrade a Base manifest to Completed or Stubbed"),
+        };
+        self.fill(defs, reg)?;
+        // replace one-off templates in evar strings with values
+        // note that this happens before secrets because:
+        // secrets may be injected at this step from the Region
+        self.template_evars(reg)?;
+        // secrets before configs (.j2 template files use raw secret values)
+        self.secrets(&v, &reg.vault)?;
+
+        // templates last
+        self.template_configs(reg)?;
+        self.kind = kind;
+        Ok(())
+    }
+
+    /// Verifying a manifest in the filesystem
+    ///
+    /// Needs to account for the manifest being external/disabled, then secrets.
+    fn validate(svc: &str, conf: &Config, region: &Region, secrets: bool) -> Result<()> {
+        let bm = Manifest::blank(svc)?;
+
+        if bm.regions.contains(&region.name) && !bm.disabled && !bm.external {
+            let mf = if secrets {
+                Manifest::completed(&svc, &conf.defaults, &region)?
+            } else {
+                Manifest::stubbed(&svc, &conf.defaults, &region)?
+            };
+            mf.verify(conf, region).chain_err(|| ErrorKind::InvalidManifest(mf.name))?;
+        } else {
+            bail!("{} is not configured to be deployed in {}", svc, region.name);
+        }
+        Ok(())
     }
 }

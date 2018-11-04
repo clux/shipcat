@@ -1,4 +1,4 @@
-use config::{Team, Region, VaultConfig};
+use config::{Config, VaultConfig, Region};
 use vault::Vault;
 use std::collections::BTreeMap;
 use regex::Regex;
@@ -34,7 +34,7 @@ pub enum ManifestType {
     ///
     /// This is the `shipcat values -s` equivalent of a manifest.
     ///
-    /// A `RawData` Manifest can become a `Completed` Manifest by:
+    /// A `Base` Manifest can become a `Completed` Manifest by:
     /// - filling in global defaults
     /// - evaluating secrets
     /// - templating evars
@@ -51,7 +51,7 @@ pub enum ManifestType {
     /// This is the `shipcat values` equivalent of a manifest.
     Stubbed,
 
-    /// The RawData manifest
+    /// The Base manifest
     ///
     /// This should be mostly useful internally, and inspecteable on kube, i.e.:
     /// - templates left in template form
@@ -61,7 +61,7 @@ pub enum ManifestType {
     /// This is the CRD equivalent of a manifest.
     /// It's important that the CRD equivalent abstracts away config files, but not secrets.
     /// Thus files have to be read, and not templated for this, then shipped off to kube.
-    RawData,
+    Base,
 
     /// A Manifest File
     ///
@@ -69,6 +69,9 @@ pub enum ManifestType {
     SingleFile,
 }
 
+/// Default is the useless type to force constructors into chosing.
+///
+/// Because serde default is set, this is the correct choice when reading from disk.
 impl Default for ManifestType {
     fn default() -> Self {
         ManifestType::SingleFile
@@ -769,8 +772,11 @@ impl Manifest {
     /// Verify assumptions about manifest
     ///
     /// Assumes the manifest has been populated with `implicits`
-    pub fn verify(&self, teams: &[Team], region: &Region) -> Result<()> {
+    pub fn verify(&self, conf: &Config, region: &Region) -> Result<()> {
         assert!(self.region != ""); // needs to have been set by implicits!
+        if !self.regions.contains(&self.region.to_string()) {
+            bail!("Unsupported region {} for service {}", self.region, self.name);
+        }
         // limit to 50 characters, alphanumeric, dashes for sanity.
         // 63 is kube dns limit (13 char suffix buffer)
         let re = Regex::new(r"^[0-9a-z\-]{1,50}$").unwrap();
@@ -786,7 +792,7 @@ impl Manifest {
         } // TODO: mandatory for later environments!
 
         if let Some(ref md) = self.metadata {
-            md.verify(teams)?;
+            md.verify(&conf.teams)?;
         } else {
             bail!("Missing metadata for {}", self.name);
         }
@@ -863,10 +869,6 @@ impl Manifest {
         }
         if self.namespace == "" {
             bail!("namespace must be set at this point");
-        }
-
-        if !self.regions.contains(&self.region.to_string()) {
-            bail!("Unsupported region {} for service {}", self.region, self.name);
         }
         if self.regions.is_empty() {
             bail!("No regions specified for {}", self.name);

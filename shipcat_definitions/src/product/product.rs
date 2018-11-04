@@ -57,10 +57,10 @@ impl Service {
         //}
 
         // region must service this location
-        if !config.regions[&self.region].locations.contains(&location.to_string()) {
-            bail!("Service {} uses region {}, which is not available in location {}",
-                self.name, self.region, location);
-        }
+        //if !config.regions[&self.region].locations.contains(&location.to_string()) {
+        //    bail!("Service {} uses region {}, which is not available in location {}",
+        //        self.name, self.region, location);
+        //}
 
         Ok(())
     }

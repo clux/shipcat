@@ -104,10 +104,6 @@ error_chain! {
             description("Manifest key not propagated correctly internally")
             display("manifest key {} was not propagated internally - bug!", &key)
         }
-        ManifestVerifyFailure(svc: String) {
-            description("manifest does not validate")
-            display("manifest for {} does not validate", &svc)
-        }
         HelmUpgradeFailure(svc: String) {
             description("Helm upgrade call failed")
             display("Helm upgrade of {} failed", &svc)
@@ -124,10 +120,10 @@ error_chain! {
 }
 
 extern crate shipcat_definitions;
-pub use shipcat_definitions::{Manifest, Product};
+pub use shipcat_definitions::{Manifest, ManifestType, Backend};
 pub use shipcat_definitions::structs;
-pub use shipcat_definitions::config::{self, Config, VersionScheme};
-
+pub use shipcat_definitions::config::{self, Config, Region, VersionScheme};
+pub use shipcat_definitions::Product;
 
 /// Convenience listers
 pub mod list;

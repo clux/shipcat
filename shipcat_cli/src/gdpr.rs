@@ -1,9 +1,8 @@
-use shipcat_definitions::config::{Region, ManifestDefaults};
-use shipcat_definitions::Backend;
+use super::{Manifest, Config, Backend, Region};
 use std::collections::BTreeMap;
 
 use super::structs::security::DataHandling;
-use super::{Manifest, Result};
+use super::{Result};
 
 /// GdprOutput across manifests
 #[derive(Serialize)]
@@ -16,18 +15,23 @@ struct GdprOutput {
 /// Show GDPR related info for a service
 ///
 /// Prints the cascaded structs from a manifests `dataHandling`
-pub fn show(svc: Option<String>, defs: &ManifestDefaults, region: &Region) -> Result<()> {
+pub fn show(svc: Option<String>, _: &Config, region: &Region) -> Result<()> {
     let out = if let Some(s) = svc {
-        let mf = Manifest::raw(&s, region)?;
-        serde_yaml::to_string(&mf.dataHandling.unwrap_or_else(|| DataHandling::default()))?
+        let mf = Manifest::base(&s, region)?;
+        let data = if let Some(mut dh) = mf.dataHandling {
+                dh.implicits();
+                dh
+        } else {
+            DataHandling::default()
+        };
+        serde_yaml::to_string(&data)?
     } else {
         let mut mappings = BTreeMap::new();
         let mut services = vec![];
         for s in Manifest::available(&region.name)? {
-            // NB: this needs stubbed over raw because it needs dathandling implicits!
-            let mf = Manifest::stubbed(&s, defs, region)?;
-            // only include the entries that have it specified
-            if let Some(dh) = mf.dataHandling {
+            let mf = Manifest::base(&s, region)?;
+            if let Some(mut dh) = mf.dataHandling {
+                dh.implicits();
                 mappings.insert(s.clone(), dh);
             }
             services.push(s);
