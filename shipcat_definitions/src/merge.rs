@@ -19,24 +19,20 @@ impl Manifest {
         if let Some(ref mut kong) = self.kong {
             kong.implicits(self.name.clone(), reg.clone(), self.hosts.clone());
         }
-
         if let Some(ref mut kafka) = self.kafka {
             kafka.implicits(&self.name, reg.clone())
         }
+        // ignoring dataHandling implicits for now - only used by gdpr cli cmd
+        //if let Some(ref mut dh) = self.dataHandling {
+        //    // dataHandling has cascading encryption values
+        //    dh.implicits();
+        //}
+
         // Inject the region's environment name and namespace
         self.environment = reg.environment.clone();
         self.namespace = reg.namespace.clone();
         self.region = reg.name.clone();
 
-        Ok(())
-    }
-
-    /// Populate special case structs after merges
-    pub fn add_struct_implicits(&mut self) -> Result<()> {
-        if let Some(ref mut dh) = self.dataHandling {
-            // dataHandling has cascading encryption values
-            dh.implicits();
-        }
         Ok(())
     }
 

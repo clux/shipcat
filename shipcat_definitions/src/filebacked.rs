@@ -49,7 +49,6 @@ impl Manifest {
             self.merge(other)?;
         }
         self.add_config_defaults(&defaults)?;
-        self.add_struct_implicits()?;
         self.add_region_implicits(region)?;
         Ok(())
     }
