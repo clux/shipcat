@@ -14,7 +14,8 @@ use shipcat::graph::{generate, nodeidx_from_name};
 fn graph_generate() {
     setup();
     let conf = Config::read().unwrap();
-    let graph = generate("fake-ask", &conf, true, "dev-uk").unwrap();
+    let (_, region) = conf.get_region("dev-uk").unwrap();
+    let graph = generate("fake-ask", &conf, &region, true).unwrap();
     assert!(graph.edge_count() > 0);
     print!("got struct: \n{:?}\n", serde_yaml::to_string(&graph));
     let askidx = nodeidx_from_name("fake-ask", &graph).unwrap();
