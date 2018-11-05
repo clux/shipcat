@@ -19,7 +19,6 @@ pub fn show(svc: Option<String>, conf: &Config, region: &Region) -> Result<()> {
     let out = if let Some(s) = svc {
         let mf = Manifest::base(&s, conf, region)?;
         let data = if let Some(mut dh) = mf.dataHandling {
-                dh.implicits();
                 dh
         } else {
             DataHandling::default()
@@ -31,7 +30,6 @@ pub fn show(svc: Option<String>, conf: &Config, region: &Region) -> Result<()> {
         for s in Manifest::available(&region.name)? {
             let mf = Manifest::base(&s, conf, region)?;
             if let Some(mut dh) = mf.dataHandling {
-                dh.implicits();
                 mappings.insert(s.clone(), dh);
             }
             services.push(s);

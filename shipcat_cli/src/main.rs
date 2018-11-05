@@ -494,10 +494,10 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
     if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
         // this only needs a kube context if you don't specify it
+        let mut region = resolve_region(a, conf)?;
         if a.is_present("secrets") {
             region.secrets()?;
         }
-        let region = resolve_region(a, conf)?;
         return shipcat::validate::manifest(services, &conf, &region, a.is_present("secrets"));
     }
     if let Some(a) = args.subcommand_matches("values") {

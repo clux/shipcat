@@ -22,11 +22,10 @@ impl Manifest {
         if let Some(ref mut kafka) = self.kafka {
             kafka.implicits(&self.name, reg.clone())
         }
-        // ignoring dataHandling implicits for now - only used by gdpr cli cmd
-        //if let Some(ref mut dh) = self.dataHandling {
-        //    // dataHandling has cascading encryption values
-        //    dh.implicits();
-        //}
+        if let Some(ref mut dh) = self.dataHandling {
+            // dataHandling has cascading encryption values
+            dh.implicits();
+        }
 
         // Inject the region's environment name and namespace
         self.environment = reg.environment.clone();

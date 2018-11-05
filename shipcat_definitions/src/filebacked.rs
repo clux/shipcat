@@ -58,7 +58,7 @@ fn walk_services() -> Vec<String> {
     let svcsdir = Path::new(".").join("services");
     let mut res : Vec<_> = WalkDir::new(&svcsdir)
         .min_depth(1)
-        .min_depth(1)
+        .max_depth(1)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_dir())
