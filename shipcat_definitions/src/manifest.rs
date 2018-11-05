@@ -63,6 +63,13 @@ pub enum ManifestType {
     /// Thus files have to be read, and not templated for this, then shipped off to kube.
     Base,
 
+    /// A Simplified manifest
+    ///
+    /// Equivalent to a Base manifest but no configs read.
+    /// This is faster to retrieve from disk.
+    /// This type CANNOT be upgraded to Stubbed/Completed.
+    Simple,
+
     /// A Manifest File
     ///
     /// This is an unmerged file, and should not be used for anything except merging.
@@ -142,6 +149,23 @@ pub struct Manifest {
     #[serde(default, skip_serializing)]
     pub regions: Vec<String>,
 
+    /// Important contacts and other metadata for the service
+    ///
+    /// Particular uses:
+    /// - notifying correct people on upgrades via slack
+    /// - providing direct links to code diffs on upgrades in slack
+    ///
+    /// ```yaml
+    /// metadata:
+    ///   contacts:
+    ///   - name: "Eirik"
+    ///     slack: "@clux"
+    ///   team: Doves
+    ///   repo: https://github.com/clux/blog
+    /// ```
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<Metadata>,
+
     // ------------------------------------------------------------------------
     // Regular mergeable properties
     //
@@ -210,24 +234,6 @@ pub struct Manifest {
     /// ```
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub command: Vec<String>,
-
-
-    /// Important contacts and other metadata for the service
-    ///
-    /// Particular uses:
-    /// - notifying correct people on upgrades via slack
-    /// - providing direct links to code diffs on upgrades in slack
-    ///
-    /// ```yaml
-    /// metadata:
-    ///   contacts:
-    ///   - name: "Eirik"
-    ///     slack: "@clux"
-    ///   team: Doves
-    ///   repo: https://github.com/clux/blog
-    /// ```
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<Metadata>,
 
     /// Data sources and handling strategies
     ///

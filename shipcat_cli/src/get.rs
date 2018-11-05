@@ -19,8 +19,8 @@ pub fn images(conf: &Config, region: &Region) -> Result<()> {
     Ok(())
 }
 
-pub fn codeowners(conf: &Config, region: &Region) -> Result<()> {
-    let output = Manifest::get_codeowners(conf, region)?.join("\n");
+pub fn codeowners(conf: &Config) -> Result<()> {
+    let output = Manifest::get_codeowners(conf)?.join("\n");
     print!("{}\n", output);
     Ok(())
 }
@@ -112,7 +112,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
 
     // Get API Info from Manifests
     for svc in Manifest::available(&reg.name)? {
-        let mf = Manifest::stubbed(&svc, &conf, &reg)?;
+        let mf = Manifest::simple(&svc, &conf, &reg)?;
         if let Some(k) = mf.kong {
             services.insert(svc, APIServiceParams {
                 uris: k.uris.unwrap_or("".into()),

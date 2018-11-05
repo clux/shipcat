@@ -16,7 +16,7 @@ impl Manifest {
         let mut output = BTreeMap::new();
 
         for svc in services {
-            let mf = Manifest::base(&svc, &conf, &region)?;
+            let mf = Manifest::simple(&svc, &conf, &region)?;
             if let Some(v) = mf.version {
                 if let Ok(sv) = Version::parse(&v) {
                     output.insert(svc, sv);
@@ -35,7 +35,7 @@ impl Manifest {
 
         for svc in services {
             // NB: needs > raw version of manifests because we need image implicits..
-            let mf = Manifest::stubbed(&svc, &conf, &region)?;
+            let mf = Manifest::simple(&svc, &conf, &region)?;
             if let Some(i) = mf.image {
                 output.insert(svc, i);
             }
@@ -47,12 +47,13 @@ impl Manifest {
     ///
     /// Cross references config.teams with manifest.metadata.team
     /// Each returned string is Github CODEOWNER syntax
-    pub fn get_codeowners(conf: &Config, region: &Region) -> Result<Vec<String>> {
-        let services = Manifest::available(&region.name)?;
+    pub fn get_codeowners(conf: &Config) -> Result<Vec<String>> {
+        let services = Manifest::all()?;
         let mut output = vec![];
 
         for svc in services {
-            let mf = Manifest::base(&svc, &conf, &region)?;
+            // Can rely on blank here because metadata is a global property
+            let mf = Manifest::blank(&svc)?;
             if let Some(md) = mf.metadata {
                 let mut ghids = vec![];
                 // unwraps guaranteed by validates on Manifest and Config

@@ -80,6 +80,9 @@ impl Manifest {
             // these cannot be overridden - it's a service type property
             bail!("Regions must only be defined in the main shipcat.yml file");
         }
+        if mf.metadata.is_some() {
+            bail!("metadata can only live in the main shipcat.yml")
+        }
         //if self.version.is_some() {
         //    debug!("{} locks versions across all environments in shipcat.yml", self.name);
         //}
@@ -109,9 +112,6 @@ impl Manifest {
         }
         if mf.version.is_some() {
             self.version = mf.version;
-        }
-        if mf.metadata.is_some() {
-            self.metadata = mf.metadata;
         }
         if mf.dataHandling.is_some() {
             self.dataHandling = mf.dataHandling;

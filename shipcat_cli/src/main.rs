@@ -417,7 +417,7 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
             return shipcat::get::images(&conf, &region);
         }
         if let Some(_) = a.subcommand_matches("codeowners") {
-            return shipcat::get::codeowners(&conf, &region);
+            return shipcat::get::codeowners(&conf);
         }
         if let Some(_) = a.subcommand_matches("apistatus") {
             return shipcat::get::apistatus(&conf, &region);

@@ -53,10 +53,50 @@ impl Manifest {
         self.add_region_implicits(region)?;
         Ok(())
     }
+}
+
+fn walk_services() -> Vec<String> {
+    let svcsdir = Path::new(".").join("services");
+    let mut res : Vec<_> = WalkDir::new(&svcsdir)
+        .min_depth(1)
+        .min_depth(1)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_dir())
+        .map(|e| {
+            let mut cmps = e.path().components();
+            cmps.next(); // .
+            cmps.next(); // services
+            let svccomp = cmps.next().unwrap();
+            let svcname = svccomp.as_os_str().to_str().unwrap();
+            svcname.to_string()
+        })
+        .collect();
+    res.sort();
+    res
+}
+
+/// Manifests backed by a manifests directory traverse the filesystem for discovery
+impl Backend for Manifest {
+    fn available(region: &str) -> Result<Vec<String>> {
+        let mut xs = vec![];
+        for svc in walk_services() {
+            let mf = Manifest::blank(&svc)?;
+            if mf.regions.contains(&region.to_string()) && !mf.disabled && !mf.external {
+                xs.push(svc);
+            }
+        }
+        Ok(xs)
+    }
+
+    fn all() -> Result<Vec<String>> {
+        Ok(walk_services())
+    }
+
 
     /// A super base manifest - from an unknown region
     ///
-    /// Can be used to read global Manifest values only.
+    /// Can be used to read global Manifest values onlys
     fn blank(service: &str) -> Result<Manifest> {
         let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
@@ -66,59 +106,22 @@ impl Manifest {
         if mf.name != service {
             bail!("Service name must equal the folder name");
         }
-        // maybe do this if we add these to sig:
-        // defs: &ManifestDefaults, region: Option<&Region>
-        // no merging, but can add defaults + implicits from conffig anyway
-        //self.add_config_defaults(&defaults)?;
-        //self.add_struct_implicits()?;
-        //self.add_region_implicits(region)?; (if option is Some)
-        Ok(mf)
-    }
-}
-
-
-/// Manifests backed by a manifests directory traverse the filesystem for discovery
-impl Backend for Manifest {
-    fn available(region: &str) -> Result<Vec<String>> {
-        let svcsdir = Path::new(".").join("services");
-        let svcs = WalkDir::new(&svcsdir)
-            .min_depth(1)
-            .min_depth(1)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_dir());
-
-        let mut xs = vec![];
-        for e in svcs {
-            let mut cmps = e.path().components();
-            cmps.next(); // .
-            cmps.next(); // services
-            let svccomp = cmps.next().unwrap();
-            let svcname = svccomp.as_os_str().to_str().unwrap();
-            let mf = Manifest::blank(svcname)?;
-            if mf.regions.contains(&region.to_string()) && !mf.disabled && !mf.external {
-                xs.push(svcname.into());
-            }
-        }
-        xs.sort();
-        Ok(xs)
-    }
-
-    fn completed(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
-        let mut mf = Manifest::base(service, &conf, reg)?;
-        mf.upgrade(reg, ManifestType::Completed)?;
         Ok(mf)
     }
 
+    /// Create a simple manifest that has enough for most reducers
+    fn simple(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
+        let mut mf = Manifest::blank(service)?;
+        // fill defaults and merge regions before extracting secrets
+        mf.fill(&conf.defaults, reg)?;
+        mf.kind = ManifestType::Simple;
+        Ok(mf)
+    }
+
+
+    /// Create a CRD equivalent manifest
     fn base(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
-        let pth = Path::new(".").join("services").join(service);
-        if !pth.exists() {
-            bail!("Service folder {} does not exist", pth.display())
-        }
-        let mut mf = Manifest::read_from(&pth)?;
-        if !mf.regions.contains(&reg.name) {
-            bail!("Service {} does not exist in the region {}", service, reg.name);
-        }
+        let mut mf = Manifest::blank(service)?;
         // fill defaults and merge regions before extracting secrets
         mf.fill(&conf.defaults, reg)?;
         mf.read_configs_files()?;
@@ -127,9 +130,17 @@ impl Backend for Manifest {
         Ok(mf)
     }
 
+    /// Create a completed manifest with stubbed secrets (faster to retrieve)
     fn stubbed(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
         let mut mf = Manifest::base(service, &conf, reg)?;
         mf.upgrade(reg, ManifestType::Stubbed)?;
+        Ok(mf)
+    }
+
+    /// Create a completed manifest fetching secrets from Vault
+    fn completed(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
+        let mut mf = Manifest::base(service, &conf, reg)?;
+        mf.upgrade(reg, ManifestType::Completed)?;
         Ok(mf)
     }
 
