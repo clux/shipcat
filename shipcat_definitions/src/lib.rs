@@ -65,6 +65,14 @@ error_chain! {
             description("could not access URL")
             display("could not access URL '{}'", &url)
         }
+        InvalidTemplate(svc: String) {
+            description("invalid template")
+            display("service '{}' has invalid templates", svc)
+        }
+        InvalidManifest(svc: String) {
+            description("manifest does not validate")
+            display("manifest for {} does not validate", &svc)
+        }
         InvalidSecretForm(key: String) {
             description("secret is of incorrect form")
             display("secret '{}' not have the 'value' key", &key)
@@ -78,18 +86,22 @@ error_chain! {
 
 /// Master config for manifests repositories
 pub mod config;
-pub use config::{Config, VaultConfig, VersionScheme};
+pub use config::{Config, Region, Team, VaultConfig, VersionScheme, ManifestDefaults};
 
 
 /// Structs for the manifest
 pub mod structs;
 
 pub mod manifest;
-pub use manifest::{Manifest};
+pub use manifest::{Manifest, ManifestType};
 
 /// Reducers used by shipcat get
 pub mod reducers;
 pub use reducers::ResourceBreakdown;
+
+/// Core traits
+mod traits;
+pub use traits::Backend;
 
 /// File backing
 pub mod filebacked;

@@ -1,7 +1,10 @@
 /// Allow normal error handling from structs
 pub use super::{Result, ResultExt, ErrorKind, Error};
 /// Verify trait gets the Config
-pub use super::{Config, VersionScheme};
+pub use super::{Config, Region, VersionScheme};
+/// Need basic manifest handling
+pub use super::{Manifest, Backend};
+
 /// For slack hookback
 pub use super::structs::Metadata;
 
@@ -9,7 +12,6 @@ pub use super::structs::Metadata;
 pub use super::slack;
 pub use super::grafana;
 pub use super::kube;
-pub use super::Manifest;
 
 /// Parallel helm invokers
 pub mod parallel;

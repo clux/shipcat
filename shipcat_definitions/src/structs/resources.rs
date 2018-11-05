@@ -1,7 +1,5 @@
 use std::ops::{Add, AddAssign, Mul};
-
-use super::traits::Verify;
-use super::{Result, Config};
+use super::Result;
 
 // Kubernetes resouce structs
 //
@@ -118,9 +116,9 @@ impl Resources<f64> {
     }
 }
 
-impl Verify for Resources<String> {
-    // TODO: look at config for limits
-    fn verify(&self, _: &Config) -> Result<()> {
+impl Resources<String> {
+    // TODO: look at config for limits?
+    pub fn verify(&self) -> Result<()> {
         // (We can unwrap all the values as we assume implicit called!)
         let n = self.normalised()?;
         let req = &n.requests;

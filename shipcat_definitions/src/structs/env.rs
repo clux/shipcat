@@ -1,9 +1,7 @@
 use std::collections::{btree_map, BTreeMap};
 use std::ops::{Deref, DerefMut};
 use std::iter::IntoIterator;
-
-use super::traits::Verify;
-use super::{Config, Result};
+use super::Result;
 
 // An attempt at generalising Env vars - whose BTreeMap logic was splattered over
 // the Manifest module. Now we define a newtype. And implement methods on that:
@@ -12,8 +10,8 @@ use super::{Config, Result};
 pub struct EnvVars(BTreeMap<String, String>);
 
 
-impl Verify for EnvVars {
-    fn verify(&self, _conf: &Config) -> Result<()> {
+impl EnvVars {
+    pub fn verify(&self) -> Result<()> {
         for (k, v) in *&self {
             if v == "IN_VAULT" {
                 // TODO: can do this generally here now

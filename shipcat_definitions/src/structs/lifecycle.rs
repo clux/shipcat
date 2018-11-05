@@ -1,5 +1,4 @@
-use structs::traits::Verify;
-use super::{Result, Config};
+use super::Result;
 
 /// A straight port of Kubernetes Container Lifecycle Events
 ///
@@ -27,8 +26,8 @@ pub struct ExecAction {
 
 // TODO: support HttpGetAction + TcpSocketAction
 
-impl Verify for LifeCycle {
-    fn verify(&self, conf: &Config) -> Result<()> {
+impl LifeCycle {
+    pub fn verify(&self) -> Result<()> {
         if self.postStart.is_none() && self.preStop.is_none() {
             bail!("Need to set one of postStart or preStop in lifecycle");
         }
@@ -36,17 +35,17 @@ impl Verify for LifeCycle {
             bail!("Cannot set both postStart and preStop in lifecycle");
         }
         if let Some(ref start) = self.postStart {
-            start.verify(conf)?;
+            start.verify()?;
         }
         if let Some(ref stop) = self.preStop {
-            stop.verify(conf)?;
+            stop.verify()?;
         }
         Ok(())
     }
 }
 
-impl Verify for LifeCycleHandler {
-    fn verify(&self, _conf: &Config) -> Result<()> {
+impl LifeCycleHandler {
+    pub fn verify(&self) -> Result<()> {
         if self.exec.command.is_empty() {
             bail!("Cannot have empty lifecycle exec commands");
         }

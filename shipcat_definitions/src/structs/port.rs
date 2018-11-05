@@ -1,5 +1,4 @@
-use super::traits::Verify;
-use super::{Config, Result};
+use super::Result;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -25,8 +24,8 @@ pub struct Port {
     pub protocol: PortProtocol,
 }
 
-impl Verify for Port {
-    fn verify(&self, _: &Config) -> Result<()> {
+impl Port {
+    pub fn verify(&self) -> Result<()> {
         assert_ne!(self.port, 80, "Port should not be 80");
         Ok(())
     }

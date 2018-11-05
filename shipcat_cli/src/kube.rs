@@ -401,27 +401,21 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
 
 
 /// Port forward a port to localhost
-pub fn port_forward(mf: &Manifest, desiredpod: Option<usize>) -> Result<()> {
+pub fn port_forward(mf: &Manifest) -> Result<()> {
     // TODO: kubectl auth can-i create something?
-    let podsres = get_pods(&mf)?;
-    let pods = podsres.split(' ').collect::<Vec<_>>();
-    let pnr = desiredpod.unwrap_or(0);
     let port = mf.httpPort.unwrap();
     // first 1024 ports need sudo so avoid that
     let localport = if port <= 1024 { 7777 } else { port };
-    if let Some(p) = pods.get(pnr) {
-        debug!("Port forwarding kube pod {} to localhost:{}", p, localport);
-        //kubectl port-forward $pod localport:httpPort
-        let mut pfargs = vec![
-            format!("-n={}", mf.namespace),
-            "port-forward".into(),
-            p.to_string(),
-            format!("{}:{}", port, port)
-        ];
-        kexec(pfargs)?;
-    } else {
-        bail!("Pod {} not found for service {}", pnr, &mf.name);
-    }
+
+    debug!("Port forwarding kube deployment {} to localhost:{}", mf.name, localport);
+    //kubectl port-forward deployment/${name} localport:httpPort
+    let pfargs = vec![
+        format!("-n={}", mf.namespace),
+        "port-forward".into(),
+        format!("deployment/{}", mf.name),
+        format!("{}:{}", port, port)
+    ];
+    kexec(pfargs)?;
     Ok(())
 }
 

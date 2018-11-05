@@ -1,37 +1,15 @@
+use config::{Config, Region, ManifestDefaults};
 use walkdir::WalkDir;
 
 use std::io::prelude::*;
 use std::path::{PathBuf, Path};
 use std::fs::File;
 use super::vault::Vault;
-use super::{Result, Manifest, Config};
+use super::{Result, ResultExt, ErrorKind, Manifest, ManifestType};
+use traits::Backend;
 
-/// Manifests backed by a manifests directory traverse the filesystem for discovery
+/// Private helpers for a filebacked Manifest Backend
 impl Manifest {
-
-    /// Walk the services directory and return the available services
-    pub fn available() -> Result<Vec<String>> {
-        let svcsdir = Path::new(".").join("services");
-        let svcs = WalkDir::new(&svcsdir)
-            .min_depth(1)
-            .min_depth(1)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_dir());
-
-        let mut xs = vec![];
-        for e in svcs {
-            let mut cmps = e.path().components();
-            cmps.next(); // .
-            cmps.next(); // services
-            let svccomp = cmps.next().unwrap();
-            let svcname = svccomp.as_os_str().to_str().unwrap();
-            xs.push(svcname.into());
-        }
-        xs.sort();
-        Ok(xs)
-    }
-
     /// Read a manifest file in an arbitrary path
     fn read_from(pwd: &PathBuf) -> Result<Manifest> {
         let mpath = pwd.join("shipcat.yml");
@@ -47,14 +25,12 @@ impl Manifest {
 
 
     /// Fill in env overrides and apply merge rules
-    /// TODO: make private
-    pub fn fill(&mut self, conf: &Config, region: &str) -> Result<()> {
-        self.pre_merge_implicits(conf, Some(region.into()))?;
+    fn fill(&mut self, defaults: &ManifestDefaults, region: &Region) -> Result<()> {
         // merge service specific env overrides if they exists
         let envlocals = Path::new(".")
             .join("services")
             .join(&self.name)
-            .join(format!("{}.yml", region));
+            .join(format!("{}.yml", region.name));
         if envlocals.is_file() {
             debug!("Merging environment locals from {}", envlocals.display());
             if !envlocals.exists() {
@@ -72,78 +48,138 @@ impl Manifest {
 
             self.merge(other)?;
         }
-        self.post_merge_implicits(conf, Some(region.into()))?;
+        self.add_config_defaults(&defaults)?;
+        self.add_region_implicits(region)?;
         Ok(())
     }
+}
 
-    /// Complete (filled in env overrides and populate secrets) a manifest
-    pub fn completed(service: &str, conf: &Config, region: &str) -> Result<Manifest> {
-        let r = &conf.regions[region]; // tested for existence earlier
-        let v = Vault::regional(&r.vault)?;
-        let pth = Path::new(".").join("services").join(service);
-        if !pth.exists() {
-            bail!("Service folder {} does not exist", pth.display())
+fn walk_services() -> Vec<String> {
+    let svcsdir = Path::new(".").join("services");
+    let mut res : Vec<_> = WalkDir::new(&svcsdir)
+        .min_depth(1)
+        .max_depth(1)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_dir())
+        .map(|e| {
+            let mut cmps = e.path().components();
+            cmps.next(); // .
+            cmps.next(); // services
+            let svccomp = cmps.next().unwrap();
+            let svcname = svccomp.as_os_str().to_str().unwrap();
+            svcname.to_string()
+        })
+        .collect();
+    res.sort();
+    res
+}
+
+/// Manifests backed by a manifests directory traverse the filesystem for discovery
+impl Backend for Manifest {
+    fn available(region: &str) -> Result<Vec<String>> {
+        let mut xs = vec![];
+        for svc in walk_services() {
+            let mf = Manifest::blank(&svc)?;
+            if mf.regions.contains(&region.to_string()) && !mf.disabled && !mf.external {
+                xs.push(svc);
+            }
         }
-        let mut mf = Manifest::read_from(&pth)?;
-        if !mf.regions.contains(&region.to_string()) {
-            bail!("Service {} does not exist in the region {}", service, region);
-        }
-        // fill defaults and merge regions before extracting secrets
-        mf.fill(conf, region)?;
-        // replace one-off templates in evar strings with values
-        mf.template_evars(conf, region)?;
-        // secrets before configs (.j2 template files use raw secret values)
-        mf.secrets(&v, &r.vault)?;
-        // templates last
-        mf.inline_configs(&conf, region)?;
-        Ok(mf)
+        Ok(xs)
     }
 
-    /// Mostly completed but stubbed secrets version of the manifest
-    pub fn stubbed(service: &str, conf: &Config, region: &str) -> Result<Manifest> {
-        let pth = Path::new(".").join("services").join(service);
-        if !pth.exists() {
-            bail!("Service folder {} does not exist", pth.display())
-        }
-        let mut mf = Manifest::read_from(&pth)?;
-        mf.fill(conf, &region)?;
-        Ok(mf)
+    fn all() -> Result<Vec<String>> {
+        Ok(walk_services())
     }
 
-    /// Completed manifest with mocked values
-    pub fn mocked(service: &str, conf: &Config, region: &str) -> Result<Manifest> {
-        let r = &conf.regions[region]; // tested for existence earlier
-        let v = Vault::mocked(&r.vault)?;
-        let pth = Path::new(".").join("services").join(service);
-        if !pth.exists() {
-            bail!("Service folder {} does not exist", pth.display())
-        }
-        let mut mf = Manifest::read_from(&pth)?;
-        // fill defaults and merge regions before extracting secrets
-        mf.fill(conf, region)?;
-        // replace one-off templates in evar strings with values
-        mf.template_evars(conf, region)?;
-        // (MOCKED) secrets before configs (.j2 template files use raw secret values)
-        mf.secrets(&v, &r.vault)?;
-        // templates last
-        mf.inline_configs(&conf, region)?;
-        Ok(mf)
-    }
 
     /// A super base manifest - from an unknown region
-    pub fn basic(service: &str, conf: &Config, region: Option<String>) -> Result<Manifest> {
+    ///
+    /// Can be used to read global Manifest values onlys
+    fn blank(service: &str) -> Result<Manifest> {
         let pth = Path::new(".").join("services").join(service);
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
         }
-        let mut mf = Manifest::read_from(&pth)?;
+        let mf = Manifest::read_from(&pth)?;
         if mf.name != service {
             bail!("Service name must equal the folder name");
         }
-        mf.pre_merge_implicits(conf, None)?;
-        // not merging here, but do all implicts we can anyway
-        mf.post_merge_implicits(conf, region)?;
         Ok(mf)
     }
 
+    /// Create a simple manifest that has enough for most reducers
+    fn simple(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
+        let mut mf = Manifest::blank(service)?;
+        // fill defaults and merge regions before extracting secrets
+        mf.fill(&conf.defaults, reg)?;
+        mf.kind = ManifestType::Simple;
+        Ok(mf)
+    }
+
+
+    /// Create a CRD equivalent manifest
+    fn base(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
+        let mut mf = Manifest::blank(service)?;
+        // fill defaults and merge regions before extracting secrets
+        mf.fill(&conf.defaults, reg)?;
+        mf.read_configs_files()?;
+        mf.kind = ManifestType::Base;
+
+        Ok(mf)
+    }
+
+    /// Create a completed manifest with stubbed secrets (faster to retrieve)
+    fn stubbed(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
+        let mut mf = Manifest::base(service, &conf, reg)?;
+        mf.upgrade(reg, ManifestType::Stubbed)?;
+        Ok(mf)
+    }
+
+    /// Create a completed manifest fetching secrets from Vault
+    fn completed(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
+        let mut mf = Manifest::base(service, &conf, reg)?;
+        mf.upgrade(reg, ManifestType::Completed)?;
+        Ok(mf)
+    }
+
+    /// Upgrade a `Base` manifest to either a Complete or a Stubbed one
+    fn upgrade(&mut self, reg: &Region, kind: ManifestType) -> Result<()> {
+        assert_eq!(self.kind, ManifestType::Base); // sanity
+        let v = match kind {
+            ManifestType::Completed => Vault::regional(&reg.vault)?,
+            ManifestType::Stubbed => Vault::mocked(&reg.vault)?,
+            _ => bail!("Can only upgrade a Base manifest to Completed or Stubbed"),
+        };
+        // replace one-off templates in evar strings with values
+        // note that this happens before secrets because:
+        // secrets may be injected at this step from the Region
+        self.template_evars(reg)?;
+        // secrets before configs (.j2 template files use raw secret values)
+        self.secrets(&v, &reg.vault)?;
+
+        // templates last
+        self.template_configs(reg)?;
+        self.kind = kind;
+        Ok(())
+    }
+
+    /// Verifying a manifest in the filesystem
+    ///
+    /// Needs to account for the manifest being external/disabled, then secrets.
+    fn validate(svc: &str, conf: &Config, region: &Region, secrets: bool) -> Result<()> {
+        let bm = Manifest::blank(svc)?;
+
+        if bm.regions.contains(&region.name) && !bm.disabled && !bm.external {
+            let mf = if secrets {
+                Manifest::completed(&svc, &conf, &region)?
+            } else {
+                Manifest::stubbed(&svc, &conf, &region)?
+            };
+            mf.verify(conf, region).chain_err(|| ErrorKind::InvalidManifest(mf.name))?;
+        } else {
+            bail!("{} is not configured to be deployed in {}", svc, region.name);
+        }
+        Ok(())
+    }
 }

@@ -10,7 +10,8 @@ use super::grafana;
 use super::slack;
 use super::kube;
 use super::Metadata;
-use super::{Result, ResultExt, ErrorKind, Manifest, Config};
+use super::{Manifest, Config, Backend, Region};
+use super::{Result, ResultExt, ErrorKind};
 use super::helpers::{self, hout, hexec};
 
 /// The different modes we allow `helm upgrade` to run in
@@ -116,8 +117,8 @@ pub fn rollback(ud: &UpgradeData, mf: &Manifest) -> Result<()> {
 }
 
 /// Rollback entrypoint using a plain service and region
-pub fn rollback_wrapper(svc: &str, conf: &Config, region: &str) -> Result<()> {
-    let base = Manifest::stubbed(svc, conf, region)?;
+pub fn rollback_wrapper(svc: &str, conf: &Config, region: &Region) -> Result<()> {
+    let base = Manifest::stubbed(svc, &conf, region)?;
     let ud = UpgradeData::from_rollback(&base);
     rollback(&ud, &base)
 }
@@ -351,19 +352,21 @@ pub fn values(mf: &Manifest, output: Option<String>) -> Result<()> {
 /// Analogue of helm template
 ///
 /// Generates helm values to disk, then passes it to helm template
-pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>, mock: bool, output: Option<PathBuf>) -> Result<String> {
+pub fn template(svc: &str, region: &Region, conf: &Config, ver: Option<String>, mock: bool, output: Option<PathBuf>) -> Result<String> {
     let mut mf = if mock {
-        Manifest::mocked(svc, &conf, region)?
+        Manifest::stubbed(svc, &conf, region)?
     } else {
         Manifest::completed(svc, &conf, region)?
     };
-
-    mf.verify(&conf).chain_err(|| ErrorKind::ManifestVerifyFailure(svc.into()))?;
 
     // template or values does not need version - but respect passed in / manifest
     if ver.is_some() {
         // override with set version only if set - respect pin otherwise
         mf.version = ver;
+    }
+    // sanity verify what we changed (no-shoehorning in illegal versions in rolling envs)
+    if let Some(v) = &mf.version {
+        region.versioningScheme.verify(&v)?;
     }
 
     let hfile = format!("{}.helm.gen.yml", svc);
@@ -398,7 +401,7 @@ pub fn template(svc: &str, region: &str, conf: &Config, ver: Option<String>, moc
 /// Helm history wrapper
 ///
 /// Analogue to `helm history {service}` uses the right tiller namespace
-pub fn history(svc: &str, conf: &Config, region: &str) -> Result<()> {
+pub fn history(svc: &str, conf: &Config, region: &Region) -> Result<()> {
     let mf = Manifest::stubbed(svc, &conf, region)?;
     let histvec = vec![
         format!("--tiller-namespace={}", mf.namespace),
@@ -413,7 +416,7 @@ pub fn history(svc: &str, conf: &Config, region: &str) -> Result<()> {
 /// Helm status wrapper
 ///
 /// Analogue to `helm status {service}` uses the right tiller namespace
-pub fn status(svc: &str, conf: &Config, region: &str) -> Result<()> {
+pub fn status(svc: &str, conf: &Config, region: &Region) -> Result<()> {
     let mf = Manifest::stubbed(svc, &conf, region)?;
     let histvec = vec![
         format!("--tiller-namespace={}", mf.namespace),
@@ -471,18 +474,21 @@ pub fn handle_upgrade_notifies(success: bool, u: &UpgradeData) -> Result<()> {
 /// Independent wrapper for helm values
 ///
 /// Completes a manifest and prints it out with the given version
-pub fn values_wrapper(svc: &str, region: &str, conf: &Config, ver: Option<String>) -> Result<()> {
+pub fn values_wrapper(svc: &str, region: &Region, conf: &Config, ver: Option<String>) -> Result<()> {
     let mut mf = Manifest::completed(svc, &conf, region)?;
-    mf.verify(&conf).chain_err(|| ErrorKind::ManifestVerifyFailure(svc.into()))?;
+
     // template or values does not need version - but respect passed in / manifest
     if ver.is_some() {
         mf.version = ver;
     }
+    // sanity verify what we changed (no-shoehorning in illegal versions in rolling envs)
+    region.versioningScheme.verify(&mf.version.clone().unwrap())?;
+
     values(&mf, None)
 }
 
 /// Full helm wrapper for a single upgrade/diff/install
-pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
+pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
     let mut mf = Manifest::completed(svc, &conf, region)?;
 
     // Ensure we have a version - or are able to infer one
@@ -499,13 +505,12 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &str, conf: &Config
     let exists = mode != UpgradeMode::UpgradeInstall;
     // Other modes can infer in a pinch
 
-    // sanity verify to ensure stuff like invalid versions aren't shoehorned in
-    mf.verify(&conf).chain_err(|| ErrorKind::ManifestVerifyFailure(svc.into()))?;
-
     // ..but if they already exist on kube, don't block on that..
     if mf.version.is_none() {
         mf.version = Some(helpers::infer_fallback_version(&svc, &mf.namespace)?);
     };
+    // sanity verify what we changed (no-shoehorning in illegal versions in rolling envs)
+    region.versioningScheme.verify(&mf.version.clone().unwrap())?;
 
     // Template values file
     let hfile = format!("{}.helm.gen.yml", &svc);

@@ -1,13 +1,12 @@
+use config::{Config, VaultConfig, Region};
 use vault::Vault;
-use config::VaultConfig;
 use std::collections::BTreeMap;
 use regex::Regex;
 
 
-use super::{Result, Config};
+use super::Result;
 
 // All structs come from the structs directory
-use super::structs::traits::Verify;
 use super::structs::{HealthCheck, ConfigMap};
 use super::structs::{InitContainer, Resources, HostAlias};
 use super::structs::volume::{Volume, VolumeMount};
@@ -22,6 +21,70 @@ use super::structs::tolerations::Tolerations;
 use super::structs::LifeCycle;
 use super::structs::Worker;
 use super::structs::Port;
+
+/// Various states a manifest can exist in depending on resolution.
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub enum ManifestType {
+    /// A completed manifest
+    ///
+    /// This is fully ready to pass to `helm template`, i.e.:
+    /// - evars are templated
+    /// - secrets are available
+    /// - configs inlined and templated
+    ///
+    /// This is the `shipcat values -s` equivalent of a manifest.
+    ///
+    /// A `Base` Manifest can become a `Completed` Manifest by:
+    /// - filling in global defaults
+    /// - evaluating secrets
+    /// - templating evars
+    /// - templating configs
+    Completed,
+
+    /// A stubbed manifest
+    ///
+    /// Indistinguishable from a `Completed` manifest except from secrets:
+    /// - secrets populated with garbage values (not resolved from vault)
+    /// - configs templated with garbage secret values
+    /// - evars templated with garbage secret values
+    ///
+    /// This is the `shipcat values` equivalent of a manifest.
+    Stubbed,
+
+    /// The Base manifest
+    ///
+    /// This should be mostly useful internally, and inspecteable on kube, i.e.:
+    /// - templates left in template form
+    /// - configs inlined in template form
+    /// - secrets unresolved
+    ///
+    /// This is the CRD equivalent of a manifest.
+    /// It's important that the CRD equivalent abstracts away config files, but not secrets.
+    /// Thus files have to be read, and not templated for this, then shipped off to kube.
+    Base,
+
+    /// A Simplified manifest
+    ///
+    /// Equivalent to a Base manifest but no configs read.
+    /// This is faster to retrieve from disk.
+    /// This type CANNOT be upgraded to Stubbed/Completed.
+    Simple,
+
+    /// A Manifest File
+    ///
+    /// This is an unmerged file, and should not be used for anything except merging.
+    SingleFile,
+}
+
+/// Default is the useless type to force constructors into chosing.
+///
+/// Because serde default is set, this is the correct choice when reading from disk.
+impl Default for ManifestType {
+    fn default() -> Self {
+        ManifestType::SingleFile
+    }
+}
+
 
 /// Main manifest, serializable from shipcat.yml or the shipcat CRD.
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -85,6 +148,23 @@ pub struct Manifest {
     /// Uncommenting a region in here will partially disable this service.
     #[serde(default, skip_serializing)]
     pub regions: Vec<String>,
+
+    /// Important contacts and other metadata for the service
+    ///
+    /// Particular uses:
+    /// - notifying correct people on upgrades via slack
+    /// - providing direct links to code diffs on upgrades in slack
+    ///
+    /// ```yaml
+    /// metadata:
+    ///   contacts:
+    ///   - name: "Eirik"
+    ///     slack: "@clux"
+    ///   team: Doves
+    ///   repo: https://github.com/clux/blog
+    /// ```
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<Metadata>,
 
     // ------------------------------------------------------------------------
     // Regular mergeable properties
@@ -154,24 +234,6 @@ pub struct Manifest {
     /// ```
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub command: Vec<String>,
-
-
-    /// Important contacts and other metadata for the service
-    ///
-    /// Particular uses:
-    /// - notifying correct people on upgrades via slack
-    /// - providing direct links to code diffs on upgrades in slack
-    ///
-    /// ```yaml
-    /// metadata:
-    ///   contacts:
-    ///   - name: "Eirik"
-    ///     slack: "@clux"
-    ///   team: Doves
-    ///   repo: https://github.com/clux/blog
-    /// ```
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<Metadata>,
 
     /// Data sources and handling strategies
     ///
@@ -689,6 +751,13 @@ pub struct Manifest {
     /// This is an internal property that is exposed as an output only.
     #[serde(default, skip_deserializing, skip_serializing_if = "BTreeMap::is_empty")]
     pub secrets: BTreeMap<String, String>,
+
+    /// Internal kind of the manifest
+    ///
+    /// A manifest goes through different stages of serialization, templating,
+    /// config loading, secret injection. This property keeps track of it.
+    #[serde(default, skip_deserializing, skip_serializing)]
+    pub kind: ManifestType,
 }
 
 impl Manifest {
@@ -709,9 +778,11 @@ impl Manifest {
     /// Verify assumptions about manifest
     ///
     /// Assumes the manifest has been populated with `implicits`
-    pub fn verify(&self, conf: &Config) -> Result<()> {
+    pub fn verify(&self, conf: &Config, region: &Region) -> Result<()> {
         assert!(self.region != ""); // needs to have been set by implicits!
-        let region = &conf.regions[&self.region]; // tested for existence earlier
+        if !self.regions.contains(&self.region.to_string()) {
+            bail!("Unsupported region {} for service {}", self.region, self.name);
+        }
         // limit to 50 characters, alphanumeric, dashes for sanity.
         // 63 is kube dns limit (13 char suffix buffer)
         let re = Regex::new(r"^[0-9a-z\-]{1,50}$").unwrap();
@@ -723,11 +794,11 @@ impl Manifest {
         }
 
         if let Some(ref dh) = self.dataHandling {
-            dh.verify(&conf)?
+            dh.verify()?
         } // TODO: mandatory for later environments!
 
         if let Some(ref md) = self.metadata {
-            md.verify(&conf)?;
+            md.verify(&conf.teams)?;
         } else {
             bail!("Missing metadata for {}", self.name);
         }
@@ -744,35 +815,35 @@ impl Manifest {
         // run the `Verify` trait on all imported structs
         // mandatory structs first
         if let Some(ref r) = self.resources {
-            r.verify(&conf)?;
+            r.verify()?;
         } else {
             bail!("Resources is mandatory");
         }
 
         // optional/vectorised entries
         for d in &self.dependencies {
-            d.verify(&conf)?;
+            d.verify()?;
         }
         for ha in &self.hostAliases {
-            ha.verify(&conf)?;
+            ha.verify()?;
         }
         for tl in &self.tolerations {
             tl.verify()?;
         }
         for ic in &self.initContainers {
-            ic.verify(&conf)?;
+            ic.verify()?;
         }
         for wrk in &self.workers {
-            wrk.verify(&conf)?;
+            wrk.verify()?;
         }
         for p in &self.ports {
-            p.verify(&conf)?;
+            p.verify()?;
         }
         for r in &self.rbac {
-            r.verify(&conf)?;
+            r.verify()?;
         }
         if let Some(ref cmap) = self.configs {
-            cmap.verify(&conf)?;
+            cmap.verify()?;
         }
         // misc minor properties
         if self.replicaCount.unwrap() == 0 {
@@ -804,16 +875,6 @@ impl Manifest {
         }
         if self.namespace == "" {
             bail!("namespace must be set at this point");
-        }
-
-        // regions must have a defaults file in ./environments
-        for r in &self.regions {
-            if conf.regions.get(r).is_none() {
-                bail!("Unsupported region {} without entry in config", r);
-            }
-        }
-        if !self.regions.contains(&self.region.to_string()) {
-            bail!("Unsupported region {} for service {}", self.region, self.name);
         }
         if self.regions.is_empty() {
             bail!("No regions specified for {}", self.name);
@@ -862,7 +923,7 @@ impl Manifest {
     /// in the `Config`.
     pub fn secrets(&mut self, client: &Vault, vc: &VaultConfig) -> Result<()> {
         let pth = self.get_vault_path(vc);
-        debug!("Injecting secrets from vault {}", pth);
+        debug!("Injecting secrets from vault {} ({:?})", pth, client.mode());
 
         let special = "SHIPCAT_SECRET::".to_string();
         // iterate over key value evars and replace placeholders
@@ -917,7 +978,7 @@ impl Manifest {
         }
 
         // what we have
-        let v = Vault::masked(vc)?; // masked doesn't matter - only listing anyway
+        let v = Vault::regional(vc)?; // only listing anyway
         let secpth = self.get_vault_path(vc);
         let found = v.list(&secpth)?; // can fail if folder is empty
         debug!("Found secrets {:?} for {}", found, self.name);

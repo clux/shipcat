@@ -30,12 +30,12 @@ pub struct Dependency {
 
 This auto derives serialisation capabilities, default values (helping out where an empty default is not helpful), and otherwise defines all the data, and docstrings used by `cargo doc`.
 
-## 2. Implement Verifiy Trait
+## 2. Implement a verifier
 Add all your sanity checking in there:
 
 ```rust
-impl Verify for Dependency {
-    fn verify(&self) -> Result<()> {
+impl Dependency {
+    pub fn verify(&self) -> Result<()> {
         // self.name must exist in services/
         let dpth = Path::new(".").join("services").join(self.name.clone());
         if !dpth.is_dir() {
@@ -89,14 +89,14 @@ pub mod graph;
 ```
 
 ## 2. Write the module
-Create `graph.rs` with your generation logic. Typically this involves using a specific manifest by service name (via either `Manifest::basic(svcname)` or `Manifest::completed`). You can loop over all the available manifests using the `available` helper from `Manifest`:
+Create `graph.rs` with your generation logic. Typically this involves using a specific manifest by service name (via either `Manifest::base(svcname)` or `Manifest::completed`). You can loop over all the available manifests using the `available` helper from `Manifest`:
 
 ```rust
-pub fn generate(conf: &Config) -> Result<MyReturnType>
-    let services = Manifest::available()?;
+pub fn generate(region: &Region) -> Result<MyReturnType>
+    let services = Manifest::available(&region.name)?;
     for svc in services {
         // read the manifest for the service:
-        let mf = Manifest::basic(&svc, conf, None)?;
+        let mf = Manifest::base(&svc, region)?;
         // TODO: do something with the manifests
     }
     unimplemented!()
@@ -142,7 +142,7 @@ then defer to your new interface from `main.rs`:
     if let Some(a) = args.subcommand_matches("graph") {
         let service = a.value_of("service").unwrap();
         let dot = a.is_present("dot");
-        result_exit(args.subcommand_name().unwrap(), shipcat::graph::generate(service, dot))
+        return shipcat::graph::generate(service, dot);
     }
 ```
 

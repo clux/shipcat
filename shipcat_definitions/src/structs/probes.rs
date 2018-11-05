@@ -1,5 +1,4 @@
-use super::traits::Verify;
-use super::{Config, Result};
+use super::Result;
 
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -69,8 +68,8 @@ fn initial_delay_seconds_default() -> u32 { 30 }
 fn period_seconds_default() -> u32 { 5 }
 
 
-impl Verify for Probe {
-    fn verify(&self, _: &Config) -> Result<()> {
+impl Probe {
+    pub fn verify(&self) -> Result<()> {
         if self.httpGet.is_some() && (self.exec.is_some() || self.tcpSocket.is_some()) {
             bail!("Probe needs to have at most one of 'httpGet' or 'exec'");
         }

@@ -1,68 +1,57 @@
 // This file describes how manifests and environment manifest overrides are merged.
 
-use super::{Manifest, Result, Config};
+use config::Region;
+use config::ManifestDefaults;
+use super::{Manifest, Result};
 
 impl Manifest {
     /// Add implicit defaults to self after merging in region overrides
     ///
     /// Should be used by entries that have complex implicit results that can be partially overridden
     /// I.e. kong struct, dataHandling structs which both have implicit values
-    pub fn post_merge_implicits(&mut self, conf: &Config, region: Option<String>) -> Result<()> {
-        if let Some(r) = region {
-            self.region = r.clone();
-            let reg = &conf.regions[&r];
+    pub fn add_region_implicits(&mut self, reg: &Region) -> Result<()> {
+        // environment defaults for a region is merged in only if not set explictly
+        for (k, v) in reg.env.clone() {
+            self.env.entry(k).or_insert(v);
+        }
 
-            // Kong has implicit, region-scoped values
-            if let Some(ref mut kong) = self.kong {
-                kong.implicits(self.name.clone(), reg.clone(), self.hosts.clone());
-            }
-
-            if let Some(ref mut kafka) = self.kafka {
-                kafka.implicits(&self.name, reg.clone())
-            }
-            // Inject the region's environment name and namespace
-            self.environment = reg.environment.clone();
-            self.namespace = reg.namespace.clone();
+        // Kong has implicit, region-scoped values
+        if let Some(ref mut kong) = self.kong {
+            kong.implicits(self.name.clone(), reg.clone(), self.hosts.clone());
+        }
+        if let Some(ref mut kafka) = self.kafka {
+            kafka.implicits(&self.name, reg.clone())
         }
         if let Some(ref mut dh) = self.dataHandling {
             // dataHandling has cascading encryption values
             dh.implicits();
         }
-        if let Some(ref mut cfg) = self.configs {
-            cfg.implicits(&self.name)
-        }
-        for d in &mut self.dependencies {
-            d.implicits();
-        }
+
+        // Inject the region's environment name and namespace
+        self.environment = reg.environment.clone();
+        self.namespace = reg.namespace.clone();
+        self.region = reg.name.clone();
+
         Ok(())
     }
 
-    /// Add implicit defaults to self before merging in values
+    /// Add implicit defaults to from the config
     ///
     /// Should be used by entries that have simple implicit results based on the config
     /// I.e. optional strings, integers etc.
-    pub fn pre_merge_implicits(&mut self, conf: &Config, region: Option<String>) -> Result<()> {
-        if let Some(r) = region {
-            self.region = r.clone();
-            let reg = &conf.regions[&r];
-            // environment defaults for a region is merged before env overrides
-            // and only if they aren't explicitly set in manifests
-            for (k, v) in reg.env.clone() {
-                self.env.entry(k).or_insert(v);
-            }
-        }
+    pub fn add_config_defaults(&mut self, def: &ManifestDefaults) -> Result<()> {
         if self.image.is_none() {
             // image name defaults to some prefixed version of the service name
-            self.image = Some(format!("{}/{}", conf.defaults.imagePrefix, self.name))
+            self.image = Some(format!("{}/{}", def.imagePrefix, self.name))
         }
         if self.imageSize.is_none() {
             self.imageSize = Some(512)
         }
         if self.chart.is_none() {
-            self.chart = Some(conf.defaults.chart.clone());
+            self.chart = Some(def.chart.clone());
         }
         if self.replicaCount.is_none() {
-            self.replicaCount = Some(conf.defaults.replicaCount)
+            self.replicaCount = Some(def.replicaCount)
         }
 
         Ok(())
@@ -86,6 +75,9 @@ impl Manifest {
         if !mf.regions.is_empty() {
             // these cannot be overridden - it's a service type property
             bail!("Regions must only be defined in the main shipcat.yml file");
+        }
+        if mf.metadata.is_some() {
+            bail!("metadata can only live in the main shipcat.yml")
         }
         //if self.version.is_some() {
         //    debug!("{} locks versions across all environments in shipcat.yml", self.name);
@@ -116,9 +108,6 @@ impl Manifest {
         }
         if mf.version.is_some() {
             self.version = mf.version;
-        }
-        if mf.metadata.is_some() {
-            self.metadata = mf.metadata;
         }
         if mf.dataHandling.is_some() {
             self.dataHandling = mf.dataHandling;

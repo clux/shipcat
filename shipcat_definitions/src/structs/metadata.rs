@@ -1,7 +1,7 @@
 use regex::Regex;
 
-use super::traits::Verify;
-use super::{Config, Result};
+use super::Team;
+use super::Result;
 
 /// Contact data
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -79,10 +79,10 @@ impl Metadata {
     }
 }
 
-impl Verify for Metadata {
-    fn verify(&self, conf: &Config) -> Result<()> {
-        let teams = conf.teams.clone().into_iter().map(|t| t.name).collect::<Vec<_>>();
-        if !teams.contains(&self.team) {
+impl Metadata {
+    pub fn verify(&self, teams: &[Team]) -> Result<()> {
+        let ts = teams.to_vec().into_iter().map(|t| t.name).collect::<Vec<_>>();
+        if !ts.contains(&self.team) {
             bail!("Illegal team name {} not found in the config", self.team);
         }
         for cc in &self.contacts {

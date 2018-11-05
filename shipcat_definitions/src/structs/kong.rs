@@ -1,6 +1,4 @@
-use super::traits::Verify;
-use super::{Config, Result};
-use config::{Region};
+use super::{Result, Region};
 use std::ops::Not;
 use std::collections::BTreeMap;
 
@@ -115,8 +113,8 @@ pub struct BabylonAuthHeader {
     pub http_timeout_msec: u32,
 }
 
-impl Verify for Kong {
-    fn verify(&self, _: &Config) -> Result<()> {
+impl Kong {
+    pub fn verify(&self) -> Result<()> {
         if self.uris.is_none() && self.host.is_none() {
             bail!("One of `uris` or `host` needs to be defined for Kong");
         }
