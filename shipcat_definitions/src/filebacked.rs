@@ -25,7 +25,7 @@ impl Manifest {
 
 
     /// Fill in env overrides and apply merge rules
-    fn fill(&mut self, defaults: &ManifestDefaults, region: &Region) -> Result<()> {
+    fn merge_and_fill_defaults(&mut self, defaults: &ManifestDefaults, region: &Region) -> Result<()> {
         // merge service specific env overrides if they exists
         let envlocals = Path::new(".")
             .join("services")
@@ -112,7 +112,7 @@ impl Backend for Manifest {
     fn simple(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
         let mut mf = Manifest::blank(service)?;
         // fill defaults and merge regions before extracting secrets
-        mf.fill(&conf.defaults, reg)?;
+        mf.merge_and_fill_defaults(&conf.defaults, reg)?;
         mf.kind = ManifestType::Simple;
         Ok(mf)
     }
@@ -122,7 +122,7 @@ impl Backend for Manifest {
     fn base(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
         let mut mf = Manifest::blank(service)?;
         // fill defaults and merge regions before extracting secrets
-        mf.fill(&conf.defaults, reg)?;
+        mf.merge_and_fill_defaults(&conf.defaults, reg)?;
         mf.read_configs_files()?;
         mf.kind = ManifestType::Base;
 
