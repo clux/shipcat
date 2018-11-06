@@ -120,7 +120,7 @@ error_chain! {
 }
 
 extern crate shipcat_definitions;
-pub use shipcat_definitions::{Manifest, ManifestType, Backend};
+pub use shipcat_definitions::{Manifest};
 pub use shipcat_definitions::structs;
 pub use shipcat_definitions::config::{self, Config, Region, VersionScheme};
 pub use shipcat_definitions::Product;

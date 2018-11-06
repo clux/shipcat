@@ -1,7 +1,6 @@
 extern crate semver;
 extern crate shipcat;
 extern crate shipcat_definitions;
-use shipcat::Backend;
 
 use self::semver::Version;
 use std::env;

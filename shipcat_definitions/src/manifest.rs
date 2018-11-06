@@ -1,9 +1,9 @@
-use config::{Config, VaultConfig, Region};
 use vault::Vault;
 use std::collections::BTreeMap;
 use regex::Regex;
 
-
+use config::{Config, VaultConfig, Region};
+use traits::ManifestType;
 use super::Result;
 
 // All structs come from the structs directory
@@ -21,70 +21,6 @@ use super::structs::tolerations::Tolerations;
 use super::structs::LifeCycle;
 use super::structs::Worker;
 use super::structs::Port;
-
-/// Various states a manifest can exist in depending on resolution.
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
-pub enum ManifestType {
-    /// A completed manifest
-    ///
-    /// This is fully ready to pass to `helm template`, i.e.:
-    /// - evars are templated
-    /// - secrets are available
-    /// - configs inlined and templated
-    ///
-    /// This is the `shipcat values -s` equivalent of a manifest.
-    ///
-    /// A `Base` Manifest can become a `Completed` Manifest by:
-    /// - filling in global defaults
-    /// - evaluating secrets
-    /// - templating evars
-    /// - templating configs
-    Completed,
-
-    /// A stubbed manifest
-    ///
-    /// Indistinguishable from a `Completed` manifest except from secrets:
-    /// - secrets populated with garbage values (not resolved from vault)
-    /// - configs templated with garbage secret values
-    /// - evars templated with garbage secret values
-    ///
-    /// This is the `shipcat values` equivalent of a manifest.
-    Stubbed,
-
-    /// The Base manifest
-    ///
-    /// This should be mostly useful internally, and inspecteable on kube, i.e.:
-    /// - templates left in template form
-    /// - configs inlined in template form
-    /// - secrets unresolved
-    ///
-    /// This is the CRD equivalent of a manifest.
-    /// It's important that the CRD equivalent abstracts away config files, but not secrets.
-    /// Thus files have to be read, and not templated for this, then shipped off to kube.
-    Base,
-
-    /// A Simplified manifest
-    ///
-    /// Equivalent to a Base manifest but no configs read.
-    /// This is faster to retrieve from disk.
-    /// This type CANNOT be upgraded to Stubbed/Completed.
-    Simple,
-
-    /// A Manifest File
-    ///
-    /// This is an unmerged file, and should not be used for anything except merging.
-    SingleFile,
-}
-
-/// Default is the useless type to force constructors into chosing.
-///
-/// Because serde default is set, this is the correct choice when reading from disk.
-impl Default for ManifestType {
-    fn default() -> Self {
-        ManifestType::SingleFile
-    }
-}
-
 
 /// Main manifest, serializable from shipcat.yml or the shipcat CRD.
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -771,7 +707,7 @@ impl Manifest {
 
     /// Print manifest to stdout
     pub fn print(&self) -> Result<()> {
-        print!("{}\n", serde_yaml::to_string(self)?);
+        println!("{}", serde_yaml::to_string(self)?);
         Ok(())
     }
 

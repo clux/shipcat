@@ -4,7 +4,7 @@ use common::setup;
 extern crate shipcat;
 extern crate shipcat_definitions;
 
-use shipcat_definitions::{Manifest, Backend, Config};
+use shipcat_definitions::{Manifest, Config};
 use shipcat::helm::values;
 
 #[test]

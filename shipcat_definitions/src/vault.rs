@@ -9,19 +9,29 @@ use super::config::VaultConfig;
 fn default_addr() -> Result<String> {
     env::var("VAULT_ADDR").map_err(|_| ErrorKind::MissingVaultAddr.into())
 }
+
+#[cfg(feature = "filesystem")]
+fn file_token_fallback() -> Result<String> {
+    // Build a path to ~/.vault-token.
+    let path = dirs::home_dir()
+        .ok_or_else(|| { ErrorKind::NoHomeDirectory })?
+        .join(".vault-token");
+
+    // Read the file.
+    let mut f = File::open(path)?;
+    let mut token = String::new();
+    f.read_to_string(&mut token)?;
+    Ok(token)
+}
+
 fn default_token() -> Result<String> {
     env::var("VAULT_TOKEN")
         .or_else(|_: env::VarError| -> Result<String> {
-            // Build a path to ~/.vault-token.
-            let path = dirs::home_dir()
-                .ok_or_else(|| { ErrorKind::NoHomeDirectory })?
-                .join(".vault-token");
-
-            // Read the file.
-            let mut f = File::open(path)?;
-            let mut token = String::new();
-            f.read_to_string(&mut token)?;
-            Ok(token)
+            if cfg!(feature = "filesystem") {
+                file_token_fallback()
+            } else {
+                bail!("no vault file outside shipcat cli")
+            }
         })
         .chain_err(|| ErrorKind::MissingVaultToken)
 }

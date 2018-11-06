@@ -11,14 +11,16 @@ extern crate serde;
 
 #[macro_use]
 extern crate tera;
+#[cfg(feature = "filesystem")]
 extern crate walkdir;
+
+#[cfg(feature = "filesystem")]
+extern crate dirs;
 
 #[macro_use]
 extern crate log;
 
 extern crate reqwest;
-
-extern crate dirs;
 
 extern crate regex;
 
@@ -93,17 +95,17 @@ pub use config::{Config, Region, Team, VaultConfig, VersionScheme, ManifestDefau
 pub mod structs;
 
 pub mod manifest;
-pub use manifest::{Manifest, ManifestType};
+pub use manifest::Manifest;
 
 /// Reducers used by shipcat get
 pub mod reducers;
 pub use reducers::ResourceBreakdown;
 
-/// Core traits
+/// Internal traits and classifications
 mod traits;
-pub use traits::Backend;
 
 /// File backing
+#[cfg(feature = "filesystem")]
 pub mod filebacked;
 
 // TODO: CRD backing

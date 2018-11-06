@@ -1,4 +1,4 @@
-use super::{Backend, Config, Manifest, Region};
+use super::{Config, Manifest, Region};
 use super::Result;
 
 /// Validate the manifest of a service in the services directory

@@ -3,7 +3,6 @@ use semver::Version;
 
 use super::{Region, Manifest, Config, Team};
 use super::{Result};
-use traits::Backend;
 
 /// Static reducers over available manifests
 impl Manifest {

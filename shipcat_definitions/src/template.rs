@@ -1,7 +1,4 @@
 use std::collections::HashMap;
-use std::fs::File;
-use std::path::Path;
-use std::io::prelude::*;
 use std::iter;
 
 use tera::{self, Value, Tera, Context};
@@ -28,7 +25,11 @@ fn as_secret(v: Value, _: HashMap<String, Value>) -> tera::Result<Value> {
     Ok(format!("SHIPCAT_SECRET::{}", s).into())
 }
 
+#[cfg(feature = "filesystem")]
 fn read_template_file(svc: &str, tmpl: &str) -> Result<String> {
+    use std::fs::File;
+    use std::path::Path;
+    use std::io::prelude::*;
     // try to read file from ./services/{svc}/{tmpl} into `tpl` sting
     let pth = Path::new(".").join("services").join(svc).join(tmpl);
     let gpth = Path::new(".").join("templates").join(tmpl);
@@ -103,6 +104,7 @@ impl Manifest {
     }
 
     /// Read templates from disk and put them into value for ConfigMappedFile
+    #[cfg(feature = "filesystem")]
     pub fn read_configs_files(&mut self) -> Result<()> {
         if let Some(ref mut cfg) = self.configs {
             for f in &mut cfg.files {

@@ -1,7 +1,7 @@
 /// This file contains the `shipcat get` subcommand
 use std::collections::BTreeMap;
 
-use super::{Result, Manifest, Config, Backend, Region};
+use super::{Result, Manifest, Config, Region};
 
 
 // ----------------------------------------------------------------------------

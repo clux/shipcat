@@ -1,7 +1,5 @@
 /// This file contains all the hidden `shipcat list-*` subcommands
-use shipcat_definitions::config::Region;
-use shipcat_definitions::Backend;
-use super::{Result, Manifest, Config}; //Product
+use super::{Result, Region, Manifest, Config}; //Product
 
 /// Print the supported regions
 pub fn regions(conf: &Config) -> Result<()> {

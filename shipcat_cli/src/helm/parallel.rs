@@ -2,7 +2,7 @@ use threadpool::ThreadPool;
 use std::sync::mpsc::channel;
 use std::fs;
 
-use super::{Config, Manifest, Backend, Region};
+use super::{Config, Manifest, Region};
 use super::{UpgradeMode, UpgradeData};
 use super::direct;
 use super::helpers;

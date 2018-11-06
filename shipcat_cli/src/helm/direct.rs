@@ -10,7 +10,7 @@ use super::grafana;
 use super::slack;
 use super::kube;
 use super::Metadata;
-use super::{Manifest, Config, Backend, Region};
+use super::{Manifest, Config, Region};
 use super::{Result, ResultExt, ErrorKind};
 use super::helpers::{self, hout, hexec};
 
