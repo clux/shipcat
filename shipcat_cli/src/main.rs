@@ -199,10 +199,7 @@ fn main() {
             .about("Generate Kong config")
             .arg(Arg::with_name("crd")
                 .long("crd")
-                .help("Produce gorilla.shipcat custom resource values for this kubernetes region"))
-            .arg(Arg::with_name("kongfig")
-                .long("kongfig")
-                .help("Produce Kongfig-compatible output for this kubernetes region"))
+                .help("Produce an experimental custom resource values for this kubernetes region"))
             .subcommand(SubCommand::with_name("config-url")
                 .help("Generate Kong config URL")))
         // dependency graphing
