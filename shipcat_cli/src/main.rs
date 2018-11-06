@@ -473,21 +473,9 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
         };
     }
 
-    // helm dispatch
+    // most important commands below - some resolve kube contexts - some allow overrides
 
-    // definitely need kube context from this point
-    // TODO: prevent double read further down - shadowed
-    let mut region = resolve_region(args, conf)?; // sanity matchup with shipcat.conf
-
-    // Read and validate shipcat.conf
-    // Note that we do not fill in secrets unless ew are in the few subcommands that need it:
-    // 1. validate --secret + secret verify-region
-    // 2. kong subcommands
-    // 3. all helm subcommands except when --mock-vault is set
-    // 4. all cluster level commands
-
-
-    // 1. secret verifiers
+    // secret verifiers
     if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
         // this only needs a kube context if you don't specify it
@@ -521,20 +509,9 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
         return shipcat::helm::direct::template(&svc,
                 &region, &conf, None, mock, None).map(void);
     }
-    // X. new gen service commands
-    if let Some(a) = args.subcommand_matches("apply") {
-        let svc = a.value_of("service").map(String::from).unwrap();
-        region.secrets()?; // absolutely needs secrets..
-        let umode = shipcat::helm::UpgradeMode::UpgradeInstall;
-        let ver = a.value_of("tag").map(String::from); // needed for some subcommands
-        return shipcat::helm::direct::upgrade_wrapper(&svc,
-            umode, &region,
-            &conf, ver).map(void);
-    }
 
-
-    // 2. kong subcommands
     if let Some(a) = args.subcommand_matches("kong") {
+        let mut region = resolve_region(a, conf)?;
         return if let Some(_b) = a.subcommand_matches("config-url") {
             shipcat::kong::config_url(&region)
         } else {
@@ -548,7 +525,20 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
         };
     }
 
-    // 3. helm subcommands
+    // everything below needs a kube context!
+    let mut region = resolve_region(args, conf)?;
+
+    if let Some(a) = args.subcommand_matches("apply") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+        region.secrets()?; // absolutely needs secrets..
+        let umode = shipcat::helm::UpgradeMode::UpgradeInstall;
+        let ver = a.value_of("tag").map(String::from); // needed for some subcommands
+        return shipcat::helm::direct::upgrade_wrapper(&svc,
+            umode, &region,
+            &conf, ver).map(void);
+    }
+
+    // helm subcommands
     if let Some(a) = args.subcommand_matches("helm") {
         let svc = a.value_of("service").unwrap(); // defined required above
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
@@ -655,7 +645,8 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
         return shipcat::kube::debug(&mf);
     }
 
-    // 3. kube context dependent commands
+    // these could technically forgo the kube dependency..
+    // TODO: detangle (needs region flags)
     if let Some(a) = args.subcommand_matches("jenkins") {
         let svc = a.value_of("service").unwrap();
 
@@ -688,7 +679,6 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
         let msg = shipcat::slack::Message { text, link, color, metadata, ..Default::default() };
         return shipcat::slack::send(msg);
     }
-
     if let Some(a) = args.subcommand_matches("gdpr") {
         let svc = a.value_of("service").map(String::from);
         return shipcat::gdpr::show(svc, &conf, &region);
