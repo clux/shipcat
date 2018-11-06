@@ -1,5 +1,3 @@
-use serde_json;
-use serde_yaml;
 use std::io::{self, Write};
 use std::collections::BTreeMap;
 
@@ -92,8 +90,9 @@ fn generate_kong_output(conf: &Config, region: &str) -> Result<KongOutput> {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum KongOutputMode {
-    Json,
+    /// Kongfig CRD - TODO:
     Crd,
+    /// Kongfig raw yaml
     Kongfig,
 }
 
@@ -101,9 +100,6 @@ pub enum KongOutputMode {
 pub fn output(conf: &Config, region: &str, mode: KongOutputMode) -> Result<()> {
     let data = generate_kong_output(conf, &region)?;
     let output = match mode {
-        KongOutputMode::Json => {
-            serde_json::to_string_pretty(&data)?
-        },
         KongOutputMode::Crd => {
             let res = KongCrdOutput::new(region, data);
             serde_yaml::to_string(&res)?
@@ -122,93 +118,5 @@ pub fn output(conf: &Config, region: &str, mode: KongOutputMode) -> Result<()> {
 pub fn config_url(conf: &Config, region: &str) -> Result<()> {
     let reg = conf.regions[&region.to_string()].clone();
     println!("{}", reg.kong.config_url);
-    Ok(())
-}
-
-pub fn reconcile(conf: &Config, region: &str) -> Result<()> {
-    use std::env;
-    use std::path::Path;
-    use std::fs::File;
-    use std::io::{Write};
-    let reg = conf.regions[&region.to_string()].clone();
-
-    let kong = generate_kong_output(&conf, region)?;
-    let output = serde_json::to_string_pretty(&kong)?;
-
-    // write kong-{region}.json
-    let fname = format!("kong-{}.json", region);
-    let pth = Path::new(".").join(&fname);
-    debug!("Writing kong values for {} to {}", region, pth.display());
-    let mut f = File::create(&pth)?;
-    write!(f, "{}\n", output)?;
-    debug!("Wrote kong values for {} to {}: \n{}", region, pth.display(), output);
-
-    // guess kong-configurator location
-    let kongpth = format!("{}/kong.py",
-        env::var("KONG_CONFIGURATOR_DIR").unwrap_or("/kong-configurator".into())
-    );
-    // python3 /kong-configurator/kong.py -c kong-{region}.json -u $KONG_URL
-    use std::process::Command;
-    let args = vec![kongpth, "-c".into(), fname, "-u".into(), reg.kong.config_url];
-    info!("python3 {}", args.join(" "));
-    let s = Command::new("python3").args(&args).status()?;
-    if !s.success() {
-        bail!("Subprocess failure from kong configurator: {}", s.code().unwrap_or(1001))
-    }
-    Ok(())
-}
-
-pub fn kongfig_reconcile(conf: &Config, region: &str) -> Result<()> {
-    use std::path::Path;
-    use std::fs::File;
-    use std::io::{Write};
-    let reg = conf.regions[&region.to_string()].clone();
-
-    let data = generate_kong_output(&conf, region)?;
-    let res = KongfigOutput::new(data);
-    let output = serde_yaml::to_string(&res)?;
-
-    // write kong-{region}.yaml
-    let fname = format!("kong-{}.yaml", region);
-    let pth = Path::new(".").join(&fname);
-    debug!("Writing kongfig values for {} to {}", region, pth.display());
-    let mut f = File::create(&pth)?;
-    write!(f, "{}\n", output)?;
-    debug!("Wrote kongfig values for {} to {}: \n{}", region, pth.display(), output);
-
-    // As it happens, we can only write the file from here, as we can't run
-    // `kongfig` from inside kubecat (we don't want to pull in node/npm, or do
-    // docker-in-docker).
-
-    // TODO later: pass this data to a CRD, and reconcile in-cluster! 🚀
-
-    // FYI, this is the actual reconcile command:
-    //
-    // docker run -t
-    //   -v $PWD:/volume quay.io/babylonhealth/kubecat:kongfig
-    //   kongfig apply
-    //   --host kong-admin-uk.dev.babylontech.co.uk
-    //   --path /volume/kong-{region}.yaml
-    //   --https # or not
-
-    let v = reg.kong.config_url.split("://").collect::<Vec<_>>();
-    assert_eq!(v.len(), 2);
-    let (protocol, host) = (v[0], v[1]);
-    let mut args = vec![
-        "docker".into(), "run".into(),
-        "-v".into(), "$PWD:/volume".into(),
-        "quay.io/babylonhealth/kubecat:kongfig".into(),
-        "kongfig".into(), "apply".into(),
-        "--host".into(), host.into(),
-        "--path".into(), format!("/volume/{}", fname)
-    ];
-    if protocol == "https" {
-        args.push("--https".into());
-    }
-    info!("Reconcile with: sudo {}", args.join(" "));
-    //let s = Command::new("sudo").args(&args).status()?;
-    //if !s.success() {
-    //    bail!("Subprocess failure from kong configurator: {}", s.code().unwrap_or(1001))
-    //}
     Ok(())
 }

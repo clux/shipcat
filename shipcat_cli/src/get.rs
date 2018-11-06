@@ -137,7 +137,7 @@ pub fn apistatus(conf: &Config, region: &str) -> Result<()> {
     }
 
     let output = APIStatusOutput{environment, services};
-    print!("{}\n", serde_json::to_string_pretty(&output)?);
+    println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
 
@@ -148,7 +148,7 @@ use shipcat_definitions::ResourceBreakdown;
 /// Resource use for a single region
 pub fn resources(conf: &Config, region: &str) -> Result<()> {
     let bd = Manifest::resources(conf, region)?.normalise();
-    print!("{}\n", serde_json::to_string_pretty(&bd)?);
+    println!("{}", serde_json::to_string_pretty(&bd)?);
     Ok(())
 }
 
@@ -167,6 +167,6 @@ pub fn totalresources(conf: &Config) -> Result<()> {
         }
     }
     bd = bd.normalise();
-    print!("{}\n", serde_json::to_string_pretty(&bd)?);
+    println!("{}", serde_json::to_string_pretty(&bd)?);
     Ok(())
 }

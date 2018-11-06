@@ -19,7 +19,7 @@ pub fn show(svc: Option<String>, conf: &Config, region: &str) -> Result<()> {
     if let Some(s) = svc {
         let mf = Manifest::stubbed(&s, conf, region)?;
         let out = serde_yaml::to_string(&mf.dataHandling.unwrap_or_else(|| DataHandling::default()))?;
-        print!("{}\n", out);
+        println!("{}", out);
     } else {
         let mut mappings = BTreeMap::new();
         let mut services = vec![];
@@ -33,7 +33,7 @@ pub fn show(svc: Option<String>, conf: &Config, region: &str) -> Result<()> {
         }
         let data = GdprOutput { mappings, services };
         let out = serde_yaml::to_string(&data)?;
-        print!("{}\n", out);
+        println!("{}", out);
     }
     Ok(())
 }
