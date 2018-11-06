@@ -163,23 +163,4 @@ impl Backend for Manifest {
         self.kind = kind;
         Ok(())
     }
-
-    /// Verifying a manifest in the filesystem
-    ///
-    /// Needs to account for the manifest being external/disabled, then secrets.
-    fn validate(svc: &str, conf: &Config, region: &Region, secrets: bool) -> Result<()> {
-        let bm = Manifest::blank(svc)?;
-
-        if bm.regions.contains(&region.name) && !bm.disabled && !bm.external {
-            let mf = if secrets {
-                Manifest::completed(&svc, &conf, &region)?
-            } else {
-                Manifest::stubbed(&svc, &conf, &region)?
-            };
-            mf.verify(conf, region).chain_err(|| ErrorKind::InvalidManifest(mf.name))?;
-        } else {
-            bail!("{} is not configured to be deployed in {}", svc, region.name);
-        }
-        Ok(())
-    }
 }

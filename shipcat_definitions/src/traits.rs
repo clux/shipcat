@@ -43,9 +43,4 @@ pub trait Backend {
     ///
     /// The kind to upgrade to must be either `Completed` or `Stubbed`.
     fn upgrade(&mut self, reg: &Region, kind: ManifestType) -> Result<()>;
-
-    /// Verify that a Manifest is valid in the current backend
-    ///
-    /// What valid means depends on the implementation in the Backend
-    fn validate(svc: &str, conf: &Config, reg: &Region, secrets: bool) -> Result<()>;
 }

@@ -10,7 +10,12 @@ use super::Result;
 pub fn manifest(services: Vec<String>, conf: &Config, reg: &Region, secrets: bool) -> Result<()> {
     for svc in services {
         info!("validating {} for {}", svc, reg.name);
-        Manifest::validate(&svc, conf, reg, secrets)?;
+        let mf = if secrets {
+            Manifest::completed(&svc, conf, reg)?
+        } else {
+            Manifest::stubbed(&svc, conf, reg)?
+        };
+        mf.verify(conf, reg)?;
         info!("validated {} for {}", svc, reg.name);
     }
     Ok(())
