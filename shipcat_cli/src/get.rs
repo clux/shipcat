@@ -19,9 +19,31 @@ pub fn images(conf: &Config, region: &Region) -> Result<()> {
     Ok(())
 }
 
+/// Generate codeowner strings for each service based based on team owners
+///
+/// Cross references config.teams with manifest.metadata.team
+/// Each returned string is Github CODEOWNER syntax
 pub fn codeowners(conf: &Config) -> Result<()> {
-    let output = Manifest::get_codeowners(conf)?.join("\n");
-    print!("{}\n", output);
+    let services = Manifest::all()?;
+    let mut output = vec![];
+
+    for svc in services {
+        // Can rely on blank here because metadata is a global property
+        let mf = Manifest::blank(&svc)?;
+        if let Some(md) = mf.metadata {
+            let mut ghids = vec![];
+            // unwraps guaranteed by validates on Manifest and Config
+            let owners = &conf.teams.iter().find(|t| t.name == md.team).unwrap().owners;
+            for o in owners.clone() {
+                ghids.push(format!("@{}", o.github.unwrap()));
+            }
+            if !owners.is_empty() {
+                output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
+            }
+        }
+    }
+
+    print!("{}\n", output.join("\n"));
     Ok(())
 }
 

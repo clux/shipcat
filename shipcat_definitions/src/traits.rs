@@ -71,10 +71,10 @@ pub enum ManifestType {
 impl Default for ManifestType {
     fn default() -> Self {
         if cfg!(feature = "filesystem") {
-            ManifestType::SingleFile
-        } else {
-            ManifestType::Base
+            #[cfg(feature = "filesystem")]
+            return ManifestType::SingleFile;
         }
+        ManifestType::Base
     }
 }
 
@@ -91,7 +91,7 @@ pub trait Backend {
     fn _available(region: &str) -> Result<Vec<String>>;
 }
 
-
+#[cfg(any(feature = "filesystem", feature = "crd"))]
 impl Manifest where Manifest: Backend {
     /// List all services available in a region
     pub fn available(region: &str) -> Result<Vec<String>> {

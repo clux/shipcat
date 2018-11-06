@@ -1,9 +1,9 @@
-use config::{Config, Region, ManifestDefaults};
+use std::io::prelude::*;
+use std::fs::File;
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-use std::io::prelude::*;
-use std::path::{PathBuf, Path};
-use std::fs::File;
+use config::{Config, Region, ManifestDefaults};
 use super::{Result, Manifest};
 use traits::{Backend, ManifestType};
 
@@ -74,6 +74,7 @@ fn walk_services() -> Vec<String> {
     res
 }
 
+
 /// Manifests backed by a manifests directory traverse the filesystem for discovery
 impl Backend for Manifest {
     fn _available(region: &str) -> Result<Vec<String>> {
@@ -103,6 +104,7 @@ impl Backend for Manifest {
 
 /// Extra filesystem accessors for the CLI
 impl Manifest {
+    /// Return all services found in the manifests services folder
     pub fn all() -> Result<Vec<String>> {
         Ok(walk_services())
     }

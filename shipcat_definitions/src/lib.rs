@@ -97,6 +97,9 @@ pub mod structs;
 pub mod manifest;
 pub use manifest::Manifest;
 
+/// Crd wrappers
+pub mod crd;
+
 /// Reducers used by shipcat get
 pub mod reducers;
 pub use reducers::ResourceBreakdown;
@@ -106,9 +109,10 @@ mod traits;
 
 /// File backing
 #[cfg(feature = "filesystem")]
-pub mod filebacked;
-
-// TODO: CRD backing
+mod filebacked;
+/// Crd backing
+#[cfg(feature = "crd")]
+mod crdbacked;
 
 // Merge behaviour for manifests
 mod merge;
@@ -122,8 +126,8 @@ pub mod math;
 /// Used for small app configs that are inlined in the completed manifests.
 pub mod template;
 
-pub mod product;
-pub use product::Product;
+//pub mod product;
+//pub use product::Product;
 
 /// A Hashicorp Vault HTTP client using `reqwest`
 pub mod vault;

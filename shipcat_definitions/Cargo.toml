@@ -35,6 +35,6 @@ dirs = { version = "1.0.4", optional = true }
 walkdir = { version = "2.2.5", optional = true }
 
 [features]
-default = ["filesystem"]
+default = []
 filesystem = ["walkdir", "dirs"]
 crd = []

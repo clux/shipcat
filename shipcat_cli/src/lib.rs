@@ -123,7 +123,7 @@ extern crate shipcat_definitions;
 pub use shipcat_definitions::{Manifest};
 pub use shipcat_definitions::structs;
 pub use shipcat_definitions::config::{self, Config, Region, VersionScheme};
-pub use shipcat_definitions::Product;
+//pub use shipcat_definitions::Product;
 
 /// Convenience listers
 pub mod list;

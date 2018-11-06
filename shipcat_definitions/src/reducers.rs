@@ -41,32 +41,6 @@ impl Manifest {
         }
         Ok(output)
     }
-
-    /// Generate codeowner strings for each service based based on team owners
-    ///
-    /// Cross references config.teams with manifest.metadata.team
-    /// Each returned string is Github CODEOWNER syntax
-    pub fn get_codeowners(conf: &Config) -> Result<Vec<String>> {
-        let services = Manifest::all()?;
-        let mut output = vec![];
-
-        for svc in services {
-            // Can rely on blank here because metadata is a global property
-            let mf = Manifest::blank(&svc)?;
-            if let Some(md) = mf.metadata {
-                let mut ghids = vec![];
-                // unwraps guaranteed by validates on Manifest and Config
-                let owners = &conf.teams.iter().find(|t| t.name == md.team).unwrap().owners;
-                for o in owners.clone() {
-                    ghids.push(format!("@{}", o.github.unwrap()));
-                }
-                if !owners.is_empty() {
-                    output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
-                }
-            }
-        }
-        Ok(output)
-    }
 }
 
 /// Complete breakdown of resource usage in total, and split by team.

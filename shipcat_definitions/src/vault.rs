@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 use std::env;
-use std::fs::File;
 use std::io::Read;
 
 use super::{Result, ErrorKind, ResultExt, Error};
@@ -12,6 +11,8 @@ fn default_addr() -> Result<String> {
 
 #[cfg(feature = "filesystem")]
 fn file_token_fallback() -> Result<String> {
+    use std::fs::File;
+
     // Build a path to ~/.vault-token.
     let path = dirs::home_dir()
         .ok_or_else(|| { ErrorKind::NoHomeDirectory })?
@@ -28,10 +29,10 @@ fn default_token() -> Result<String> {
     env::var("VAULT_TOKEN")
         .or_else(|_: env::VarError| -> Result<String> {
             if cfg!(feature = "filesystem") {
-                file_token_fallback()
-            } else {
-                bail!("no vault file outside shipcat cli")
+                #[cfg(feature = "filesystem")]
+                return file_token_fallback();
             }
+            bail!("no vault file outside shipcat cli")
         })
         .chain_err(|| ErrorKind::MissingVaultToken)
 }
