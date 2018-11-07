@@ -5,7 +5,7 @@ use walkdir::WalkDir;
 
 use config::{Config, Region, ManifestDefaults};
 use super::{Result, Manifest};
-use traits::{Backend, ManifestType};
+use states::{ManifestType};
 
 /// Private helpers for a filebacked Manifest Backend
 impl Manifest {
@@ -75,9 +75,9 @@ fn walk_services() -> Vec<String> {
 }
 
 
-/// Manifests backed by a manifests directory traverse the filesystem for discovery
-impl Backend for Manifest {
-    fn _available(region: &str) -> Result<Vec<String>> {
+/// Filesystem accessors for the CLI
+impl Manifest {
+    pub fn available(region: &str) -> Result<Vec<String>> {
         let mut xs = vec![];
         for svc in walk_services() {
             let mf = Manifest::blank(&svc)?;
@@ -91,7 +91,7 @@ impl Backend for Manifest {
     /// Create an-all pieces manifest ready to be upgraded
     ///
     /// The CRD equivalent that has templates read from disk first.
-    fn _base(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
+    pub fn base(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
         let mut mf = Manifest::blank(service)?;
         // fill defaults and merge regions before extracting secrets
         mf.merge_and_fill_defaults(&conf.defaults, reg)?;
@@ -100,10 +100,7 @@ impl Backend for Manifest {
 
         Ok(mf)
     }
-}
 
-/// Extra filesystem accessors for the CLI
-impl Manifest {
     /// Return all services found in the manifests services folder
     pub fn all() -> Result<Vec<String>> {
         Ok(walk_services())

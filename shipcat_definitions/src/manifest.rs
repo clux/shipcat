@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use regex::Regex;
 
 use config::{Config, VaultConfig, Region};
-use traits::ManifestType;
+use states::ManifestType;
 use super::Result;
 
 // All structs come from the structs directory

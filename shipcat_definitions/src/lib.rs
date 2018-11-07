@@ -98,21 +98,15 @@ pub mod manifest;
 pub use manifest::Manifest;
 
 /// Crd wrappers
-pub mod crd;
+pub mod crds;
 
-/// Reducers used by shipcat get
-pub mod reducers;
-pub use reducers::ResourceBreakdown;
-
-/// Internal traits and classifications
-mod traits;
+/// Internal classifications and states
+mod states;
+pub use states::{ConfigType};
 
 /// File backing
 #[cfg(feature = "filesystem")]
 mod filebacked;
-/// Crd backing
-#[cfg(feature = "crd")]
-mod crdbacked;
 
 // Merge behaviour for manifests
 mod merge;

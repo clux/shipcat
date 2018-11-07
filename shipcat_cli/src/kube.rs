@@ -44,7 +44,6 @@ pub fn current_context() -> Result<String> {
     Ok(res)
 }
 
-
 fn rollout_status(mf: &Manifest) -> Result<bool> {
     // TODO: handle more than one deployment
     // Even if this were called 10 times with 1/10th of waiting time, we still can't wait:
@@ -401,6 +400,8 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
 
 
 /// Port forward a port to localhost
+///
+/// Useful because we have autocomplete on manifest names in shipcat
 pub fn port_forward(mf: &Manifest) -> Result<()> {
     // TODO: kubectl auth can-i create something?
     let port = mf.httpPort.unwrap();
@@ -419,6 +420,21 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
     Ok(())
 }
 
+/// Shorthand for logs deployment/{mf.name}
+///
+/// Useful because we have autocomplete on manifest names in shipcat
+pub fn logs(mf: &Manifest) -> Result<()> {
+    debug!("Fetching logs from kube deployment {}", mf.name);
+    //kubectl logs deployment/${name}
+    let logsargs = vec![
+        format!("-n={}", mf.namespace),
+        "logs".into(),
+        format!("deployment/{}", mf.name),
+    ];
+    kexec(logsargs)?;
+    Ok(())
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -428,6 +444,7 @@ mod tests {
     #[test]
     fn validate_ctx() {
         let kubecfg = dirs::home_dir().unwrap().join(".kube").join("config");
+        // ignoring this test on circleci..
         if kubecfg.is_file() {
             let ctx = current_context().unwrap();
             assert_eq!(ctx, "dev-uk".to_string());

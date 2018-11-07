@@ -78,32 +78,13 @@ impl Default for ManifestType {
     }
 }
 
-/// Behavioural trait for where a Manifest backend gets its data from.
-///
-/// This abstracts the behaviour of fetching manifests either from disk or a db.
-/// See `ManifestType` for information about what the types are expected to contain.
-/// This trait is only used internally.
-pub trait Backend {
-    /// A way to create a `Base` manifest
-    fn _base(service: &str, conf: &Config, reg: &Region) -> Result<Manifest>;
-
-    /// A way to list all available services in the region
-    fn _available(region: &str) -> Result<Vec<String>>;
-}
-
-#[cfg(any(feature = "filesystem", feature = "crd"))]
-impl Manifest where Manifest: Backend {
-    /// List all services available in a region
-    pub fn available(region: &str) -> Result<Vec<String>> {
-        Manifest::_available(region)
-    }
-
-    /// Create a `Base` manifest
-    pub fn base(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
-        Manifest::_base(service, conf, reg)
-    }
+/// This library defines the way to upgrade a manifest from Base
+/// but each backend has to implement its own way of:
+/// - listing services from its backing
+/// - creating a base manifest from its backing
+impl Manifest {
     /// Upgrade a `Base` manifest to either a Complete or a Stubbed one
-    pub fn upgrade(&mut self, reg: &Region, kind: ManifestType) -> Result<()> {
+    fn upgrade(mut self, reg: &Region, kind: ManifestType) -> Result<Self> {
         assert_eq!(self.kind, ManifestType::Base); // sanity
         let v = match kind {
             ManifestType::Completed => Vault::regional(&reg.vault)?,
@@ -120,20 +101,53 @@ impl Manifest where Manifest: Backend {
         // templates last
         self.template_configs(reg)?;
         self.kind = kind;
-        Ok(())
+        Ok(self)
     }
 
-    /// Create a completed manifest with stubbed secrets (faster to retrieve)
-    pub fn stubbed(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
-        let mut mf = Manifest::base(service, &conf, reg)?;
-        mf.upgrade(reg, ManifestType::Stubbed)?;
-        Ok(mf)
+    /// Complete a Base manifest with stub secrets
+    pub fn stub(self, reg: &Region) -> Result<Self> {
+        self.upgrade(reg, ManifestType::Stubbed)
     }
 
-    /// Create a completed manifest fetching secrets from Vault
-    pub fn completed(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
-        let mut mf = Manifest::base(service, &conf, reg)?;
-        mf.upgrade(reg, ManifestType::Completed)?;
-        Ok(mf)
+    /// Complete a Base manifest with actual secrets
+    pub fn complete(self, reg: &Region) -> Result<Self> {
+        self.upgrade(reg, ManifestType::Completed)
     }
 }
+
+
+/// Various states a Config can exist in depending on resolution.
+///
+/// This only matters within shipcat and is used to optimize speed of accessors.
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub enum ConfigType {
+    /// A completed config for a specific region
+    ///
+    /// This is the upgraded version of a Filtered config for the same region.
+    /// Secrets have been resolved here.
+    Completed,
+
+    /// A config with a single region entry with blank secrets
+    ///
+    /// Same as what's on disk, secrets unresolved, but only one region.
+    /// This is the CRD equivalent.
+    Base,
+
+    /// The full config as read from disk. Secrets unresolved
+    #[cfg(feature = "filesystem")]
+    File,
+}
+
+/// Default is the feature-specified base type to force constructors into chosing.
+///
+/// This relies on serde default to populate on deserialize from disk/crd.
+impl Default for ConfigType {
+    fn default() -> Self {
+        if cfg!(feature = "filesystem") {
+            #[cfg(feature = "filesystem")]
+            return ConfigType::File;
+        }
+        ConfigType::Base
+    }
+}
+

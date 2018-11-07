@@ -30,9 +30,22 @@ pub fn setup() {
     });
 }
 
-use shipcat_definitions::{Config, Product, Manifest};
+use shipcat_definitions::{Config, Manifest}; // Product
+use shipcat_definitions::ConfigType;
 
 #[test]
+fn config_test() {
+    setup();
+    assert!(Config::read().is_ok());
+    assert!(Config::new(ConfigType::Base, "dev-uk").is_ok());
+    let fullcfg = Config::new(ConfigType::Completed, "dev-uk");
+    assert!(fullcfg.is_ok());
+    assert!(Config::new(ConfigType::File, "dev-uk").is_err());
+    let (conf, _region) = fullcfg.unwrap();
+    assert!(conf.print().is_ok());
+}
+
+/*#[test]
 fn product_test() {
     setup();
     let conf = Config::read().unwrap();
@@ -40,35 +53,49 @@ fn product_test() {
     let res = p.verify(&conf);
     assert!(res.is_ok(), "verified product");
 }
+*/
 
+use shipcat::get;
 #[test]
-fn get_versions() {
+fn getters() {
     setup();
-    let conf = Config::read().unwrap();
-    let (_, region) = conf.get_region("dev-uk").unwrap();
-    let vers = Manifest::get_versions(&conf, &region).unwrap();
-
+    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let vers = get::versions(&conf, &reg).unwrap();
     assert_eq!(vers.len(), 1); // only one of the services has a version
     assert_eq!(vers["fake-ask"], Version::new(1, 6, 0));
+
+    let imgs = get::images(&conf, &reg).unwrap();
+    assert_eq!(imgs.len(), 2); // every service gets an image
+    assert_eq!(imgs["fake-ask"], "quay.io/babylonhealth/fake-ask");
+    assert_eq!(imgs["fake-storage"], "nginx");
 }
 
 #[test]
-fn get_images() {
+fn clusterinfo() {
     setup();
+    // clusterinfo must be correct in its resolution!
+    // test all cases
+    // NB: needs a base config to be able to verify region/cluster constraints
     let conf = Config::read().unwrap();
-    let (_, region) = conf.get_region("dev-uk").unwrap();
-    let vers = Manifest::get_images(&conf, &region).unwrap();
 
-    assert_eq!(vers.len(), 2); // every service gets an image
-    assert_eq!(vers["fake-ask"], "quay.io/babylonhealth/fake-ask");
-    assert_eq!(vers["fake-storage"], "nginx");
+    assert!(get::clusterinfo(&conf, "preproduk-blue").is_ok());
+    assert!(get::clusterinfo(&conf, "preproduk-green").is_ok());
+    assert!(get::clusterinfo(&conf, "preprod-uk").is_err()); // ambiguous
+
+    let blue = get::clusterinfo(&conf, "preproduk-blue").unwrap();
+    assert_eq!(blue.region, "preprod-uk"); // correctly resolved
+
+    assert!(get::clusterinfo(&conf, "dev-global").is_ok());
+    let devglob = get::clusterinfo(&conf, "dev-global").unwrap();
+    assert_eq!(devglob.region, "dev-global");
+    assert_eq!(devglob.cluster, "kops-global")
 }
 
 #[test]
 fn get_codeowners() {
     setup();
     let conf = Config::read().unwrap();
-    let cos = Manifest::get_codeowners(&conf).unwrap();
+    let cos = get::codeowners(&conf).unwrap();
 
     assert_eq!(cos.len(), 1); // services without owners get no listing
     assert_eq!(cos[0], "services/fake-ask/* @clux");
@@ -107,9 +134,14 @@ fn wait_time_check() {
 #[test]
 fn manifest_test() {
     setup();
-    let conf = Config::read().unwrap();
-    let (_, region) = conf.get_region("dev-uk").unwrap();
-    let mf = Manifest::completed("fake-storage", &conf, &region).unwrap();
+    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let mfread = Manifest::base("fake-storage", &conf, &reg);
+    assert!(mfread.is_ok());
+    let mfbase = mfread.unwrap();
+    let mfres = mfbase.complete(&reg);
+    assert!(mfres.is_ok());
+    let mf = mfres.unwrap();
+
     // verify datahandling implicits
     let dh = mf.dataHandling.unwrap();
     let s3 = dh.stores[0].clone();
@@ -123,9 +155,8 @@ fn manifest_test() {
 #[test]
 fn templating_test() {
     setup();
-    let conf = Config::read().unwrap();
-    let (_, region) = conf.get_region("dev-uk").unwrap();
-    let mf = Manifest::completed("fake-ask", &conf, &region).unwrap();
+    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let mf = Manifest::base("fake-ask", &conf, &reg).unwrap().complete(&reg).unwrap();
 
     // verify templating
     let env = mf.env;

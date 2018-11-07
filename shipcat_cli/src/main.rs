@@ -352,24 +352,23 @@ fn run(args: &ArgMatches) -> Result<()> {
         libc::signal(libc::SIGPIPE, libc::SIG_DFL);
     }
 
-    // Read and validate shipcat.conf (can't rely on anything if config is invalid)
-    let conf = Config::read()?; // no secrets fetched yet
-    conf.verify()?; // cheap verify of Config
-
     // Dispatch arguments to internal handlers. Pass on handled result.
-    dispatch_commands(&args, &conf)
+    dispatch_commands(args)
 }
 
-// resolve region argument and validate from config
-// will use it to resolve a region from current-context if not specified
-fn resolve_region(args: &ArgMatches, conf: &Config) -> Result<Region> {
-    let region = if let Some(r) = args.value_of("region") {
+/// Create a config for a region
+///
+/// Resolves an optional "region" Arg or falls back to kube context.
+/// This is the ONLY user of kube::current_context for sanity.
+/// If the CLI entrypoint does not need a region-wide config, do not use this.
+fn resolve_config(args: &ArgMatches, ct: ConfigType) -> Result<(Config, Region)> {
+    let regionguess = if let Some(r) = args.value_of("region") {
         r.into()
     } else {
         kube::current_context()?
     };
-    let (_, reg) = conf.get_region(&region)?;
-    Ok(reg)
+    let res = Config::new(ct, &regionguess)?;
+    Ok(res)
 }
 
 fn void<T>(_x: T) { () } // helper so that dispatch_commands can return Result<()>
@@ -378,16 +377,18 @@ fn void<T>(_x: T) { () } // helper so that dispatch_commands can return Result<(
 ///
 /// A boring and somewhat error-prone "if-x-then-fnx dance". We are relying on types
 /// in the dispatched functions to catch the majority of errors herein.
-fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
+fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     // listers first
     if args.subcommand_matches("list-regions").is_some() {
-        return shipcat::list::regions(&conf);
+        let baseconf = Config::read()?;
+        return shipcat::list::regions(&baseconf);
     }
-    if args.subcommand_matches("list-locations").is_some() {
-        return shipcat::list::locations(&conf);
+    else if args.subcommand_matches("list-locations").is_some() {
+        let baseconf = Config::read()?;
+        return shipcat::list::locations(&baseconf);
     }
-    if let Some(a) = args.subcommand_matches("list-services") {
-        let region = resolve_region(a, conf)?;
+    else if let Some(a) = args.subcommand_matches("list-services") {
+        let (_ , region) = resolve_config(a, ConfigType::Base)?;
         return shipcat::list::services(&region);
     }
     //if let Some(a) = args.subcommand_matches("list-products") {
@@ -396,37 +397,38 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
     //}
 
     // getters
-    if let Some(a) = args.subcommand_matches("get") {
+    else if let Some(a) = args.subcommand_matches("get") {
         if let Some(_) = a.subcommand_matches("resources") {
             if a.is_present("region") {
-                let region = resolve_region(a, conf)?;
+                let (conf, region) = resolve_config(a, ConfigType::Base)?;
                 return shipcat::get::resources(&conf, &region);
             } else {
-                return shipcat::get::totalresources(&conf);
+                let baseconf = Config::read()?;
+                return shipcat::get::totalresources(&baseconf);
             }
         }
 
-        let region = resolve_region(a, conf)?;
+        // resolve region from kube context here if unspecified
+        let (conf, region) = resolve_config(a, ConfigType::Base)?;
         if let Some(_) = a.subcommand_matches("versions") {
-            return shipcat::get::versions(&conf, &region);
+            return shipcat::get::versions(&conf, &region).map(void);
         }
         if let Some(_) = a.subcommand_matches("images") {
-            return shipcat::get::images(&conf, &region);
+            return shipcat::get::images(&conf, &region).map(void);
         }
         if let Some(_) = a.subcommand_matches("codeowners") {
-            return shipcat::get::codeowners(&conf);
+            return shipcat::get::codeowners(&conf).map(void);
         }
         if let Some(_) = a.subcommand_matches("apistatus") {
             return shipcat::get::apistatus(&conf, &region);
         }
         if let Some(_) = a.subcommand_matches("clusterinfo") {
             assert!(a.is_present("region"), "explicit region needed for clusterinfo");
-            // TODO: remove this requirement post-kops
-            return shipcat::get::clusterinfo(&conf, a.value_of("region").unwrap());
+            return shipcat::get::clusterinfo(&conf, a.value_of("region").unwrap()).map(void);
         }
     }
     // product
-    if let Some(_a) = args.subcommand_matches("product") {
+    else if let Some(_a) = args.subcommand_matches("product") {
         // TODO: handle more like the other commands
         unimplemented!();
 /*        if let Some(b) = a.subcommand_matches("verify") {
@@ -441,108 +443,103 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
         }*/
     }
     // helpers that can work without a kube region, but will shell out to kubectl if not passed
-    if let Some(a) = args.subcommand_matches("status") {
-        let svc = a.value_of("service").map(String::from).unwrap();
-        let region = resolve_region(a, conf)?;
-        return shipcat::helm::status(&svc, &conf, &region);
-    }
-    if let Some(a) = args.subcommand_matches("validate") {
-        let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
-        let region = resolve_region(a, conf)?;
-        // secret version is later
-        if !a.is_present("secrets") { // otherwise handle later
-            return shipcat::validate::manifest(services, &conf, &region, false);
-        }
-    }
     // TODO: remove this
-    if let Some(a) = args.subcommand_matches("secret") {
+    else if let Some(a) = args.subcommand_matches("secret") {
+        let baseconf = Config::read()?;
         if let Some(b) = a.subcommand_matches("verify-region") {
             let regions = b.values_of("regions").unwrap().map(String::from).collect::<Vec<_>>();
             // NB: this does a cheap verify of both Config and Manifest (vault list)
-            return shipcat::validate::secret_presence(&conf, regions);
+            return shipcat::validate::secret_presence(&baseconf, regions);
         }
     }
 
-    if let Some(a) = args.subcommand_matches("graph") {
+    // ------------------------------------------------------------------------------
+    // important dev commands below - they resolve kube context as a fallback
+    // otherwise region can be passed in as args
+
+    else if let Some(a) = args.subcommand_matches("status") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        return shipcat::helm::status(&svc, &conf, &region);
+    }
+    else if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");
-        let region = resolve_region(a, conf)?;
+        let (conf, region) = resolve_config(a, ConfigType::Base)?;
         return if let Some(svc) = a.value_of("service") {
             shipcat::graph::generate(svc, &conf, &region, dot).map(void)
         } else {
             shipcat::graph::full(dot, &conf, &region).map(void)
         };
     }
-
-    // most important commands below - some resolve kube contexts - some allow overrides
-
-    // secret verifiers
-    if let Some(a) = args.subcommand_matches("validate") {
+    else if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
         // this only needs a kube context if you don't specify it
-        let mut region = resolve_region(a, conf)?;
-        if a.is_present("secrets") {
-            region.secrets()?;
-        }
+        let ss = if a.is_present("secrets") { ConfigType::Completed } else { ConfigType::Base };
+        let (conf, region) = resolve_config(a, ss)?;
         return shipcat::validate::manifest(services, &conf, &region, a.is_present("secrets"));
     }
-    if let Some(a) = args.subcommand_matches("values") {
+    else if let Some(a) = args.subcommand_matches("values") {
         let svc = a.value_of("service").map(String::from).unwrap();
-        let mut region = resolve_region(a, conf)?;
-        if a.is_present("secrets") {
-            region.secrets()?;
-        }
+
+        let ss = if a.is_present("secrets") { ConfigType::Completed } else { ConfigType::Base };
+        let (conf, region) = resolve_config(a, ss)?;
+
         let mf = if a.is_present("secrets") {
-            Manifest::completed(&svc, &conf, &region)?
+            Manifest::base(&svc, &conf, &region)?.complete(&region)?
         } else {
-            Manifest::stubbed(&svc, &conf, &region)?
+            Manifest::base(&svc, &conf, &region)?.stub(&region)?
         };
         mf.print()?;
         return Ok(());
     }
-    if let Some(a) = args.subcommand_matches("template") {
+    else if let Some(a) = args.subcommand_matches("template") {
         let svc = a.value_of("service").map(String::from).unwrap();
-        let mut region = resolve_region(a, conf)?;
-        if a.is_present("secrets") {
-            region.secrets()?;
-        }
+
+        let ss = if a.is_present("secrets") { ConfigType::Completed } else { ConfigType::Base };
+        let (conf, region) = resolve_config(a, ss)?;
+
         let mock = !a.is_present("secrets");
         return shipcat::helm::direct::template(&svc,
                 &region, &conf, None, mock, None).map(void);
     }
 
-    if let Some(a) = args.subcommand_matches("kong") {
-        let mut region = resolve_region(a, conf)?;
+    else if let Some(a) = args.subcommand_matches("kong") {
         return if let Some(_b) = a.subcommand_matches("config-url") {
+            let (_conf, region) = resolve_config(a, ConfigType::Base)?;
             shipcat::kong::config_url(&region)
         } else {
-            region.secrets()?;
+            let (conf, region) = resolve_config(a, ConfigType::Completed)?;
             let mode = if a.is_present("crd") {
                 kong::KongOutputMode::Crd
             } else {
                 kong::KongOutputMode::Kongfig
             };
+            assert!(conf.has_secrets()); // sanity on cluster disruptive commands
             shipcat::kong::output(&conf, &region, mode)
         };
     }
 
+    // ------------------------------------------------------------------------------
     // everything below needs a kube context!
-    let mut region = resolve_region(args, conf)?;
 
-    if let Some(a) = args.subcommand_matches("apply") {
+    else if let Some(a) = args.subcommand_matches("apply") {
         let svc = a.value_of("service").map(String::from).unwrap();
-        region.secrets()?; // absolutely needs secrets..
+        // this absolutely needs secrets..
+        let (conf, region) = resolve_config(a, ConfigType::Completed)?;
         let umode = shipcat::helm::UpgradeMode::UpgradeInstall;
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
+        assert!(conf.has_secrets()); // sanity on cluster disruptive commands
         return shipcat::helm::direct::upgrade_wrapper(&svc,
             umode, &region,
             &conf, ver).map(void);
     }
 
     // helm subcommands
-    if let Some(a) = args.subcommand_matches("helm") {
+    else if let Some(a) = args.subcommand_matches("helm") {
         let svc = a.value_of("service").unwrap(); // defined required above
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
-        region.secrets()?;
+
+        let (conf, region) = resolve_config(args, ConfigType::Completed)?;
 
         // small wrapper around helm history does not need anything fancy
         if let Some(_) = a.subcommand_matches("history") {
@@ -590,6 +587,7 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
         else {
             unreachable!("Helm Subcommand valid, but not implemented")
         };
+        assert!(conf.has_secrets()); // sanity on cluster disruptive commands
         return shipcat::helm::direct::upgrade_wrapper(svc,
             umode, &region,
             &conf, ver).map(void);
@@ -597,10 +595,11 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
 
 
     // 4. cluster level commands
-    if let Some(a) = args.subcommand_matches("cluster") {
-        region.secrets()?; // absolutely need secrets here
+    else if let Some(a) = args.subcommand_matches("cluster") {
+        // absolutely need secrets here
+        let (conf, region) = resolve_config(args, ConfigType::Completed)?;
+        assert!(conf.has_secrets()); // sanity on cluster disruptive commands
         if let Some(b) = a.subcommand_matches("helm") {
-            region.secrets()?;
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("diff") {
                 return shipcat::cluster::helm_diff(&conf, &region, jobs);
@@ -612,14 +611,13 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
     }
 
 
+    // ------------------------------------------------------------------------------
     // Dispatch small helpers that does not need secrets
-    //
-    // These are designed to work without secrets, i.e. `Config::stubbed` passed
-    // and `Manifest::stubbed` within.
+    // most of these require a resolved `region` via kubectl
 
-    // kube wrappers:
-    // These require a resolved `region` via kubectl
-    if let Some(a) = args.subcommand_matches("shell") {
+    // super kube specific ones:
+    else if let Some(a) = args.subcommand_matches("shell") {
+         let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let service = a.value_of("service").unwrap();
         let pod = value_t!(a.value_of("pod"), usize).ok();
 
@@ -628,26 +626,26 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
         } else {
             None
         };
-        let region = resolve_region(a, conf)?;
-        let mf = Manifest::stubbed(service, &conf, &region)?;
+        let mf = Manifest::base(service, &conf, &region)?.stub(&region)?;
         return shipcat::kube::shell(&mf, pod, cmd);
     }
-
-    if let Some(a) = args.subcommand_matches("port-forward") {
+    else if let Some(a) = args.subcommand_matches("port-forward") {
+        let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let service = a.value_of("service").unwrap();
-        let mf = Manifest::stubbed(service, &conf, &region)?;
+        let mf = Manifest::base(service, &conf, &region)?.stub(&region)?;
         return shipcat::kube::port_forward(&mf);
     }
-
-    if let Some(a) = args.subcommand_matches("debug") {
+    else if let Some(a) = args.subcommand_matches("debug") {
+        let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let service = a.value_of("service").unwrap();
-        let mf = Manifest::stubbed(service, &conf, &region)?;
+        let mf = Manifest::base(service, &conf, &region)?.stub(&region)?;
         return shipcat::kube::debug(&mf);
     }
 
     // these could technically forgo the kube dependency..
     // TODO: detangle (needs region flags)
-    if let Some(a) = args.subcommand_matches("jenkins") {
+    else if let Some(a) = args.subcommand_matches("jenkins") {
+        let (_conf, region) = resolve_config(args, ConfigType::Base)?;
         let svc = a.value_of("service").unwrap();
 
         return if let Some(_) = a.subcommand_matches("latest") {
@@ -667,19 +665,21 @@ fn dispatch_commands(args: &ArgMatches, conf: &Config) -> Result<()> {
             unreachable!()
         };
     }
-    if let Some(a) = args.subcommand_matches("slack") {
+    else if let Some(a) = args.subcommand_matches("slack") {
+        let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
         let link = a.value_of("url").map(String::from);
         let color = a.value_of("color").map(String::from);
         let metadata = if let Some(svc) = a.value_of("service") {
-            Manifest::stubbed(svc, &conf, &region)?.metadata
+            Manifest::base(svc, &conf, &region)?.metadata
         } else {
             None
         };
         let msg = shipcat::slack::Message { text, link, color, metadata, ..Default::default() };
         return shipcat::slack::send(msg);
     }
-    if let Some(a) = args.subcommand_matches("gdpr") {
+    else if let Some(a) = args.subcommand_matches("gdpr") {
+        let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let svc = a.value_of("service").map(String::from);
         return shipcat::gdpr::show(svc, &conf, &region);
     }

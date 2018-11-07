@@ -118,7 +118,7 @@ pub fn rollback(ud: &UpgradeData, mf: &Manifest) -> Result<()> {
 
 /// Rollback entrypoint using a plain service and region
 pub fn rollback_wrapper(svc: &str, conf: &Config, region: &Region) -> Result<()> {
-    let base = Manifest::stubbed(svc, &conf, region)?;
+    let base = Manifest::base(svc, &conf, region)?;
     let ud = UpgradeData::from_rollback(&base);
     rollback(&ud, &base)
 }
@@ -354,9 +354,9 @@ pub fn values(mf: &Manifest, output: Option<String>) -> Result<()> {
 /// Generates helm values to disk, then passes it to helm template
 pub fn template(svc: &str, region: &Region, conf: &Config, ver: Option<String>, mock: bool, output: Option<PathBuf>) -> Result<String> {
     let mut mf = if mock {
-        Manifest::stubbed(svc, &conf, region)?
+        Manifest::base(svc, conf, region)?.stub(region)?
     } else {
-        Manifest::completed(svc, &conf, region)?
+        Manifest::base(svc, conf, region)?.complete(region)?
     };
 
     // template or values does not need version - but respect passed in / manifest
@@ -402,7 +402,7 @@ pub fn template(svc: &str, region: &Region, conf: &Config, ver: Option<String>, 
 ///
 /// Analogue to `helm history {service}` uses the right tiller namespace
 pub fn history(svc: &str, conf: &Config, region: &Region) -> Result<()> {
-    let mf = Manifest::stubbed(svc, &conf, region)?;
+    let mf = Manifest::base(svc, &conf, region)?;
     let histvec = vec![
         format!("--tiller-namespace={}", mf.namespace),
         "history".into(),
@@ -417,7 +417,7 @@ pub fn history(svc: &str, conf: &Config, region: &Region) -> Result<()> {
 ///
 /// Analogue to `helm status {service}` uses the right tiller namespace
 pub fn status(svc: &str, conf: &Config, region: &Region) -> Result<()> {
-    let mf = Manifest::stubbed(svc, &conf, region)?;
+    let mf = Manifest::base(svc, &conf, region)?;
     let histvec = vec![
         format!("--tiller-namespace={}", mf.namespace),
         "status".into(),
@@ -475,7 +475,7 @@ pub fn handle_upgrade_notifies(success: bool, u: &UpgradeData) -> Result<()> {
 ///
 /// Completes a manifest and prints it out with the given version
 pub fn values_wrapper(svc: &str, region: &Region, conf: &Config, ver: Option<String>) -> Result<()> {
-    let mut mf = Manifest::completed(svc, &conf, region)?;
+    let mut mf = Manifest::base(svc, conf, region)?.complete(region)?;
 
     // template or values does not need version - but respect passed in / manifest
     if ver.is_some() {
@@ -489,7 +489,7 @@ pub fn values_wrapper(svc: &str, region: &Region, conf: &Config, ver: Option<Str
 
 /// Full helm wrapper for a single upgrade/diff/install
 pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
-    let mut mf = Manifest::completed(svc, &conf, region)?;
+    let mut mf = Manifest::base(svc, conf, region)?.complete(region)?;
 
     // Ensure we have a version - or are able to infer one
     if ver.is_some() {
