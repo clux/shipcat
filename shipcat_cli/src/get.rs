@@ -91,7 +91,7 @@ pub struct ClusterInfo {
 ///
 /// Need explicit region: shipcat get -r preprodca-green clusterinfo
 pub fn clusterinfo(conf: &Config, ctx: &str) -> Result<ClusterInfo> {
-    assert!(conf.has_all_regions());
+    assert!(conf.has_all_regions()); // can't work with reduced configs
     let (clust, reg) = conf.resolve_cluster(ctx)?;
     let ci = ClusterInfo {
         region: reg.name,
@@ -102,7 +102,7 @@ pub fn clusterinfo(conf: &Config, ctx: &str) -> Result<ClusterInfo> {
         vault: reg.vault.url.clone(),
         kong: reg.kong.config_url.clone(),
     };
-    print!("{}\n", serde_json::to_string_pretty(&ci)?);
+    println!("{}", serde_json::to_string_pretty(&ci)?);
     Ok(ci)
 }
 

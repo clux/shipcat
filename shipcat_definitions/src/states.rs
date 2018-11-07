@@ -1,5 +1,5 @@
 use super::{Result, Manifest};
-use config::{Region, Config};
+use config::{Region};
 use super::vault::Vault;
 
 
@@ -150,4 +150,3 @@ impl Default for ConfigType {
         ConfigType::Base
     }
 }
-

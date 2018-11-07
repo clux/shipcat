@@ -75,7 +75,7 @@ fn walk_services() -> Vec<String> {
 }
 
 
-/// Filesystem accessors for the CLI
+/// Filesystem accessors for Manifest
 impl Manifest {
     pub fn available(region: &str) -> Result<Vec<String>> {
         let mut xs = vec![];
