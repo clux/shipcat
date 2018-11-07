@@ -463,13 +463,12 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             // this only works with a given region
             return shipcat::show::config_crd(conf);
         }
-        // the others make sense without a region
+        // The others make sense without a region
+        // Want to be able to verify full config when no kube context given!
         let conf = if a.is_present("region") {
-            let (conf, _region) = resolve_config(a, ConfigType::Base)?;
-            conf
+            resolve_config(a, ConfigType::Base)?.0
         } else {
-            let rawconf = Config::read()?;
-            rawconf
+            Config::read()?
         };
         if let Some(_) = a.subcommand_matches("verify") {
             return shipcat::validate::config(conf);

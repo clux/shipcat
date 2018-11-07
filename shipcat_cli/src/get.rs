@@ -24,7 +24,7 @@ pub fn versions(conf: &Config, region: &Region) -> Result<BTreeMap<String, Versi
             }
         }
     }
-    print!("{}\n", serde_json::to_string_pretty(&output)?);
+    println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(output)
 }
 
@@ -41,7 +41,7 @@ pub fn images(conf: &Config, region: &Region) -> Result<BTreeMap<String, String>
             output.insert(svc, i);
         }
     }
-    print!("{}\n", serde_json::to_string_pretty(&output)?);
+    println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(output)
 }
 
@@ -68,7 +68,7 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
             }
         }
     }
-    print!("{}\n", output.join("\n"));
+    println!("{}", output.join("\n"));
     Ok(output)
 }
 
