@@ -338,8 +338,10 @@ impl Config {
             if cname != &clst.name {
                 bail!("clust '{}' must have a '.name' equal to its key in clusters", cname);
             }
+            // can't actually verify this in a smaller manifest..
+            #[cfg(feature = "filesystem")]
             for r in &clst.regions {
-                if !self.regions.contains_key(r) {
+                if !self.regions.contains_key(r) && self.kind == ConfigType::File {
                     bail!("cluster {} defines undefined region {}", cname, r);
                 }
             }

@@ -299,6 +299,19 @@ fn main() {
                 .help("Service to upgrad"))
             .about("Apply a service's configuration in kubernetes (through helm)"))
 
+        // config
+        .subcommand(SubCommand::with_name("config")
+            .setting(AppSettings::SubcommandRequiredElseHelp)
+            .about("Run interactions on shipcat.conf")
+            .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Region to filter the config for"))
+            .subcommand(SubCommand::with_name("show")
+                .about("Show the config"))
+            .subcommand(SubCommand::with_name("verify")
+                .about("Verify the parsed config")))
 
         // products
         .subcommand(SubCommand::with_name("product")
@@ -380,12 +393,12 @@ fn void<T>(_x: T) { () } // helper so that dispatch_commands can return Result<(
 fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     // listers first
     if args.subcommand_matches("list-regions").is_some() {
-        let baseconf = Config::read()?;
-        return shipcat::list::regions(&baseconf);
+        let rawconf = Config::read()?;
+        return shipcat::list::regions(&rawconf);
     }
     else if args.subcommand_matches("list-locations").is_some() {
-        let baseconf = Config::read()?;
-        return shipcat::list::locations(&baseconf);
+        let rawconf = Config::read()?;
+        return shipcat::list::locations(&rawconf);
     }
     else if let Some(a) = args.subcommand_matches("list-services") {
         let (_ , region) = resolve_config(a, ConfigType::Base)?;
@@ -403,8 +416,8 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
                 let (conf, region) = resolve_config(a, ConfigType::Base)?;
                 return shipcat::get::resources(&conf, &region);
             } else {
-                let baseconf = Config::read()?;
-                return shipcat::get::totalresources(&baseconf);
+                let rawconf = Config::read()?;
+                return shipcat::get::totalresources(&rawconf);
             }
         }
 
@@ -442,14 +455,30 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             return shipcat::product::show(product, &conf, location.unwrap());
         }*/
     }
+    else if let Some(a) = args.subcommand_matches("config") {
+        let conf = if a.is_present("region") {
+            let (conf, _region) = resolve_config(a, ConfigType::Base)?;
+            conf
+        } else {
+            let rawconf = Config::read()?;
+            rawconf
+        };
+        if let Some(_) = a.subcommand_matches("verify") {
+            return shipcat::validate::config(&conf);
+        }
+        else if let Some(_) = a.subcommand_matches("show") {
+            return shipcat::validate::show_config(&conf);
+        }
+        unimplemented!();
+    }
     // helpers that can work without a kube region, but will shell out to kubectl if not passed
     // TODO: remove this
     else if let Some(a) = args.subcommand_matches("secret") {
-        let baseconf = Config::read()?;
+        let rawconf = Config::read()?;
         if let Some(b) = a.subcommand_matches("verify-region") {
             let regions = b.values_of("regions").unwrap().map(String::from).collect::<Vec<_>>();
             // NB: this does a cheap verify of both Config and Manifest (vault list)
-            return shipcat::validate::secret_presence(&baseconf, regions);
+            return shipcat::validate::secret_presence(&rawconf, regions);
         }
     }
 

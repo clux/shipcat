@@ -16,11 +16,11 @@ _shipcat()
 
     local -r subcommands="help validate shell port-forward get graph helm cluster gdpr
                           kong jenkins debug product list-regions list-services list-products
-                          apply template values status"
+                          apply template values status config"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|port-forward|debug|get|product|status|shell|graph|cluster|helm|gdpr|kong|list-services|list-products|jenkins|apply|template|values|status) ]]; then
+        if [[ ${words[i]} == @(help|validate|port-forward|debug|get|config|product|status|shell|graph|cluster|helm|gdpr|kong|list-services|list-products|jenkins|apply|template|values|status) ]]; then
             has_sub=1
         fi
     done
@@ -39,7 +39,7 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(list-services|list-products|validate|shell|product|port-forward|debug|graph|get|cluster|helm|gdpr|jenkins|apply|template|values|status) ]]; then
+        if [[ ${words[i]} == @(list-services|list-products|validate|config|shell|product|port-forward|debug|graph|get|cluster|helm|gdpr|jenkins|apply|template|values|status) ]]; then
             special=${words[i]}
             break
         fi
@@ -79,6 +79,9 @@ _shipcat()
                     # Suggest subcommands of helm and global flags
                     COMPREPLY=($(compgen -W "diff reconcile" -- "$cur"))
                 fi
+                ;;
+            config)
+                COMPREPLY=($(compgen -W "show verify" -- "$cur"))
                 ;;
             product)
                 local prod_sub i

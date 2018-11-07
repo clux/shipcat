@@ -8,7 +8,7 @@ use super::Result;
 /// Optionally, it will also verify that all secrets are found in the corresponding
 /// vault locations serverside (which require vault credentials).
 pub fn manifest(services: Vec<String>, conf: &Config, reg: &Region, secrets: bool) -> Result<()> {
-    conf.verify()?; // something has to do this - may as well be this.
+    conf.verify()?; // this should work even with a limited config!
     for svc in services {
         info!("validating {} for {}", svc, reg.name);
         let mf = if secrets {
@@ -19,6 +19,23 @@ pub fn manifest(services: Vec<String>, conf: &Config, reg: &Region, secrets: boo
         mf.verify(conf, reg)?;
         info!("validated {} for {}", svc, reg.name);
     }
+    Ok(())
+}
+
+/// A config verifier
+///
+/// This works with Base configs and File configs
+/// Manifest repositories should verify with the full file configs for all the sanity.
+pub fn config(conf: &Config) -> Result<()> {
+    conf.verify()?;
+    Ok(())
+}
+
+/// Print the config
+///
+/// This allows debugging the config type after filtering/completing
+pub fn show_config(conf: &Config) -> Result<()> {
+    conf.print()?;
     Ok(())
 }
 
