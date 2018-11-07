@@ -1,4 +1,5 @@
-use super::{Result, ResultExt, ErrorKind, Config, Manifest};
+use super::{Backend, Config, Manifest, Region};
+use super::Result;
 
 /// Validate the manifest of a service in the services directory
 ///
@@ -6,24 +7,11 @@ use super::{Result, ResultExt, ErrorKind, Config, Manifest};
 /// and `verify` their parameters.
 /// Optionally, it will also verify that all secrets are found in the corresponding
 /// vault locations serverside (which require vault credentials).
-pub fn manifest(services: Vec<String>, conf: &Config, region: String, secrets: bool) -> Result<()> {
+pub fn manifest(services: Vec<String>, conf: &Config, reg: &Region, secrets: bool) -> Result<()> {
     for svc in services {
-        let mut tmpmf = Manifest::basic(&svc, conf, Some(region.clone()))?;
-        if tmpmf.regions.contains(&region) {
-            info!("validating {} for {}", svc, region);
-            let mf = if secrets {
-                Manifest::completed(&svc, conf, &region)?
-            } else {
-                // ensure we also verify template against mocked secrets
-                Manifest::mocked(&svc, conf, &region)?
-            };
-            mf.verify(conf).chain_err(|| ErrorKind::ManifestVerifyFailure(svc.clone()))?;
-            info!("validated {} for {}", svc, region);
-        } else if tmpmf.external {
-            tmpmf.verify(&conf)?; // exits early - but will verify some stuff
-        } else {
-            bail!("{} is not configured to be deployed in {}", svc, region)
-        }
+        info!("validating {} for {}", svc, reg.name);
+        Manifest::validate(&svc, conf, reg, secrets)?;
+        info!("validated {} for {}", svc, reg.name);
     }
     Ok(())
 }
@@ -36,15 +24,11 @@ pub fn secret_presence(conf: &Config, regions: Vec<String>) -> Result<()> {
     for r in regions {
         info!("validating secrets in {}", r);
         let (_, mut reg) = conf.get_region(&r)?; // verifies region or region alias exists
-        reg.verify_secrets_exist(&r)?; // verify secrets for the region
-        let services = Manifest::available()?;
-        for svc in services {
-            let mut mf = Manifest::basic(&svc, conf, Some(r.clone()))?;
-            if mf.regions.contains(&r) && !mf.external && !mf.disabled {
-                debug!("validating secrets for {} in {}", svc, r);
-                mf.fill(&conf, &r)?;
-                mf.verify_secrets_exist(&reg.vault)?;
-            }
+        reg.verify_secrets_exist()?; // verify secrets for the region
+        for svc in Manifest::available(&reg.name)? {
+            let mut mf = Manifest::base(&svc, conf, &reg)?;
+            debug!("validating secrets for {} in {}", svc, r);
+            mf.verify_secrets_exist(&reg.vault)?;
         }
     }
     Ok(())

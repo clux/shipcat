@@ -2,11 +2,12 @@ use threadpool::ThreadPool;
 use std::sync::mpsc::channel;
 use std::fs;
 
+use super::{Config, Manifest, Backend, Region};
 use super::{UpgradeMode, UpgradeData};
 use super::direct;
 use super::helpers;
 use super::kube;
-use super::{Result, ResultExt, Error, ErrorKind, Config, Manifest};
+use super::{Result, Error, ErrorKind};
 
 
 /// Stable threaded mass helm operation
@@ -16,7 +17,7 @@ use super::{Result, ResultExt, Error, ErrorKind, Config, Manifest};
 /// The helm operations does --wait for upgrades, but this parallelises the wait
 /// and catches any errors.
 /// All operations run to completion and the first error is returned at end if any.
-pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &str, umode: UpgradeMode, n_workers: usize) -> Result<()> {
+pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: UpgradeMode, n_workers: usize) -> Result<()> {
     let n_jobs = svcs.len();
     let pool = ThreadPool::new(n_workers);
     info!("Starting {} parallel helm jobs using {} workers", n_jobs, n_workers);
@@ -25,13 +26,14 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &str, umode: Upgrad
     for mf in svcs {
         // satisfying thread safety
         let mode = umode.clone();
-        let reg = region.into();
+        let reg = region.clone();
         let config = conf.clone();
+
 
         let tx = tx.clone(); // tx channel reused in each thread
         pool.execute(move || {
             info!("Running {} for {}", mode, mf.name);
-            let res = reconcile_worker(mf, mode, reg, config);
+            let res = reconcile_worker(mf, mode, config, reg);
             tx.send(res).expect("channel will be there waiting for the pool");
         });
     }
@@ -51,7 +53,7 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &str, umode: Upgrad
         match e {
             Error(ErrorKind::MissingRollingVersion(svc),_) => {
                 // This only happens in rolling envs because version is mandatory in other envs
-                warn!("'{}' missing version for {} - please add or install", svc, region);
+                warn!("'{}' missing version for {} - please add or install", svc, region.name);
             },
             // remaining cases not ignorable
             e => return Err(e),
@@ -65,15 +67,13 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &str, umode: Upgrad
 ///
 /// This logs errors and upgrade successes individually.
 /// NB: This can reconcile lock-step upgraded services at the moment.
-fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Config) -> Result<Option<UpgradeData>> {
+fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, conf: Config, region: Region) -> Result<Option<UpgradeData>> {
     let svc = tmpmf.name;
-
     let mut mf = Manifest::completed(&svc, &conf, &region)?;
 
-    let regdata = &conf.regions[&region];
     // get version running now (to limit race condition with deploys)
     // this query also lets us detect if we have to install or simply upgrade
-    let (exists, fallback) = match helpers::infer_fallback_version(&svc, &regdata.namespace) {
+    let (exists, fallback) = match helpers::infer_fallback_version(&svc, &region.namespace) {
         Ok(running_ver) => (true, running_ver),
         Err(e) => {
             if let Some(v) = mf.version.clone() {
@@ -94,8 +94,9 @@ fn reconcile_worker(tmpmf: Manifest, mode: UpgradeMode, region: String, conf: Co
     if mf.version.is_none() {
          mf.version = Some(fallback)
     };
-    // sanity verify (no-shoehorning in illegal versions etc)
-    mf.verify(&conf).chain_err(|| ErrorKind::ManifestVerifyFailure(svc.clone()))?;
+    // sanity verify what we changed (no-shoehorning in illegal versions in rolling envs)
+    region.versioningScheme.verify(&mf.version.clone().unwrap())?;
+
 
     // Template values file
     let hfile = format!("{}.helm.gen.yml", &svc);

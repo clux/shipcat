@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
 
-use super::structs::Contact;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::fs::File;
@@ -10,7 +9,7 @@ use semver::Version;
 
 use super::Vault;
 use super::{Result, Error};
-use super::structs::Kong;
+use super::structs::{Kong, Contact};
 
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -244,15 +243,15 @@ pub struct Region {
 }
 
 impl Region {
-    pub fn secrets(&mut self, region: &str) -> Result<()> {
+    pub fn secrets(&mut self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
-        self.kong.secrets(&v, region)?;
+        self.kong.secrets(&v, &self.name)?;
         Ok(())
     }
-    pub fn verify_secrets_exist(&mut self, region: &str) -> Result<()> {
+    pub fn verify_secrets_exist(&mut self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
-        debug!("Validating kong secrets for {}", region);
-        self.kong.verify_secrets_exist(&v, region)?;
+        debug!("Validating kong secrets for {}", self.name);
+        self.kong.verify_secrets_exist(&v, &self.name)?;
         Ok(())
     }
 }
@@ -291,7 +290,10 @@ pub struct Config {
     pub contextAliases: BTreeMap<String, String>,
 
     /// Region definitions
-    pub regions: BTreeMap<String, Region>,
+    ///
+    /// Not public because access regions may or may not have secrets filled in.
+    /// This makes sure we don't start using the wrong one.
+    regions: BTreeMap<String, Region>,
 
     /// Location definitions
     #[serde(default)]
@@ -385,16 +387,6 @@ impl Config {
         Ok(())
     }
 
-    /// Populate placeholder fields with secrets from vault
-    pub fn secrets(&mut self, region: &str) -> Result<()> {
-        if let Some(r) = self.regions.get_mut(region) {
-            r.secrets(region)?;
-        } else {
-            bail!("Undefined region {}", region);
-        }
-        Ok(())
-    }
-
     /// Read a config file in an arbitrary path
     fn read_from(pwd: &PathBuf) -> Result<Config> {
         let mpath = pwd.join("shipcat.conf");
@@ -442,6 +434,11 @@ impl Config {
         let pwd = Path::new(".");
         let conf = Config::read_from(&pwd.to_path_buf())?;
         Ok(conf)
+    }
+
+    /// Helper for list::regions
+    pub fn list_regions(&self) -> Vec<String> {
+        self.regions.keys().cloned().collect()
     }
 
     /// Retrieve region config from a kube context

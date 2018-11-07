@@ -1,6 +1,7 @@
 extern crate semver;
 extern crate shipcat;
 extern crate shipcat_definitions;
+use shipcat::Backend;
 
 use self::semver::Version;
 use std::env;
@@ -45,7 +46,8 @@ fn product_test() {
 fn get_versions() {
     setup();
     let conf = Config::read().unwrap();
-    let vers = Manifest::get_versions(&conf, "dev-uk").unwrap();
+    let (_, region) = conf.get_region("dev-uk").unwrap();
+    let vers = Manifest::get_versions(&conf, &region).unwrap();
 
     assert_eq!(vers.len(), 1); // only one of the services has a version
     assert_eq!(vers["fake-ask"], Version::new(1, 6, 0));
@@ -55,7 +57,8 @@ fn get_versions() {
 fn get_images() {
     setup();
     let conf = Config::read().unwrap();
-    let vers = Manifest::get_images(&conf, "dev-uk").unwrap();
+    let (_, region) = conf.get_region("dev-uk").unwrap();
+    let vers = Manifest::get_images(&conf, &region).unwrap();
 
     assert_eq!(vers.len(), 2); // every service gets an image
     assert_eq!(vers["fake-ask"], "quay.io/babylonhealth/fake-ask");
@@ -66,7 +69,7 @@ fn get_images() {
 fn get_codeowners() {
     setup();
     let conf = Config::read().unwrap();
-    let cos = Manifest::get_codeowners(&conf, "dev-uk").unwrap();
+    let cos = Manifest::get_codeowners(&conf).unwrap();
 
     assert_eq!(cos.len(), 1); // services without owners get no listing
     assert_eq!(cos[0], "services/fake-ask/* @clux");
@@ -106,7 +109,8 @@ fn wait_time_check() {
 fn manifest_test() {
     setup();
     let conf = Config::read().unwrap();
-    let mf = Manifest::completed("fake-storage", &conf, "dev-uk".into()).unwrap();
+    let (_, region) = conf.get_region("dev-uk").unwrap();
+    let mf = Manifest::completed("fake-storage", &conf, &region).unwrap();
     // verify datahandling implicits
     let dh = mf.dataHandling.unwrap();
     let s3 = dh.stores[0].clone();
@@ -121,7 +125,8 @@ fn manifest_test() {
 fn templating_test() {
     setup();
     let conf = Config::read().unwrap();
-    let mf = Manifest::completed("fake-ask", &conf, "dev-uk".into()).unwrap();
+    let (_, region) = conf.get_region("dev-uk").unwrap();
+    let mf = Manifest::completed("fake-ask", &conf, &region).unwrap();
 
     // verify templating
     let env = mf.env;

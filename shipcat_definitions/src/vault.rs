@@ -78,12 +78,10 @@ pub struct Vault {
 }
 
 /// Vault usage mode
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Mode {
     /// Normal HTTP calls to vault returing actual secret
     Standard,
-    /// Using HTTP calls but masking secrets
-    Masked,
     /// Not using HTTP calls, just returning dummy data
     Mocked,
 }
@@ -104,17 +102,16 @@ impl Vault {
         Vault::new(reqwest::Client::new(), &vc.url, default_token()?, Mode::Mocked)
     }
 
-    /// Initialize using vault evars, but return masked return values
-    pub fn masked(vc: &VaultConfig) -> Result<Vault> {
-        Vault::new(reqwest::Client::new(), &vc.url, default_token()?, Mode::Masked)
-    }
-
     fn new<U, S>(client: reqwest::Client, addr: U, token: S, mode: Mode) -> Result<Vault>
         where U: reqwest::IntoUrl,
               S: Into<String>
     {
         let addr = addr.into_url()?;
         Ok(Vault { client, addr, mode, token: token.into() })
+    }
+
+    pub fn mode(&self) -> Mode {
+        self.mode.clone()
     }
 
     // The actual HTTP GET logic
@@ -192,11 +189,7 @@ impl Vault {
             .get("value")
             .ok_or_else(|| { ErrorKind::InvalidSecretForm(pth).into() })
             .map(|v| {
-                if self.mode == Mode::Masked {
-                    "VAULT_VALIDATED".into()
-                } else {
-                    v.clone().into()
-                }
+                v.clone().into()
             })
     }
 }

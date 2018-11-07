@@ -4,14 +4,14 @@ use common::setup;
 extern crate shipcat;
 extern crate shipcat_definitions;
 
-use shipcat::{Config, Manifest};
+use shipcat::{Manifest, Backend};
 use shipcat::slack::{send, Message, env_channel};
 
 #[test]
 fn slack_test() {
     setup();
-    let conf = Config::read().unwrap();
-    let mf = Manifest::basic("fake-ask", &conf, Some("dev-uk".into())).unwrap();
+    // metadata is global - can use a blank manifest for this test
+    let mf = Manifest::blank("fake-ask").unwrap();
 
     let chan = env_channel().unwrap();
     if chan == "#shipcat-test" {

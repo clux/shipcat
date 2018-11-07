@@ -1,9 +1,8 @@
 use regex::Regex;
 
 use structs::resources::Resources;
-use structs::traits::Verify;
 use super::EnvVars;
-use super::{Result, Config};
+use super::Result;
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
@@ -45,17 +44,17 @@ pub struct CronJob {
 }
 
 
-impl Verify for CronJob {
-    fn verify(&self, conf: &Config) -> Result<()> {
+impl CronJob {
+    pub fn verify(&self) -> Result<()> {
         let re = Regex::new(r"^[0-9a-z\-]{1,50}$").unwrap();
         if !re.is_match(&self.name) {
             bail!("Please use a short, lower case cron job names with dashes");
         }
         // TODO: version verify
-        self.env.verify(conf)?;
+        self.env.verify()?;
 
         if let Some(ref r) = &self.resources {
-            r.verify(conf)?;
+            r.verify()?;
         }
         if self.image.is_some() && self.version.is_none() {
             bail!("Cannot specify image without specifying version in CronJob")

@@ -1,26 +1,26 @@
 /// This file contains the `shipcat get` subcommand
 use std::collections::BTreeMap;
 
-use super::{Result, Manifest, Config};
+use super::{Result, Manifest, Config, Backend, Region};
 
 
 // ----------------------------------------------------------------------------
 // Reducers from manifest::reducers
 
-pub fn versions(conf: &Config, region: &str) -> Result<()> {
+pub fn versions(conf: &Config, region: &Region) -> Result<()> {
     let output = Manifest::get_versions(conf, region)?;
     print!("{}\n", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
 
-pub fn images(conf: &Config, region: &str) -> Result<()> {
+pub fn images(conf: &Config, region: &Region) -> Result<()> {
     let output = Manifest::get_images(conf, region)?;
     print!("{}\n", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
 
-pub fn codeowners(conf: &Config, region: &str) -> Result<()> {
-    let output = Manifest::get_codeowners(conf, region)?.join("\n");
+pub fn codeowners(conf: &Config) -> Result<()> {
+    let output = Manifest::get_codeowners(conf)?.join("\n");
     print!("{}\n", output);
     Ok(())
 }
@@ -99,35 +99,32 @@ struct EnvironmentInfo {
     base_url: String,
     ip_whitelist: Vec<String>,
 }
-pub fn apistatus(conf: &Config, region: &str) -> Result<()> {
+pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
     let mut services = BTreeMap::new();
-    let reg = conf.regions[region].clone();
 
     // Get Environment Config
     let environment = EnvironmentInfo {
-        name: region.to_string(),
-        services_suffix: reg.kong.base_url,
+        name: reg.name.clone(),
+        services_suffix: reg.kong.base_url.clone(),
         base_url: reg.base_urls.get("services").unwrap_or(&"".to_owned()).to_string(),
-        ip_whitelist: reg.ip_whitelist,
+        ip_whitelist: reg.ip_whitelist.clone(),
     };
 
     // Get API Info from Manifests
-    for svc in Manifest::available()? {
-        let mf = Manifest::stubbed(&svc, &conf, &region)?;
-        if mf.regions.contains(&region.to_string()) {
-            if let Some(k) = mf.kong {
-                services.insert(svc, APIServiceParams {
-                    uris: k.uris.unwrap_or("".into()),
-                    hosts: k.hosts.unwrap_or("".into()),
-                    internal: k.internal,
-                    publiclyAccessible: mf.publiclyAccessible,
-                });
-            }
+    for svc in Manifest::available(&reg.name)? {
+        let mf = Manifest::simple(&svc, &conf, &reg)?;
+        if let Some(k) = mf.kong {
+            services.insert(svc, APIServiceParams {
+                uris: k.uris.unwrap_or("".into()),
+                hosts: k.hosts.unwrap_or("".into()),
+                internal: k.internal,
+                publiclyAccessible: mf.publiclyAccessible,
+            });
         }
     }
 
     // Get extra API Info from Config
-    for (name, api) in reg.kong.extra_apis {
+    for (name, api) in reg.kong.extra_apis.clone() {
         services.insert(name, APIServiceParams {
             uris: api.uris.unwrap_or("".into()),
             hosts: api.hosts.unwrap_or("".into()),
@@ -146,8 +143,8 @@ pub fn apistatus(conf: &Config, region: &str) -> Result<()> {
 use shipcat_definitions::ResourceBreakdown;
 
 /// Resource use for a single region
-pub fn resources(conf: &Config, region: &str) -> Result<()> {
-    let bd = Manifest::resources(conf, region)?.normalise();
+pub fn resources(conf: &Config, region: &Region) -> Result<()> {
+    let bd = Manifest::resources(&conf, region)?.normalise();
     println!("{}", serde_json::to_string_pretty(&bd)?);
     Ok(())
 }
@@ -155,8 +152,9 @@ pub fn resources(conf: &Config, region: &str) -> Result<()> {
 /// Resources for all regions
 pub fn totalresources(conf: &Config) -> Result<()> {
     let mut bd = ResourceBreakdown::new(conf.teams.clone()); // zero for all the things
-    for r in conf.regions.keys() {
-        let res = Manifest::resources(conf, r)?;
+    for r in conf.list_regions() {
+        let (_, reg) = conf.get_region(&r)?;
+        let res = Manifest::resources(&conf, &reg)?;
         bd.totals.base += res.totals.base;
         bd.totals.extra += res.totals.extra;
         for t in &conf.teams {
