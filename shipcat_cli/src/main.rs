@@ -310,6 +310,8 @@ fn main() {
                 .help("Region to filter the config for"))
             .subcommand(SubCommand::with_name("show")
                 .about("Show the config"))
+            .subcommand(SubCommand::with_name("crd")
+                .about("Show the config in crd form for a region"))
             .subcommand(SubCommand::with_name("verify")
                 .about("Verify the parsed config")))
 
@@ -456,6 +458,12 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         }*/
     }
     else if let Some(a) = args.subcommand_matches("config") {
+        if let Some(_) = a.subcommand_matches("crd") {
+            let (conf, _region) = resolve_config(a, ConfigType::Base)?;
+            // this only works with a given region
+            return shipcat::show::config_crd(conf);
+        }
+        // the others make sense without a region
         let conf = if a.is_present("region") {
             let (conf, _region) = resolve_config(a, ConfigType::Base)?;
             conf
@@ -464,10 +472,9 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             rawconf
         };
         if let Some(_) = a.subcommand_matches("verify") {
-            return shipcat::validate::config(&conf);
-        }
-        else if let Some(_) = a.subcommand_matches("show") {
-            return shipcat::validate::show_config(&conf);
+            return shipcat::validate::config(conf);
+        } else if let Some(_) = a.subcommand_matches("show") {
+            return shipcat::show::config(conf);
         }
         unimplemented!();
     }

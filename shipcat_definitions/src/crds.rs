@@ -5,15 +5,15 @@ use states::{ManifestType};
 
 /// Basic CRD wrapper struct
 #[derive(Serialize)]
-struct Crd<T> {
+pub struct Crd<T> {
     pub apiVersion: String,
     pub kind: String,
     pub metadata: Metadata,
     pub spec: T,
 }
 #[derive(Serialize)]
-struct Metadata {
-    name: String
+pub struct Metadata {
+    pub name: String
 }
 
 impl From<Manifest> for Crd<Manifest> {

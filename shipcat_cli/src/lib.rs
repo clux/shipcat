@@ -158,6 +158,9 @@ pub mod jenkins;
 /// Various simple reducers
 pub mod get;
 
+/// Simple printers
+pub mod show;
+
 /// Smart initialiser with safety
 ///
 /// Tricks the library into reading from your manifest location.

@@ -81,7 +81,7 @@ _shipcat()
                 fi
                 ;;
             config)
-                COMPREPLY=($(compgen -W "show verify" -- "$cur"))
+                COMPREPLY=($(compgen -W "show verify crd" -- "$cur"))
                 ;;
             product)
                 local prod_sub i

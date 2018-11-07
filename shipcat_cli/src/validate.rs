@@ -22,23 +22,6 @@ pub fn manifest(services: Vec<String>, conf: &Config, reg: &Region, secrets: boo
     Ok(())
 }
 
-/// A config verifier
-///
-/// This works with Base configs and File configs
-/// Manifest repositories should verify with the full file configs for all the sanity.
-pub fn config(conf: &Config) -> Result<()> {
-    conf.verify()?;
-    Ok(())
-}
-
-/// Print the config
-///
-/// This allows debugging the config type after filtering/completing
-pub fn show_config(conf: &Config) -> Result<()> {
-    conf.print()?;
-    Ok(())
-}
-
 /// Validate the secrets exists in all regions
 ///
 /// This is one of very few functions not validating a single kube context,
@@ -54,5 +37,14 @@ pub fn secret_presence(conf: &Config, regions: Vec<String>) -> Result<()> {
             mf.verify_secrets_exist(&reg.vault)?;
         }
     }
+    Ok(())
+}
+
+/// A config verifier
+///
+/// This works with Base configs and File configs
+/// Manifest repositories should verify with the full file configs for all the sanity.
+pub fn config(conf: Config) -> Result<()> {
+    conf.verify()?;
     Ok(())
 }
