@@ -41,12 +41,16 @@ use super::kube;
 fn crd_reconcile(svcs: Vec<String>, config: &Config, region: &Region, n_workers: usize) -> Result<()> {
     use threadpool::ThreadPool;
     use std::sync::mpsc::channel;
+
+    // Make sure config can apply first
+    kube::apply_crd(&region.name, config.clone(), &region.namespace)?;
+
+    // Single instruction kubectl delete shipcat manifests .... of excess ones
+    kube::remove_redundant_manifests(&region.namespace, &svcs)?;
+
     let n_jobs = svcs.len();
     let pool = ThreadPool::new(n_workers);
     info!("Starting {} parallel kube jobs using {} workers", n_jobs, n_workers);
-
-    // make sure config can apply first
-    kube::apply_crd(&region.name, config.clone(), &region.namespace)?;
 
     // then parallel apply the remaining ones
     let (tx, rx) = channel();

@@ -455,6 +455,44 @@ pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> 
     let _ = fs::remove_file(&crdfile); // try to remove temporary file
     Ok(())
 }
+/// Find all ManifestCrds in a given namespace
+///
+/// Allows us to purge manifests that are not in Manifest::available()
+fn find_all_manifest_crds(ns: &str) -> Result<Vec<String>> {
+     let getargs = vec![
+        "get".into(),
+        format!("-n={}", ns),
+        "shipcatmanifests".into(),
+        "-ojsonpath='{.items[*].metadata.name}'".into(),
+    ];
+    let res = kout(getargs)?.split(" ").map(String::from).collect::<Vec<_>>();
+    Ok(res)
+}
+
+use std::collections::HashSet;
+pub fn remove_redundant_manifests(ns: &str, svcs: &[String]) -> Result<Vec<String>> {
+    let requested: HashSet<_> = svcs.iter().cloned().collect();
+    let found: HashSet<_> = find_all_manifest_crds(ns)?.iter().cloned().collect();
+    debug!("Found manifests: {:?}", found);
+
+    let excess : HashSet<_> = found.difference(&requested).collect();
+    info!("Will remove excess manifests: {:?}", excess);
+     let mut delargs = vec![
+        "delete".into(),
+        format!("-n={}", ns),
+        "shipcatmanifests".into(),
+    ];
+    for x in &excess {
+        delargs.push(x.to_string());
+    }
+    if !excess.is_empty() {
+        let _res = kexec(delargs)?;
+    } else {
+        debug!("No excess manifests found");
+    }
+    let exvec = excess.into_iter().cloned().collect();
+    Ok(exvec)
+}
 
 #[cfg(test)]
 mod tests {
