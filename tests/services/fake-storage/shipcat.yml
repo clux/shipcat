@@ -85,3 +85,5 @@ metadata:
   repo: https://github.com/Babylonpartners/shipcat
   contacts: []
   team: someteam
+  support: "#dev-platform-override"
+  notifications: "#dev-platform-notif-override"

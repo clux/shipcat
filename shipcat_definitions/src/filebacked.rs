@@ -3,7 +3,7 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-use config::{Config, Region, ManifestDefaults};
+use config::{Config, Team, Region, ManifestDefaults};
 use super::{Result, Manifest};
 use states::{ManifestType};
 
@@ -24,7 +24,10 @@ impl Manifest {
 
 
     /// Fill in env overrides and apply merge rules
-    fn merge_and_fill_defaults(&mut self, defaults: &ManifestDefaults, region: &Region) -> Result<()> {
+    fn merge_and_fill_defaults(&mut self,
+                               defaults: &ManifestDefaults,
+                               region: &Region,
+                               teams: &[Team]) -> Result<()> {
         // merge service specific env overrides if they exists
         let envlocals = Path::new(".")
             .join("services")
@@ -47,7 +50,7 @@ impl Manifest {
 
             self.merge(other)?;
         }
-        self.add_config_defaults(&defaults)?;
+        self.add_config_defaults(&defaults, &teams)?;
         self.add_region_implicits(region)?;
         Ok(())
     }
@@ -94,7 +97,7 @@ impl Manifest {
     pub fn base(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
         let mut mf = Manifest::blank(service)?;
         // fill defaults and merge regions before extracting secrets
-        mf.merge_and_fill_defaults(&conf.defaults, reg)?;
+        mf.merge_and_fill_defaults(&conf.defaults, reg, &conf.teams)?;
         mf.read_configs_files()?;
         mf.kind = ManifestType::Base;
 
@@ -125,7 +128,7 @@ impl Manifest {
     pub fn simple(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
         let mut mf = Manifest::blank(service)?;
         // fill defaults and merge regions before extracting secrets
-        mf.merge_and_fill_defaults(&conf.defaults, reg)?;
+        mf.merge_and_fill_defaults(&conf.defaults, reg, &conf.teams)?;
         mf.kind = ManifestType::Simple;
         Ok(mf)
     }
