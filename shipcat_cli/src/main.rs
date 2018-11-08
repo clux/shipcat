@@ -260,6 +260,18 @@ fn main() {
                 .required(true)
                 .help("Service to check"))
               .about("Show kubernetes status for all the resources for a service"))
+
+        .subcommand(SubCommand::with_name("crd")
+              .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Specific region to use"))
+              .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service to generate crd for"))
+              .about("Generate the kube equivalent ShipcatManifest CRD"))
+
         .subcommand(SubCommand::with_name("values")
               .arg(Arg::with_name("region")
                 .short("r")
@@ -537,6 +549,13 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         return shipcat::helm::direct::template(&svc,
                 &region, &conf, None, mock, None).map(void);
     }
+    else if let Some(a) = args.subcommand_matches("crd") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+
+        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        return shipcat::show::manifest_crd(&svc, &conf, &region);
+    }
+
 
     else if let Some(a) = args.subcommand_matches("kong") {
         return if let Some(_b) = a.subcommand_matches("config-url") {

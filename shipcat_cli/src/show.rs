@@ -1,4 +1,4 @@
-use super::{Result, Config};
+use super::{Result, Config, Manifest, Region};
 
 /// Print the config
 ///
@@ -14,6 +14,13 @@ pub fn config_crd(conf: Config) -> Result<()> {
         bail!("The config crd needs to be for a single region only");
     }
     let crd = Crd::from(conf);
+    println!("{}", serde_yaml::to_string(&crd)?);
+    Ok(())
+}
+
+pub fn manifest_crd(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
+    let mf = Manifest::base(svc, conf, reg)?;
+    let crd = Crd::from(mf);
     println!("{}", serde_yaml::to_string(&crd)?);
     Ok(())
 }

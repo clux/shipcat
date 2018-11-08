@@ -22,7 +22,7 @@ impl From<Manifest> for Crd<Manifest> {
         // but no secrets!
         assert_eq!(mf.kind, ManifestType::Base);
         Crd {
-            apiVersion: "shipcat.babylontech.co.uk/v1".into(),
+            apiVersion: "babylontech.co.uk/v1".into(),
             kind: "ShipcatManifest".into(),
             metadata: Metadata {
                 name: format!("{}", mf.name),
@@ -40,10 +40,10 @@ impl From<Config> for Crd<Config> {
         // thus, can infer the region :-)
         let rname = &rgs[0];
         Crd {
-            apiVersion: "shipcat.babylontech.co.uk/v1".into(),
+            apiVersion: "babylontech.co.uk/v1".into(),
             kind: "ShipcatConfig".into(),
             metadata: Metadata {
-                name: rname.to_string()
+                name: format!("{}", rname)
             },
             spec: conf,
         }
