@@ -124,7 +124,7 @@ spec:
 {{- if .Values.configs }}
   {{- $cfg := .Values.configs }}
   {{- range $cfg.files }}
-        - name: {{ $cfg.name }}-volume
+        - name: {{ $.Values.name }}-config-volume
           mountPath: {{ $cfg.mount }}{{ .dest }}
           subPath: {{ .dest }}
   {{- end }}
@@ -141,9 +141,9 @@ spec:
       volumes:
       {{- if .Values.configs }}
       # special case configmap first
-      - name: {{ .Values.configs.name }}-volume
+      - name: {{ .Values.name }}-config-volume
         configMap:
-          name: {{ .Values.configs.name }}
+          name: {{ .Values.name }}-config
         {{- end }}
       #  other volumes
       {{- range $v := .Values.volumes }}

@@ -1,0 +1,12 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: shipcatmanifests.babylontech.co.uk
+spec:
+  group: babylontech.co.uk
+  version: v1
+  scope: Namespaced
+  names:
+    plural: shipcatmanifests
+    singular: shipcatmanifest
+    kind: ShipcatManifest

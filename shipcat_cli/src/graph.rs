@@ -2,7 +2,7 @@ use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::dot;
 use std::fmt::{self, Debug};
 
-use super::{Manifest, Backend, Region, Config};
+use super::{Manifest, Region, Config};
 use super::structs::{Dependency, DependencyProtocol};
 use super::{Result};
 

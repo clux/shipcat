@@ -1,15 +1,18 @@
 #![allow(non_snake_case)]
 
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-use std::fs::File;
-use std::io::prelude::*;
-
 use semver::Version;
 
+#[allow(unused_imports)]
+use std::path::{Path, PathBuf};
+
 use super::Vault;
+#[allow(unused_imports)]
 use super::{Result, Error};
 use super::structs::{Kong, Contact};
+use states::ConfigType;
+
+// ----------------------------------------------------------------------------------
 
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -50,6 +53,12 @@ pub enum VersionScheme {
     GitShaOrSemver,
 }
 
+impl Default for VersionScheme {
+    fn default() -> VersionScheme {
+        VersionScheme::Semver
+    }
+}
+
 /// Version validator
 impl VersionScheme {
     pub fn verify(&self, ver: &str) -> Result<()> {
@@ -76,14 +85,27 @@ impl VersionScheme {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Cluster {
+    /// Name of the cluster
+    pub name: String,
     /// Url to the Kubernetes api server
     pub api: String,
     /// What regions this cluster control (perhaps not exclusively)
     pub regions: Vec<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Team {
+    /// Team name
+    pub name: String,
+    /// Code owners for this team
+    #[serde(default)]
+    pub owners: Vec<Contact>,
+}
+
+
 /// Vault configuration for a region
 #[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Default))]
 #[serde(deny_unknown_fields)]
 pub struct VaultConfig {
     /// Vault url up to and including port
@@ -112,6 +134,8 @@ pub struct KafkaConfig {
     /// These are injected in to the manifest.kafka struct if it's set.
     pub brokers: Vec<String>,
 }
+
+// ----------------------------------------------------------------------------------
 
 /// Kong configuration for a region
 #[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
@@ -153,7 +177,7 @@ pub struct KongOauthConsumer {
 }
 
 impl KongConfig {
-    pub fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
+    fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
         for (svc, data) in &mut self.consumers {
             if data.oauth_client_id == "IN_VAULT" {
                 let vkey = format!("{}/kong/consumers/{}_oauth_client_id", region, svc);
@@ -203,11 +227,20 @@ pub struct KongTcpLogConfig {
     pub port: String,
 }
 
+impl KongConfig {
+    fn verify(&self) -> Result<()> {
+        Ok(())
+    }
+}
+
+// ----------------------------------------------------------------------------------
+
 /// A region is an abstract kube context
 ///
 /// Either it's a pure kubernetes context with a namespace and a cluster,
 /// or it's an abstract concept with many associated real kubernetes contexts.
 #[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Default))]
 #[serde(deny_unknown_fields)]
 pub struct Region {
     /// Name of region
@@ -243,11 +276,14 @@ pub struct Region {
 }
 
 impl Region {
-    pub fn secrets(&mut self) -> Result<()> {
+    // Internal secret populator for Config::new
+    fn secrets(&mut self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
         self.kong.secrets(&v, &self.name)?;
         Ok(())
     }
+
+    // Entry point for region verifier
     pub fn verify_secrets_exist(&mut self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
         debug!("Validating kong secrets for {}", self.name);
@@ -256,7 +292,6 @@ impl Region {
     }
 }
 
-
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Location {
@@ -264,15 +299,8 @@ pub struct Location {
     pub name: String,
 }
 
+// ----------------------------------------------------------------------------------
 
-#[derive(Serialize, Deserialize, Clone)]
-pub struct Team {
-    /// Team name
-    pub name: String,
-    /// Code owners for this team
-    #[serde(default)]
-    pub owners: Vec<Contact>,
-}
 
 /// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone)]
@@ -304,23 +332,34 @@ pub struct Config {
 
     /// Shipcat version pin
     pub version: Version,
+
+    // Internal state of the config
+    #[serde(default, skip_serializing, skip_deserializing)]
+    kind: ConfigType,
 }
 
 impl Config {
     pub fn verify(&self) -> Result<()> {
         let defs = &self.defaults;
         // verify default chart exists
-        let chart = Path::new(".").join("charts").join(&defs.chart).join("Chart.yaml");
-        if ! chart.is_file() {
-            bail!("Default chart {} does not exist", self.defaults.chart);
+        if cfg!(feature = "filesystem") {
+            let chart = Path::new(".").join("charts").join(&defs.chart).join("Chart.yaml");
+            if ! chart.is_file() {
+                bail!("Default chart {} does not exist", self.defaults.chart);
+            }
         }
         if defs.imagePrefix.ends_with('/') {
             bail!("image prefix must not end with a slash");
         }
 
         for (cname, clst) in &self.clusters {
+            if cname != &clst.name {
+                bail!("clust '{}' must have a '.name' equal to its key in clusters", cname);
+            }
+            // can't actually verify this in a smaller manifest..
+            #[cfg(feature = "filesystem")]
             for r in &clst.regions {
-                if !self.regions.contains_key(r) {
+                if !self.regions.contains_key(r) && self.kind == ConfigType::File {
                     bail!("cluster {} defines undefined region {}", cname, r);
                 }
             }
@@ -387,8 +426,122 @@ impl Config {
         Ok(())
     }
 
+
+
+    /// Print Config to stdout
+    pub fn print(&self) -> Result<()> {
+        println!("{}", serde_yaml::to_string(self)?);
+        Ok(())
+    }
+
+    /// Helper for list::regions
+    pub fn list_regions(&self) -> Vec<String> {
+        self.regions.keys().cloned().collect()
+    }
+
+    /// Complete a Base config for a know to exist region
+    fn complete(&mut self, region: &str) -> Result<()> {
+        assert_eq!(self.kind, ConfigType::Base);
+        assert_eq!(self.regions.len(), 1);
+        assert!(self.regions.contains_key(region));
+        self.kind = ConfigType::Completed;
+        self.regions.get_mut(&region.to_string()).expect("region exists by verify").secrets()?;
+        Ok(())
+    }
+
+
+    /// Work out the cluster from the kube config
+    ///
+    /// Can be done unambiguously in two cases:
+    /// - cluster.name === kube context name
+    /// - region.name === kube context name && region is served by one cluster only
+    pub fn resolve_cluster(&self, ctx: &str) -> Result<(Cluster, Region)> {
+        let reg = self.get_region(ctx)?;
+
+        // 1: `cluster.name == context` (dump apps cluster with dedicated context)
+        // e.g. `preproduk-blue` cluster serves `preprod-uk` region
+        if let Some(c) = self.clusters.get(ctx) {
+            return Ok((c.clone(), reg));
+        }
+        // 2: `region.name == context` (big cluster with many namespaces and regions)
+        // e.g. `kops-global` cluster serving `dev-global` + `staging-global` regions
+        let candidates = self.clusters.values().cloned().filter(|v| {
+            v.regions.contains(&reg.name)
+        }).collect::<Vec<_>>();
+        if candidates.len() != 1 {
+            bail!("Ambiguous context {} must be served by exactly one cluster", ctx);
+        }
+        Ok((candidates[0].clone(), reg))
+    }
+
+    pub fn has_secrets(&self) -> bool {
+        self.kind == ConfigType::Completed
+    }
+
+    /// Retrieve region name using either a region name, or a context as a fallback
+    ///
+    /// This returns a a valid key in `self.regions` if Some.
+    fn resolve_context(&self, context: &str) -> Option<String> {
+        let ctx = context.to_string();
+        if self.regions.contains_key(&ctx) {
+            Some(ctx)
+        }
+        // otherwise search for an alias
+        else if let Some(alias) = self.contextAliases.get(&ctx) {
+            // NB: alias is guaranteed to have a corresponding region by verify
+            Some(alias.to_string())
+        } else {
+            None
+        }
+    }
+
+    /// Region retriever interface
+    ///
+    /// This retieves the region after calling resolve_context.
+    /// Useful for small helper subcommands that do validation later.
+    pub fn get_region(&self, ctx: &str) -> Result<Region> {
+        if let Some(validkey) = self.resolve_context(ctx) {
+            return Ok(self.regions[&validkey].clone());
+        }
+        bail!("You need to define your kube context '{}' in shipcat.conf regions first", ctx)
+    }
+}
+
+/// Filesystem accessors for Config
+///
+/// These must live in here because they use private methods herein.
+#[cfg(feature = "filesystem")]
+impl Config {
+    /// Main constructor for CLI
+    ///
+    /// Pass this a region request via argument or a current context
+    pub fn new(kind: ConfigType, context: &str) -> Result<(Config, Region)> {
+        let mut conf = Config::read()?;
+        let region = if let Some(r) = conf.resolve_context(context) {
+            r
+        } else {
+            error!("Please use an existing kube context or add your current context to shipcat.conf");
+            bail!("The current kube context ('{}') is not defined in shipcat.conf", context);
+        };
+
+        if kind == ConfigType::Completed || kind == ConfigType::Base {
+            conf.remove_redundant_regions(&region)?;
+        } else {
+            bail!("Config::new only supports Completed or Base type");
+        }
+
+        if kind == ConfigType::Completed {
+            conf.complete(&region)?;
+        }
+        let reg = conf.regions[&region].clone();
+        Ok((conf, reg.clone()))
+    }
+
     /// Read a config file in an arbitrary path
     fn read_from(pwd: &PathBuf) -> Result<Config> {
+        use std::fs::File;
+        use std::io::prelude::*;
+        use semver::Version;
         let mpath = pwd.join("shipcat.conf");
         trace!("Using config in {}", mpath.display());
         if !mpath.exists() {
@@ -436,47 +589,24 @@ impl Config {
         Ok(conf)
     }
 
-    /// Helper for list::regions
-    pub fn list_regions(&self) -> Vec<String> {
-        self.regions.keys().cloned().collect()
+    pub fn has_all_regions(&self) -> bool {
+        self.kind == ConfigType::File
     }
 
-    /// Retrieve region config from a kube context
-    ///
-    /// This should only be done once early on.
-    /// The resulting name should be passed around internally as `region`.
-    pub fn resolve_region(&self, context: String) -> Result<String> {
-        if let Some(_) = self.regions.get(&context) {
-            return Ok(context);
-        }
-        // otherwise search for an alias
-        if let Some(alias) = self.contextAliases.get(&context) {
-            return Ok(alias.to_string())
-        }
-        error!("Please use an existing kube context or add your current context to shipcat.conf");
-        bail!("The current kube context ('{}') is not defined in shipcat.conf", context);
-    }
-
-    /// Region retriever safe alternative
-    ///
-    /// Alternative to the above `resolve_region`.
-    /// Useful for small helper subcommands that do validation later.
-    pub fn get_region(&self, ctx: &str) -> Result<(String, Region)> {
-        if let Some(r) = self.regions.get(ctx) {
-            return Ok((ctx.to_string(), r.clone()));
-        } else if let Some(alias) = self.contextAliases.get(ctx) {
-            return Ok((alias.to_string(), self.regions[&alias.to_string()].clone()));
-            // missing region key should've been caught in verify above
-        }
-        bail!("You need to define your kube context '{}' in shipcat.conf regions first", ctx)
-    }
-}
-
-impl KongConfig {
-    fn verify(&self) -> Result<()> {
+    /// Filter a file based config for a known to exist region
+    fn remove_redundant_regions(&mut self, region: &str) -> Result<()> {
+        assert_eq!(self.kind, ConfigType::File);
+        assert!(self.regions.contains_key(region));
+        let r = region.to_string();
+        // filter out cluster and aliases as well so we don't have to special case verify
+        self.clusters = self.clusters.clone().into_iter().filter(|(_, c)| c.regions.contains(&r)).collect();
+        self.contextAliases = self.contextAliases.clone().into_iter().filter(|(_, v)| v == region).collect();
+        self.regions = self.regions.clone().into_iter().filter(|(k, _)| k == region).collect();
+        self.kind = ConfigType::Base;
         Ok(())
     }
 }
+
 
 
 #[cfg(test)]

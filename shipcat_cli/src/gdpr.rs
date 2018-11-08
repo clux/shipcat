@@ -1,4 +1,4 @@
-use super::{Manifest, Config, Backend, Region};
+use super::{Manifest, Config, Region};
 use std::collections::BTreeMap;
 
 use super::structs::security::DataHandling;

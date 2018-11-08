@@ -6,16 +6,15 @@ use common::setup;
 extern crate shipcat;
 extern crate shipcat_definitions;
 
-use shipcat_definitions::{Config};
+use shipcat_definitions::{Config, ConfigType};
 
 use shipcat::graph::{generate, nodeidx_from_name};
 
 #[test]
 fn graph_generate() {
     setup();
-    let conf = Config::read().unwrap();
-    let (_, region) = conf.get_region("dev-uk").unwrap();
-    let graph = generate("fake-ask", &conf, &region, true).unwrap();
+    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let graph = generate("fake-ask", &conf, &reg, true).unwrap();
     assert!(graph.edge_count() > 0);
     print!("got struct: \n{:?}\n", serde_yaml::to_string(&graph));
     let askidx = nodeidx_from_name("fake-ask", &graph).unwrap();

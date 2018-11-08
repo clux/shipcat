@@ -1,4 +1,4 @@
-use super::{Config, Backend, Region};
+use super::{Config, Region};
 use super::helm::{self, UpgradeMode};
 use super::{Result, Manifest};
 

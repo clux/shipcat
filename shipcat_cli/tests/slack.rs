@@ -4,7 +4,7 @@ use common::setup;
 extern crate shipcat;
 extern crate shipcat_definitions;
 
-use shipcat::{Manifest, Backend};
+use shipcat::{Manifest};
 use shipcat::slack::{send, Message, env_channel};
 
 #[test]
