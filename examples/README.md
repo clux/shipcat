@@ -72,14 +72,14 @@ vault secrets enable -version=1 -path=secret kv
 
 and a simulated database for a `webapp`:
 
-```
-helm --tiller-namespace=apps install --set postgresUser=clux,postgresPassword=pw,postgresDatabase=webapp -n=webapp-pg stable/postgresql
+```sh
+helm --tiller-namespace=apps install --set postgresqlPassword=pw,postgresqlDatabase=webapp -n=webapp-pg stable/postgresql
 ```
 
 Then we can write the external`DATABASE_URL` for `webapp`:
 
 ```sh
-vault write secret/minikube/webapp/DATABASE_URL value=postgres://clux:pw@webapp-pg-postgresql.apps.svc.cluster.local/webapp
+vault write secret/minikube/webapp/DATABASE_URL value=postgres://postgres:pw@webapp-pg-postgresql.apps/webapp
 ```
 
 You can verify that `shipcat` picks up on this via: `shipcat values -s webapp`.

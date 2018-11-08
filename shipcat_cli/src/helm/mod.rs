@@ -3,7 +3,7 @@ pub use super::{Result, ResultExt, ErrorKind, Error};
 /// Verify trait gets the Config
 pub use super::{Config, Region, VersionScheme};
 /// Need basic manifest handling
-pub use super::{Manifest, Backend};
+pub use super::Manifest;
 
 /// For slack hookback
 pub use super::structs::Metadata;

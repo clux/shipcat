@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 use std::collections::BTreeMap;
 
-use super::{Manifest, Result, Region, Config, Backend};
+use super::{Manifest, Result, Region, Config};
 use super::structs::Kong;
 use super::structs::kongfig::{kongfig_apis, kongfig_consumers};
 use super::structs::kongfig::{Api, Consumer, Plugin, Upstream, Certificate};

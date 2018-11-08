@@ -26,6 +26,13 @@ health:
 # exposed Service port
 httpPort: 8000
 
+# template the config file into /
+configs:
+  mount: /
+  files:
+  - name: Rocket.toml.j2
+    dest: Rocket.toml
+
 # what regions it's deployed to
 regions:
 - minikube
