@@ -98,7 +98,8 @@ pub mod manifest;
 pub use manifest::Manifest;
 
 /// Crd wrappers
-pub mod crds;
+mod crds;
+pub use crds::Crd;
 
 /// Internal classifications and states
 mod states;

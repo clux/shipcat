@@ -8,7 +8,7 @@ pub fn config(conf: Config) -> Result<()> {
     Ok(())
 }
 
-use shipcat_definitions::crds::{Crd};
+use shipcat_definitions::Crd;
 pub fn config_crd(conf: Config) -> Result<()> {
     if conf.has_all_regions() {
         bail!("The config crd needs to be for a single region only");

@@ -420,21 +420,41 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
     Ok(())
 }
 
-/// Shorthand for logs deployment/{mf.name}
+
+use shipcat_definitions::Crd;
+use serde::Serialize;
+/// Apply the CRD definition for any struct that can be turned into a CRD
 ///
-/// Useful because we have autocomplete on manifest names in shipcat
-pub fn logs(mf: &Manifest) -> Result<()> {
-    debug!("Fetching logs from kube deployment {}", mf.name);
-    //kubectl logs deployment/${name}
-    let logsargs = vec![
-        format!("-n={}", mf.namespace),
-        "logs".into(),
-        format!("deployment/{}", mf.name),
+/// Manifest and Config typically.
+pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> Result<()> {
+    use std::path::Path;
+    use std::fs::{self, File};
+    use std::io::Write;
+    // Use trait constrait to convert it to a CRD
+    let crd : Crd<T> = data.into();
+
+    // Write it to a temporary file:
+    let crdfile = format!("{}.crd.gen.yml", name);
+    let pth = Path::new(".").join(&crdfile);
+    debug!("Writing {} CRD for {} to {}", crd.kind, name, pth.display());
+    let mut f = File::create(&pth)?;
+    let encoded = serde_yaml::to_string(&crd)?;
+    writeln!(f, "{}", encoded)?;
+    debug!("Wrote {} CRD for {} to {}: \n{}", crd.kind, name, pth.display(), encoded);
+
+    // Apply it using kubectl apply
+    debug!("Applying {} CRD for {}", crd.kind, name);
+    let applyargs = vec![
+        format!("-n={}", ns),
+        "apply".into(),
+        "-f".into(),
+        crdfile.clone(),
     ];
-    kexec(logsargs)?;
+    info!("applying {} : {:?}", name, applyargs);
+    kexec(applyargs)?;
+    let _ = fs::remove_file(&crdfile); // try to remove temporary file
     Ok(())
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -219,6 +219,14 @@ fn main() {
         .subcommand(SubCommand::with_name("cluster")
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .about("Perform cluster level recovery / reconcilation commands")
+            .subcommand(SubCommand::with_name("crd")
+                .arg(Arg::with_name("num-jobs")
+                    .short("j")
+                    .long("num-jobs")
+                    .takes_value(true)
+                    .help("Number of worker threads used"))
+                .subcommand(SubCommand::with_name("reconcile")
+                    .about("Reconcile shipcat custom resource definitions with local state")))
             .subcommand(SubCommand::with_name("helm")
                 .arg(Arg::with_name("num-jobs")
                     .short("j")
@@ -651,10 +659,18 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
     // 4. cluster level commands
     else if let Some(a) = args.subcommand_matches("cluster") {
-        // absolutely need secrets here
-        let (conf, region) = resolve_config(args, ConfigType::Completed)?;
-        assert!(conf.has_secrets()); // sanity on cluster disruptive commands
+        if let Some(b) = a.subcommand_matches("crd") {
+            let (conf, region) = resolve_config(args, ConfigType::Base)?;
+            let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
+            if let Some(_) = b.subcommand_matches("reconcile") {
+                return shipcat::cluster::mass_crd(&conf, &region, jobs);
+            }
+        }
         if let Some(b) = a.subcommand_matches("helm") {
+            // absolutely need secrets for helm reconcile
+            let (conf, region) = resolve_config(args, ConfigType::Completed)?;
+            assert!(conf.has_secrets()); // sanity on cluster disruptive commands
+
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("diff") {
                 return shipcat::cluster::helm_diff(&conf, &region, jobs);
