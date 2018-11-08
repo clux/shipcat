@@ -434,6 +434,11 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
                 return shipcat::get::totalresources(&rawconf);
             }
         }
+        if let Some(_) = a.subcommand_matches("clusterinfo") {
+            let rawconf = Config::read()?;
+            assert!(a.is_present("region"), "explicit context needed for clusterinfo");
+            return shipcat::get::clusterinfo(&rawconf, a.value_of("region").unwrap()).map(void);
+        }
 
         // resolve region from kube context here if unspecified
         let (conf, region) = resolve_config(a, ConfigType::Base)?;
@@ -448,10 +453,6 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         }
         if let Some(_) = a.subcommand_matches("apistatus") {
             return shipcat::get::apistatus(&conf, &region);
-        }
-        if let Some(_) = a.subcommand_matches("clusterinfo") {
-            assert!(a.is_present("region"), "explicit region needed for clusterinfo");
-            return shipcat::get::clusterinfo(&conf, a.value_of("region").unwrap()).map(void);
         }
     }
     // product
