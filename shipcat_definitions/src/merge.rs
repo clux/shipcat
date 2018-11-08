@@ -1,8 +1,6 @@
 // This file describes how manifests and environment manifest overrides are merged.
 
-use config::Team;
-use config::Region;
-use config::ManifestDefaults;
+use config::{Config, Region};
 use super::{Manifest, Result};
 
 impl Manifest {
@@ -40,28 +38,28 @@ impl Manifest {
     ///
     /// Should be used by entries that have simple implicit results based on the config
     /// I.e. optional strings, integers etc.
-    pub fn add_config_defaults(&mut self, def: &ManifestDefaults, teams: &[Team]) -> Result<()> {
+    pub fn add_config_defaults(&mut self, conf: &Config) -> Result<()> {
         if self.image.is_none() {
             // image name defaults to some prefixed version of the service name
-            self.image = Some(format!("{}/{}", def.imagePrefix, self.name))
+            self.image = Some(format!("{}/{}", conf.defaults.imagePrefix, self.name))
         }
         if self.imageSize.is_none() {
             self.imageSize = Some(512)
         }
         if self.chart.is_none() {
-            self.chart = Some(def.chart.clone());
+            self.chart = Some(conf.defaults.chart.clone());
         }
         if self.replicaCount.is_none() {
-            self.replicaCount = Some(def.replicaCount);
+            self.replicaCount = Some(conf.defaults.replicaCount);
         }
         if let Some(ref mut md) = &mut self.metadata {
-            // team must be guaranteed to be contained in shipcat.conf via Metadata.verify()
-            let mdTeam = teams.into_iter().find(|t| t.name == md.team ).unwrap();
+            // teams are guaranteed to exist in shipcat.conf via Metadata::verify
+            let team = conf.teams.iter().find(|t| t.name == md.team ).unwrap();
             if md.support.is_none() {
-                md.support = mdTeam.support.clone();
+                md.support = team.support.clone();
             }
             if md.notifications.is_none() {
-                md.notifications = mdTeam.notifications.clone();
+                md.notifications = team.notifications.clone();
             }
         }
 
