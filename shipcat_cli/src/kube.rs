@@ -430,7 +430,7 @@ pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> 
     use std::path::Path;
     use std::fs::{self, File};
     use std::io::Write;
-    // Use trait constrait to convert it to a CRD
+    // Use trait constraint to convert it to a CRD
     let crd : Crd<T> = data.into();
 
     // Write it to a temporary file:
