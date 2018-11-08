@@ -56,9 +56,12 @@ pub struct Metadata {
     /// Contact person
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub contacts: Vec<Contact>,
-    /// Support channels
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub support: Vec<String>,
+    /// Support channel - human interaction
+    #[serde(default)]
+    pub support: Option<String>,
+    /// Notifications channel - automated messages
+    #[serde(default)]
+    pub notifications: Option<String>,
     /// Canoncal documentation link
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docs: Option<String>,
@@ -97,6 +100,22 @@ impl Metadata {
             bail!("gitTagTemplate {} does not dereference {{ version }}", self.gitTagTemplate);
         }
 
+        self.verify_slack_channels()
+    }
+
+    fn verify_slack_channels(&self) -> Result<()> {
+        let channelre = Regex::new(r"^#[a-z0-9._-]+$").unwrap();
+        if let Some(channel) = &self.support {
+            if !channelre.is_match(&channel) {
+                bail!("support channel is invalid: {}", channel)
+            }
+        }
+        if let Some(channel) = &self.notifications {
+            if !channelre.is_match(&channel) {
+                bail!("notifications channel is invalid: {}", channel)
+            }
+        }
+
         Ok(())
     }
 }
@@ -122,5 +141,23 @@ mod tests {
         assert!(res.is_ok());
         let ru = res.unwrap();
         assert_eq!(ru, "prefix-0.1.2-suffix")
+    }
+
+    #[test]
+    fn valid_slack_channel() {
+        let mut md = Metadata {
+            support: Some(String::from("#dev-platform")),
+            ..Default::default()
+        };
+        println!("{:?}", md);
+
+        let valid = md.verify_slack_channels();
+        println!("{:?}", valid);
+        assert!(valid.is_ok());
+
+        md.support = Some(String::from("# iaminvalidåß∂ƒ••"));
+        let valid = md.verify_slack_channels();
+        println!("{:?}", valid);
+        assert!(valid.is_err());
     }
 }
