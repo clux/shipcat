@@ -450,7 +450,7 @@ pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> 
         "-f".into(),
         crdfile.clone(),
     ];
-    info!("applying {} : {:?}", name, applyargs);
+    debug!("applying {} : {:?}", name, applyargs);
     kexec(applyargs)?;
     let _ = fs::remove_file(&crdfile); // try to remove temporary file
     Ok(())

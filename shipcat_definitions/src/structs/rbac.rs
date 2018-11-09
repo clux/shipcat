@@ -22,6 +22,8 @@ pub enum AllowedApiGroups {
     Empty,
     Extensions,
     Batch,
+    #[serde(rename = "babylontech.co.uk")]
+    Babylontech,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -44,8 +46,8 @@ pub enum AllowedResources {
     Secrets,
     ServiceAccounts,
     Services,
-    ShipcatManifest,
-    ShipcatConfig,
+    ShipcatManifests,
+    ShipcatConfigs,
 }
 
 /// We don't allow eg Delete or other operations for security reasons (least privilege).

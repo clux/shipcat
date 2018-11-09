@@ -60,7 +60,7 @@ fn crd_reconcile(svcs: Vec<String>, config: &Config, region: &Region, n_workers:
 
         let tx = tx.clone(); // tx channel reused in each thread
         pool.execute(move || {
-            info!("Running CRD reconcile for {}", svc);
+            debug!("Running CRD reconcile for {}", svc);
             let res = crd_reconcile_worker(svc, conf, reg);
             tx.send(res).expect("channel will be there waiting for the pool");
         });

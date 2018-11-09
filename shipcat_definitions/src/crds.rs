@@ -4,14 +4,14 @@ use super::{Manifest};
 use states::{ManifestType};
 
 /// Basic CRD wrapper struct
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Crd<T> {
     pub apiVersion: String,
     pub kind: String,
     pub metadata: Metadata,
     pub spec: T,
 }
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Metadata {
     pub name: String
 }

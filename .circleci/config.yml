@@ -50,7 +50,7 @@ jobs:
       - restore_cache:
           keys:
           - target-musl-{{ .Environment.CACHE_VERSION }}
-      - run: cargo build --release
+      - run: cargo build --release --bin shipcat
       - save_cache:
           key: target-musl-{{ .Environment.CACHE_VERSION }}
           paths:
@@ -120,7 +120,7 @@ jobs:
           key: target-mac-{{ .Environment.CACHE_VERSION }}
       - run:
           name: Build
-          command: ~/.cargo/bin/cargo build --verbose --release
+          command: ~/.cargo/bin/cargo build --verbose --release --bin shipcat
       - save_cache:
           key: target-mac-{{ .Environment.CACHE_VERSION }}
           paths:
