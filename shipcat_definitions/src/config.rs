@@ -383,6 +383,7 @@ impl Config {
             }
         }
 
+        let mut used_kong_urls = vec![];
         for (r, data) in &self.regions {
             if r != &data.name {
                 bail!("region '{}' must have a '.name' equal to its key in regions", r);
@@ -405,6 +406,10 @@ impl Config {
                 }
             }
             data.kong.verify()?;
+            if used_kong_urls.contains(&data.kong.config_url) {
+                bail!("Cannot reuse kong config urls for {} across regions", data.name);
+            }
+            used_kong_urls.push(data.kong.config_url.clone());
         }
         for t in &self.teams {
             for o in &t.owners {
