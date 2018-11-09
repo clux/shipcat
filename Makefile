@@ -7,7 +7,7 @@ compile:
 	docker run \
 		-v cargo-cache:/root/.cargo \
 		-v "$$PWD:/volume" -w /volume \
-		--rm -it clux/muslrust:stable cargo build --release
+		--rm -it clux/muslrust:stable cargo build --release --bin shipcat
 	cp target/x86_64-unknown-linux-musl/release/shipcat shipcat.x86_64-unknown-linux-musl
 	chmod +x shipcat.x86_64-unknown-linux-musl
 

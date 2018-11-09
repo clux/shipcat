@@ -22,6 +22,8 @@ pub enum AllowedApiGroups {
     Empty,
     Extensions,
     Batch,
+    #[serde(rename = "babylontech.co.uk")]
+    Babylontech,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

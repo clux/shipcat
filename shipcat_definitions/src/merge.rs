@@ -1,6 +1,5 @@
 // This file describes how manifests and environment manifest overrides are merged.
 
-use structs::SlackChannel;
 use config::{Config, Region};
 use super::{Manifest, Result};
 
