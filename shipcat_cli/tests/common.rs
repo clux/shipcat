@@ -55,14 +55,14 @@ fn config_defaults_test() {
     // fake-ask gets default for 'devops'
     let mfdefault = Manifest::base("fake-ask", &conf, &reg).unwrap().complete(&reg).unwrap();
     let metadata = mfdefault.metadata.unwrap();
-    assert_eq!(metadata.support.unwrap(), "#devops-support");
-    assert_eq!(metadata.notifications.unwrap(), "#devops-notifications");
+    assert_eq!(*metadata.support.unwrap(), "#devops-support");
+    assert_eq!(*metadata.notifications.unwrap(), "#devops-notifications");
 
     // fake-storage overrides for 'someteam'
     let mfoverride = Manifest::base("fake-storage", &conf, &reg).unwrap().complete(&reg).unwrap();
     let metadata = mfoverride.metadata.unwrap();
-    assert_eq!(metadata.support.unwrap(), "#dev-platform-override");
-    assert_eq!(metadata.notifications.unwrap(), "#dev-platform-notif-override");
+    assert_eq!(*metadata.support.unwrap(), "#dev-platform-override");
+    assert_eq!(*metadata.notifications.unwrap(), "#dev-platform-notif-override");
 }
 
 /*#[test]

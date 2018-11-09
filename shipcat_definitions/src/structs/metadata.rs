@@ -1,4 +1,5 @@
 use regex::Regex;
+use std::ops::{Deref, DerefMut};
 
 use super::Team;
 use super::Result;
@@ -38,6 +39,37 @@ impl Contact {
     }
 }
 
+/// Slack channel verifier
+#[derive(Serialize, Deserialize, PartialEq, Clone, Default, Debug)]
+pub struct SlackChannel(String);
+impl SlackChannel {
+    pub fn new(chan: &str) -> Self {
+        SlackChannel(chan.into())
+    }
+
+    pub fn verify(&self) -> Result<()> {
+        let channelre = Regex::new(r"^#[a-z0-9._-]+$").unwrap();
+        if !channelre.is_match(&self.0) {
+            bail!("channel is invalid: {}", self.0)
+        }
+
+        Ok(())
+    }
+}
+
+impl Deref for SlackChannel {
+    type Target = String;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for SlackChannel {
+    fn deref_mut(&mut self) -> &mut String {
+        &mut self.0
+    }
+}
+
 /// Metadata for a service
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(test, derive(Default))]
@@ -58,10 +90,10 @@ pub struct Metadata {
     pub contacts: Vec<Contact>,
     /// Support channel - human interaction
     #[serde(default)]
-    pub support: Option<String>,
+    pub support: Option<SlackChannel>,
     /// Notifications channel - automated messages
     #[serde(default)]
-    pub notifications: Option<String>,
+    pub notifications: Option<SlackChannel>,
     /// Canoncal documentation link
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docs: Option<String>,
@@ -99,21 +131,11 @@ impl Metadata {
         if !sanityre.is_match(&self.gitTagTemplate) {
             bail!("gitTagTemplate {} does not dereference {{ version }}", self.gitTagTemplate);
         }
-
-        self.verify_slack_channels()
-    }
-
-    fn verify_slack_channels(&self) -> Result<()> {
-        let channelre = Regex::new(r"^#[a-z0-9._-]+$").unwrap();
         if let Some(channel) = &self.support {
-            if !channelre.is_match(&channel) {
-                bail!("support channel is invalid: {}", channel)
-            }
+            channel.verify()?;
         }
         if let Some(channel) = &self.notifications {
-            if !channelre.is_match(&channel) {
-                bail!("notifications channel is invalid: {}", channel)
-            }
+            channel.verify()?;
         }
 
         Ok(())
@@ -123,6 +145,7 @@ impl Metadata {
 #[cfg(test)]
 mod tests {
     use super::Metadata;
+    use super::SlackChannel;
     use super::default_format_string;
 
     #[test]
@@ -145,18 +168,16 @@ mod tests {
 
     #[test]
     fn valid_slack_channel() {
-        let mut md = Metadata {
-            support: Some(String::from("#dev-platform")),
-            ..Default::default()
-        };
-        println!("{:?}", md);
-
-        let valid = md.verify_slack_channels();
+        let sc = SlackChannel(<String>::from("#dev-platform"));
+        let valid = sc.verify();
         println!("{:?}", valid);
         assert!(valid.is_ok());
+    }
 
-        md.support = Some(String::from("# iaminvalidåß∂ƒ••"));
-        let valid = md.verify_slack_channels();
+    #[test]
+    fn invalid_slack_channel() {
+        let sc = SlackChannel(<String>::from("# iaminvalidåß∂ƒ••"));
+        let valid = sc.verify();
         println!("{:?}", valid);
         assert!(valid.is_err());
     }

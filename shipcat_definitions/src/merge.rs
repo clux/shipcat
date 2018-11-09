@@ -1,5 +1,6 @@
 // This file describes how manifests and environment manifest overrides are merged.
 
+use structs::SlackChannel;
 use config::{Config, Region};
 use super::{Manifest, Result};
 
@@ -56,10 +57,14 @@ impl Manifest {
             // teams are guaranteed to exist in shipcat.conf via Metadata::verify
             let team = conf.teams.iter().find(|t| t.name == md.team ).unwrap();
             if md.support.is_none() {
-                md.support = team.support.clone();
+                if let Some(supp) = &team.support {
+                    md.support = Some(SlackChannel::new(&supp));
+                }
             }
             if md.notifications.is_none() {
-                md.notifications = team.notifications.clone();
+                if let Some(notif) = &team.notifications {
+                    md.notifications = Some(SlackChannel::new(&notif));
+                }
             }
         }
 

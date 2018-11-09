@@ -68,7 +68,7 @@ mod lifecycle;
 pub use self::lifecycle::{LifeCycle, LifeCycleHandler};
 
 mod metadata;
-pub use self::metadata::{Metadata, Contact};
+pub use self::metadata::{Metadata, Contact, SlackChannel};
 
 
 /// Security related structs
