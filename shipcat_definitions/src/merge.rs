@@ -57,14 +57,10 @@ impl Manifest {
             // teams are guaranteed to exist in shipcat.conf via Metadata::verify
             let team = conf.teams.iter().find(|t| t.name == md.team ).unwrap();
             if md.support.is_none() {
-                if let Some(supp) = &team.support {
-                    md.support = Some(SlackChannel::new(&supp));
-                }
+                md.support = team.support.clone();
             }
             if md.notifications.is_none() {
-                if let Some(notif) = &team.notifications {
-                    md.notifications = Some(SlackChannel::new(&notif));
-                }
+                md.notifications = team.notifications.clone();
             }
         }
 

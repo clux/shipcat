@@ -5,6 +5,7 @@ use semver::Version;
 
 #[allow(unused_imports)]
 use std::path::{Path, PathBuf};
+use structs::SlackChannel;
 
 use super::Vault;
 #[allow(unused_imports)]
@@ -102,10 +103,10 @@ pub struct Team {
     pub owners: Vec<Contact>,
     #[serde(default)]
     /// Default support channel - human interaction
-    pub support: Option<String>,
+    pub support: Option<SlackChannel>,
     /// Default notifications channel - automated messages
     #[serde(default)]
-    pub notifications: Option<String>,
+    pub notifications: Option<SlackChannel>,
 }
 
 

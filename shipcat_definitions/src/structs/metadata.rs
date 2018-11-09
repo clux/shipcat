@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn valid_slack_channel() {
-        let sc = SlackChannel(<String>::from("#dev-platform"));
+        let sc = SlackChannel::new("#dev-platform".into());
         let valid = sc.verify();
         println!("{:?}", valid);
         assert!(valid.is_ok());
@@ -176,7 +176,7 @@ mod tests {
 
     #[test]
     fn invalid_slack_channel() {
-        let sc = SlackChannel(<String>::from("# iaminvalidåß∂ƒ••"));
+        let sc = SlackChannel::new("# iaminvalidåß∂ƒ••".into());
         let valid = sc.verify();
         println!("{:?}", valid);
         assert!(valid.is_err());
