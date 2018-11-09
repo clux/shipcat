@@ -11,8 +11,6 @@ use super::{Result, Config};
 // structs re-used from Manifest:
 use super::structs::Contact;
 
-use manifest::Manifest;
-
 
 // -- dependent structs used by Product (currently just inlined here)
 
@@ -41,7 +39,7 @@ pub struct Service {
     pub region: String,
 }
 impl Service {
-    fn verify(&self, config: &Config, location: &str) -> Result<()> {
+    fn verify(&self, _config: &Config, _location: &str) -> Result<()> {
         // self.name must exist in services/
         let dpth = Path::new(".").join("services").join(self.name.clone());
         if !dpth.is_dir() {

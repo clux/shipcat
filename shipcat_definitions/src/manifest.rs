@@ -98,6 +98,8 @@ pub struct Manifest {
     ///     slack: "@clux"
     ///   team: Doves
     ///   repo: https://github.com/clux/blog
+    ///   support: "#humans"
+    ///   notifications: "#robots"
     /// ```
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Metadata>,

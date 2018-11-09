@@ -1,4 +1,5 @@
 use regex::Regex;
+use std::ops::{Deref, DerefMut};
 
 use super::Team;
 use super::Result;
@@ -38,6 +39,37 @@ impl Contact {
     }
 }
 
+/// Slack channel verifier
+#[derive(Serialize, Deserialize, PartialEq, Clone, Default, Debug)]
+pub struct SlackChannel(String);
+impl SlackChannel {
+    pub fn new(chan: &str) -> Self {
+        SlackChannel(chan.into())
+    }
+
+    pub fn verify(&self) -> Result<()> {
+        let channelre = Regex::new(r"^#[a-z0-9._-]+$").unwrap();
+        if !channelre.is_match(&self.0) {
+            bail!("channel is invalid: {}", self.0)
+        }
+
+        Ok(())
+    }
+}
+
+impl Deref for SlackChannel {
+    type Target = String;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for SlackChannel {
+    fn deref_mut(&mut self) -> &mut String {
+        &mut self.0
+    }
+}
+
 /// Metadata for a service
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(test, derive(Default))]
@@ -56,9 +88,12 @@ pub struct Metadata {
     /// Contact person
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub contacts: Vec<Contact>,
-    /// Support channels
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub support: Vec<String>,
+    /// Support channel - human interaction
+    #[serde(default)]
+    pub support: Option<SlackChannel>,
+    /// Notifications channel - automated messages
+    #[serde(default)]
+    pub notifications: Option<SlackChannel>,
     /// Canoncal documentation link
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docs: Option<String>,
@@ -96,6 +131,12 @@ impl Metadata {
         if !sanityre.is_match(&self.gitTagTemplate) {
             bail!("gitTagTemplate {} does not dereference {{ version }}", self.gitTagTemplate);
         }
+        if let Some(channel) = &self.support {
+            channel.verify()?;
+        }
+        if let Some(channel) = &self.notifications {
+            channel.verify()?;
+        }
 
         Ok(())
     }
@@ -104,6 +145,7 @@ impl Metadata {
 #[cfg(test)]
 mod tests {
     use super::Metadata;
+    use super::SlackChannel;
     use super::default_format_string;
 
     #[test]
@@ -122,5 +164,21 @@ mod tests {
         assert!(res.is_ok());
         let ru = res.unwrap();
         assert_eq!(ru, "prefix-0.1.2-suffix")
+    }
+
+    #[test]
+    fn valid_slack_channel() {
+        let sc = SlackChannel::new("#dev-platform".into());
+        let valid = sc.verify();
+        println!("{:?}", valid);
+        assert!(valid.is_ok());
+    }
+
+    #[test]
+    fn invalid_slack_channel() {
+        let sc = SlackChannel::new("# iaminvalidåß∂ƒ••".into());
+        let valid = sc.verify();
+        println!("{:?}", valid);
+        assert!(valid.is_err());
     }
 }

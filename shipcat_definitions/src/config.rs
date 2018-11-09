@@ -5,6 +5,7 @@ use semver::Version;
 
 #[allow(unused_imports)]
 use std::path::{Path, PathBuf};
+use structs::SlackChannel;
 
 use super::Vault;
 #[allow(unused_imports)]
@@ -93,13 +94,19 @@ pub struct Cluster {
     pub regions: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Team {
     /// Team name
     pub name: String,
     /// Code owners for this team
     #[serde(default)]
     pub owners: Vec<Contact>,
+    #[serde(default)]
+    /// Default support channel - human interaction
+    pub support: Option<SlackChannel>,
+    /// Default notifications channel - automated messages
+    #[serde(default)]
+    pub notifications: Option<SlackChannel>,
 }
 
 
@@ -406,6 +413,12 @@ impl Config {
                 if o.github.is_none() {
                     bail!("Every owner must have a github id attached");
                 }
+            }
+            if t.support.is_none() {
+                bail!("Every team must have a default support channel declared");
+            }
+            if t.notifications.is_none() {
+                bail!("Every team must have a default notifications channel declared");
             }
         }
         Config::verify_version(&self.version)?;
