@@ -10,3 +10,8 @@ spec:
     plural: shipcatmanifests
     singular: shipcatmanifest
     kind: ShipcatManifest
+  additionalPrinterColumns:
+  - name: Kong
+    type: string
+    description: The URI where the service is available through kong
+    JSONPath: .spec.kong.uris
