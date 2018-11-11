@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "raftcat",
   "shipcat_definitions",
   "shipcat_cli"
 ]

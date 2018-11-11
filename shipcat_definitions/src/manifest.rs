@@ -24,7 +24,7 @@ use super::structs::Port;
 
 /// Main manifest, serializable from shipcat.yml or the shipcat CRD.
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Manifest {
     // ------------------------------------------------------------------------
     // Non-mergeable global properties
@@ -665,19 +665,22 @@ pub struct Manifest {
     /// Region injected into helm chart
     ///
     /// Exposed from shipcat, but not overrideable.
-    #[serde(default, skip_deserializing)]
+    #[serde(default)]
+    #[cfg_attr(filesystem, serde(skip_deserializing))]
     pub region: String,
 
     /// Environment injected into the helm chart
     ///
     /// Exposed from shipcat, but not overrideable.
-    #[serde(default, skip_deserializing)]
+    #[serde(default)]
+    #[cfg_attr(filesystem, serde(skip_deserializing))]
     pub environment: String,
 
     /// Namespace injected in helm chart
     ///
     /// Exposed from shipcat, but not overrideable.
-    #[serde(default, skip_deserializing)]
+    #[serde(default)]
+    #[cfg_attr(filesystem, serde(skip_deserializing))]
     pub namespace: String,
 
     /// Raw secrets from environment variables.

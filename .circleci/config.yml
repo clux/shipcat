@@ -81,7 +81,7 @@ jobs:
           keys:
           - target-test-{{ .Environment.CACHE_VERSION }}
       - run: cargo test -- --nocapture
-      - run: cargo doc --no-deps
+      - run: cargo doc --no-deps --lib
       - save_cache:
           key: target-test-{{ .Environment.CACHE_VERSION }}
           paths:
