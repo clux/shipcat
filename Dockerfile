@@ -50,7 +50,7 @@ RUN mkdir $(helm home)/plugins/diff/bin && \
 RUN apk add --no-cache --virtual virtualbuild libffi-dev g++ python3-dev openssl-dev && \
     pip3 install --upgrade pip && \
     pip3 install yamllint yq && \
-    pip3 install semver jira && \
+    pip3 install semver jira jinja2 && \
     apk del virtualbuild
 
 USER kubectl
