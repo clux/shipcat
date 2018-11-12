@@ -24,7 +24,7 @@ static SHIPCATRESOURCE: &str = "shipcatmanifests";
 
 // Request builders
 fn make_all_crd_entry_req(resource: &str, group: &str) -> Result<http::Request<Vec<u8>>> {
-    let urlstr = format!("/apis/{group}/v1/{resource}?",
+    let urlstr = format!("/apis/{group}/v1/namespaces/dev/{resource}?",
         group = group, resource = resource);
     let urlstr = url::form_urlencoded::Serializer::new(urlstr).finish();
     let mut req = http::Request::get(urlstr);
