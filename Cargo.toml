@@ -5,5 +5,5 @@ members = [
   "shipcat_cli"
 ]
 
-#[profile.release]
-#debug = true
+[profile.release]
+debug = true
