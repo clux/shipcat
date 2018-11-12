@@ -132,11 +132,11 @@ fn main() -> Result<()> {
             .resource("/manifests/", |r| r.method(Method::GET).f(get_all_manifests))
             .resource("/health", |r| r.method(Method::GET).f(health))
         })
-        .bind("127.0.0.1:8080").expect("Can not bind to 127.0.0.1:8080")
+        .bind("0.0.0.0:8080").expect("Can not bind to 0.0.0.0:8080")
         .shutdown_timeout(0)    // <- Set shutdown timeout to 0 seconds (default 60s)
         .start();
 
-    println!("Starting http server: 127.0.0.1:8080");
+    println!("Starting http server: 0.0.0.0:8080");
     let _ = sys.run();
     unreachable!();
 }
