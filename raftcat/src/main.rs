@@ -107,6 +107,10 @@ fn get_all_manifests(req: &HttpRequest<AppState>) -> HttpResponse {
     HttpResponse::Ok().json(mfs)
 }
 
+fn health(_: &HttpRequest<AppState>) -> HttpResponse {
+    HttpResponse::Ok().json("healthy")
+}
+
 fn main() -> Result<()> {
     use kubernetes::config::{self, Configuration};
     std::env::set_var("RUST_LOG", "actix_web=debug,raftcat=debug");
@@ -126,6 +130,7 @@ fn main() -> Result<()> {
             .middleware(middleware::Logger::default())
             .resource("/manifests/{name}", |r| r.method(Method::GET).f(get_single_manifest))
             .resource("/manifests/", |r| r.method(Method::GET).f(get_all_manifests))
+            .resource("/health", |r| r.method(Method::GET).f(health))
         })
         .bind("127.0.0.1:8080").expect("Can not bind to 127.0.0.1:8080")
         .shutdown_timeout(0)    // <- Set shutdown timeout to 0 seconds (default 60s)
