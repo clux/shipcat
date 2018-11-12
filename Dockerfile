@@ -9,7 +9,7 @@ ENV KUBEVER=1.10.6 \
     SSL_CERT_DIR=/etc/ssl/certs/
 
 # Install shipcat (built for musl outside)
-# ADD shipcat.x86_64-unknown-linux-musl /usr/local/bin/shipcat
+ADD shipcat.x86_64-unknown-linux-musl /usr/local/bin/shipcat
 
 # Install kubectl (see https://aur.archlinux.org/packages/kubectl-bin )
 ADD https://storage.googleapis.com/kubernetes-release/release/v${KUBEVER}/bin/linux/amd64/kubectl /usr/local/bin/kubectl
@@ -30,7 +30,7 @@ RUN set -x && \
     \
     # Basic check it works.
     kubectl version --client && \
-    # shipcat --version && \
+    shipcat --version && \
     helm version -c && \
     kubeval --version
 
