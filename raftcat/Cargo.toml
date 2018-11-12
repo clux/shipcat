@@ -5,7 +5,8 @@ authors = ["Eirik Albrigtsen <eirik.albrigtsen@babylonhealth.com>"]
 
 [dependencies]
 shipcat_definitions = { path = "../shipcat_definitions", features = [] }
-kubernetes = { git = "https://github.com/clux/kubernetes-rust", rev = "e2c118e88fe20342599756b23156c5121d03a63a" }
+kubernetes = { git = "https://github.com/clux/kubernetes-rust", rev = "8f31e6c80ebf204d1f26ffa8b20d855357f118d7" }
+#kubernetes = { path = "../../kubernetes-rust" }
 serde_json = "1.0.32"
 serde = "1.0.80"
 serde_derive = "1.0.80"
