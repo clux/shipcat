@@ -107,40 +107,8 @@ use serde::de::DeserializeOwned;
 use kubernetes::config;
 use kubernetes::config::Configuration;
 
-//use kubernetes::client::APIClient;
-// Fork APIClient in kubernetes temporarily because deserialize screws up...
-pub struct APIClient {
-    configuration: Configuration,
-}
-impl APIClient {
-    pub fn new(configuration: Configuration) -> Self {
-        APIClient { configuration }
-    }
+use kubernetes::client::APIClient;
 
-    /// Returns kubernetes resources binded `Arnavion/k8s-openapi-codegen` APIs.
-    pub fn request<T>(&self, request: http::Request<Vec<u8>>) -> Result<T>
-    where
-        T: DeserializeOwned,
-    {
-        let (parts, body) = request.into_parts();
-        let uri_str = format!("{}{}", self.configuration.base_path, parts.uri);
-        let req = match parts.method {
-            http::Method::GET => self.configuration.client.get(&uri_str),
-            http::Method::POST => self.configuration.client.post(&uri_str),
-            http::Method::DELETE => self.configuration.client.delete(&uri_str),
-            http::Method::PUT => self.configuration.client.put(&uri_str),
-            other => {
-                return Err(Error::from(format_err!("Invalid method: {}", other)));
-            }
-        }.body(body);
-
-        let mut res = req.send()?;
-        let text = res.text()?;
-        //println!("got text: {}", text);
-        serde_json::from_str(&text).map_err(Error::from)
-        //res.json().map_err(Error::from)
-    }
-}
 
 // Share kube client between http requests
 use std::sync::{Arc, Mutex};
