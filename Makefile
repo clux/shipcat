@@ -96,5 +96,6 @@ raftcat:
 	cp target/x86_64-unknown-linux-musl/release/raftcat raftcat.x86_64-unknown-linux-musl
 	chmod +x raftcat.x86_64-unknown-linux-musl
 	docker build -t $(REPO)/raftcat:$(VERSION) -f Dockerfile.raftcat .
+	docker push $(REPO)/raftcat:$(VERSION)
 
 .PHONY: doc install build compile releases raftcat
