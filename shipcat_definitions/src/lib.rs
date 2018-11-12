@@ -99,7 +99,7 @@ pub use manifest::Manifest;
 
 /// Crd wrappers
 mod crds;
-pub use crds::Crd;
+pub use crds::{Crd, CrdList};
 
 /// Internal classifications and states
 mod states;

@@ -4,14 +4,14 @@ use super::{Manifest};
 use states::{ManifestType};
 
 /// Basic CRD wrapper struct
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Crd<T> {
     pub apiVersion: String,
     pub kind: String,
     pub metadata: Metadata,
     pub spec: T,
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Metadata {
     pub name: String
 }
@@ -48,4 +48,14 @@ impl From<Config> for Crd<Config> {
             spec: conf,
         }
     }
+}
+
+
+/// Basic CRD List wrapper struct
+#[derive(Deserialize, Serialize)]
+pub struct CrdList<T> {
+    pub apiVersion: String,
+    pub kind: String,
+    //pub metadata: Metadata,
+    pub items: Vec<Crd<T>>,
 }

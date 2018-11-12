@@ -87,4 +87,15 @@ kongfig-tag-latest:
 	docker tag  $(REPO)/$(NAME):kongfig-$(VERSION) $(REPO)/$(NAME):kongfig
 	docker push $(REPO)/$(NAME):kongfig
 
-.PHONY: doc install build compile releases
+# raftcat experiment
+raftcat:
+	docker run \
+		-v cargo-cache:/root/.cargo \
+		-v "$$PWD:/volume" -w /volume \
+		--rm -it clux/muslrust:stable cargo build --release --bin raftcat
+	cp target/x86_64-unknown-linux-musl/release/raftcat raftcat.x86_64-unknown-linux-musl
+	chmod +x raftcat.x86_64-unknown-linux-musl
+	docker build -t $(REPO)/raftcat:$(VERSION) -f Dockerfile.raftcat .
+	docker push $(REPO)/raftcat:$(VERSION)
+
+.PHONY: doc install build compile releases raftcat

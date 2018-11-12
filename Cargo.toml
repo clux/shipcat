@@ -1,8 +1,9 @@
 [workspace]
 members = [
+  "raftcat",
   "shipcat_definitions",
   "shipcat_cli"
 ]
 
-#[profile.release]
-#debug = true
+[profile.release]
+debug = false
