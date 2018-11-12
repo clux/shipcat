@@ -465,8 +465,11 @@ fn find_all_manifest_crds(ns: &str) -> Result<Vec<String>> {
         "shipcatmanifests".into(),
         "-ojsonpath='{.items[*].metadata.name}'".into(),
     ];
-    let res = kout(getargs)?.split(" ").map(String::from).collect::<Vec<_>>();
-    Ok(res)
+    let out = kout(getargs)?;
+    if out == "''" { // stupid kubectl
+        return Ok(vec![])
+    }
+    Ok(out.split(" ").map(String::from).collect())
 }
 
 use std::collections::HashSet;
