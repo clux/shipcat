@@ -181,10 +181,10 @@ fn main() -> Result<()> {
     info!("Creating http server");
     server::new(move || {
         App::with_state(state.clone())
-            .middleware(middleware::Logger::default())
+            .middleware(middleware::Logger::default().exclude("/health"))
             .resource("/manifests/{name}/resources", |r| r.method(Method::GET).f(get_resource_usage))
             .resource("/manifests/{name}", |r| r.method(Method::GET).f(get_single_manifest))
-            .resource("/manifests/", |r| r.method(Method::GET).f(get_all_manifests))
+            .resource("/manifests", |r| r.method(Method::GET).f(get_all_manifests))
             .resource("/health", |r| r.method(Method::GET).f(health))
         })
         .bind("0.0.0.0:8080").expect("Can not bind to 0.0.0.0:8080")
