@@ -5,7 +5,7 @@ A small web api for shipcat manifests reading the current state of shipcat crds 
 
 ## API
 
-- GET `/manifests/{service}` -> all raw
+- GET `/manifests/` -> all raw crd specs in a list
 - GET `/manifests/{service}` -> raw spec json from CRD
 - GET `/manifests/{service}/resources` -> resource computation for the service
 
