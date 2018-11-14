@@ -1,5 +1,5 @@
 # raftcat
-[![Docker Repository on Quay](https://quay.io/repository/babylonhealth/raftcat/status "Docker Repository on Quay")]
+[![Docker Repository on Quay](https://quay.io/repository/babylonhealth/raftcat/status "Docker Repository on Quay")](https://quay.io/repository/babylonhealth/raftcat?tab=tags)
 
 A small web api for shipcat manifests reading the current state of shipcat crds (`shipcat crd {service}`).
 
