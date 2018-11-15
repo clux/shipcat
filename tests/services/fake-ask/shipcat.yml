@@ -22,6 +22,10 @@ metadata:
   gitTagTemplate: "prefix-{{ version }}-suffix"
 sidecars:
 - name: redis
+  env:
+    STATIC_VALUE: "static"
+    FAKE_SECRET: "IN_VAULT"
+    CORE_URL: "{{ base_urls.services }}/somesvc"
 regions:
 - dev-uk
 vault:

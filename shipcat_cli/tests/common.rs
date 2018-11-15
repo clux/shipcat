@@ -188,6 +188,12 @@ fn templating_test() {
     assert_eq!(sec["CLIENT_SECRET"], "FAKEASKSECRET".to_string()); // via reg.kong consumers
     assert_eq!(sec["FAKE_SECRET"], "hello".to_string()); // NB: ACTUALLY IN_VAULT
 
+    // verify sidecar templating
+    let redis = &mf.sidecars[0];
+    assert_eq!(redis.env["STATIC_VALUE"], "static".to_string());
+    assert_eq!(redis.env["CORE_URL"], "https://woot.com/somesvc".to_string());
+    assert_eq!(sec["FAKE_SECRET"], "hello".to_string()); // NB: ACTUALLY IN_VAULT
+
     let configs = mf.configs.clone().unwrap();
     let configini = configs.files[0].clone();
     let cfgtpl = configini.value.unwrap();
