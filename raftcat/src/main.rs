@@ -111,7 +111,7 @@ fn main() -> Result<()> {
     let dsn = std::env::var("SENTRY_DSN").expect("Sentry DSN required");
     let _guard = sentry::init(dsn); // must keep _guard in scope
 
-    std::env::set_var("RUST_LOG", "actix_web=debug,raftcat=debug");
+    std::env::set_var("RUST_LOG", "actix_web=info,raftcat=debug");
     std::env::set_var("RUST_BACKTRACE", "1");
     env_logger::init();
 
