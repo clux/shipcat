@@ -192,6 +192,8 @@ fn main() {
                 .help("Reduce code owners across services"))
               .subcommand(SubCommand::with_name("clusterinfo")
                 .help("Reduce encoded cluster information"))
+              .subcommand(SubCommand::with_name("vault-url")
+                .help("Get the vault-url in a region"))
               .subcommand(SubCommand::with_name("versions")
                 .help("Reduce encoded version info")))
         // kong helper
@@ -452,6 +454,9 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let (conf, region) = resolve_config(a, ConfigType::Base)?;
         if let Some(_) = a.subcommand_matches("versions") {
             return shipcat::get::versions(&conf, &region).map(void);
+        }
+        if let Some(_) = a.subcommand_matches("vault-url") {
+            return shipcat::get::vault_url(&region).map(void);
         }
         if let Some(_) = a.subcommand_matches("images") {
             return shipcat::get::images(&conf, &region).map(void);
