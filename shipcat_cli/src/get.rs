@@ -106,6 +106,16 @@ pub fn clusterinfo(conf: &Config, ctx: &str) -> Result<ClusterInfo> {
     Ok(ci)
 }
 
+/// Vault
+///
+/// Prints just the vault url for a region
+/// Because this is invariant over a region
+pub fn vault_url(region: &Region) -> Result<String> {
+    let out = region.vault.url.clone();
+    println!("{}", out);
+    Ok(out)
+}
+
 
 // ----------------------------------------------------------------------------
 // hybrid reducers

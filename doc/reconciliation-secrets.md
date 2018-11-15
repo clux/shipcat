@@ -100,18 +100,11 @@ kube-login() {
     --namespace="${namespace}" \
     "${KUBE_REGION}"
   kubectl config use-context "${KUBE_REGION}"
-  # if using helm directly (you shouldn't need to)
-  export TILLER_NAMESPACE="${namespace}"
 }
 
-# Log into a regional Vault if no VAULT_TOKEN is passed
+# Log into a regional Vault
 vault-login() {
-  if [ ! -z "$VAULT_TOKEN" ]; then
-    echo "VAULT_TOKEN passed to job, not logging into Vault"
-    return
-  fi
-
-  export VAULT_ADDR=$(shipcat get -r "$KUBE_REGION" clusterinfo | yq ".vault" -r)
+  export VAULT_ADDR=$(shipcat get -r "$KUBE_REGION" vault-url)
   export VAULT_TOKEN="$(vault login -token-only -method=github token="$GITHUB_PAT")"
 }
 
