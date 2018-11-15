@@ -17,14 +17,14 @@ fn make_all_crd_entry_req(resource: &str, group: &str) -> Result<http::Request<V
     let mut req = http::Request::get(urlstr);
     req.body(vec![]).map_err(Error::from)
 }
-fn make_crd_entry_req(resource: &str, group: &str, name: &str) -> Result<http::Request<Vec<u8>>> {
+/*fn make_crd_entry_req(resource: &str, group: &str, name: &str) -> Result<http::Request<Vec<u8>>> {
     // TODO: namespace from evar
     let urlstr = format!("/apis/{group}/v1/namespaces/dev/{resource}/{name}?",
         group = group, resource = resource, name = name);
     let urlstr = url::form_urlencoded::Serializer::new(urlstr).finish();
     let mut req = http::Request::get(urlstr);
     req.body(vec![]).map_err(Error::from)
-}
+}*/
 /*fn watch_crd_entry_after(resource: &str, group: &str, name: &str, rver: u32) -> Result<http::Request<Vec<u8>>> {
     let urlstr = format!("/apis/{group}/v1/namespaces/dev/{resource}/{name}?",
         group = group, resource = resource, name = name);
@@ -66,10 +66,12 @@ pub fn watch_shipcat_manifest(client: &APIClient, name: &str, rver: u32) -> Resu
     Ok(res)
 }*/
 
-pub fn get_shipcat_manifest(client: &APIClient, name: &str) -> Result<Crd<Manifest>> {
+// actually unused now because everything returns from cache
+/*pub fn get_shipcat_manifest(client: &APIClient, name: &str) -> Result<Crd<Manifest>> {
     let req = make_crd_entry_req(SHIPCATRESOURCE, GROUPNAME, name)?;
     let res = client.request::<Crd<Manifest>>(req)?;
     debug!("got {}", &res.spec.name);
     // TODO: merge with version found in rolling env?
     Ok(res)
 }
+*/

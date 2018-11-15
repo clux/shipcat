@@ -328,7 +328,7 @@ pub struct Config {
     ///
     /// Not public because access regions may or may not have secrets filled in.
     /// This makes sure we don't start using the wrong one.
-    regions: BTreeMap<String, Region>,
+    regions: Vec<Region>,
 
     /// Location definitions
     #[serde(default)]
@@ -366,7 +366,7 @@ impl Config {
             // can't actually verify this in a smaller manifest..
             #[cfg(feature = "filesystem")]
             for r in &clst.regions {
-                if !self.regions.contains_key(r) && self.kind == ConfigType::File {
+                if !self.has_region(r) && self.kind == ConfigType::File {
                     bail!("cluster {} defines undefined region {}", cname, r);
                 }
             }
@@ -374,42 +374,39 @@ impl Config {
 
         for (k, v) in &self.contextAliases {
             // all contextAlias values must exist as defined regions
-            if !self.regions.contains_key(v) {
+            if !self.has_region(v) {
                 bail!("context alias {} points to undefined region {}", k, v);
             }
             // cannot alias something that exists!
-            if self.regions.contains_key(k) {
+            if self.has_region(k) {
                 bail!("cannot self-alias region {}", k);
             }
         }
 
         let mut used_kong_urls = vec![];
-        for (r, data) in &self.regions {
-            if r != &data.name {
-                bail!("region '{}' must have a '.name' equal to its key in regions", r);
+        for r in &self.regions {
+            if r.namespace == "" {
+                bail!("Need to set `namespace` in {}", r.name);
             }
-            if data.namespace == "" {
-                bail!("Need to set `namespace` in {}", r);
+            if r.environment == "" {
+                bail!("Need to set `environment` in {}", r.name)
             }
-            if data.environment == "" {
-                bail!("Need to set `environment` in {}", r)
+            if r.vault.url == "" {
+                bail!("Need to set vault url for {}", r.name);
             }
-            if data.vault.url == "" {
-                bail!("Need to set vault url for {}", r);
+            if r.vault.folder == "" {
+                warn!("Need to set the vault folder {}", r.name);
             }
-            if data.vault.folder == "" {
-                warn!("Need to set the vault folder {}", r);
-            }
-            for (_, v) in &data.base_urls {
+            for (_, v) in &r.base_urls {
                 if v.ends_with('/') {
                     bail!("A base_url must not end with a slash");
                 }
             }
-            data.kong.verify()?;
-            if used_kong_urls.contains(&data.kong.config_url) {
-                bail!("Cannot reuse kong config urls for {} across regions", data.name);
+            r.kong.verify()?;
+            if used_kong_urls.contains(&r.kong.config_url) {
+                bail!("Cannot reuse kong config urls for {} across regions", r.name);
             }
-            used_kong_urls.push(data.kong.config_url.clone());
+            used_kong_urls.push(r.kong.config_url.clone());
         }
         for t in &self.teams {
             for o in &t.owners {
@@ -454,16 +451,19 @@ impl Config {
 
     /// Helper for list::regions
     pub fn list_regions(&self) -> Vec<String> {
-        self.regions.keys().cloned().collect()
+        self.regions.iter().map(|r| r.name.clone()).collect()
     }
 
     /// Complete a Base config for a know to exist region
     fn complete(&mut self, region: &str) -> Result<()> {
         assert_eq!(self.kind, ConfigType::Base);
         assert_eq!(self.regions.len(), 1);
-        assert!(self.regions.contains_key(region));
         self.kind = ConfigType::Completed;
-        self.regions.get_mut(&region.to_string()).expect("region exists by verify").secrets()?;
+        if let Some(idx) = self.regions.iter().position(|r| r.name == region) {
+            self.regions.get_mut(idx).unwrap().secrets()?;
+        } else {
+            bail!("Region {} does not exist in the config", region)
+        }
         Ok(())
     }
 
@@ -501,7 +501,7 @@ impl Config {
     /// This returns a a valid key in `self.regions` if Some.
     fn resolve_context(&self, context: &str) -> Option<String> {
         let ctx = context.to_string();
-        if self.regions.contains_key(&ctx) {
+        if self.has_region(&ctx) {
             Some(ctx)
         }
         // otherwise search for an alias
@@ -513,13 +513,17 @@ impl Config {
         }
     }
 
+    fn has_region(&self, region: &str) -> bool {
+        self.regions.iter().any(|r| r.name == region)
+    }
+
     /// Region retriever interface
     ///
     /// This retieves the region after calling resolve_context.
     /// Useful for small helper subcommands that do validation later.
     pub fn get_region(&self, ctx: &str) -> Result<Region> {
-        if let Some(validkey) = self.resolve_context(ctx) {
-            return Ok(self.regions[&validkey].clone());
+        if let Some(region) = self.resolve_context(ctx) {
+            return Ok(self.regions.iter().find(|r| r.name == region).unwrap().clone())
         }
         bail!("You need to define your kube context '{}' in shipcat.conf regions first", ctx)
     }
@@ -551,8 +555,8 @@ impl Config {
         if kind == ConfigType::Completed {
             conf.complete(&region)?;
         }
-        let reg = conf.regions[&region].clone();
-        Ok((conf, reg.clone()))
+        let reg = conf.get_region(&region)?;
+        Ok((conf, reg))
     }
 
     /// Read a config file in an arbitrary path
@@ -614,12 +618,12 @@ impl Config {
     /// Filter a file based config for a known to exist region
     fn remove_redundant_regions(&mut self, region: &str) -> Result<()> {
         assert_eq!(self.kind, ConfigType::File);
-        assert!(self.regions.contains_key(region));
+        assert!(self.has_region(region));
         let r = region.to_string();
         // filter out cluster and aliases as well so we don't have to special case verify
         self.clusters = self.clusters.clone().into_iter().filter(|(_, c)| c.regions.contains(&r)).collect();
         self.contextAliases = self.contextAliases.clone().into_iter().filter(|(_, v)| v == region).collect();
-        self.regions = self.regions.clone().into_iter().filter(|(k, _)| k == region).collect();
+        self.regions = self.regions.clone().into_iter().filter(|r| r.name == region).collect();
         self.kind = ConfigType::Base;
         Ok(())
     }
