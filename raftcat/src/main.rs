@@ -180,7 +180,7 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         let time = format!("{now}", now = date.format("%Y-%m-%d %H:%M:%S"));
 
         ctx.insert("vault_link", &region.vault_url(&mf.name));
-        ctx.insert("logzio_link", &logzio_link);
+        ctx.insert("logzio_link", &region.logzio_url(&mf.name));
         ctx.insert("sentry_link", &sentry_link);
         ctx.insert("grafana_link", &region.grafana_url(&mf.name, &cluster.name));
         ctx.insert("time", &time);

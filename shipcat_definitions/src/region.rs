@@ -112,7 +112,7 @@ pub struct KongConfig {
 #[serde(deny_unknown_fields)]
 pub struct LogzIoConfig {
     /// Base URL to use (e.g. https://app-eu.logz.io/#/dashboard/kibana/dashboard)
-    pub base_url: String,
+    pub url: String,
     /// Account ID (e.g. 46609)
     pub account_id: String,
 }
@@ -288,5 +288,14 @@ impl Region {
           app = &app,
           cluster = &cluster,
           namespace = &self.namespace)
+    }
+
+    // Get the Logz.io link URL for a given service in this region
+    pub fn logzio_url(&self, app: &str) -> String {
+        format!("{logzio_url}/{app}-{env}?accountIds={account_id}",
+          logzio_url = self.logzio.clone().unwrap().url.trim_matches('/'),
+          app = &app,
+          env = &self.name,
+          account_id = &self.logzio.clone().unwrap().account_id)
     }
 }
