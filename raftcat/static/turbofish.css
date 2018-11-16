@@ -1,0 +1,122 @@
+@font-face {
+    font-family: 'Droid Sans Mono';
+    src: url('DroidSansMono.woff') format('woff');
+}
+
+/* Basic layout */
+html {
+    box-sizing: border-box;
+}
+
+*, *:before, *:after {
+    box-sizing: inherit;
+}
+
+html, body {
+    height: 100%;
+}
+
+body {
+    font-family: 'Droid Sans Mono', sans-serif;
+    background-color: #111;
+    overflow: hidden;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+footer {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+
+    padding: .5em;
+    background-color: #222;
+    border: solid #444;
+    border-width: 1px 0 0 1px;
+}
+
+footer a {
+    position: relative;
+    color: #fff;
+    transition: color .2s;
+}
+
+footer a:hover {
+    color: #ddd;
+}
+
+/* Magic */
+t, u, r, b, o, f, i, s, h {
+    display: flex;
+    font-size: 9vh;
+    padding: 1vh;
+    line-height: 1;
+    color: #fff;
+    text-decoration: none;
+    white-space: nowrap;
+
+    position: relative;
+
+    animation-name: fish;
+    animation-fill-mode: backwards;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+t { animation-duration: 2.75s; animation-delay: 1.25s }
+u { animation-duration: 3.25s; animation-delay: 0.25s }
+r { animation-duration: 3s; animation-delay: 1s }
+b { animation-duration: 5s; animation-delay: 0s }
+o { animation-duration: 2.25s; animation-delay: 0.75s }
+f { animation-duration: 1.75s; animation-delay: 0.5s }
+i { animation-duration: 2.5s; animation-delay: 1s }
+s { animation-duration: 2s; animation-delay: 0s }
+h { animation-duration: 3.75s; animation-delay: 0.25s }
+
+t::before, t::after,
+u::before, u::after,
+r::before, r::after,
+b::before, b::after,
+o::before, o::after,
+f::before, f::after,
+i::before, i::after,
+s::before, s::after,
+h::before, h::after {
+    content: '∶';
+    order: -1;
+    display: block;
+
+    animation-name: turbo;
+    animation-duration: .2s;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+t::after,
+u::after,
+r::after,
+b::after,
+o::after,
+f::after,
+i::after,
+s::after,
+h::after {
+    animation-delay: 0.05s;
+    animation-direction: reverse;
+}
+
+@keyframes turbo {
+    0% { transform: rotateX(0deg) }
+    50% { transform: rotateX(90deg) }
+    100% { transform: rotateX(0deg) }
+}
+
+/* TODO: Find a better solution for this. Possibly something with multiple fish
+ *       per line and :first-of-type for line breaks?
+ */
+@keyframes fish {
+    from { right: 100vw }
+    to { right: -100vw }
+}
