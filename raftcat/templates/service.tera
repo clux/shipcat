@@ -76,7 +76,6 @@ li {
           <li><a href="{{ quay_link }}">Quay.io</a></li>
         </ul>
         <h3>Support: <a href="{{ support_link }}">{{ support }}</a></h3>
-        <h3>Runbook: TODO</h3>
         <h3>Team: <a href="{{ team_link }}">{{ team }}</a></h3>
 
       </aside>

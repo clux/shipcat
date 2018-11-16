@@ -131,6 +131,10 @@ fn get_manifests_for_team(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> 
     let mfs = req.state().safe.lock().unwrap().get_manifests_for(name)?.clone();
     Ok(HttpResponse::Ok().json(mfs))
 }
+fn get_teams(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
+    let cfg = req.state().safe.lock().unwrap().get_config()?;
+    Ok(HttpResponse::Ok().json(cfg.teams.clone()))
+}
 
 fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
@@ -164,6 +168,7 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         let quaylink = format!("https://{}/?tab=tags", mf.image.clone().unwrap());
 
         let (team, teamlink) = (md.team.clone(), format!("/teams/{}", md.team));
+        // TODO: runbook
 
         let mut ctx = tera::Context::new();
         ctx.insert("manifest", &mf);
@@ -273,6 +278,7 @@ fn main() -> Result<()> {
             .resource("/manifests", |r| r.method(Method::GET).f(get_all_manifests))
             .resource("/service/{name}", |r| r.method(Method::GET).f(get_service))
             .resource("/teams/{name}", |r| r.method(Method::GET).f(get_manifests_for_team))
+            .resource("/teams", |r| r.method(Method::GET).f(get_teams))
             .resource("/health", |r| r.method(Method::GET).f(health))
             .resource("/", |r| r.method(Method::GET).f(index))
         })
