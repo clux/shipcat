@@ -55,6 +55,12 @@ impl SlackChannel {
 
         Ok(())
     }
+
+    // TODO: needs a org id from config
+    pub fn link(&self) -> String {
+        let hashless = self.0.clone().split_off(1);
+        format!("slack://channel?id={}&team=T0328HNCY", hashless)
+    }
 }
 
 impl Deref for SlackChannel {

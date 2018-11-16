@@ -16,30 +16,70 @@
 pre {
   white-space: pre-wrap;
   word-break: keep-all
-}</style>
-<h1>{{ manifest.name }} in {{ region.name }} at {{ time }}</h1>
-<h2>Version:</h2>
-<a href="{{ versionlink }}">{{ version }}</a>
+}
 
-<h2>Grafana:</h2>
-<a href="{{ grafana_link }}">Grafana</a>
+body{
+  margin: 0;
+  color: #fff;
+}
+.wrapper{
+  min-height: 100vh;
+  background: #ccc;
+  display: flex;
+  flex-direction: column;
+}
+.header, .footer{
+  height: 50px;
+  background: #666;
+}
+.content {
+  flex: 1;
+  background: #999;
+  display: flex;
+  color: #000;
+}
+.columns{
+  display: flex;
+  flex: 1;
+}
+.main{
+  flex: 1;
+  background: #eee;
+}
+.sidebar{
+  width: 20%;
+  background: #ccc
+}
 
-<h2>Logs</h2>
-<a href="{{ logzio_link }}">Logz.io</a>
+.sidebar .ul {
+  font-size: 14px;
+}
+</style>
 
-<h2>Sentry: </h2>
-<a href="{{ sentry_link }}">Sentry</a>
+<div class="wrapper">
+  <header class="header">
+    <h2>{{ manifest.name }} in {{ region.name }} at {{ time }} running <a href="{{ versionlink }}">{{ version }}</a></h2>
+  </header>
+  <section class="content">
+    <div class="columns">
+      <main class="main">
+        <pre><code class="yaml">{{ pretty_manifest }}</code></pre>
+      </main>
+      <aside class="sidebar">
+        <h2>Quick Links</h2>
+        <ul>
+          <li><a href="{{ grafana_link }}">Grafana</a></li>
+          <li><a href="{{ logzio_link }}">Logz.io</a></li>
+          <li><a href="{{ sentry_link }}">Sentry</a></li>
+          <li><a href="{{ vault_link }}">Vault</a></li>
+        </ul>
+        <h3>Support: <a href="{{ supportlink }}">{{ support }}</a></h3>
+        <h3>Runbook: TODO
 
-<h2>Vault:</h2>
-<a href="{{ vault_link }}">Vault</a>
-
-<h2>Health:</h2>
-<i>{{ health }}</i>
-
-<h2>Manifest:</h2>
-<pre><code class="yaml">{{ pretty_manifest }}</code></pre>
-
-<footer>
-    <a href="https://github.com/Babylonpartners/shipcat">code.</a>
-</footer>
-
+      </aside>
+     </div>
+  </section>
+  <footer class="footer">
+     <a href="https://github.com/Babylonpartners/shipcat">code</a>
+  </footer>
+</div>

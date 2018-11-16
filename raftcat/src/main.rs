@@ -143,6 +143,8 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
             // mandatory to have one of these!
             serde_json::to_string(&mf.readinessProbe.clone().unwrap())?
         };
+        let (support, supportlink) = (md.support.clone(), md.support.unwrap().link());
+
 
         let mut ctx = tera::Context::new();
         ctx.insert("manifest", &mf);
@@ -152,6 +154,8 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         ctx.insert("versionlink", &vlink);
         ctx.insert("version", &version);
         ctx.insert("health", &health);
+        ctx.insert("support", &support);
+        ctx.insert("supportlink", &supportlink);
 
         // TODO externalise:
         let logzio_base_url = "https://app-eu.logz.io/#/dashboard/kibana/dashboard";

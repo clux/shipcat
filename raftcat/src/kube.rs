@@ -87,7 +87,7 @@ pub fn watch_shipcat_manifest(client: &APIClient, name: &str, rver: u32) -> Resu
 // version fetching stuff
 #[derive(Deserialize)]
 struct Entry {
-    container: String,
+    //container: String,
     name: String,
     version: String,
 }
