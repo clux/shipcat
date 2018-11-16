@@ -167,7 +167,7 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
             &region.sentry.clone().unwrap().url,
             &region.environment,
             &mf.name,
-        ).unwrap();
+        ).unwrap_or(format!("PROJECT_NOT_FOUND"));
         // TODO: get through Sentry API
         //let sentry_project_slug = "core-ruby";
         // TODO externalise
