@@ -78,12 +78,13 @@ li {
       <aside class="sidebar">
         <h2>Quick Links</h2>
         <ul>
-          <li><a href="{{ grafana_link }}">Grafana</a></li>
-          <li><a href="{{ logzio_link }}">Logz.io</a></li>
-          <li><a href="{{ sentry_link }}">Sentry</a></li>
-          <li><a href="{{ vault_link }}">Vault</a></li>
-          <li><a href="{{ circle_link }}">CircleCI</a></li>
-          <li><a href="{{ quay_link }}">Quay.io</a></li>
+          <li>NewRelic: <a href="{{ newrelic_link }}">NewRelic</a></li>
+          <li>Grafana: <a href="{{ grafana_link }}">Grafana</a></li>
+          <li>Logging: <a href="{{ logzio_link }}">Logz.io</a></li>
+          <li>Error reporting: <a href="{{ sentry_link }}">Sentry</a></li>
+          <li>Secrets: <a href="{{ vault_link }}">Vault</a></li>
+          <li>CI: <a href="{{ circle_link }}">CircleCI</a></li>
+          <li>Containers: <a href="{{ quay_link }}">Quay.io</a></li>
         </ul>
         <h3>Support: <a href="{{ support_link }}">{{ support }}</a></h3>
         <h3>Team: <a href="{{ team_link }}">{{ team }}</a></h3>

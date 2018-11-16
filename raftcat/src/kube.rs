@@ -114,7 +114,7 @@ pub fn get_version(svc: &str) -> Result<String> {
     }
 }
 
-// version fetching stuff
+// Sentry project struct
 #[derive(Deserialize)]
 struct Project {
     slug: String,
@@ -148,5 +148,58 @@ pub fn get_sentry_slug(sentry_url: &str, env: &str, svc: &str) -> Result<String>
         Ok(entry.slug)
     } else {
         bail!("Project {} not found in team {}, {}", svc, env, sentry_url)
+    }
+}
+
+// NewRelic Applications info
+#[derive(Deserialize)]
+struct Application {
+    id: u32,
+    name: String,
+}
+#[derive(Deserialize)]
+struct Applications {
+    applications: Vec<Application>,
+}
+
+// Get NewRelic link
+pub fn get_newrelic_link(region: &str, svc: &str) -> Result<String> {
+    let client = reqwest::Client::new();
+    let api_key = match env::var("NEWRELIC_API_KEY") {
+        Ok(val) => val,
+        Err(e)  => bail!("NEWRELIC_API_KEY env var not found"),
+    };
+    let account_id = match env::var("NEWRELIC_ACCOUNT_ID") {
+        Ok(val) => val,
+        Err(e)  => bail!("NEWRELIC_ACCOUNT_ID env var not found"),
+    };
+
+    let search = format!(
+        "{svc} ({region})",
+        svc = &svc,
+        region = &region
+    );
+    let mut res = client
+        .get("https://api.newrelic.com/v2/applications.json")
+        .query(&[("filter[name]", search.clone())])
+        .header("X-Api-Key", api_key)
+        .send()?;
+    if !res.status().is_success() {
+        debug!("failed to get applications");
+        bail!("Failed to fetch applications");
+    }
+    let text = res.text()?;
+    debug!("Got NewRelic data: {}", text);
+    let data : Applications = serde_json::from_str(&text)?;
+    debug!("Parsed NewRelic data!");
+    if let Some(entry) = data.applications.into_iter().find(|r| r.name == search) {
+        debug!("Application found!");
+        Ok(format!(
+                "https://rpm.newrelic.com/accounts/{account_id}/applications/{application_id}",
+                account_id = &account_id,
+                application_id = &entry.id))
+    } else {
+        debug!("Application not found!");
+        bail!("Application {} not found in NewRelic", &svc)
     }
 }

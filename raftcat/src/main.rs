@@ -194,6 +194,11 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         let sentry_link = format!("{sentry_base_url}/sentry/{sentry_project_slug}",
           sentry_base_url = &region.sentry.clone().unwrap().url, sentry_project_slug = &sentry_project_slug);
 
+        let newrelic_link = kube::get_newrelic_link(
+            &region.name,
+            &mf.name,
+        ).unwrap_or(format!("https://example.com/NEWRELIC_PROJECT_NOT_FOUND"));
+
         let date = Local::now();
         let time = format!("{now}", now = date.format("%Y-%m-%d %H:%M:%S"));
 
@@ -201,6 +206,7 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         ctx.insert("logzio_link", &region.logzio_url(&mf.name));
         ctx.insert("sentry_link", &sentry_link);
         ctx.insert("grafana_link", &region.grafana_url(&mf.name, &cluster.name));
+        ctx.insert("newrelic_link", &newrelic_link);
         ctx.insert("time", &time);
         let t = req.state().template.lock().unwrap();
         let s = t.render("service.tera", &ctx).unwrap(); // TODO: map error
