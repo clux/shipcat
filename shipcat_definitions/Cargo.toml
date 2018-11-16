@@ -33,6 +33,7 @@ reqwest = "0.9.4"
 serde_json = "1.0.32"
 dirs = { version = "1.0.4", optional = true }
 walkdir = { version = "2.2.5", optional = true }
+static_assertions = "0.3.1"
 
 [features]
 default = []

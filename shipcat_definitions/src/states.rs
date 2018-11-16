@@ -69,13 +69,10 @@ pub enum ManifestType {
 ///
 /// This relies on serde default to populate on deserialize from disk/crd.
 impl Default for ManifestType {
-    fn default() -> Self {
-        if cfg!(feature = "filesystem") {
-            #[cfg(feature = "filesystem")]
-            return ManifestType::SingleFile;
-        }
-        ManifestType::Base
-    }
+    #[cfg(not(feature = "filesystem"))]
+    fn default() -> Self { ManifestType::Base }
+    #[cfg(feature = "filesystem")]
+    fn default() -> Self { ManifestType::SingleFile }
 }
 
 /// This library defines the way to upgrade a manifest from Base
@@ -85,7 +82,7 @@ impl Default for ManifestType {
 impl Manifest {
     /// Upgrade a `Base` manifest to either a Complete or a Stubbed one
     fn upgrade(mut self, reg: &Region, kind: ManifestType) -> Result<Self> {
-        assert_eq!(self.kind, ManifestType::Base); // sanity
+        //assert_eq!(self.kind, ManifestType::Base); // sanity
         let v = match kind {
             ManifestType::Completed => Vault::regional(&reg.vault)?,
             ManifestType::Stubbed => Vault::mocked(&reg.vault)?,
@@ -142,11 +139,8 @@ pub enum ConfigType {
 ///
 /// This relies on serde default to populate on deserialize from disk/crd.
 impl Default for ConfigType {
-    fn default() -> Self {
-        if cfg!(feature = "filesystem") {
-            #[cfg(feature = "filesystem")]
-            return ConfigType::File;
-        }
-        ConfigType::Base
-    }
+    #[cfg(feature = "filesystem")]
+    fn default() -> Self { ConfigType::File }
+    #[cfg(not(feature = "filesystem"))]
+    fn default() -> Self { ConfigType::Base }
 }

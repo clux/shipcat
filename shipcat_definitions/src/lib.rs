@@ -27,6 +27,14 @@ extern crate regex;
 extern crate semver;
 extern crate base64;
 
+// Mutually exclusive backing on hold atm..
+// currently breaks Default for ConfigType and ManifestType
+//#[macro_use]
+//extern crate static_assertions;
+//assert_cfg!(all(not(all(feature = "filesystem", feature = "crd")),
+//                any(    feature = "filesystem", feature = "crd")),
+//            "Must exclusively use Filesystem or CRDs as the backing");
+
 #[macro_use]
 extern crate error_chain;
 error_chain! {
