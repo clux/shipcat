@@ -1,8 +1,8 @@
 use regex::Regex;
 use std::ops::{Deref, DerefMut};
 
-use super::Team;
 use super::Result;
+use config::{Team, SlackParameters};
 
 /// Contact data
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -57,9 +57,9 @@ impl SlackChannel {
     }
 
     // TODO: needs a org id from config
-    pub fn link(&self) -> String {
+    pub fn link(&self, params: &SlackParameters) -> String {
         let hashless = self.0.clone().split_off(1);
-        format!("slack://channel?id={}&team=T0328HNCY", hashless)
+        format!("slack://channel?id={}&team={}", hashless, params.team)
     }
 }
 

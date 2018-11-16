@@ -162,7 +162,7 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
             // mandatory to have one of these!
             serde_json::to_string(&mf.readinessProbe.clone().unwrap())?
         };
-        let (support, supportlink) = (md.support.clone(), md.support.unwrap().link());
+        let (support, supportlink) = (md.support.clone(), md.support.unwrap().link(&cfg.slack));
         // TODO: org in config
         let circlelink = format!("https://circleci.com/gh/Babylonpartners/{}", mf.name);
         let quaylink = format!("https://{}/?tab=tags", mf.image.clone().unwrap());
@@ -185,10 +185,6 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         ctx.insert("team", &team);
         ctx.insert("team_link", &teamlink);
 
-        // TODO externalise:
-        let logzio_base_url = "https://app-eu.logz.io/#/dashboard/kibana/dashboard";
-        //TODO externalise
-        let logzio_account = "46609";
         // TODO externalise
         let sentry_base_url = "https://dev-uk-sentry.ops.babylontech.co.uk/sentry";
         let sentry_project_slug = kube::get_sentry_slug(
@@ -201,8 +197,6 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         // TODO externalise
         let grafana_base_url = "https://dev-grafana.ops.babylontech.co.uk/d/oHzT4g0iz/kubernetes-services";
 
-        let logzio_link = format!("{logzio_base_url}/{app}-{env}?accountIds={account_id}",
-          logzio_base_url = &logzio_base_url, app = &mf.name, env = &region.name, account_id = &logzio_account);
 
         let sentry_link = format!("{sentry_base_url}/{sentry_project_slug}",
           sentry_base_url = &sentry_base_url, sentry_project_slug = &sentry_project_slug);

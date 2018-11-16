@@ -79,6 +79,22 @@ pub struct Location {
     pub name: String,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct GithubParameters {
+    /// Location name
+    pub organisation: String,
+}
+
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct SlackParameters {
+    /// Location name
+    pub team: String,
+}
+
+
 // ----------------------------------------------------------------------------------
 
 
@@ -106,6 +122,12 @@ pub struct Config {
     /// Location definitions
     #[serde(default)]
     pub locations: BTreeMap<String, Location>,
+
+    /// Slack parameters
+    pub slack: SlackParameters,
+
+    /// Gihub parameters
+    pub github: GithubParameters,
 
     /// Team definitions
     pub teams: Vec<Team>,
