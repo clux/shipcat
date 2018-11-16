@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::iter;
 
@@ -104,13 +103,6 @@ impl Manifest {
         Ok(ctx)
     }
 
-    fn template_env(ctx: &Context, env: &mut BTreeMap<String, String>) -> Result<()> {
-        for (_, v) in env {
-            *v = one_off(v, &ctx)?;
-        }
-        Ok(())
-    }
-
     /// Read templates from disk and put them into value for ConfigMappedFile
     #[cfg(feature = "filesystem")]
     pub fn read_configs_files(&mut self) -> Result<()> {
@@ -144,9 +136,20 @@ impl Manifest {
     /// Template evars - must happen before inline templates!
     pub fn template_evars(&mut self, reg: &Region) -> Result<()> {
         let ctx = self.make_template_context(reg)?;
-        Manifest::template_env(&ctx, &mut self.env)?;
+        &mut self.env.template(&ctx)?;
         for s in &mut self.sidecars {
-            Manifest::template_env(&ctx, &mut s.env)?;
+            &mut s.env.template(&ctx)?;
+        }
+        Ok(())
+    }
+}
+
+// helpers for env vars
+use super::structs::EnvVars;
+impl EnvVars {
+    pub fn template(&mut self, ctx: &Context) -> Result<()> {
+        for (_, v) in &mut self.iter_mut() {
+            *v = one_off(v, &ctx)?;
         }
         Ok(())
     }

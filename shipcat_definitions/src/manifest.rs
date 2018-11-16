@@ -13,7 +13,7 @@ use super::structs::volume::{Volume, VolumeMount};
 use super::structs::{Metadata, VaultOpts, Dependency};
 use super::structs::security::DataHandling;
 use super::structs::Probe;
-use super::structs::{CronJob, Sidecar};
+use super::structs::{CronJob, Sidecar, EnvVars};
 use super::structs::{Kafka, Kong, Rbac};
 use super::structs::RollingUpdate;
 use super::structs::autoscaling::AutoScaling;
@@ -261,8 +261,8 @@ pub struct Manifest {
     /// region, and replace them internally.
     ///
     /// The `as_secret` destinction only serves to put `AUTH_SECRET` into `Manifest::secrets`.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub env: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "EnvVars::is_empty")]
+    pub env: EnvVars,
 
 
     /// Kubernetes Secret Files to inject
@@ -777,6 +777,9 @@ impl Manifest {
         for wrk in &self.workers {
             wrk.verify()?;
         }
+        for s in &self.sidecars {
+            s.verify()?;
+        }
         for p in &self.ports {
             p.verify()?;
         }
@@ -794,15 +797,7 @@ impl Manifest {
             ru.verify(self.replicaCount.unwrap())?;
         }
 
-        // Env values are uppercase
-        for (k, _) in &self.env {
-            if k != &k.to_uppercase()  {
-                bail!("Env vars need to be uppercase, found: {}", k);
-            }
-            if k.contains("-") {
-                bail!("Env vars need to use SCREAMING_SNAKE_CASE not dashes, found: {}", k);
-            }
-        }
+        self.env.verify()?;
 
         // internal errors - implicits set these!
         if self.image.is_none() {
