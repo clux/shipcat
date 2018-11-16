@@ -1,5 +1,6 @@
 use kubernetes::client::APIClient;
 use std::collections::HashMap;
+use std::env;
 use shipcat_definitions::{Crd, CrdList, Manifest, Config};
 
 use failure::{Error, Fail};
@@ -110,5 +111,42 @@ pub fn get_version(svc: &str) -> Result<String> {
         Ok(entry.version)
     } else {
         bail!("No version found in version endpoint")
+    }
+}
+
+// version fetching stuff
+#[derive(Deserialize)]
+struct Project {
+    slug: String,
+    name: String,
+}
+
+// Get Sentry info!
+pub fn get_sentry_slug(sentry_url: &str, env: &str, svc: &str) -> Result<String> {
+    let client = reqwest::Client::new();
+    let token = match env::var("SENTRY_TOKEN") {
+        Ok(val) => val,
+        Err(e)  => bail!("SENTRY_TOKEN env var not found"),
+    };
+
+    let projects_url = format!("{sentry_url}/api/0/teams/sentry/{env}/projects/",
+                               sentry_url = &sentry_url,
+                               env = &env);
+
+    let mut res = client
+        .get(reqwest::Url::parse(&projects_url).unwrap())
+        .header("Authorization", format!("Bearer {token}", token = token))
+        .send()?;
+    if !res.status().is_success() {
+        debug!("failed to get projects");
+        bail!("Failed to fetch projects in team {}", env);
+    }
+    let text = res.text()?;
+    debug!("Got data: {}", text);
+    let data : Vec<Project> = serde_json::from_str(&text)?;
+    if let Some(entry) = data.into_iter().find(|r| r.name == svc) {
+        Ok(entry.slug)
+    } else {
+        bail!("Project {} not found in team {}, {}", svc, env, sentry_url)
     }
 }

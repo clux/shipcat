@@ -163,8 +163,13 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         let logzio_account = "46609";
         // TODO externalise
         let sentry_base_url = "https://dev-uk-sentry.ops.babylontech.co.uk/sentry";
+        let sentry_project_slug = kube::get_sentry_slug(
+            &region.sentry.clone().unwrap().url,
+            &region.environment,
+            &mf.name,
+        ).unwrap();
         // TODO: get through Sentry API
-        let sentry_project_slug = "core-ruby";
+        //let sentry_project_slug = "core-ruby";
         // TODO externalise
         let grafana_base_url = "https://dev-grafana.ops.babylontech.co.uk/d/oHzT4g0iz/kubernetes-services";
 

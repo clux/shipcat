@@ -127,6 +127,14 @@ pub struct GrafanaConfig {
     pub services_dashboard_id: String,
 }
 
+/// Sentry details for a region
+#[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
+#[serde(deny_unknown_fields)]
+pub struct SentryConfig {
+    /// Base URL to use (e.g. https://dev-uk-sentry.ops.babylontech.co.uk)
+    pub url: String,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct KongAnonymousConsumers {
@@ -240,7 +248,7 @@ pub struct Region {
     /// Grafana details for the region
     pub grafana: Option<GrafanaConfig>,
     /// Sentry URL for the region
-    pub sentry: Option<String>,
+    pub sentry: Option<SentryConfig>,
     /// List of locations the region serves
     #[serde(default)]
     pub locations: Vec<String>,
