@@ -68,6 +68,13 @@ impl AppState {
         }
         Ok(None)
     }
+    pub fn get_manifests_for(&self, team: &str) -> Result<Vec<String>> {
+        let mfs = self.manifests.iter()
+            .filter(|(k, mf)| mf.spec.metadata.clone().unwrap().team == team)
+            .map(|(k, mf)| mf.spec.name.clone()).collect();
+        Ok(mfs)
+    }
+
     pub fn get_config(&mut self) -> Result<Config> {
         let name = "dev-uk"; // TODO: from env
         let cfg = kube::get_shipcat_config(&self.client, name)?;
@@ -117,6 +124,14 @@ fn get_resource_usage(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         Ok(HttpResponse::NotFound().finish())
     }
 }
+fn get_manifests_for_team(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
+    let name = req.match_info().get("name").unwrap();
+    //let cfg = req.state().safe.lock().unwrap().get_config()?;
+    //let (cluster, region) = cfg.resolve_cluster("dev-uk").unwrap();
+    let mfs = req.state().safe.lock().unwrap().get_manifests_for(name)?.clone();
+    Ok(HttpResponse::Ok().json(mfs))
+}
+
 fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
     let cfg = req.state().safe.lock().unwrap().get_config()?;
@@ -144,18 +159,26 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
             serde_json::to_string(&mf.readinessProbe.clone().unwrap())?
         };
         let (support, supportlink) = (md.support.clone(), md.support.unwrap().link());
+        // TODO: org in config
+        let circlelink = format!("https://circleci.com/gh/Babylonpartners/{}", mf.name);
+        let quaylink = format!("https://{}/?tab=tags", mf.image.clone().unwrap());
 
+        let (team, teamlink) = (md.team.clone(), format!("/teams/{}", md.team));
 
         let mut ctx = tera::Context::new();
         ctx.insert("manifest", &mf);
         ctx.insert("pretty_manifest", &pretty);
         ctx.insert("pretty_manifest_stub", &pretty);
         ctx.insert("region", &region);
-        ctx.insert("versionlink", &vlink);
+        ctx.insert("version_link", &vlink);
         ctx.insert("version", &version);
         ctx.insert("health", &health);
         ctx.insert("support", &support);
-        ctx.insert("supportlink", &supportlink);
+        ctx.insert("support_link", &supportlink);
+        ctx.insert("circle_link", &circlelink);
+        ctx.insert("quay_link", &quaylink);
+        ctx.insert("team", &team);
+        ctx.insert("team_link", &teamlink);
 
         // TODO externalise:
         let logzio_base_url = "https://app-eu.logz.io/#/dashboard/kibana/dashboard";
@@ -249,6 +272,7 @@ fn main() -> Result<()> {
             .resource("/manifests/{name}", |r| r.method(Method::GET).f(get_single_manifest))
             .resource("/manifests", |r| r.method(Method::GET).f(get_all_manifests))
             .resource("/service/{name}", |r| r.method(Method::GET).f(get_service))
+            .resource("/teams/{name}", |r| r.method(Method::GET).f(get_manifests_for_team))
             .resource("/health", |r| r.method(Method::GET).f(health))
             .resource("/", |r| r.method(Method::GET).f(index))
         })

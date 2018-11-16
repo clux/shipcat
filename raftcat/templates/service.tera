@@ -51,14 +51,14 @@ body{
   background: #ccc
 }
 
-.sidebar .ul {
-  font-size: 14px;
+li {
+  font-size: 150%;
 }
 </style>
 
 <div class="wrapper">
   <header class="header">
-    <h2>{{ manifest.name }} in {{ region.name }} at {{ time }} running <a href="{{ versionlink }}">{{ version }}</a></h2>
+    <h2>{{ manifest.name }} in {{ region.name }} at {{ time }} running <a href="{{ version_link }}">{{ version }}</a></h2>
   </header>
   <section class="content">
     <div class="columns">
@@ -72,9 +72,12 @@ body{
           <li><a href="{{ logzio_link }}">Logz.io</a></li>
           <li><a href="{{ sentry_link }}">Sentry</a></li>
           <li><a href="{{ vault_link }}">Vault</a></li>
+          <li><a href="{{ circle_link }}">CircleCI</a></li>
+          <li><a href="{{ quay_link }}">Quay.io</a></li>
         </ul>
-        <h3>Support: <a href="{{ supportlink }}">{{ support }}</a></h3>
-        <h3>Runbook: TODO
+        <h3>Support: <a href="{{ support_link }}">{{ support }}</a></h3>
+        <h3>Runbook: TODO</h3>
+        <h3>Team: <a href="{{ team_link }}">{{ team }}</a></h3>
 
       </aside>
      </div>
