@@ -17,7 +17,7 @@ pre {
   white-space: pre-wrap;
   word-break: keep-all
 }</style>
-<h1>{{ manifest.name }} in {{ region.name }}</h1>
+<h1>{{ manifest.name }} in {{ region.name }} at {{ time }}</h1>
 <h2>Version:</h2>
 <i>TBD through API</i>
 

@@ -16,12 +16,15 @@ extern crate actix;
 extern crate actix_web;
 #[macro_use] extern crate tera;
 #[macro_use] extern crate failure;
+extern crate chrono;
 
 use kubernetes::client::APIClient;
 use shipcat_definitions::{Manifest, Config};
 
 mod kube;
 use kube::{ManifestMap, Result};
+
+use chrono::Local;
 
 // ----------------------------------------------------------------------------------
 // Web server interface
@@ -127,34 +130,41 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         ctx.insert("region", &region);
 
         // TODO externalise:
+        let logzio_base_url = "https://app-eu.logz.io/#/dashboard/kibana/dashboard";
+        //TODO externalise
         let logzio_account = "46609";
-        let logzio_link = format!("https://app-eu.logz.io/#/dashboard/kibana/dashboard/{app}-{env}?accountIds={account_id}",
-          app = &mf.name, env = &region.name, account_id = &logzio_account);
-
         // TODO externalise:
         let vault_ui_base_url = "https://vault.babylontech.co.uk/secrets/generic/secret";
-        let vault_link = format!("{vault_ui_base_url}/{env}/{app}/",
-          vault_ui_base_url = &vault_ui_base_url, app = &mf.name, env = &region.name);
-
         // TODO externalise
         let sentry_base_url = "https://dev-uk-sentry.ops.babylontech.co.uk/sentry";
         // TODO: get through Sentry API
         let sentry_project_slug = "core-ruby";
+        // TODO externalise
+        let grafana_base_url = "https://dev-grafana.ops.babylontech.co.uk/d/oHzT4g0iz/kubernetes-services";
+
+        let logzio_link = format!("{logzio_base_url}/{app}-{env}?accountIds={account_id}",
+          logzio_base_url = &logzio_base_url, app = &mf.name, env = &region.name, account_id = &logzio_account);
+
+        let vault_link = format!("{vault_ui_base_url}/{env}/{app}/",
+          vault_ui_base_url = &vault_ui_base_url, app = &mf.name, env = &region.name);
+
         let sentry_link = format!("{sentry_base_url}/{sentry_project_slug}",
           sentry_base_url = &sentry_base_url, sentry_project_slug = &sentry_project_slug);
 
-        // TODO externalise
-        let grafana_base_url = "https://dev-grafana.ops.babylontech.co.uk/d/oHzT4g0iz/kubernetes-services";
         let grafana_link = format!("{grafana_base_url}?var-cluster={cluster}&var-namespace={namespace}&var-deployment={app}",
           grafana_base_url = &grafana_base_url,
           app = &mf.name,
           cluster = &cluster.name,
           namespace = &region.namespace);
 
+        let date = Local::now();
+        let time = format!("{now}", now = date.format("%Y-%m-%d %H:%M:%S"));
+
         ctx.insert("vault_link", &vault_link);
         ctx.insert("logzio_link", &logzio_link);
         ctx.insert("sentry_link", &sentry_link);
         ctx.insert("grafana_link", &grafana_link);
+        ctx.insert("time", &time);
         let t = req.state().template.lock().unwrap();
         let s = t.render("service.tera", &ctx).unwrap(); // TODO: map error
         Ok(HttpResponse::Ok().content_type("text/html").body(s))
