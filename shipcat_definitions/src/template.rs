@@ -143,6 +143,9 @@ impl Manifest {
         for w in &mut self.workers {
             &mut w.env.template(&ctx)?;
         }
+        for c in &mut self.cronJobs {
+            &mut c.env.template(&ctx)?;
+        }
         Ok(())
     }
 }

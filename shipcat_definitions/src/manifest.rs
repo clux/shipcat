@@ -780,6 +780,9 @@ impl Manifest {
         for s in &self.sidecars {
             s.verify()?;
         }
+        for c in &self.cronJobs {
+            c.verify()?;
+        }
         for p in &self.ports {
             p.verify()?;
         }

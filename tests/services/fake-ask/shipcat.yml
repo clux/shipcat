@@ -28,7 +28,7 @@ sidecars:
     CORE_URL: "{{ base_urls.services }}/somesvc"
 workers:
 - name: worker
-  command: ['/run']
+  command: ["/run"]
   resources:
     limits:
       cpu: 1
@@ -40,6 +40,12 @@ workers:
   env:
     URL: "{{ base_urls.services }}/worker"
   preserveEnv: false
+cronJobs:
+- name: regular-task
+  schedule: "1 0 * * *"
+  command: ["/run"]
+  env:
+    URL: "{{ base_urls.services }}/cronjob"
 regions:
 - dev-uk
 vault:

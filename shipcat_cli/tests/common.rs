@@ -198,6 +198,9 @@ fn templating_test() {
     let w = &mf.workers[0];
     assert_eq!(w.env["URL"], "https://woot.com/worker".to_string());
 
+    let c = &mf.cronJobs[0];
+    assert_eq!(c.env["URL"], "https://woot.com/cronjob".to_string());
+
     let configs = mf.configs.clone().unwrap();
     let configini = configs.files[0].clone();
     let cfgtpl = configini.value.unwrap();
