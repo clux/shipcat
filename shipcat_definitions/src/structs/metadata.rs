@@ -94,6 +94,8 @@ pub struct Metadata {
     /// Notifications channel - automated messages
     #[serde(default)]
     pub notifications: Option<SlackChannel>,
+    /// Runbook name in repo
+    pub runbook: Option<String>,
     /// Canoncal documentation link
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docs: Option<String>,
@@ -137,7 +139,11 @@ impl Metadata {
         if let Some(channel) = &self.notifications {
             channel.verify()?;
         }
-
+        if let Some(runbook) = &self.runbook {
+            if !runbook.ends_with(".md") && !runbook.ends_with(".rt") {
+                bail!("Runbook must be in markdown or restructured text in the service repo");
+            }
+        }
         Ok(())
     }
 }
