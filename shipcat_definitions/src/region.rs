@@ -107,6 +107,26 @@ pub struct KongConfig {
     pub extra_apis: BTreeMap<String, Kong>,
 }
 
+/// Logz.io configuration for a region
+#[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
+#[serde(deny_unknown_fields)]
+pub struct LogzIoConfig {
+    /// Base URL to use (e.g. https://app-eu.logz.io/#/dashboard/kibana/dashboard)
+    pub base_url: String,
+    /// Account ID (e.g. 46609)
+    pub account_id: String,
+}
+
+/// Grafana details for a region
+#[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
+#[serde(deny_unknown_fields)]
+pub struct GrafanaConfig {
+    /// Base URL to use (e.g. https://dev-grafana.ops.babylontech.co.uk)
+    pub url: String,
+    /// Services Dashboard ID (e.g. oHzT4g0iz)
+    pub services_dashboard_id: String,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct KongAnonymousConsumers {
@@ -215,6 +235,12 @@ pub struct Region {
     pub kafka: KafkaConfig,
     /// Vault configuration for the region
     pub vault: VaultConfig,
+    /// Logz.io configuration for the region
+    pub logzio: Option<LogzIoConfig>,
+    /// Grafana details for the region
+    pub grafana: Option<GrafanaConfig>,
+    /// Sentry URL for the region
+    pub sentry: Option<String>,
     /// List of locations the region serves
     #[serde(default)]
     pub locations: Vec<String>,
@@ -234,5 +260,33 @@ impl Region {
         debug!("Validating kong secrets for {}", self.name);
         self.kong.verify_secrets_exist(&v, &self.name)?;
         Ok(())
+    }
+
+    // Get the Vault URL for a given service in this region
+    pub fn vault_url(&self, app: &str) -> String {
+        // We use different UIs whether its the "classic vault" or the "regional vault"
+        let mut vault_url = self.vault.url.clone();
+        let path = if vault_url.contains("8200") {
+            vault_url = vault_url.replace("8200", "");
+            "/secrets/generic/secret/"
+        } else {
+            "/ui/vault/secrets/secret/list/"
+        };
+
+        format!("{vault_url}/{path}/{env}/{app}/",
+            vault_url = vault_url.trim_matches('/'),
+            path = path.trim_matches('/'),
+            env = &self.name,
+            app = &app)
+    }
+
+    // Get the Grafana URL for a given service in a cluster in this region
+    pub fn grafana_url(&self, app: &str, cluster: &str) -> String {
+        format!("{grafana_url}/d/{dashboard_id}/kubernetes-services?var-cluster={cluster}&var-namespace={namespace}&var-deployment={app}",
+          grafana_url = self.grafana.clone().unwrap().url.trim_matches('/'),
+          dashboard_id = self.grafana.clone().unwrap().services_dashboard_id,
+          app = &app,
+          cluster = &cluster,
+          namespace = &self.namespace)
     }
 }

@@ -133,8 +133,6 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         let logzio_base_url = "https://app-eu.logz.io/#/dashboard/kibana/dashboard";
         //TODO externalise
         let logzio_account = "46609";
-        // TODO externalise:
-        let vault_ui_base_url = "https://vault.babylontech.co.uk/secrets/generic/secret";
         // TODO externalise
         let sentry_base_url = "https://dev-uk-sentry.ops.babylontech.co.uk/sentry";
         // TODO: get through Sentry API
@@ -144,9 +142,6 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
 
         let logzio_link = format!("{logzio_base_url}/{app}-{env}?accountIds={account_id}",
           logzio_base_url = &logzio_base_url, app = &mf.name, env = &region.name, account_id = &logzio_account);
-
-        let vault_link = format!("{vault_ui_base_url}/{env}/{app}/",
-          vault_ui_base_url = &vault_ui_base_url, app = &mf.name, env = &region.name);
 
         let sentry_link = format!("{sentry_base_url}/{sentry_project_slug}",
           sentry_base_url = &sentry_base_url, sentry_project_slug = &sentry_project_slug);
@@ -160,10 +155,10 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         let date = Local::now();
         let time = format!("{now}", now = date.format("%Y-%m-%d %H:%M:%S"));
 
-        ctx.insert("vault_link", &vault_link);
+        ctx.insert("vault_link", &region.vault_url(&mf.name));
         ctx.insert("logzio_link", &logzio_link);
         ctx.insert("sentry_link", &sentry_link);
-        ctx.insert("grafana_link", &grafana_link);
+        ctx.insert("grafana_link", &region.grafana_url(&mf.name, &cluster.name));
         ctx.insert("time", &time);
         let t = req.state().template.lock().unwrap();
         let s = t.render("service.tera", &ctx).unwrap(); // TODO: map error
