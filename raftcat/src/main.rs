@@ -118,9 +118,12 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let (cluster, region) = cfg.resolve_cluster("dev-uk").unwrap();
     if let Some(mf) = req.state().safe.lock().unwrap().get_manifest(name)? {
         let pretty = serde_yaml::to_string(&mf)?;
+        let mfstub = mf.clone().stub(&region).unwrap();
+        let pretty_stub = serde_yaml::to_string(&mfstub)?;
         let mut ctx = tera::Context::new();
         ctx.insert("manifest", &mf);
         ctx.insert("pretty_manifest", &pretty);
+        ctx.insert("pretty_manifest_stub", &pretty);
         ctx.insert("region", &region);
 
         // TODO externalise:
