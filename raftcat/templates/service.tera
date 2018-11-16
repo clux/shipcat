@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="normalize.css">
 
 <link rel="stylesheet"
-      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.13.1/styles/default.min.css">
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.13.1/styles/a11y-dark.min.css">
 <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.13.1/highlight.min.js"></script>
 <script>hljs.initHighlightingOnLoad();</script>
 <style>
@@ -22,6 +22,12 @@ body{
   margin: 0;
   color: #fff;
 }
+a:link {
+  color: #ffd700;
+}
+a:visited {
+  color: #ffd700;
+}
 .wrapper{
   min-height: 100vh;
   background: #ccc;
@@ -30,7 +36,10 @@ body{
 }
 .header, .footer{
   height: 50px;
-  background: #666;
+  background: #2b2b2b;
+}
+.header {
+  border-bottom: 1px dashed #c00
 }
 .content {
   flex: 1;
@@ -44,11 +53,13 @@ body{
 }
 .main{
   flex: 1;
-  background: #eee;
+  background: #2b2b2b;
 }
 .sidebar{
   width: 20%;
-  background: #ccc
+  padding-left: 10px ;
+  color: #d4d0ab;
+  background: #2b2b2b
 }
 
 li {
@@ -57,8 +68,7 @@ li {
 </style>
 
 <div class="wrapper">
-  <header class="header">
-    <h2>{{ manifest.name }} in {{ region.name }} at {{ time }} running <a href="{{ version_link }}">{{ version }}</a></h2>
+  <header class="header"><h3>{{ manifest.name }} in {{ region.name }} at {{ time }} running <a href="{{ version_link }}">{{ version }}</a></h3>
   </header>
   <section class="content">
     <div class="columns">

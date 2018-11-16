@@ -56,7 +56,6 @@ impl SlackChannel {
         Ok(())
     }
 
-    // TODO: needs a org id from config
     pub fn link(&self, params: &SlackParameters) -> String {
         let hashless = self.0.clone().split_off(1);
         format!("slack://channel?id={}&team={}", hashless, params.team)
