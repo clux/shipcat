@@ -24,7 +24,8 @@ sidecars:
 - name: redis
   env:
     STATIC_VALUE: "static"
-    FAKE_SECRET: "IN_VAULT"
+    # TODO: Support vault env in Sidecars
+    # FAKE_SECRET: "IN_VAULT"
     CORE_URL: "{{ base_urls.services }}/somesvc"
 workers:
 - name: worker
