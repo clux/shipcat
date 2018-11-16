@@ -1,5 +1,4 @@
-use super::{Result, Manifest};
-use config::{Region};
+use super::{Result, Manifest, Region};
 use super::vault::Vault;
 
 
