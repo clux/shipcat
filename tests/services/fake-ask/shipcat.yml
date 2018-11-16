@@ -26,6 +26,20 @@ sidecars:
     STATIC_VALUE: "static"
     FAKE_SECRET: "IN_VAULT"
     CORE_URL: "{{ base_urls.services }}/somesvc"
+workers:
+- name: worker
+  command: ['/run']
+  resources:
+    limits:
+      cpu: 1
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 128Mi
+  replicaCount: 2
+  env:
+    URL: "{{ base_urls.services }}/worker"
+  preserveEnv: false
 regions:
 - dev-uk
 vault:

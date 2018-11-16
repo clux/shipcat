@@ -194,6 +194,10 @@ fn templating_test() {
     assert_eq!(redis.env["CORE_URL"], "https://woot.com/somesvc".to_string());
     assert_eq!(sec["FAKE_SECRET"], "hello".to_string()); // NB: ACTUALLY IN_VAULT
 
+    // verify worker templating
+    let w = &mf.workers[0];
+    assert_eq!(w.env["URL"], "https://woot.com/worker".to_string());
+
     let configs = mf.configs.clone().unwrap();
     let configini = configs.files[0].clone();
     let cfgtpl = configini.value.unwrap();

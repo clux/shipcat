@@ -140,6 +140,9 @@ impl Manifest {
         for s in &mut self.sidecars {
             &mut s.env.template(&ctx)?;
         }
+        for w in &mut self.workers {
+            &mut w.env.template(&ctx)?;
+        }
         Ok(())
     }
 }
