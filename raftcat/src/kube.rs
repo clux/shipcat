@@ -83,3 +83,32 @@ pub fn watch_shipcat_manifest(client: &APIClient, name: &str, rver: u32) -> Resu
     Ok(res)
 }
 */
+
+// version fetching stuff
+#[derive(Deserialize)]
+struct Entry {
+    container: String,
+    name: String,
+    version: String,
+}
+
+
+// The actual HTTP GET logic
+pub fn get_version(svc: &str) -> Result<String> {
+    let client = reqwest::Client::new();
+    let vurl = "https://services-uk.dev.babylontech.co.uk/status/version";
+    // TODO: if in-cluster can use "version";
+    let mut res = client.get(vurl).send()?;
+    if !res.status().is_success() {
+        debug!("failed to get version");
+        bail!("Failed to fetch version");
+    }
+    let text = res.text()?;
+    debug!("Got version data: {}", text);
+    let data : Vec<Entry> = serde_json::from_str(&text)?;
+    if let Some(entry) = data.into_iter().find(|r| r.name == svc) {
+        Ok(entry.version)
+    } else {
+        bail!("No version found in version endpoint")
+    }
+}

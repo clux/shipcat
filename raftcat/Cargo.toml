@@ -22,3 +22,5 @@ sentry = "0.12.0"
 sentry-actix = "0.12.0"
 tera = "0.11.20"
 chrono = "0.4.6"
+reqwest = "0.9.4"
+semver = { version = "0.9.0", features = ["serde"] }

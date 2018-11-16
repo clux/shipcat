@@ -1315,6 +1315,8 @@ dependencies = [
  "http 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "kubernetes 0.1.0 (git+https://github.com/clux/kubernetes-rust?rev=2b0397fb958d7931cb828fd51ac6e075a72cbbd8)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "reqwest 0.9.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "semver 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sentry 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sentry-actix 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",

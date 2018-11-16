@@ -14,6 +14,8 @@ extern crate sentry;
 extern crate sentry_actix;
 extern crate actix;
 extern crate actix_web;
+extern crate reqwest;
+extern crate semver;
 #[macro_use] extern crate tera;
 #[macro_use] extern crate failure;
 extern crate chrono;
@@ -119,15 +121,37 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
     let cfg = req.state().safe.lock().unwrap().get_config()?;
     let (cluster, region) = cfg.resolve_cluster("dev-uk").unwrap();
-    if let Some(mf) = req.state().safe.lock().unwrap().get_manifest(name)? {
+    if let Some(mf) = req.state().safe.lock().unwrap().get_manifest(name)?.clone() {
         let pretty = serde_yaml::to_string(&mf)?;
         let mfstub = mf.clone().stub(&region).unwrap();
         let pretty_stub = serde_yaml::to_string(&mfstub)?;
+
+        let md = mf.metadata.clone().unwrap();
+        let (vlink, version) = if let Some(ver) = kube::get_version(&mf.name).ok() { // fill in version from cluster info
+            if semver::Version::parse(&ver).is_ok() {
+                let tag = md.version_template(&ver).unwrap_or(ver.to_string());
+                (format!("{}/releases/tag/{}", md.repo, tag), tag)
+            } else {
+                (format!("{}/commit/{}", md.repo, ver), ver)
+            }
+        } else {
+            (format!("{}", md.repo), "rolling".into())
+        };
+        let health = if let Some(h) = mf.health.clone() {
+            h.uri
+        } else {
+            // mandatory to have one of these!
+            serde_json::to_string(&mf.readinessProbe.clone().unwrap())?
+        };
+
         let mut ctx = tera::Context::new();
         ctx.insert("manifest", &mf);
         ctx.insert("pretty_manifest", &pretty);
         ctx.insert("pretty_manifest_stub", &pretty);
         ctx.insert("region", &region);
+        ctx.insert("versionlink", &vlink);
+        ctx.insert("version", &version);
+        ctx.insert("health", &health);
 
         // TODO externalise:
         let logzio_base_url = "https://app-eu.logz.io/#/dashboard/kibana/dashboard";

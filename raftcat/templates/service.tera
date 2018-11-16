@@ -19,10 +19,7 @@ pre {
 }</style>
 <h1>{{ manifest.name }} in {{ region.name }} at {{ time }}</h1>
 <h2>Version:</h2>
-<i>TBD through API</i>
-
-<h2>Health:</h2>
-<i>TBD</i>
+<a href="{{ versionlink }}">{{ version }}</a>
 
 <h2>Grafana:</h2>
 <a href="{{ grafana_link }}">Grafana</a>
@@ -35,6 +32,9 @@ pre {
 
 <h2>Vault:</h2>
 <a href="{{ vault_link }}">Vault</a>
+
+<h2>Health:</h2>
+<i>{{ health }}</i>
 
 <h2>Manifest:</h2>
 <pre><code class="yaml">{{ pretty_manifest }}</code></pre>
