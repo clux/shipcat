@@ -4,7 +4,7 @@
 <meta http-equiv="x-ua-compatible" content="ie=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-<title>{{ manifest.name }}</title>
+<title>{{ manifest.name }} in {{ region.name }}</title>
 
 <link rel="stylesheet" href="normalize.css">
 
@@ -17,15 +17,26 @@ pre {
   white-space: pre-wrap;
   word-break: keep-all
 }</style>
-<h1>{{ manifest.name }}</h1>
-<h2>Version: TBD through API</h2>
+<h1>{{ manifest.name }} in {{ region.name }}</h1>
+<h2>Version:</h2>
+<i>TBD through API</i>
+
+<h2>Health:</h2>
+<i>TBD</i>
+
+<h2>Grafana:</h2>
+<a href="{{ grafana_link }}">Grafana</a>
+
 <h2>Logs</h2>
 <a href="{{ logzio_link }}">Logz.io</a>
+
 <h2>Sentry: </h2>
+<a href="{{ sentry_link }}">Sentry</a>
+
 <h2>Vault:</h2>
-<a href="{{ region.vault.url }}/{{ region.vault.folder }}">Vault</a>
-<h2>: {{ manifest.name }}</h2>
-<h2>Using manifest:</h2>
+<a href="{{ vault_link }}">Vault</a>
+
+<h2>Manifest:</h2>
 <pre><code class="yaml">{{ pretty_manifest }}</code></pre>
 
 <footer>

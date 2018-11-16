@@ -115,17 +115,43 @@ fn get_resource_usage(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
 fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
     let cfg = req.state().safe.lock().unwrap().get_config()?;
-    let region = cfg.get_region("dev-uk").unwrap();
+    let (cluster, region) = cfg.resolve_cluster("dev-uk").unwrap();
     if let Some(mf) = req.state().safe.lock().unwrap().get_manifest(name)? {
         let pretty = serde_yaml::to_string(&mf)?;
         let mut ctx = tera::Context::new();
         ctx.insert("manifest", &mf);
         ctx.insert("pretty_manifest", &pretty);
         ctx.insert("region", &region);
+
         // TODO externalise:
-        let logzio_link = format!("https://app-eu.logz.io/#/dashboard/kibana/dashboard/{app}-{env}?accountIds=46609",
-          app = &mf.name, env = &region.name);
+        let logzio_account = "46609";
+        let logzio_link = format!("https://app-eu.logz.io/#/dashboard/kibana/dashboard/{app}-{env}?accountIds={account_id}",
+          app = &mf.name, env = &region.name, account_id = &logzio_account);
+
+        // TODO externalise:
+        let vault_ui_base_url = "https://vault.babylontech.co.uk/secrets/generic/secret";
+        let vault_link = format!("{vault_ui_base_url}/{env}/{app}",
+          vault_ui_base_url = &vault_ui_base_url, app = &mf.name, env = &region.name);
+
+        // TODO externalise
+        let sentry_base_url = "https://dev-uk-sentry.ops.babylontech.co.uk/sentry";
+        // TODO: get through Sentry API
+        let sentry_project_slug = "core-ruby";
+        let sentry_link = format!("{sentry_base_url}/{sentry_project_slug}",
+          sentry_base_url = &sentry_base_url, sentry_project_slug = &sentry_project_slug);
+
+        // TODO externalise
+        let grafana_base_url = "https://dev-grafana.ops.babylontech.co.uk/d/oHzT4g0iz/kubernetes-services";
+        let grafana_link = format!("{grafana_base_url}?var-cluster={cluster}&var-namespace={namespace}&var-deployment={app}",
+          grafana_base_url = &grafana_base_url,
+          app = &mf.name,
+          cluster = &cluster.name,
+          namespace = &region.namespace);
+
+        ctx.insert("vault_link", &vault_link);
         ctx.insert("logzio_link", &logzio_link);
+        ctx.insert("sentry_link", &sentry_link);
+        ctx.insert("grafana_link", &grafana_link);
         let t = req.state().template.lock().unwrap();
         let s = t.render("service.tera", &ctx).unwrap(); // TODO: map error
         Ok(HttpResponse::Ok().content_type("text/html").body(s))
