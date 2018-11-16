@@ -13,6 +13,7 @@ extern crate sentry;
 extern crate sentry_actix;
 extern crate actix;
 extern crate actix_web;
+#[macro_use] extern crate tera;
 #[macro_use] extern crate failure;
 
 use kubernetes::client::APIClient;
@@ -70,11 +71,17 @@ impl AppState {
 use std::sync::{Arc, Mutex};
 #[derive(Clone)]
 struct StateSafe {
-    pub safe: Arc<Mutex<AppState>>
+    pub safe: Arc<Mutex<AppState>>,
+    pub template: Arc<Mutex<tera::Tera>>,
 }
 impl StateSafe {
     pub fn new(client: APIClient) -> Self {
-        StateSafe { safe: Arc::new(Mutex::new(AppState::new(client))) }
+        println!("wtf {}", concat!(env!("CARGO_MANIFEST_DIR"), "/templates/*"));
+        let t = compile_templates!(concat!(env!("CARGO_MANIFEST_DIR"), "/templates/*"));
+        StateSafe {
+            safe: Arc::new(Mutex::new(AppState::new(client))),
+            template: Arc::new(Mutex::new(t)),
+        }
     }
 }
 
@@ -105,11 +112,19 @@ fn health(_: &HttpRequest<StateSafe>) -> HttpResponse {
     HttpResponse::Ok().json("healthy")
 }
 
+fn index(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
+    let mut ctx = tera::Context::new();
+    ctx.insert("guts", "::<>");
+    let t = req.state().template.lock().unwrap();
+    let s = t.render("index.tera", &ctx).unwrap(); // TODO: map error
+    Ok(HttpResponse::Ok().content_type("text/html").body(s))
+}
+
 fn main() -> Result<()> {
     use kubernetes::config::{self, Configuration};
     sentry::integrations::panic::register_panic_handler();
-    let dsn = std::env::var("SENTRY_DSN").expect("Sentry DSN required");
-    let _guard = sentry::init(dsn); // must keep _guard in scope
+    //let dsn = std::env::var("SENTRY_DSN").expect("Sentry DSN required");
+    //let _guard = sentry::init(dsn); // must keep _guard in scope
 
     std::env::set_var("RUST_LOG", "actix_web=info,raftcat=debug");
     std::env::set_var("RUST_BACKTRACE", "1");
@@ -134,6 +149,7 @@ fn main() -> Result<()> {
             .resource("/manifests/{name}", |r| r.method(Method::GET).f(get_single_manifest))
             .resource("/manifests", |r| r.method(Method::GET).f(get_all_manifests))
             .resource("/health", |r| r.method(Method::GET).f(health))
+            .resource("/", |r| r.method(Method::GET).f(index))
         })
         .bind("0.0.0.0:8080").expect("Can not bind to 0.0.0.0:8080")
         .shutdown_timeout(0)    // <- Set shutdown timeout to 0 seconds (default 60s)
