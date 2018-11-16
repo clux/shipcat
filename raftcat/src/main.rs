@@ -122,6 +122,10 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         ctx.insert("manifest", &mf);
         ctx.insert("pretty_manifest", &pretty);
         ctx.insert("region", &region);
+        // TODO externalise:
+        let logzio_link = format!("https://app-eu.logz.io/#/dashboard/kibana/dashboard/{app}-{env}?accountIds=46609",
+          app = &mf.name, env = &region.name);
+        ctx.insert("logzio_link", &logzio_link);
         let t = req.state().template.lock().unwrap();
         let s = t.render("service.tera", &ctx).unwrap(); // TODO: map error
         Ok(HttpResponse::Ok().content_type("text/html").body(s))

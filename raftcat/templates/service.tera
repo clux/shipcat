@@ -4,19 +4,29 @@
 <meta http-equiv="x-ua-compatible" content="ie=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; frame-src 'none'">
-
 <title>{{ manifest.name }}</title>
 
 <link rel="stylesheet" href="normalize.css">
-<script src="service.js"></script>
 
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.13.1/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.13.1/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+<style>
+pre {
+  white-space: pre-wrap;
+  word-break: keep-all
+}</style>
 <h1>{{ manifest.name }}</h1>
-<h2>Sentry: {{ manifest.name }}</h2>
-<h2>Vault: {{ region.vault.url }}, folder {{ region.vault.folder }}</h2>
+<h2>Version: TBD through API</h2>
+<h2>Logs</h2>
+<a href="{{ logzio_link }}">Logz.io</a>
+<h2>Sentry: </h2>
+<h2>Vault:</h2>
+<a href="{{ region.vault.url }}/{{ region.vault.folder }}">Vault</a>
 <h2>: {{ manifest.name }}</h2>
 <h2>Using manifest:</h2>
-<pre>{{ pretty_manifest }}</pre>
+<pre><code class="yaml">{{ pretty_manifest }}</code></pre>
 
 <footer>
     <a href="https://github.com/Babylonpartners/shipcat">code.</a>
