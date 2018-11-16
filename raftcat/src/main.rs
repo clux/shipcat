@@ -17,7 +17,7 @@ extern crate actix_web;
 #[macro_use] extern crate failure;
 
 use kubernetes::client::APIClient;
-use shipcat_definitions::Manifest;
+use shipcat_definitions::{Manifest, Config};
 
 mod kube;
 use kube::{ManifestMap, Result};
@@ -61,6 +61,11 @@ impl AppState {
             return Ok(Some(mf.spec.clone()));
         }
         Ok(None)
+    }
+    pub fn get_config(&mut self) -> Result<Config> {
+        let name = "dev-uk"; // TODO: from env
+        let cfg = kube::get_shipcat_config(&self.client, name)?;
+        Ok(cfg.spec)
     }
     pub fn get_manifests(&mut self) -> Result<ManifestMap> {
         self.maybe_update_cache()?;
@@ -111,6 +116,11 @@ fn health(_: &HttpRequest<StateSafe>) -> HttpResponse {
     HttpResponse::Ok().json("healthy")
 }
 
+fn get_config(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
+    let cfg = req.state().safe.lock().unwrap().get_config()?;
+    Ok(HttpResponse::Ok().json(cfg))
+}
+
 fn index(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let mut ctx = tera::Context::new();
     ctx.insert("guts", "::<>");
@@ -145,6 +155,7 @@ fn main() -> Result<()> {
             .handler("/static", actix_web::fs::StaticFiles::new(concat!(env!("CARGO_MANIFEST_DIR"), "/static")).unwrap())
             .middleware(middleware::Logger::default().exclude("/health"))
             .middleware(sentry_actix::SentryMiddleware::new())
+            .resource("/config", |r| r.method(Method::GET).f(get_config))
             .resource("/manifests/{name}/resources", |r| r.method(Method::GET).f(get_resource_usage))
             .resource("/manifests/{name}", |r| r.method(Method::GET).f(get_single_manifest))
             .resource("/manifests", |r| r.method(Method::GET).f(get_all_manifests))

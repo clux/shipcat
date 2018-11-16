@@ -149,10 +149,8 @@ pub struct KafkaConfig {
 #[serde(deny_unknown_fields)]
 pub struct KongConfig {
     /// Base URL to use (e.g. uk.dev.babylontech.co.uk)
-    #[serde(skip_serializing)]
     pub base_url: String,
     /// Configuration API URL (e.g. https://kong-admin-ops.dev.babylontech.co.uk)
-    #[serde(skip_serializing)]
     pub config_url: String,
     /// Kong token expiration time (in seconds)
     pub kong_token_expiration: u32,
