@@ -1,11 +1,10 @@
 use std::io::{self, Write};
 use std::collections::BTreeMap;
 
-use super::{Manifest, Result, Region, Config};
+use super::{Manifest, Result, Region, Config, KongConfig};
 use super::structs::Kong;
 use super::structs::kongfig::{kongfig_apis, kongfig_consumers};
 use super::structs::kongfig::{Api, Consumer, Plugin, Upstream, Certificate};
-use super::config::KongConfig;
 
 /// KongOutput matches the format expected by the Kong Configurator script
 #[derive(Serialize)]

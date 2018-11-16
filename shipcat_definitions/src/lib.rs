@@ -94,9 +94,10 @@ error_chain! {
     }
 }
 
-/// Master config for manifests repositories
-mod region;
-pub use region::{Region, VaultConfig, VersionScheme};
+/// Config with regional data
+pub mod region;
+pub use region::{Region, VaultConfig, VersionScheme, KongConfig};
+/// Master config with cross-region data
 pub mod config;
 pub use config::{Config, Team, ManifestDefaults};
 

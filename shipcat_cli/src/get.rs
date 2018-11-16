@@ -2,7 +2,7 @@
 use std::collections::BTreeMap;
 use semver::Version;
 
-use config::{Config, Team, Region};
+use super::{Config, Team, Region};
 use super::{Result, Manifest};
 
 
