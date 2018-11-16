@@ -185,27 +185,14 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         ctx.insert("team", &team);
         ctx.insert("team_link", &teamlink);
 
-        // TODO externalise
-        let sentry_base_url = "https://dev-uk-sentry.ops.babylontech.co.uk/sentry";
         let sentry_project_slug = kube::get_sentry_slug(
             &region.sentry.clone().unwrap().url,
             &region.environment,
             &mf.name,
-        ).unwrap_or(format!("PROJECT_NOT_FOUND"));
-        // TODO: get through Sentry API
-        //let sentry_project_slug = "core-ruby";
-        // TODO externalise
-        let grafana_base_url = "https://dev-grafana.ops.babylontech.co.uk/d/oHzT4g0iz/kubernetes-services";
+        ).unwrap_or(format!("PROJECT_SLUG_NOT_FOUND"));
 
-
-        let sentry_link = format!("{sentry_base_url}/{sentry_project_slug}",
-          sentry_base_url = &sentry_base_url, sentry_project_slug = &sentry_project_slug);
-
-        let grafana_link = format!("{grafana_base_url}?var-cluster={cluster}&var-namespace={namespace}&var-deployment={app}",
-          grafana_base_url = &grafana_base_url,
-          app = &mf.name,
-          cluster = &cluster.name,
-          namespace = &region.namespace);
+        let sentry_link = format!("{sentry_base_url}/sentry/{sentry_project_slug}",
+          sentry_base_url = &region.sentry.clone().unwrap().url, sentry_project_slug = &sentry_project_slug);
 
         let date = Local::now();
         let time = format!("{now}", now = date.format("%Y-%m-%d %H:%M:%S"));
