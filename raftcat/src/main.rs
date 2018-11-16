@@ -130,7 +130,7 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
 
         // TODO externalise:
         let vault_ui_base_url = "https://vault.babylontech.co.uk/secrets/generic/secret";
-        let vault_link = format!("{vault_ui_base_url}/{env}/{app}",
+        let vault_link = format!("{vault_ui_base_url}/{env}/{app}/",
           vault_ui_base_url = &vault_ui_base_url, app = &mf.name, env = &region.name);
 
         // TODO externalise
