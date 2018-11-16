@@ -2,6 +2,7 @@
 
 #[macro_use] extern crate serde;
 extern crate serde_json;
+extern crate serde_yaml;
 #[macro_use] extern crate serde_derive;
 extern crate url;
 extern crate http;
@@ -111,6 +112,23 @@ fn get_resource_usage(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         Ok(HttpResponse::NotFound().finish())
     }
 }
+fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
+    let name = req.match_info().get("name").unwrap();
+    let cfg = req.state().safe.lock().unwrap().get_config()?;
+    let region = cfg.get_region("dev-uk").unwrap();
+    if let Some(mf) = req.state().safe.lock().unwrap().get_manifest(name)? {
+        let pretty = serde_yaml::to_string(&mf)?;
+        let mut ctx = tera::Context::new();
+        ctx.insert("manifest", &mf);
+        ctx.insert("pretty_manifest", &pretty);
+        ctx.insert("region", &region);
+        let t = req.state().template.lock().unwrap();
+        let s = t.render("service.tera", &ctx).unwrap(); // TODO: map error
+        Ok(HttpResponse::Ok().content_type("text/html").body(s))
+    } else {
+        Ok(HttpResponse::NotFound().finish())
+    }
+}
 
 fn health(_: &HttpRequest<StateSafe>) -> HttpResponse {
     HttpResponse::Ok().json("healthy")
@@ -159,6 +177,7 @@ fn main() -> Result<()> {
             .resource("/manifests/{name}/resources", |r| r.method(Method::GET).f(get_resource_usage))
             .resource("/manifests/{name}", |r| r.method(Method::GET).f(get_single_manifest))
             .resource("/manifests", |r| r.method(Method::GET).f(get_all_manifests))
+            .resource("/service/{name}", |r| r.method(Method::GET).f(get_service))
             .resource("/health", |r| r.method(Method::GET).f(health))
             .resource("/", |r| r.method(Method::GET).f(index))
         })

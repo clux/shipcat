@@ -1,0 +1,24 @@
+<!doctype html>
+
+<meta charset="utf-8">
+<meta http-equiv="x-ua-compatible" content="ie=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; frame-src 'none'">
+
+<title>{{ manifest.name }}</title>
+
+<link rel="stylesheet" href="normalize.css">
+<script src="service.js"></script>
+
+<h1>{{ manifest.name }}</h1>
+<h2>Sentry: {{ manifest.name }}</h2>
+<h2>Vault: {{ region.vault.url }}, folder {{ region.vault.folder }}</h2>
+<h2>: {{ manifest.name }}</h2>
+<h2>Using manifest:</h2>
+<pre>{{ pretty_manifest }}</pre>
+
+<footer>
+    <a href="https://github.com/Babylonpartners/shipcat">code.</a>
+</footer>
+
