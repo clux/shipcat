@@ -216,6 +216,9 @@ fn main() {
               .arg(Arg::with_name("dot")
                 .long("dot")
                 .help("Generate dot output for graphviz"))
+              .arg(Arg::with_name("reverse")
+                .long("reverse")
+                .help("Generate reverse dependencies for a service"))
               .about("Graph the dependencies of a service"))
         // cluster admin operations
         .subcommand(SubCommand::with_name("cluster")
@@ -527,7 +530,11 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let dot = a.is_present("dot");
         let (conf, region) = resolve_config(a, ConfigType::Base)?;
         return if let Some(svc) = a.value_of("service") {
-            shipcat::graph::generate(svc, &conf, &region, dot).map(void)
+            if a.is_present("reverse") {
+                shipcat::graph::reverse(svc, &conf, &region).map(void)
+            } else {
+                shipcat::graph::generate(svc, &conf, &region, dot).map(void)
+            }
         } else {
             shipcat::graph::full(dot, &conf, &region).map(void)
         };
