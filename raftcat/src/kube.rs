@@ -43,14 +43,14 @@ fn make_crd_entry_req(resource: &str, group: &str, name: &str) -> Result<http::R
 
 
 // program interface - request consumers
-pub type ManifestMap = HashMap<String, Crd<Manifest>>;
+pub type ManifestMap = HashMap<String, Manifest>;
 
 pub fn get_shipcat_manifests(client: &APIClient) -> Result<ManifestMap> {
     let req = make_all_crd_entry_req(SHIPCATMANIFESTS, GROUPNAME)?;
     let res = client.request::<CrdList<Manifest>>(req)?;
     let mut data = HashMap::new();
     for i in res.items {
-        data.insert(i.spec.name.clone(), i);
+        data.insert(i.spec.name.clone(), i.spec);
     }
     let keys = data.keys().cloned().into_iter().collect::<Vec<_>>().join(", ");
     debug!("Initialized with: {}", keys);
@@ -92,9 +92,11 @@ struct Entry {
     version: String,
 }
 
+/// Map of service -> versions
+pub type VersionMap = HashMap<String, String>;
 
 // The actual HTTP GET logic
-pub fn get_version(svc: &str) -> Result<String> {
+pub fn get_versions() -> Result<VersionMap> {
     let client = reqwest::Client::new();
     let vurl = "https://services-uk.dev.babylontech.co.uk/status/version";
     // TODO: if in-cluster can use "version";
@@ -106,11 +108,12 @@ pub fn get_version(svc: &str) -> Result<String> {
     let text = res.text()?;
     debug!("Got version data: {}", text);
     let data : Vec<Entry> = serde_json::from_str(&text)?;
-    if let Some(entry) = data.into_iter().find(|r| r.name == svc) {
-        Ok(entry.version)
-    } else {
-        bail!("No version found in version endpoint")
-    }
+    let res = data.into_iter()
+        .fold(HashMap::new(), |mut acc, e| {
+            acc.insert(e.name, e.version);
+            acc
+        });
+    Ok(res)
 }
 
 // Sentry project struct

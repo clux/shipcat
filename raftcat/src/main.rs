@@ -46,7 +46,11 @@ impl AppState {
     fn maybe_update_cache(&mut self) -> Result<()> {
         if self.last_update.elapsed().as_secs() > 120 {
             debug!("Refreshing state from CRDs");
+            let versions = kube::get_versions()?;
             self.manifests = kube::get_shipcat_manifests(&self.client)?;
+            for (k, mf) in &mut self.manifests {
+                mf.version = versions.get(k).map(String::clone);
+            }
             self.last_update = Instant::now();
         }
         Ok(())
@@ -54,14 +58,14 @@ impl AppState {
     pub fn get_manifest(&mut self, key: &str) -> Result<Option<Manifest>> {
         self.maybe_update_cache()?;
         if let Some(mf) = self.manifests.get(key) {
-            return Ok(Some(mf.spec.clone()));
+            return Ok(Some(mf.clone()));
         }
         Ok(None)
     }
     pub fn get_manifests_for(&self, team: &str) -> Result<Vec<String>> {
         let mfs = self.manifests.iter()
-            .filter(|(_k, mf)| mf.spec.metadata.clone().unwrap().team == team)
-            .map(|(_k, mf)| mf.spec.name.clone()).collect();
+            .filter(|(_k, mf)| mf.metadata.clone().unwrap().team == team)
+            .map(|(_k, mf)| mf.name.clone()).collect();
         Ok(mfs)
     }
 
@@ -136,7 +140,7 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         let pretty_stub = serde_yaml::to_string(&mfstub)?;
 
         let md = mf.metadata.clone().unwrap();
-        let (vlink, version) = if let Some(ver) = kube::get_version(&mf.name).ok() { // fill in version from cluster info
+        let (vlink, version) = if let Some(ver) = mf.version.clone() {
             if semver::Version::parse(&ver).is_ok() {
                 let tag = md.version_template(&ver).unwrap_or(ver.to_string());
                 (format!("{}/releases/tag/{}", md.repo, tag), tag)

@@ -22,4 +22,4 @@ pub use shipcat_definitions::{Manifest, Config};
 
 /// A small CLI kubernetes interface
 pub mod kube;
-pub use kube::ManifestMap;
+pub use kube::{ManifestMap, VersionMap};
