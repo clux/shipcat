@@ -3,6 +3,16 @@ name = "raftcat"
 version = "0.1.0"
 authors = ["Eirik Albrigtsen <eirik.albrigtsen@babylonhealth.com>"]
 
+[[bin]]
+doc = false
+name = "raftcat"
+path = "src/main.rs"
+
+[lib]
+name = "raftcat"
+path = "src/lib.rs"
+
+
 [dependencies]
 shipcat_definitions = { path = "../shipcat_definitions", features = ["crd"] }
 kubernetes = { git = "https://github.com/clux/kubernetes-rust", rev = "2b0397fb958d7931cb828fd51ac6e075a72cbbd8" }

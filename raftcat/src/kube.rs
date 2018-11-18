@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use std::env;
 use shipcat_definitions::{Crd, CrdList, Manifest, Config};
 
-use failure::{Error, Fail};
-pub type Result<T> = std::result::Result<T, Error>;
+use super::{Result, Error};
 
 static GROUPNAME: &str = "babylontech.co.uk";
 static SHIPCATMANIFESTS: &str = "shipcatmanifests";
@@ -124,10 +123,7 @@ struct Project {
 // Get Sentry info!
 pub fn get_sentry_slug(sentry_url: &str, env: &str, svc: &str) -> Result<String> {
     let client = reqwest::Client::new();
-    let token = match env::var("SENTRY_TOKEN") {
-        Ok(val) => val,
-        Err(e)  => bail!("SENTRY_TOKEN env var not found"),
-    };
+    let token = env::var("SENTRY_TOKEN")?;
 
     let projects_url = format!("{sentry_url}/api/0/teams/sentry/{env}/projects/",
                                sentry_url = &sentry_url,
@@ -165,14 +161,8 @@ struct Applications {
 // Get NewRelic link
 pub fn get_newrelic_link(region: &str, svc: &str) -> Result<String> {
     let client = reqwest::Client::new();
-    let api_key = match env::var("NEWRELIC_API_KEY") {
-        Ok(val) => val,
-        Err(e)  => bail!("NEWRELIC_API_KEY env var not found"),
-    };
-    let account_id = match env::var("NEWRELIC_ACCOUNT_ID") {
-        Ok(val) => val,
-        Err(e)  => bail!("NEWRELIC_ACCOUNT_ID env var not found"),
-    };
+    let api_key = env::var("NEWRELIC_API_KEY")?;
+    let account_id = env::var("NEWRELIC_ACCOUNT_ID")?;
 
     let search = format!(
         "{svc} ({region})",

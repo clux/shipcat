@@ -1,30 +1,21 @@
 #![allow(unused_imports, unused_variables)]
-
-#[macro_use] extern crate serde;
-extern crate serde_json;
-extern crate serde_yaml;
-#[macro_use] extern crate serde_derive;
-extern crate url;
-extern crate http;
 #[macro_use] extern crate log;
 extern crate env_logger; // TODO: slog + slog-json
-extern crate kubernetes;
-extern crate shipcat_definitions;
+
 extern crate sentry;
 extern crate sentry_actix;
 extern crate actix;
 extern crate actix_web;
-extern crate reqwest;
 extern crate semver;
 #[macro_use] extern crate tera;
-#[macro_use] extern crate failure;
+extern crate kubernetes;
+
 extern crate chrono;
+extern crate raftcat;
+pub use raftcat::*;
 
 use kubernetes::client::APIClient;
-use shipcat_definitions::{Manifest, Config};
-
-mod kube;
-use kube::{ManifestMap, Result};
+use kubernetes::config;
 
 use chrono::Local;
 
@@ -32,8 +23,7 @@ use chrono::Local;
 // Web server interface
 use actix_web::{server, App, Path, Responder, HttpRequest, HttpResponse, middleware};
 use actix_web::http::{header, Method, StatusCode};
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// State shared between http requests
 #[derive(Clone)]
@@ -70,8 +60,8 @@ impl AppState {
     }
     pub fn get_manifests_for(&self, team: &str) -> Result<Vec<String>> {
         let mfs = self.manifests.iter()
-            .filter(|(k, mf)| mf.spec.metadata.clone().unwrap().team == team)
-            .map(|(k, mf)| mf.spec.name.clone()).collect();
+            .filter(|(_k, mf)| mf.spec.metadata.clone().unwrap().team == team)
+            .map(|(_k, mf)| mf.spec.name.clone()).collect();
         Ok(mfs)
     }
 
@@ -234,7 +224,6 @@ fn index(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
 }
 
 fn main() -> Result<()> {
-    use kubernetes::config::{self, Configuration};
     sentry::integrations::panic::register_panic_handler();
     //let dsn = std::env::var("SENTRY_DSN").expect("Sentry DSN required");
     //let _guard = sentry::init(dsn); // must keep _guard in scope
