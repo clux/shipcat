@@ -1,6 +1,6 @@
 //use super::traits::Verify;
 use structs::{Kong, Cors, BabylonAuthHeader};
-use config::{KongConfig};
+use region::{KongConfig};
 use std::collections::BTreeMap;
 use serde::ser::{Serialize, Serializer, SerializeMap};
 
@@ -383,7 +383,7 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig) -> Vec<Api
         let mut plugins = Vec::new();
 
         // Prepare plugins
-        
+
         // Always: CorrelationId
         plugins.push(ApiPlugin::CorrelationId(PluginBase::<CorrelationIdPluginAttributes>::default()));
 

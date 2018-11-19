@@ -3,11 +3,22 @@ name = "raftcat"
 version = "0.1.0"
 authors = ["Eirik Albrigtsen <eirik.albrigtsen@babylonhealth.com>"]
 
+[[bin]]
+doc = false
+name = "raftcat"
+path = "src/main.rs"
+
+[lib]
+name = "raftcat"
+path = "src/lib.rs"
+
+
 [dependencies]
-shipcat_definitions = { path = "../shipcat_definitions", features = [] }
+shipcat_definitions = { path = "../shipcat_definitions", features = ["crd"] }
 kubernetes = { git = "https://github.com/clux/kubernetes-rust", rev = "2b0397fb958d7931cb828fd51ac6e075a72cbbd8" }
 #kubernetes = { path = "../../kubernetes-rust" }
 serde_json = "1.0.32"
+serde_yaml = "0.8.5"
 serde = "1.0.80"
 serde_derive = "1.0.80"
 url = "1.7.2"
@@ -19,3 +30,7 @@ actix = "0.7.6"
 log = "0.4.6"
 sentry = "0.12.0"
 sentry-actix = "0.12.0"
+tera = "0.11.20"
+chrono = "0.4.6"
+reqwest = "0.9.4"
+semver = { version = "0.9.0", features = ["serde"] }

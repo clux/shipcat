@@ -27,6 +27,14 @@ extern crate regex;
 extern crate semver;
 extern crate base64;
 
+// Mutually exclusive backing on hold atm..
+// currently breaks Default for ConfigType and ManifestType
+//#[macro_use]
+//extern crate static_assertions;
+//assert_cfg!(all(not(all(feature = "filesystem", feature = "crd")),
+//                any(    feature = "filesystem", feature = "crd")),
+//            "Must exclusively use Filesystem or CRDs as the backing");
+
 #[macro_use]
 extern crate error_chain;
 error_chain! {
@@ -86,9 +94,12 @@ error_chain! {
     }
 }
 
-/// Master config for manifests repositories
+/// Config with regional data
+pub mod region;
+pub use region::{Region, VaultConfig, VersionScheme, KongConfig};
+/// Master config with cross-region data
 pub mod config;
-pub use config::{Config, Region, Team, VaultConfig, VersionScheme, ManifestDefaults};
+pub use config::{Config, Cluster, Team, ManifestDefaults};
 
 
 /// Structs for the manifest

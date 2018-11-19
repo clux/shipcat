@@ -1,0 +1,57 @@
+@font-face {
+    font-family: 'Droid Sans Mono';
+    src: url('DroidSansMono.woff') format('woff');
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: keep-all
+}
+
+body{
+  margin: 0;
+  color: #fff;
+}
+a:link {
+  color: #ffd700;
+}
+a:visited {
+  color: #ffd700;
+}
+.wrapper{
+  min-height: 100vh;
+  background: #ccc;
+  display: flex;
+  flex-direction: column;
+}
+.header, .footer{
+  height: 50px;
+  background: #2b2b2b;
+}
+.header {
+  border-bottom: 1px dashed #c00
+}
+.content {
+  flex: 1;
+  background: #999;
+  display: flex;
+  color: #000;
+}
+.columns{
+  display: flex;
+  flex: 1;
+}
+.main{
+  flex: 1;
+  background: #2b2b2b;
+}
+.sidebar{
+  width: 250px;
+  padding-left: 10px ;
+  color: #d4d0ab;
+  background: #2b2b2b
+}
+
+.sidebar .quick {
+  font-size: 150%;
+}

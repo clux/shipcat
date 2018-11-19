@@ -2,7 +2,8 @@ use vault::Vault;
 use std::collections::BTreeMap;
 use regex::Regex;
 
-use config::{Config, VaultConfig, Region};
+use config::{Config};
+use region::{VaultConfig, Region};
 use states::ManifestType;
 use super::Result;
 

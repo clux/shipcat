@@ -1,13 +1,13 @@
 use kubernetes::client::APIClient;
 use std::collections::HashMap;
-use shipcat_definitions::{Crd, CrdList, Manifest};
 
-use failure::{Error, Fail};
-pub type Result<T> = std::result::Result<T, Error>;
+use shipcat_definitions::{Crd, CrdList, Manifest, Config};
+
+use super::{Result, Error};
 
 static GROUPNAME: &str = "babylontech.co.uk";
-static SHIPCATRESOURCE: &str = "shipcatmanifests";
-
+static SHIPCATMANIFESTS: &str = "shipcatmanifests";
+static SHIPCATCONFIGS: &str = "shipcatconfigs";
 
 // Request builders
 fn make_all_crd_entry_req(resource: &str, group: &str) -> Result<http::Request<Vec<u8>>> {
@@ -17,14 +17,14 @@ fn make_all_crd_entry_req(resource: &str, group: &str) -> Result<http::Request<V
     let mut req = http::Request::get(urlstr);
     req.body(vec![]).map_err(Error::from)
 }
-/*fn make_crd_entry_req(resource: &str, group: &str, name: &str) -> Result<http::Request<Vec<u8>>> {
+fn make_crd_entry_req(resource: &str, group: &str, name: &str) -> Result<http::Request<Vec<u8>>> {
     // TODO: namespace from evar
     let urlstr = format!("/apis/{group}/v1/namespaces/dev/{resource}/{name}?",
         group = group, resource = resource, name = name);
     let urlstr = url::form_urlencoded::Serializer::new(urlstr).finish();
     let mut req = http::Request::get(urlstr);
     req.body(vec![]).map_err(Error::from)
-}*/
+}
 /*fn watch_crd_entry_after(resource: &str, group: &str, name: &str, rver: u32) -> Result<http::Request<Vec<u8>>> {
     let urlstr = format!("/apis/{group}/v1/namespaces/dev/{resource}/{name}?",
         group = group, resource = resource, name = name);
@@ -43,23 +43,31 @@ fn make_all_crd_entry_req(resource: &str, group: &str) -> Result<http::Request<V
 
 
 // program interface - request consumers
-pub type ManifestMap = HashMap<String, Crd<Manifest>>;
+pub type ManifestMap = HashMap<String, Manifest>;
 
 pub fn get_shipcat_manifests(client: &APIClient) -> Result<ManifestMap> {
-    let req = make_all_crd_entry_req(SHIPCATRESOURCE, GROUPNAME)?;
+    let req = make_all_crd_entry_req(SHIPCATMANIFESTS, GROUPNAME)?;
     let res = client.request::<CrdList<Manifest>>(req)?;
     let mut data = HashMap::new();
     for i in res.items {
-        data.insert(i.spec.name.clone(), i);
+        data.insert(i.spec.name.clone(), i.spec);
     }
     let keys = data.keys().cloned().into_iter().collect::<Vec<_>>().join(", ");
     debug!("Initialized with: {}", keys);
     Ok(data)
 }
 
+pub fn get_shipcat_config(client: &APIClient, name: &str) -> Result<Crd<Config>> {
+    let req = make_crd_entry_req(SHIPCATCONFIGS, GROUPNAME, name)?;
+    let res = client.request::<Crd<Config>>(req)?;
+    debug!("got config with version {}", &res.spec.version);
+    // TODO: merge with version found in rolling env?
+    Ok(res)
+}
+
 /*this doesn't actually work...
 pub fn watch_shipcat_manifest(client: &APIClient, name: &str, rver: u32) -> Result<Crd<Manifest>> {
-    let req = watch_crd_entry_after(SHIPCATRESOURCE, GROUPNAME, name, rver)
+    let req = watch_crd_entry_after(SHIPCATMANIFESTS, GROUPNAME, name, rver)
         .expect("failed to define crd watch request");
     let res = client.request::<Crd<_>>(req)?;
     debug!("{}", &res.spec.name);
@@ -68,7 +76,7 @@ pub fn watch_shipcat_manifest(client: &APIClient, name: &str, rver: u32) -> Resu
 
 // actually unused now because everything returns from cache
 /*pub fn get_shipcat_manifest(client: &APIClient, name: &str) -> Result<Crd<Manifest>> {
-    let req = make_crd_entry_req(SHIPCATRESOURCE, GROUPNAME, name)?;
+    let req = make_crd_entry_req(SHIPCATMANIFESTS, GROUPNAME, name)?;
     let res = client.request::<Crd<Manifest>>(req)?;
     debug!("got {}", &res.spec.name);
     // TODO: merge with version found in rolling env?
