@@ -299,7 +299,7 @@ fn main() -> Result<()> {
 
     env::set_var("RUST_LOG", "actix_web=info,raftcat=info");
     //env::set_var("RUST_LOG", "actix_web=info,raftcat=debug");
-    env::set_var("RUST_BACKTRACE", "full");
+    //env::set_var("RUST_BACKTRACE", "full");
     env_logger::init();
 
     // Load the config: local kube config prioritised first for local development

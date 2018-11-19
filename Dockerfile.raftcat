@@ -1,5 +1,7 @@
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
+ADD raftcat/templates /templates
+ADD raftcat/static /static
 ADD raftcat.x86_64-unknown-linux-musl /bin/raftcat
 EXPOSE 8080
 ENTRYPOINT ["/bin/raftcat"]
