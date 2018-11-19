@@ -31,6 +31,7 @@ Put the vault secrets on your environment:
 ```sh
 source <(shipcat values raftcat -s | yq '.secrets | keys[] as $k | "export \($k)=\(.[$k])"' -r)
 source <(shipcat values raftcat | yq '.env | keys[] as $k | "export \($k)=\(.[$k])"' -r)
+export REGION_NAME="$(kubectl config current-context)"
 ```
 
 ## Cluster

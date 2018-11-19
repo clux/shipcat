@@ -101,7 +101,7 @@ impl AppState {
                 self.relics = res;
                 info!("Loaded {} newrelic links", self.relics.len());
             },
-            Err(e) => warn!("Unable to load newleric projects. NEWRELIC evars set? {}", err_msg(e)),
+            Err(e) => warn!("Unable to load newrelic projects. NEWRELIC evars set? {}", err_msg(e)),
         }
         Ok(())
     }
@@ -299,7 +299,7 @@ fn main() -> Result<()> {
 
     env::set_var("RUST_LOG", "actix_web=info,raftcat=info");
     //env::set_var("RUST_LOG", "actix_web=info,raftcat=debug");
-    env::set_var("RUST_BACKTRACE", "1");
+    env::set_var("RUST_BACKTRACE", "full");
     env_logger::init();
 
     // Load the config: local kube config prioritised first for local development
