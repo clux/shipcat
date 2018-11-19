@@ -78,10 +78,14 @@ li {
       <aside class="sidebar">
         <h2>Quick Links</h2>
         <ul>
+          {% if newrelic_link %}
           <li>NewRelic: <a href="{{ newrelic_link }}">NewRelic</a></li>
+          {% endif %}
           <li>Grafana: <a href="{{ grafana_link }}">Grafana</a></li>
           <li>Logging: <a href="{{ logzio_link }}">Logz.io</a></li>
+          {% if sentry_link %}
           <li>Error reporting: <a href="{{ sentry_link }}">Sentry</a></li>
+          {% endif %}
           <li>Secrets: <a href="{{ vault_link }}">Vault</a></li>
           <li>CI: <a href="{{ circle_link }}">CircleCI</a></li>
           <li>Containers: <a href="{{ quay_link }}">Quay.io</a></li>

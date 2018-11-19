@@ -46,7 +46,7 @@ impl AppState {
     fn maybe_update_cache(&mut self) -> Result<()> {
         if self.last_update.elapsed().as_secs() > 120 {
             debug!("Refreshing state from CRDs");
-            let versions = kube::get_versions()?;
+            let versions = version::get_all()?;
             self.manifests = kube::get_shipcat_manifests(&self.client)?;
             for (k, mf) in &mut self.manifests {
                 mf.version = versions.get(k).map(String::clone);
@@ -179,28 +179,27 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         ctx.insert("team", &team);
         ctx.insert("team_link", &teamlink);
 
-        let sentry_project_slug = kube::get_sentry_slug(
+        // fetch stuff from integrations in a best effor way
+        if let Some(sentry_project_slug) = sentryapi::get_slug(
             &region.sentry.clone().unwrap().url,
             &region.environment,
             &mf.name,
-        ).unwrap_or(format!("PROJECT_SLUG_NOT_FOUND"));
-
-        let sentry_link = format!("{sentry_base_url}/sentry/{sentry_project_slug}",
-          sentry_base_url = &region.sentry.clone().unwrap().url, sentry_project_slug = &sentry_project_slug);
-
-        let newrelic_link = kube::get_newrelic_link(
-            &region.name,
-            &mf.name,
-        ).unwrap_or(format!("https://example.com/NEWRELIC_PROJECT_NOT_FOUND"));
+        ).ok() {
+            let sentry_link = format!("{sentry_base_url}/sentry/{sentry_project_slug}",
+                sentry_base_url = &region.sentry.clone().unwrap().url, sentry_project_slug = &sentry_project_slug);
+            ctx.insert("sentry_link", &sentry_link);
+        }
+        if let Some(nr) = newrelic::get_link(&region.name, &mf.name).ok() {
+            ctx.insert("newrelic_link", &nr);
+        }
 
         let date = Local::now();
         let time = format!("{now}", now = date.format("%Y-%m-%d %H:%M:%S"));
 
         ctx.insert("vault_link", &region.vault_url(&mf.name));
         ctx.insert("logzio_link", &region.logzio_url(&mf.name));
-        ctx.insert("sentry_link", &sentry_link);
+
         ctx.insert("grafana_link", &region.grafana_url(&mf.name, &cluster.name));
-        ctx.insert("newrelic_link", &newrelic_link);
         ctx.insert("time", &time);
         let t = req.state().template.lock().unwrap();
         let s = t.render("service.tera", &ctx).unwrap(); // TODO: map error

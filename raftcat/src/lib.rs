@@ -22,4 +22,8 @@ pub use shipcat_definitions::{Manifest, Config};
 
 /// A small CLI kubernetes interface
 pub mod kube;
-pub use kube::{ManifestMap, VersionMap};
+pub use kube::{ManifestMap};
+
+mod integrations;
+pub use integrations::{sentryapi, newrelic};
+pub use integrations::version::{self, VersionMap};
