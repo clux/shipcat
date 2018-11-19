@@ -7,17 +7,17 @@ A small web api for shipcat manifests reading the current state of shipcat crds 
 
 ### HTML
 
-- GET `/` -> Service search page
-- GET `/services` -> Status page for a service
+- GET `/raftcat/` -> Service search page
+- GET `/raftcat//services` -> Status page for a service
 
 ### JSON
 
-- GET `/manifests` -> all raw crd specs in a list
-- GET `/manifests/{service}` -> raw spec json from crd
-- GET `/manifests/{service}/resources` -> resource computation for the service
-- GET `/config` -> region minified config from crd spec
-- GET `/teams/{name}` -> services belonging to a team
-- GET `/teams` -> list of teams
+- GET `/raftcat/manifests` -> all raw crd specs in a list
+- GET `/raftcat/manifests/{service}` -> raw spec json from crd
+- GET `/raftcat/manifests/{service}/resources` -> resource computation for the service
+- GET `/raftcat/config` -> region minified config from crd spec
+- GET `/raftcat/teams/{name}` -> services belonging to a team
+- GET `/raftcat/teams` -> list of teams
 
 ## Developing
 Given a kube context with client certificates (kops clusters / minikube), you can run the server locally using your kube config:
@@ -49,7 +49,7 @@ You can test the cluster deployed version using:
 
 ```sh
 shipcat port-forward raftcat &
-curl localhost:8080/manifests/raftcat | jq "."
+curl localhost:8080/raftcat/manifests/raftcat | jq "."
 ```
 
 ## Caveats
