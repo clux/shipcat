@@ -41,7 +41,7 @@ In cluster config needs rbac rules associated. The kube api rules / shipcat rbac
 ```yaml
 rbac:
 - apiGroups: ["babylontech.co.uk"]
-  resources: ["shipcatmanifests"]
+  resources: ["shipcatmanifests", "shipcatconfigs"]
   verbs: ["get", "watch", "list"]
 ```
 

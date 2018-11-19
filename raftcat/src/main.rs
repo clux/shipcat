@@ -331,7 +331,7 @@ fn main() -> Result<()> {
     let sys = actix::System::new("raftcat");
     server::new(move || {
         App::with_state(state.clone())
-            .handler("/static", actix_web::fs::StaticFiles::new(concat!("raftcat", "/static")).unwrap())
+            .handler("/static", actix_web::fs::StaticFiles::new("./raftcat/static").unwrap())
             .middleware(middleware::Logger::default().exclude("/health"))
             .middleware(sentry_actix::SentryMiddleware::new())
             .resource("/config", |r| r.method(Method::GET).f(get_config))
