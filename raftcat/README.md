@@ -8,7 +8,7 @@ A small web api for shipcat manifests reading the current state of shipcat crds 
 ### HTML
 
 - GET `/raftcat/` -> Service search page
-- GET `/raftcat//services` -> Status page for a service
+- GET `/raftcat/services/{service}` -> Status page for a service
 
 ### JSON
 
