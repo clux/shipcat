@@ -231,7 +231,7 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         let circlelink = format!("https://circleci.com/gh/Babylonpartners/{}", mf.name);
         let quaylink = format!("https://{}/?tab=tags", mf.image.clone().unwrap());
 
-        let (team, teamlink) = (md.team.clone(), format!("/teams/{}", team_slug(&md.team)));
+        let (team, teamlink) = (md.team.clone(), format!("/raftcat/teams/{}", team_slug(&md.team)));
         // TODO: runbook
 
         let mut ctx = tera::Context::new();
@@ -331,18 +331,18 @@ fn main() -> Result<()> {
     let sys = actix::System::new("raftcat");
     server::new(move || {
         App::with_state(state.clone())
-            .handler("/static", actix_web::fs::StaticFiles::new(concat!("raftcat", "/static")).unwrap())
-            .middleware(middleware::Logger::default().exclude("/health"))
+            .middleware(middleware::Logger::default().exclude("/raftcat/health"))
             .middleware(sentry_actix::SentryMiddleware::new())
-            .resource("/config", |r| r.method(Method::GET).f(get_config))
-            .resource("/manifests/{name}/resources", |r| r.method(Method::GET).f(get_resource_usage))
-            .resource("/manifests/{name}", |r| r.method(Method::GET).f(get_single_manifest))
-            .resource("/manifests", |r| r.method(Method::GET).f(get_all_manifests))
-            .resource("/services/{name}", |r| r.method(Method::GET).f(get_service))
-            .resource("/teams/{name}", |r| r.method(Method::GET).f(get_manifests_for_team))
-            .resource("/teams", |r| r.method(Method::GET).f(get_teams))
-            .resource("/health", |r| r.method(Method::GET).f(health))
-            .resource("/", |r| r.method(Method::GET).f(index))
+            .handler("/raftcat/static", actix_web::fs::StaticFiles::new("./raftcat/static").unwrap())
+            .resource("/raftcat/config", |r| r.method(Method::GET).f(get_config))
+            .resource("/raftcat/manifests/{name}/resources", |r| r.method(Method::GET).f(get_resource_usage))
+            .resource("/raftcat/manifests/{name}", |r| r.method(Method::GET).f(get_single_manifest))
+            .resource("/raftcat/manifests", |r| r.method(Method::GET).f(get_all_manifests))
+            .resource("/raftcat/services/{name}", |r| r.method(Method::GET).f(get_service))
+            .resource("/raftcat/teams/{name}", |r| r.method(Method::GET).f(get_manifests_for_team))
+            .resource("/raftcat/teams", |r| r.method(Method::GET).f(get_teams))
+            .resource("/raftcat/health", |r| r.method(Method::GET).f(health))
+            .resource("/raftcat/", |r| r.method(Method::GET).f(index))
         })
         .bind("0.0.0.0:8080").expect("Can not bind to 0.0.0.0:8080")
         .shutdown_timeout(0)    // <- Set shutdown timeout to 0 seconds (default 60s)

@@ -6,8 +6,8 @@
 
 <title>{{ manifest.name }} in {{ region.name }}</title>
 
-<link rel="stylesheet" href="/static/normalize.css">
-<link rel="stylesheet" href="/static/raftcat.css">
+<link rel="stylesheet" href="/raftcat/static/normalize.css">
+<link rel="stylesheet" href="/raftcat/static/raftcat.css">
 
 <link rel="stylesheet"
       href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.13.1/styles/a11y-dark.min.css">
@@ -45,7 +45,7 @@
         <h2>Used by</h2>
         <ul>
           {% for d in revdeps %}
-          <li><a href="/services/{{ d }}">{{ d }}</a></li>
+          <li><a href="/raftcat/services/{{ d }}">{{ d }}</a></li>
           {% endfor %}
         </ul>
         {% endif %}
@@ -53,6 +53,6 @@
      </div>
   </section>
   <footer class="footer">
-     <a href="https://github.com/Babylonpartners/shipcat">code</a>
+     <a href="https://github.com/Babylonpartners/shipcat/tree/master/raftcat">code</a>
   </footer>
 </div>
