@@ -99,7 +99,7 @@ pub mod region;
 pub use region::{Region, VaultConfig, VersionScheme, KongConfig};
 /// Master config with cross-region data
 pub mod config;
-pub use config::{Config, Team, ManifestDefaults};
+pub use config::{Config, Cluster, Team, ManifestDefaults};
 
 
 /// Structs for the manifest

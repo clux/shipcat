@@ -13,12 +13,12 @@ extern crate reqwest;
 #[macro_use] extern crate log;
 #[macro_use] extern crate failure;
 
-use failure::{Error}; //Fail
+pub use failure::{Error}; //Fail
 pub type Result<T> = std::result::Result<T, Error>;
 
 
 extern crate shipcat_definitions;
-pub use shipcat_definitions::{Manifest, Config, Team};
+pub use shipcat_definitions::{Manifest, Config, Cluster, Region, Team};
 
 /// A small CLI kubernetes interface
 pub mod kube;

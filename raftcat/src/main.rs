@@ -9,8 +9,11 @@ extern crate actix_web;
 extern crate semver;
 #[macro_use] extern crate tera;
 extern crate kubernetes;
-
 extern crate chrono;
+
+extern crate failure;
+use failure::err_msg;
+
 extern crate raftcat;
 pub use raftcat::*;
 
@@ -18,8 +21,8 @@ use kubernetes::client::APIClient;
 use kubernetes::config as config;
 
 use std::collections::HashMap;
+use std::env;
 use chrono::Local;
-
 
 // some slug helpers
 fn team_slug(name: &str) -> String {
@@ -44,47 +47,62 @@ struct AppState {
     pub config: Config,
     pub relics: RelicMap,
     pub sentries: SentryMap,
+    region: String,
     last_update: Instant,
 }
 impl AppState {
     pub fn new(client: APIClient) -> Self {
         info!("Loading state from CRDs");
-        let config = kube::get_shipcat_config(&client, "dev-uk").unwrap().spec;
+        let rname = env::var("REGION_NAME").expect("Need REGION_NAME evar (kube context)");
+        let config = kube::get_shipcat_config(&client, &rname)
+            .expect("Need to be able to read config CRD").spec;
         let mut res = AppState {
             client: client,
             manifests: HashMap::new(),
             config: config,
+            region: rname,
             relics: HashMap::new(),
             sentries: HashMap::new(),
             last_update: Instant::now(),
         };
-        res.maybe_update_cache(true).unwrap();
-        res.update_slow_cache().unwrap();
+        res.maybe_update_cache(true).expect("Need to be able to read manifest CRDs");
+        res.update_slow_cache().expect("Need to be able to update cache (at least partially)");
         res
     }
 
     fn maybe_update_cache(&mut self, force: bool) -> Result<()> {
         if self.last_update.elapsed().as_secs() > 30 || force {
             info!("Refreshing state from CRDs");
-            let versions = version::get_all()?;
-            info!("Loaded {} versions", versions.len());
             self.manifests = kube::get_shipcat_manifests(&self.client)?;
-            for (k, mf) in &mut self.manifests {
-                mf.version = versions.get(k).map(String::clone);
+            match version::get_all() {
+                Ok(versions) => {
+                    info!("Loaded {} versions", versions.len());
+                    for (k, mf) in &mut self.manifests {
+                        mf.version = versions.get(k).map(String::clone);
+                    }
+                }
+                Err(e) => warn!("Unable to load versions. VERSION_URL set? {}", err_msg(e))
             }
             self.last_update = Instant::now();
         }
         Ok(())
     }
     fn update_slow_cache(&mut self) -> Result<()> {
-        let (cluster, region) = self.config.resolve_cluster("dev-uk").unwrap();
-        self.sentries = sentryapi::get_slugs(
-            &region.sentry.clone().unwrap().url,
-            &region.environment
-        )?;
-        info!("Loaded {} sentry slugs", self.sentries.len());
-        self.relics = newrelic::get_links(&region.name)?;
-        info!("Loaded {} newrelic links", self.relics.len());
+        let (cluster, region) = self.config.resolve_cluster(&self.region).unwrap();
+        match sentryapi::get_slugs(&region.sentry.clone().unwrap().url, &region.environment) {
+            Ok(res) => {
+                self.sentries = res;
+                info!("Loaded {} sentry slugs", self.sentries.len());
+            },
+            Err(e) => warn!("Unable to load sentry slugs. SENTRY evars set? {}", err_msg(e)),
+        }
+        match newrelic::get_links(&region.name) {
+            Ok(res) => {
+                self.relics = res;
+                info!("Loaded {} newrelic links", self.relics.len());
+            },
+            Err(e) => warn!("Unable to load newleric projects. NEWRELIC evars set? {}", err_msg(e)),
+        }
         Ok(())
     }
     pub fn get_manifest(&mut self, key: &str) -> Result<Option<Manifest>> {
@@ -109,7 +127,11 @@ impl AppState {
         }
         Ok(res)
     }
-    pub fn get_config(&mut self) -> Result<Config> {
+    pub fn get_cluster_region(&self) -> Result<(Cluster, Region)> {
+        let (cluster, region) = self.config.resolve_cluster(&self.region).expect("could not resolve cluster");
+        Ok((cluster, region))
+    }
+    pub fn get_config(&self) -> Result<Config> {
         Ok(self.config.clone())
     }
     pub fn get_manifests(&mut self) -> Result<ManifestMap> {
@@ -174,10 +196,12 @@ fn get_teams(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
 fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
     let cfg = req.state().safe.lock().unwrap().get_config()?;
+    let (cluster, region) = req.state().safe.lock().unwrap().get_cluster_region()?;
+
     let revdeps = req.state().safe.lock().unwrap().get_reverse_deps(name).ok();
     let newrelic_link = req.state().safe.lock().unwrap().relics.get(name).map(String::to_owned);
     let sentry_slug = req.state().safe.lock().unwrap().sentries.get(name).map(String::to_owned);
-    let (cluster, region) = cfg.resolve_cluster("dev-uk").unwrap();
+
     if let Some(mf) = req.state().safe.lock().unwrap().get_manifest(name)?.clone() {
         let pretty = serde_yaml::to_string(&mf)?;
         let mfstub = mf.clone().stub(&region).unwrap();
@@ -270,12 +294,12 @@ fn index(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
 
 fn main() -> Result<()> {
     sentry::integrations::panic::register_panic_handler();
-    let dsn = std::env::var("SENTRY_DSN").expect("Sentry DSN required");
+    let dsn = env::var("SENTRY_DSN").expect("Sentry DSN required");
     let _guard = sentry::init(dsn); // must keep _guard in scope
 
-    std::env::set_var("RUST_LOG", "actix_web=info,raftcat=info");
-    //std::env::set_var("RUST_LOG", "actix_web=info,raftcat=debug");
-    std::env::set_var("RUST_BACKTRACE", "1");
+    env::set_var("RUST_LOG", "actix_web=info,raftcat=info");
+    //env::set_var("RUST_LOG", "actix_web=info,raftcat=debug");
+    env::set_var("RUST_BACKTRACE", "1");
     env_logger::init();
 
     // Load the config: local kube config prioritised first for local development
