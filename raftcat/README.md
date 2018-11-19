@@ -26,7 +26,8 @@ Given a kube context with client certificates (kops clusters / minikube), you ca
 cargo run --bin raftcat
 ```
 
-Put the vault secrets on your environment:
+From the shipcat root directory.
+Export the vault secrets and manifest evars:
 
 ```sh
 source <(shipcat values raftcat -s | yq '.secrets | keys[] as $k | "export \($k)=\(.[$k])"' -r)

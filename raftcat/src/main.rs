@@ -148,7 +148,7 @@ struct StateSafe {
 }
 impl StateSafe {
     pub fn new(client: APIClient) -> Self {
-        let t = compile_templates!(concat!(env!("CARGO_MANIFEST_DIR"), "/templates/*"));
+        let t = compile_templates!(concat!("raftcat", "/templates/*"));
         StateSafe {
             safe: Arc::new(Mutex::new(AppState::new(client))),
             template: Arc::new(Mutex::new(t)),
@@ -315,7 +315,7 @@ fn main() -> Result<()> {
     let sys = actix::System::new("raftcat");
     server::new(move || {
         App::with_state(state.clone())
-            .handler("/static", actix_web::fs::StaticFiles::new(concat!(env!("CARGO_MANIFEST_DIR"), "/static")).unwrap())
+            .handler("/static", actix_web::fs::StaticFiles::new(concat!("raftcat", "/static")).unwrap())
             .middleware(middleware::Logger::default().exclude("/health"))
             .middleware(sentry_actix::SentryMiddleware::new())
             .resource("/config", |r| r.method(Method::GET).f(get_config))
