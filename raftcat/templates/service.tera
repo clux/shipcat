@@ -62,9 +62,10 @@ a:visited {
   background: #2b2b2b
 }
 
-li {
+.sidebar .quick {
   font-size: 150%;
 }
+
 </style>
 
 <div class="wrapper">
@@ -77,22 +78,30 @@ li {
       </main>
       <aside class="sidebar">
         <h2>Quick Links</h2>
-        <ul>
+        <ul class="quick">
           {% if newrelic_link %}
-          <li>NewRelic: <a href="{{ newrelic_link }}">NewRelic</a></li>
+          <li><a href="{{ newrelic_link }}">NewRelic</a></li>
           {% endif %}
-          <li>Grafana: <a href="{{ grafana_link }}">Grafana</a></li>
-          <li>Logging: <a href="{{ logzio_link }}">Logz.io</a></li>
+          <li><a href="{{ grafana_link }}">Grafana</a></li>
+          <li><a href="{{ logzio_link }}">Logz.io</a></li>
           {% if sentry_link %}
-          <li>Error reporting: <a href="{{ sentry_link }}">Sentry</a></li>
+          <li><a href="{{ sentry_link }}">Sentry</a></li>
           {% endif %}
-          <li>Secrets: <a href="{{ vault_link }}">Vault</a></li>
-          <li>CI: <a href="{{ circle_link }}">CircleCI</a></li>
-          <li>Containers: <a href="{{ quay_link }}">Quay.io</a></li>
+          <li><a href="{{ vault_link }}">Vault</a></li>
+          <li><a href="{{ circle_link }}">CircleCI</a></li>
+          <li><a href="{{ quay_link }}">Quay.io</a></li>
         </ul>
         <h3><a href="{{ support_link }}">{{ support }}</a></h3>
         <h3><a href="{{ team_link }}">/{{ team }}</a></h3>
 
+        {% if revdeps %}
+        <h2>Used by</h2>
+        <ul>
+          {% for d in revdeps %}
+          <li><a href="/services/{{ d }}">{{ d }}</a></li>
+          {% endfor %}
+        </ul>
+        {% endif %}
       </aside>
      </div>
   </section>

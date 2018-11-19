@@ -68,7 +68,15 @@ impl AppState {
             .map(|(_k, mf)| mf.name.clone()).collect();
         Ok(mfs)
     }
-
+    pub fn get_reverse_deps(&self, service: &str) -> Result<Vec<String>> {
+        let mut res = vec![];
+        for (svc, mf) in &self.manifests {
+            if mf.dependencies.iter().any(|d| d.name == service) {
+                res.push(svc.clone())
+            }
+        }
+        Ok(res)
+    }
     pub fn get_config(&mut self) -> Result<Config> {
         let name = "dev-uk"; // TODO: from env
         let cfg = kube::get_shipcat_config(&self.client, name)?;
@@ -133,6 +141,7 @@ fn get_teams(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
 fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
     let cfg = req.state().safe.lock().unwrap().get_config()?;
+    let revdeps = req.state().safe.lock().unwrap().get_reverse_deps(name).ok();
     let (cluster, region) = cfg.resolve_cluster("dev-uk").unwrap();
     if let Some(mf) = req.state().safe.lock().unwrap().get_manifest(name)?.clone() {
         let pretty = serde_yaml::to_string(&mf)?;
@@ -193,6 +202,8 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
             ctx.insert("newrelic_link", &nr);
         }
 
+        ctx.insert("revdeps", &revdeps);
+
         let date = Local::now();
         let time = format!("{now}", now = date.format("%Y-%m-%d %H:%M:%S"));
 
@@ -228,8 +239,8 @@ fn index(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
 
 fn main() -> Result<()> {
     sentry::integrations::panic::register_panic_handler();
-    //let dsn = std::env::var("SENTRY_DSN").expect("Sentry DSN required");
-    //let _guard = sentry::init(dsn); // must keep _guard in scope
+    let dsn = std::env::var("SENTRY_DSN").expect("Sentry DSN required");
+    let _guard = sentry::init(dsn); // must keep _guard in scope
 
     std::env::set_var("RUST_LOG", "actix_web=info,raftcat=debug");
     std::env::set_var("RUST_BACKTRACE", "1");
@@ -255,7 +266,7 @@ fn main() -> Result<()> {
             .resource("/manifests/{name}/resources", |r| r.method(Method::GET).f(get_resource_usage))
             .resource("/manifests/{name}", |r| r.method(Method::GET).f(get_single_manifest))
             .resource("/manifests", |r| r.method(Method::GET).f(get_all_manifests))
-            .resource("/service/{name}", |r| r.method(Method::GET).f(get_service))
+            .resource("/services/{name}", |r| r.method(Method::GET).f(get_service))
             .resource("/teams/{name}", |r| r.method(Method::GET).f(get_manifests_for_team))
             .resource("/teams", |r| r.method(Method::GET).f(get_teams))
             .resource("/health", |r| r.method(Method::GET).f(health))
