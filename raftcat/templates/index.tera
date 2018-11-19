@@ -4,23 +4,65 @@
 <meta http-equiv="x-ua-compatible" content="ie=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; frame-src 'none'">
-
-<title>::<​{{ guts }}></title>
+<title>ratfcat</title>
 
 <link rel="stylesheet" href="/static/normalize.css">
-<link rel="stylesheet" href="/static/turbofish.css">
+<link rel="stylesheet" href="/static/raftcat.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/horsey/4.2.2/horsey.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/horsey/4.2.2/horsey.js"></script>
+<style>
+input {
+  padding: 40px;
+  font-size: 200%;
+}
+li {
+  width: 489px;
+  font-size: 150%;
+}
+</style>
 
-<t><​{{ guts }}></t>
-<u><​{{ guts }}></u>
-<r><​{{ guts }}></r>
-<b><​{{ guts }}></b>
-<o><​{{ guts }}></o>
-<f><​{{ guts }}></f>
-<i><​{{ guts }}></i>
-<s><​{{ guts }}></s>
-<h><​{{ guts }}></h>
+<div class="wrapper">
+  <header class="header">
+    <h3>raftcat</h3>
+  </header>
+  <section class="content">
+    <div class="columns">
+      <main class="main">
+        <form id="searchform">
+          <input type="text" name="name" id="searcher" autocomplete="off">
+          <input type="submit" value="Go">
+        </form>
+      </main>
+      <aside class="sidebar">
+      </aside>
+     </div>
+  </section>
+  <footer class="footer">
+     <a href="https://github.com/Babylonpartners/shipcat">code</a>
+  </footer>
+</div>
 
-<footer>
-    <a href="https://github.com/Babylonpartners/shipcat">code.</a>
-</footer>
+<script>
+var data = {{ manifests }};
+let checked = data.map(function(mf) {
+  return { "value": mf.name, "text": mf.name + " - " + mf.team, "team": mf.team };
+});
+console.log(checked);
+const searcher = document.querySelector('#searcher');
+horsey(searcher, {
+  source: [{ list: checked }],
+  getText: 'text',
+  getValue: 'value',
+  renderItem: function (li, suggestion) {
+    var small = '<i style="float:right">' + suggestion.team + '</i>';
+    li.innerHTML = suggestion.value + small;
+  },
+  highlighter: true
+});
+  var f = document.querySelector('#searchform');
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    console.log(searcher.value);
+    window.location = "/services/" + searcher.value.split(" - ")[0];
+  });
+</script>

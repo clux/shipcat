@@ -14,6 +14,8 @@ extern crate chrono;
 extern crate failure;
 use failure::err_msg;
 
+#[macro_use] extern crate serde_derive;
+
 extern crate raftcat;
 pub use raftcat::*;
 
@@ -284,9 +286,23 @@ fn get_config(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().json(cfg))
 }
 
+#[derive(Serialize)]
+struct SimpleManifest {
+    name: String,
+    team: String,
+}
+
 fn index(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let mut ctx = tera::Context::new();
-    ctx.insert("guts", "::<>");
+    let mfs = req.state().safe.lock().unwrap().get_manifests()?;
+    let data = mfs.into_iter().map(|(_k, m)| {
+        SimpleManifest {
+            name: m.name,
+            team: m.metadata.unwrap().team.to_lowercase(),
+        }
+    }).collect::<Vec<_>>();
+    let data = serde_json::to_string(&data)?;
+    ctx.insert("manifests", &data);
     let t = req.state().template.lock().unwrap();
     let s = t.render("index.tera", &ctx).unwrap(); // TODO: map error
     Ok(HttpResponse::Ok().content_type("text/html").body(s))

@@ -6,67 +6,14 @@
 
 <title>{{ manifest.name }} in {{ region.name }}</title>
 
-<link rel="stylesheet" href="normalize.css">
+<link rel="stylesheet" href="/static/normalize.css">
+<link rel="stylesheet" href="/static/raftcat.css">
 
 <link rel="stylesheet"
       href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.13.1/styles/a11y-dark.min.css">
 <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.13.1/highlight.min.js"></script>
 <script>hljs.initHighlightingOnLoad();</script>
-<style>
-pre {
-  white-space: pre-wrap;
-  word-break: keep-all
-}
 
-body{
-  margin: 0;
-  color: #fff;
-}
-a:link {
-  color: #ffd700;
-}
-a:visited {
-  color: #ffd700;
-}
-.wrapper{
-  min-height: 100vh;
-  background: #ccc;
-  display: flex;
-  flex-direction: column;
-}
-.header, .footer{
-  height: 50px;
-  background: #2b2b2b;
-}
-.header {
-  border-bottom: 1px dashed #c00
-}
-.content {
-  flex: 1;
-  background: #999;
-  display: flex;
-  color: #000;
-}
-.columns{
-  display: flex;
-  flex: 1;
-}
-.main{
-  flex: 1;
-  background: #2b2b2b;
-}
-.sidebar{
-  width: 250px;
-  padding-left: 10px ;
-  color: #d4d0ab;
-  background: #2b2b2b
-}
-
-.sidebar .quick {
-  font-size: 150%;
-}
-
-</style>
 
 <div class="wrapper">
   <header class="header"><h3>{{ manifest.name }} in {{ region.name }} at {{ time }} running <a href="{{ version_link }}">{{ version | truncate(length=12) }}</a></h3>
