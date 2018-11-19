@@ -38,6 +38,7 @@ pub mod version {
 }
 
 pub mod sentryapi {
+    use std::collections::HashMap;
     use super::Result;
     use std::env;
 
@@ -48,8 +49,11 @@ pub mod sentryapi {
         name: String,
     }
 
-    // Get Sentry info!
-    pub fn get_slug(sentry_url: &str, env: &str, svc: &str) -> Result<String> {
+    /// Service -> Link
+    pub type SentryMap = HashMap<String, String>;
+
+    // Get Sentry info
+    pub fn get_slugs(sentry_url: &str, env: &str) -> Result<SentryMap> {
         let client = reqwest::Client::new();
         let token = env::var("SENTRY_TOKEN")?;
 
@@ -66,18 +70,19 @@ pub mod sentryapi {
             bail!("Failed to fetch projects in team {}", env);
         }
         let text = res.text()?;
-        debug!("Got data: {}", text);
+        debug!("Got slugs: {}", text);
         let data : Vec<Project> = serde_json::from_str(&text)?;
-        if let Some(entry) = data.into_iter().find(|r| r.name == svc) {
-            Ok(entry.slug)
-        } else {
-            bail!("Project {} not found in team {}, {}", svc, env, sentry_url)
-        }
+        let res = data.into_iter().fold(HashMap::new(), |mut acc, e| {
+            acc.insert(e.name, e.slug);
+            acc
+        });
+        Ok(res)
     }
 }
 
 
 pub mod newrelic {
+    use std::collections::HashMap;
     use super::Result;
     use std::env;
 
@@ -92,13 +97,16 @@ pub mod newrelic {
         applications: Vec<Application>,
     }
 
+    /// Service -> Link
+    pub type RelicMap = HashMap<String, String>;
+
     // Get NewRelic link
-    pub fn get_link(region: &str, svc: &str) -> Result<String> {
+    pub fn get_links(region: &str) -> Result<RelicMap> {
         let client = reqwest::Client::new();
         let api_key = env::var("NEWRELIC_API_KEY")?;
         let account_id = env::var("NEWRELIC_ACCOUNT_ID")?;
 
-        let search = format!("{svc} ({region})", svc = svc, region = region);
+        let search = format!("({region})", region = region);
         let mut res = client
             .get("https://api.newrelic.com/v2/applications.json")
             .query(&[("filter[name]", search.clone())])
@@ -111,14 +119,16 @@ pub mod newrelic {
         let text = res.text()?;
         debug!("Got NewRelic data: {}", text);
         let data : Applications = serde_json::from_str(&text)?;
-        if let Some(entry) = data.applications.into_iter().find(|r| r.name == search) {
-            debug!("Application found!");
-            Ok(format!(
-                    "https://rpm.newrelic.com/accounts/{account_id}/applications/{application_id}",
-                    account_id = account_id,
-                    application_id = entry.id))
-        } else {
-            bail!("Application {} not found in NewRelic", &svc)
-        }
+        let res = data.applications.into_iter().fold(HashMap::new(), |mut acc, e| {
+            let link = format!(
+                "https://rpm.newrelic.com/accounts/{account_id}/applications/{application_id}",
+                account_id = account_id,
+                application_id = e.id
+            );
+            let splits : Vec<_> = e.name.split(' ').collect();
+            acc.insert(splits[0].to_string(), link);
+            acc
+        });
+        Ok(res)
     }
 }

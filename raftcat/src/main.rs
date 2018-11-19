@@ -15,9 +15,20 @@ extern crate raftcat;
 pub use raftcat::*;
 
 use kubernetes::client::APIClient;
-use kubernetes::config;
+use kubernetes::config as config;
 
+use std::collections::HashMap;
 use chrono::Local;
+
+
+// some slug helpers
+fn team_slug(name: &str) -> String {
+    name.to_lowercase().replace("/", "-").replace(" ", "_")
+}
+fn find_team(cfg: &Config, slug: &str) -> Option<Team> {
+    cfg.teams.iter().find(|t| team_slug(&t.name) == slug).map(Clone::clone)
+}
+
 
 // ----------------------------------------------------------------------------------
 // Web server interface
@@ -30,23 +41,33 @@ use std::time::Instant;
 struct AppState {
     pub client: APIClient,
     pub manifests: ManifestMap,
+    pub config: Config,
+    pub relics: RelicMap,
+    pub sentries: SentryMap,
     last_update: Instant,
 }
 impl AppState {
     pub fn new(client: APIClient) -> Self {
         info!("Loading state from CRDs");
-        let manifests = kube::get_shipcat_manifests(&client).unwrap();
-        AppState {
+        let config = kube::get_shipcat_config(&client, "dev-uk").unwrap().spec;
+        let mut res = AppState {
             client: client,
-            manifests: manifests,
+            manifests: HashMap::new(),
+            config: config,
+            relics: HashMap::new(),
+            sentries: HashMap::new(),
             last_update: Instant::now(),
-        }
+        };
+        res.maybe_update_cache(true).unwrap();
+        res.update_slow_cache().unwrap();
+        res
     }
 
-    fn maybe_update_cache(&mut self) -> Result<()> {
-        if self.last_update.elapsed().as_secs() > 120 {
-            debug!("Refreshing state from CRDs");
+    fn maybe_update_cache(&mut self, force: bool) -> Result<()> {
+        if self.last_update.elapsed().as_secs() > 30 || force {
+            info!("Refreshing state from CRDs");
             let versions = version::get_all()?;
+            info!("Loaded {} versions", versions.len());
             self.manifests = kube::get_shipcat_manifests(&self.client)?;
             for (k, mf) in &mut self.manifests {
                 mf.version = versions.get(k).map(String::clone);
@@ -55,8 +76,19 @@ impl AppState {
         }
         Ok(())
     }
+    fn update_slow_cache(&mut self) -> Result<()> {
+        let (cluster, region) = self.config.resolve_cluster("dev-uk").unwrap();
+        self.sentries = sentryapi::get_slugs(
+            &region.sentry.clone().unwrap().url,
+            &region.environment
+        )?;
+        info!("Loaded {} sentry slugs", self.sentries.len());
+        self.relics = newrelic::get_links(&region.name)?;
+        info!("Loaded {} newrelic links", self.relics.len());
+        Ok(())
+    }
     pub fn get_manifest(&mut self, key: &str) -> Result<Option<Manifest>> {
-        self.maybe_update_cache()?;
+        self.maybe_update_cache(false)?;
         if let Some(mf) = self.manifests.get(key) {
             return Ok(Some(mf.clone()));
         }
@@ -78,12 +110,10 @@ impl AppState {
         Ok(res)
     }
     pub fn get_config(&mut self) -> Result<Config> {
-        let name = "dev-uk"; // TODO: from env
-        let cfg = kube::get_shipcat_config(&self.client, name)?;
-        Ok(cfg.spec)
+        Ok(self.config.clone())
     }
     pub fn get_manifests(&mut self) -> Result<ManifestMap> {
-        self.maybe_update_cache()?;
+        self.maybe_update_cache(false)?;
         Ok(self.manifests.clone())
     }
 }
@@ -128,10 +158,13 @@ fn get_resource_usage(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
 }
 fn get_manifests_for_team(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
-    //let cfg = req.state().safe.lock().unwrap().get_config()?;
-    //let (cluster, region) = cfg.resolve_cluster("dev-uk").unwrap();
-    let mfs = req.state().safe.lock().unwrap().get_manifests_for(name)?.clone();
-    Ok(HttpResponse::Ok().json(mfs))
+    let cfg = req.state().safe.lock().unwrap().get_config()?;
+    if let Some(t) = find_team(&cfg, name) {
+        let mfs = req.state().safe.lock().unwrap().get_manifests_for(&t.name)?.clone();
+        Ok(HttpResponse::Ok().json(mfs))
+    } else {
+        Ok(HttpResponse::NotFound().finish())
+    }
 }
 fn get_teams(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let cfg = req.state().safe.lock().unwrap().get_config()?;
@@ -142,6 +175,8 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
     let cfg = req.state().safe.lock().unwrap().get_config()?;
     let revdeps = req.state().safe.lock().unwrap().get_reverse_deps(name).ok();
+    let newrelic_link = req.state().safe.lock().unwrap().relics.get(name).map(String::to_owned);
+    let sentry_slug = req.state().safe.lock().unwrap().sentries.get(name).map(String::to_owned);
     let (cluster, region) = cfg.resolve_cluster("dev-uk").unwrap();
     if let Some(mf) = req.state().safe.lock().unwrap().get_manifest(name)?.clone() {
         let pretty = serde_yaml::to_string(&mf)?;
@@ -170,7 +205,7 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         let circlelink = format!("https://circleci.com/gh/Babylonpartners/{}", mf.name);
         let quaylink = format!("https://{}/?tab=tags", mf.image.clone().unwrap());
 
-        let (team, teamlink) = (md.team.clone(), format!("/teams/{}", md.team));
+        let (team, teamlink) = (md.team.clone(), format!("/teams/{}", team_slug(&md.team)));
         // TODO: runbook
 
         let mut ctx = tera::Context::new();
@@ -188,17 +223,13 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         ctx.insert("team", &team);
         ctx.insert("team_link", &teamlink);
 
-        // fetch stuff from integrations in a best effor way
-        if let Some(sentry_project_slug) = sentryapi::get_slug(
-            &region.sentry.clone().unwrap().url,
-            &region.environment,
-            &mf.name,
-        ).ok() {
-            let sentry_link = format!("{sentry_base_url}/sentry/{sentry_project_slug}",
-                sentry_base_url = &region.sentry.clone().unwrap().url, sentry_project_slug = &sentry_project_slug);
+        // integration insert if found in the big query
+        if let Some(slug) = sentry_slug {
+            let sentry_link = format!("{sentry_base_url}/sentry/{slug}",
+                sentry_base_url = &region.sentry.clone().unwrap().url, slug = slug);
             ctx.insert("sentry_link", &sentry_link);
         }
-        if let Some(nr) = newrelic::get_link(&region.name, &mf.name).ok() {
+        if let Some(nr) = newrelic_link {
             ctx.insert("newrelic_link", &nr);
         }
 
@@ -242,7 +273,8 @@ fn main() -> Result<()> {
     let dsn = std::env::var("SENTRY_DSN").expect("Sentry DSN required");
     let _guard = sentry::init(dsn); // must keep _guard in scope
 
-    std::env::set_var("RUST_LOG", "actix_web=info,raftcat=debug");
+    std::env::set_var("RUST_LOG", "actix_web=info,raftcat=info");
+    //std::env::set_var("RUST_LOG", "actix_web=info,raftcat=debug");
     std::env::set_var("RUST_BACKTRACE", "1");
     env_logger::init();
 

@@ -69,8 +69,16 @@ pub struct Team {
     pub notifications: Option<SlackChannel>,
 }
 
-
-
+impl Team {
+    pub fn slug(&self) -> String {
+        self.name.to_lowercase().replace("/", "-").replace(" ", "_")
+    }
+}
+impl Config {
+    pub fn find_team(&self, slug: &str) -> Option<Team> {
+        self.teams.iter().find(|t| &t.slug() == slug).map(Clone::clone)
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]

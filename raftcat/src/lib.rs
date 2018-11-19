@@ -18,12 +18,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 
 extern crate shipcat_definitions;
-pub use shipcat_definitions::{Manifest, Config};
+pub use shipcat_definitions::{Manifest, Config, Team};
 
 /// A small CLI kubernetes interface
 pub mod kube;
 pub use kube::{ManifestMap};
 
 mod integrations;
-pub use integrations::{sentryapi, newrelic};
+pub use integrations::sentryapi::{self, SentryMap};
+pub use integrations::newrelic::{self, RelicMap};
 pub use integrations::version::{self, VersionMap};
