@@ -1,4 +1,5 @@
 use super::structs::Resources;
+use super::structs::rollingupdate::{AvailabilityPolicy};
 use super::{Result, Manifest};
 
 /// Total resource usage for a Manifest
@@ -20,21 +21,41 @@ impl Manifest {
     /// Estimate how long to wait for a kube rolling upgrade
     ///
     /// Was used by helm, now used by the internal upgrade wait time.
-    pub fn estimate_wait_time(&self) -> u32 {
-        // 512 default => extra 120s wait
-        let pulltimeestimate = (((self.imageSize.unwrap()*120) as f64)/(1024 as f64)) as u32;
-        let rcount = self.replicaCount.unwrap(); // this is set by defaults!
-        // NB: we wait to pull on each node because of how rolling-upd
-        if let Some(ref hc) = self.health {
-            // wait for at most (bootTime + pulltimeestimate) * replicas
-            (hc.wait + pulltimeestimate) * rcount
-        } else if let Some(ref rp) = self.readinessProbe {
-            // health equivalent for readinessProbes
-            (rp.initialDelaySeconds + pulltimeestimate) * rcount
+    pub fn estimate_wait_time(&self) -> Option<u32> {
+        if let (Some(size), Some(rcount)) = (self.imageSize, self.replicaCount) {
+            // 512 default => extra 120s wait
+            let pulltimeestimate = (((size*120) as f64)/(1024 as f64)) as u32;
+
+            let waitmultiplier = if let Some(ru) = self.rollingUpdate {
+                match ru.maxSurge {
+                    AvailabilityPolicy::Percentage(percstr) => {
+                        let digits = percstr.chars().take_while(|ch| *ch != '%').collect::<String>();
+                        let surgeperc : u32 = digits.parse().unwrap();
+                        ((rcount * surgeperc as f64)/ 100).ceil()
+                    },
+                    AvailabilityPolicy::Unsigned(u) => {
+                        (rcount as f64 / u as f64).ceil()
+                    }
+                }
+            };
+            // TODO: handle install case, factor of 5?
+
+            // NB: we wait to pull on each node because of how rolling-upd
+            if let Some(ref hc) = self.health {
+                // wait for at most (bootTime + pulltimeestimate) * replicas
+                (hc.wait + pulltimeestimate) * waitmultiplier
+            } else if let Some(ref rp) = self.readinessProbe {
+                // health equivalent for readinessProbes
+                (rp.initialDelaySeconds + pulltimeestimate) * waitmultiplier
+            } else {
+                // sensible guess for boot time (helm default is 300 without any context)
+                (30 + pulltimeestimate) * waitmultiplier
+            }
         } else {
-            // sensible guess for boot time (helm default is 300 without any context)
-            (30 + pulltimeestimate) * rcount
+            warn!("Missing imageSize or replicaCount in {}", self.name);
+            None
         }
+
     }
 
     /// Compute the total resource usage of a service
