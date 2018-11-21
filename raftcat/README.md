@@ -20,7 +20,7 @@ A small web api for shipcat manifests reading the current state of shipcat crds 
 - GET `/raftcat/teams` -> list of teams
 
 ## Developing
-Given a kube context with client certificates (kops clusters / minikube), you can run the server locally using your kube config:
+Given a kube context with client key data and a token (kops clusters / minikube), you can run the server locally using your kube config:
 
 ```sh
 cargo run --bin raftcat
