@@ -320,13 +320,10 @@ fn main() -> Result<()> {
 
     // Load the config: local kube config prioritised first for local development
     // NB: Only supports a config with client certs locally (e.g. kops setup)
-    let cfg = config::load_kube_config().map_err(|e| {
-        warn!("Failed to load local kube config: {}", e);
-        warn!("Assuming in-cluster config used");
-        e
-    }).unwrap_or_else(|_| {
-        config::incluster_config().expect("in cluster config failed to load")
-    });
+    let cfg = match env::var("HOME").expect("have HOME dir").as_ref() {
+        "/root" => config::incluster_config(),
+        _ => config::load_kube_config(),
+    }.expect("Failed to load kube config");
 
     let client = APIClient::new(cfg);
     let state = StateSafe::new(client);
