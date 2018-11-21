@@ -22,7 +22,7 @@ pub use raftcat::*;
 use kubernetes::client::APIClient;
 use kubernetes::config as config;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::env;
 use chrono::Local;
 
@@ -60,11 +60,11 @@ impl AppState {
             .expect("Need to be able to read config CRD").spec;
         let mut res = AppState {
             client: client,
-            manifests: HashMap::new(),
+            manifests: BTreeMap::new(),
             config: config,
             region: rname,
-            relics: HashMap::new(),
-            sentries: HashMap::new(),
+            relics: BTreeMap::new(),
+            sentries: BTreeMap::new(),
             last_update: Instant::now(),
         };
         res.maybe_update_cache(true).expect("Need to be able to read manifest CRDs");
@@ -320,7 +320,11 @@ fn main() -> Result<()> {
 
     // Load the config: local kube config prioritised first for local development
     // NB: Only supports a config with client certs locally (e.g. kops setup)
-    let cfg = config::load_kube_config().unwrap_or_else(|_| {
+    let cfg = config::load_kube_config().map_err(|e| {
+        warn!("Failed to load local kube config: {}", e);
+        warn!("Assuming in-cluster config used");
+        e
+    }).unwrap_or_else(|_| {
         config::incluster_config().expect("in cluster config failed to load")
     });
 

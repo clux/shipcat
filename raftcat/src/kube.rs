@@ -1,5 +1,5 @@
 use kubernetes::client::APIClient;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use shipcat_definitions::{Crd, CrdList, Manifest, Config};
 
@@ -43,12 +43,12 @@ fn make_crd_entry_req(resource: &str, group: &str, name: &str) -> Result<http::R
 
 
 // program interface - request consumers
-pub type ManifestMap = HashMap<String, Manifest>;
+pub type ManifestMap = BTreeMap<String, Manifest>;
 
 pub fn get_shipcat_manifests(client: &APIClient) -> Result<ManifestMap> {
     let req = make_all_crd_entry_req(SHIPCATMANIFESTS, GROUPNAME)?;
     let res = client.request::<CrdList<Manifest>>(req)?;
-    let mut data = HashMap::new();
+    let mut data = BTreeMap::new();
     for i in res.items {
         data.insert(i.spec.name.clone(), i.spec);
     }

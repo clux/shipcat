@@ -2,7 +2,7 @@ use super::{Result};
 
 pub mod version {
     use reqwest::Url;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     use std::env;
     use super::Result;
 
@@ -15,7 +15,7 @@ pub mod version {
     }
 
     /// Map of service -> versions
-    pub type VersionMap = HashMap<String, String>;
+    pub type VersionMap = BTreeMap<String, String>;
 
     // The actual HTTP GET logic
     pub fn get_all() -> Result<VersionMap> {
@@ -29,7 +29,7 @@ pub mod version {
         debug!("Got version data: {}", text);
         let data : Vec<Entry> = serde_json::from_str(&text)?;
         let res = data.into_iter()
-            .fold(HashMap::new(), |mut acc, e| {
+            .fold(BTreeMap::new(), |mut acc, e| {
                 acc.insert(e.name, e.version);
                 acc
             });
@@ -38,7 +38,7 @@ pub mod version {
 }
 
 pub mod sentryapi {
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     use super::Result;
     use std::env;
 
@@ -50,7 +50,7 @@ pub mod sentryapi {
     }
 
     /// Service -> Link
-    pub type SentryMap = HashMap<String, String>;
+    pub type SentryMap = BTreeMap<String, String>;
 
     // Get Sentry info
     pub fn get_slugs(sentry_url: &str, env: &str) -> Result<SentryMap> {
@@ -72,7 +72,7 @@ pub mod sentryapi {
         let text = res.text()?;
         debug!("Got slugs: {}", text);
         let data : Vec<Project> = serde_json::from_str(&text)?;
-        let res = data.into_iter().fold(HashMap::new(), |mut acc, e| {
+        let res = data.into_iter().fold(BTreeMap::new(), |mut acc, e| {
             acc.insert(e.name, e.slug);
             acc
         });
@@ -82,7 +82,7 @@ pub mod sentryapi {
 
 
 pub mod newrelic {
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     use super::Result;
     use std::env;
 
@@ -98,7 +98,7 @@ pub mod newrelic {
     }
 
     /// Service -> Link
-    pub type RelicMap = HashMap<String, String>;
+    pub type RelicMap = BTreeMap<String, String>;
 
     // Get NewRelic link
     pub fn get_links(region: &str) -> Result<RelicMap> {
@@ -119,7 +119,7 @@ pub mod newrelic {
         let text = res.text()?;
         debug!("Got NewRelic data: {}", text);
         let data : Applications = serde_json::from_str(&text)?;
-        let res = data.applications.into_iter().fold(HashMap::new(), |mut acc, e| {
+        let res = data.applications.into_iter().fold(BTreeMap::new(), |mut acc, e| {
             let link = format!(
                 "https://rpm.newrelic.com/accounts/{account_id}/applications/{application_id}",
                 account_id = account_id,
