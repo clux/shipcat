@@ -118,7 +118,7 @@
                         <td>{{key}}</td>
                         <td>
                           {% if value == "IN_VAULT" %}
-                            <a href="{{ vault_link }}/{{key}}">{{value}}</a>
+                            <a href="{{ vault_link }}{{key}}">{{value}}</a>
                             <!-- TODO: baseurls templating  -->
                           {% else %}
                             {{value}}
