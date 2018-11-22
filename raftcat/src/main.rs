@@ -231,6 +231,9 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         let circlelink = format!("https://circleci.com/gh/Babylonpartners/{}", mf.name);
         let quaylink = format!("https://{}/?tab=tags", mf.image.clone().unwrap());
 
+        let env_vars = mf.env.clone();
+        let deps = mf.dependencies.clone();
+
         let (team, teamlink) = (md.team.clone(), format!("/raftcat/teams/{}", team_slug(&md.team)));
         // TODO: runbook
 
@@ -248,6 +251,8 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         ctx.insert("quay_link", &quaylink);
         ctx.insert("team", &team);
         ctx.insert("team_link", &teamlink);
+        ctx.insert("mfenv", &mf.env);
+        ctx.insert("mfdeps", &mf.dependencies);
 
         // integration insert if found in the big query
         if let Some(slug) = sentry_slug {

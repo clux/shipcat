@@ -9,50 +9,227 @@ pre {
   word-break: break-all
 }
 
+html,
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+*,
+*:before,
+*:after {
+  box-sizing: border-box;
+}
+
 body{
   margin: 0;
   color: #fff;
+  background: #F0F0F0;
 }
-a:link {
-  color: #ffd700;
+
+a {
+  color: #2bbbbb;
+  text-decoration: none;
 }
+
+a:hover {
+  text-decoration: underline;
+}
+
 a:visited {
-  color: #ffd700;
+  color: #219292;
 }
+
 .wrapper{
-  min-height: 100vh;
-  background: #ccc;
   display: flex;
   flex-direction: column;
+  max-width: 1024px;
+  margin: auto;
+  position: relative;
 }
-.header, .footer{
-  height: 50px;
-  background: #2b2b2b;
+
+.header {
+  background: #333;
+  position: relative;
 }
+
+.footer{
+  padding: 15px 0;
+}
+
 .header {
   border-bottom: 1px dashed #c00
 }
+
 .content {
   flex: 1;
-  background: #999;
   display: flex;
   color: #000;
 }
+
 .columns{
   display: flex;
   flex: 1;
 }
+
 .main{
   flex: 1;
-  background: #2b2b2b;
-}
-.sidebar{
-  width: 250px;
-  padding-left: 10px ;
-  color: #d4d0ab;
-  background: #2b2b2b
+  background: #F0F0F0;
 }
 
-.sidebar .quick {
-  font-size: 150%;
+ul {
+  list-style: disc outside none;
+  padding-left: 20px;
+}
+
+.service-title {
+  font-size: 24px;
+  margin: 20px 0 0 0;
+}
+
+.service-title pre {
+  display: inline;
+}
+
+.service-title pre:first-of-type {
+  color: #2bbbbb;
+}
+
+.tabs {
+  display: block;
+}
+
+.tabs__tabList {
+  list-style: none outside none;
+  padding: 0;
+  margin: 0;
+  display: block;
+  width: 100%;
+  margin-top: 15px;
+}
+
+.tabs__tabList:before,
+.tabs__tabList:after {
+  content: '';
+  display: table;
+}
+
+.tabs__tabList:after {
+  clear: both;
+}
+
+.tabList__tabItem {
+  float: left;
+}
+
+.tabItem__button {
+  background: #DDD;
+  border: 1px solid #CCC;
+  padding: 15px 10px;
+  border-radius: 0;
+  border-bottom: 0;
+  cursor: pointer;
+  outline: 0;
+}
+
+.tabItem__button.is-active {
+  background: #FFF;
+  cursor: default;
+}
+
+.tabList__tabItem:first-child .tabItem__button {
+  border-top-left-radius: 5px;
+}
+
+.tabList__tabItem:last-child .tabItem__button {
+  border-top-right-radius: 5px;
+}
+
+.tabList__tabItem + .tabList__tabItem {
+  margin-left: 5px;
+}
+
+.tabs__content {
+  border: 1px solid #CCC;
+  padding: 10px;
+  background: #FFF;
+}
+
+.quick {
+  list-style: none outside none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.quick li {
+  flex: 4 0 auto;
+  display: flex;
+  flex-direction: column;
+  max-width: 25%;
+  padding: 5px;
+}
+
+.quick li a,
+.quick li figure {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+}
+
+.quick li a {
+  text-decoration: none;
+}
+
+.quick li a:hover figcaption {
+  background: #F0F0F0;
+}
+
+.logo-link {
+  padding: 0;
+  margin: 0;
+  flex: 1 0 auto;
+  border: 1px solid #CCC;
+  border-radius: 5px;
+}
+
+.logo-link img {
+  max-width: 100%;
+  height: auto;
+  max-height: 140px;
+  margin: auto;
+}
+
+.logo-link figcaption {
+  color: #333;
+  text-align: center;
+  border-top: 1px solid #CCC;
+  padding: 5px  0;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+table tbody {
+  border: 1px solid #CCC;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+table td,
+table th {
+  border: 1px solid #F0F0F0;
+  padding: 5px;
+}
+
+table tr:hover {
+  background: #F0F0F0;
+}
+
+.support-link {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 120px;
 }
