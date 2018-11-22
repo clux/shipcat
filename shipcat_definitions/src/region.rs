@@ -288,22 +288,32 @@ impl Region {
             app = &app)
     }
 
-    // Get the Grafana URL for a given service in a cluster in this region
-    pub fn grafana_url(&self, app: &str, cluster: &str) -> String {
-        format!("{grafana_url}/d/{dashboard_id}/kubernetes-services?var-cluster={cluster}&var-namespace={namespace}&var-deployment={app}",
-          grafana_url = self.grafana.clone().unwrap().url.trim_matches('/'),
-          dashboard_id = self.grafana.clone().unwrap().services_dashboard_id,
-          app = &app,
-          cluster = &cluster,
-          namespace = &self.namespace)
+    pub fn grafana_url(&self, app: &str, cluster: &str) -> Option<String> {
+        self.grafana.clone().map(|gf| {
+            format!("{grafana_url}/d/{dashboard_id}/kubernetes-services?var-cluster={cluster}&var-namespace={namespace}&var-deployment={app}",
+              grafana_url = gf.url.trim_matches('/'),
+              dashboard_id = gf.services_dashboard_id,
+              app = app,
+              cluster = cluster,
+              namespace = &self.namespace)
+        })
     }
 
-    // Get the Logz.io link URL for a given service in this region
-    pub fn logzio_url(&self, app: &str) -> String {
-        format!("{logzio_url}/{app}-{env}?accountIds={account_id}",
-          logzio_url = self.logzio.clone().unwrap().url.trim_matches('/'),
-          app = &app,
-          env = &self.name,
-          account_id = &self.logzio.clone().unwrap().account_id)
+    // Get the Sentry URL for a given service slug in a cluster in this region
+    pub fn sentry_url(&self, slug: &str) -> Option<String> {
+        self.sentry.clone().map(|s| {
+            format!("{sentry_base_url}/sentry/{slug}",
+                    sentry_base_url = s.url, slug = slug)
+        })
+    }
+
+    pub fn logzio_url(&self, app: &str) -> Option<String> {
+        self.logzio.clone().map(|lio| {
+            format!("{logzio_url}/{app}-{env}?accountIds={account_id}",
+              logzio_url = lio.url.trim_matches('/'),
+              app = app,
+              env = self.name,
+              account_id = lio.account_id)
+        })
     }
 }

@@ -91,12 +91,16 @@ impl AppState {
     }
     fn update_slow_cache(&mut self) -> Result<()> {
         let (cluster, region) = self.config.resolve_cluster(&self.region).unwrap();
-        match sentryapi::get_slugs(&region.sentry.clone().unwrap().url, &region.environment) {
-            Ok(res) => {
-                self.sentries = res;
-                info!("Loaded {} sentry slugs", self.sentries.len());
-            },
-            Err(e) => warn!("Unable to load sentry slugs. SENTRY evars set? {}", err_msg(e)),
+        if let Some(s) = region.sentry {
+            match sentryapi::get_slugs(&s.url, &region.environment) {
+                Ok(res) => {
+                    self.sentries = res;
+                    info!("Loaded {} sentry slugs", self.sentries.len());
+                },
+                Err(e) => warn!("Unable to load sentry slugs. SENTRY evars set? {}", err_msg(e)),
+            }
+        } else {
+            warn!("No sentry url configured for this region");
         }
         match newrelic::get_links(&region.name) {
             Ok(res) => {
@@ -255,10 +259,17 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         ctx.insert("mfdeps", &mf.dependencies);
 
         // integration insert if found in the big query
+        if let Some(lio_link) = region.logzio_url(&mf.name) {
+            ctx.insert("logzio_link", &lio_link);
+        }
+        if let Some(gf_link) = region.grafana_url(&mf.name, &cluster.name) {
+            ctx.insert("grafana_link", &gf_link);
+        }
+        ctx.insert("vault_link", &region.vault_url(&mf.name));
         if let Some(slug) = sentry_slug {
-            let sentry_link = format!("{sentry_base_url}/sentry/{slug}",
-                sentry_base_url = &region.sentry.clone().unwrap().url, slug = slug);
-            ctx.insert("sentry_link", &sentry_link);
+            if let Some(sentry_link) = region.sentry_url(&slug) {
+                ctx.insert("sentry_link", &sentry_link);
+            }
         }
         if let Some(nr) = newrelic_link {
             ctx.insert("newrelic_link", &nr);
@@ -269,10 +280,6 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         let date = Local::now();
         let time = format!("{now}", now = date.format("%Y-%m-%d %H:%M:%S"));
 
-        ctx.insert("vault_link", &region.vault_url(&mf.name));
-        ctx.insert("logzio_link", &region.logzio_url(&mf.name));
-
-        ctx.insert("grafana_link", &region.grafana_url(&mf.name, &cluster.name));
         ctx.insert("time", &time);
         let t = req.state().template.lock().unwrap();
         let s = t.render("service.tera", &ctx).unwrap(); // TODO: map error

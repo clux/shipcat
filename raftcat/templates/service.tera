@@ -60,18 +60,22 @@
                     </figure>
                   </a></li>
                   {% endif %}
+                  {% if grafana_link %}
                   <li><a target="_blank"  href="{{ grafana_link }}">
                     <figure class='logo-link'>
                       <img src='/raftcat/static/images/grafana.png' />
                       <figcaption>Grafana</figcaption>
                     </figure>
                   </a></li>
+                  {% endif %}
+                  {% if logzio_link %}
                   <li><a target="_blank"  href="{{ logzio_link }}">
                     <figure class='logo-link'>
                       <img src='/raftcat/static/images/logz.io.png' />
                       <figcaption>Logz.io</figcaption>
                     </figure>
                   </a></li>
+                  {% endif %}
                   {% if sentry_link %}
                   <li><a target="_blank"  href="{{ sentry_link }}">
                     <figure class='logo-link'>
@@ -118,7 +122,7 @@
                         <td>{{key}}</td>
                         <td>
                           {% if value == "IN_VAULT" %}
-                            <a href="{{ vault_link }}/{{key}}">{{value}}</a>
+                            <a href="{{ vault_link }}{{key}}">{{value}}</a>
                             <!-- TODO: baseurls templating  -->
                           {% else %}
                             {{value}}
