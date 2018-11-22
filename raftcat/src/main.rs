@@ -111,6 +111,12 @@ impl AppState {
         }
         Ok(())
     }
+    pub fn watch_manifests(&mut self) -> Result<()> {
+        info!("Starting watch!");
+        let res = kube::watch_for_shipcat_manifest_updates(&self.client, self.manifests.clone())?;
+        info!("got res!");
+        Ok(())
+    }
     pub fn get_manifest(&mut self, key: &str) -> Result<Option<Manifest>> {
         self.maybe_update_cache(false)?;
         if let Some(mf) = self.manifests.get(key) {
@@ -320,6 +326,11 @@ fn index(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().content_type("text/html").body(s))
 }
 
+fn watch_blah(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
+    req.state().safe.lock().unwrap().watch_manifests()?;
+    Ok(HttpResponse::NotFound().finish())
+}
+
 fn main() -> Result<()> {
     sentry::integrations::panic::register_panic_handler();
     let dsn = env::var("SENTRY_DSN").expect("Sentry DSN required");
@@ -355,6 +366,7 @@ fn main() -> Result<()> {
             .resource("/raftcat/teams/{name}", |r| r.method(Method::GET).f(get_manifests_for_team))
             .resource("/raftcat/teams", |r| r.method(Method::GET).f(get_teams))
             .resource("/raftcat/health", |r| r.method(Method::GET).f(health))
+            .resource("/raftcat/blah", |r| r.method(Method::GET).f(watch_blah))
             .resource("/raftcat/", |r| r.method(Method::GET).f(index))
         })
         .bind("0.0.0.0:8080").expect("Can not bind to 0.0.0.0:8080")

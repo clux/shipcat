@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use config::{Config};
 
 use super::{Manifest};
@@ -11,9 +12,12 @@ pub struct Crd<T> {
     pub metadata: Metadata,
     pub spec: T,
 }
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Metadata {
-    pub name: String
+    pub name: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub annotations: BTreeMap<String, String>,
+    // TODO: generation / resourceVersion later
 }
 
 impl From<Manifest> for Crd<Manifest> {
@@ -26,6 +30,7 @@ impl From<Manifest> for Crd<Manifest> {
             kind: "ShipcatManifest".into(),
             metadata: Metadata {
                 name: format!("{}", mf.name),
+                ..Metadata::default()
             },
             spec: mf,
         }
@@ -38,12 +43,12 @@ impl From<Config> for Crd<Config> {
         assert!(!conf.has_secrets()); // no secrets
         assert_eq!(rgs.len(), 1); // config must be filtered
         // thus, can infer the region :-)
-        let rname = &rgs[0];
+        let rname = rgs[0].to_owned();
         Crd {
             apiVersion: "babylontech.co.uk/v1".into(),
             kind: "ShipcatConfig".into(),
             metadata: Metadata {
-                name: format!("{}", rname)
+                name: rname, ..Metadata::default()
             },
             spec: conf,
         }
@@ -58,4 +63,19 @@ pub struct CrdList<T> {
     pub kind: String,
     //pub metadata: Metadata,
     pub items: Vec<Crd<T>>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum CrdEventType {
+    Added,
+    Modified,
+}
+
+/// Basic CRD Watch wrapper struct
+#[derive(Deserialize, Serialize)]
+pub struct CrdEvent<T> {
+    #[serde(rename = "type")]
+    pub kind: CrdEventType,
+    pub object: Crd<T>,
 }
