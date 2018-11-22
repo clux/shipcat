@@ -11,16 +11,17 @@ static SHIPCATCONFIGS: &str = "shipcatconfigs";
 
 // Request builders
 fn make_all_crd_entry_req(resource: &str, group: &str) -> Result<http::Request<Vec<u8>>> {
-    let urlstr = format!("/apis/{group}/v1/namespaces/dev/{resource}?",
-        group = group, resource = resource);
+    let ns = std::env::var("ENV_NAME").expect("Must have an env name evar");
+    let urlstr = format!("/apis/{group}/v1/namespaces/{ns}/{resource}?",
+        group = group, resource = resource, ns = ns);
     let urlstr = url::form_urlencoded::Serializer::new(urlstr).finish();
     let mut req = http::Request::get(urlstr);
     req.body(vec![]).map_err(Error::from)
 }
 fn make_crd_entry_req(resource: &str, group: &str, name: &str) -> Result<http::Request<Vec<u8>>> {
-    // TODO: namespace from evar
-    let urlstr = format!("/apis/{group}/v1/namespaces/dev/{resource}/{name}?",
-        group = group, resource = resource, name = name);
+    let ns = std::env::var("ENV_NAME").expect("Must have an env name evar");
+    let urlstr = format!("/apis/{group}/v1/namespaces/{ns}/{resource}/{name}?",
+        group = group, resource = resource, name = name, ns = ns);
     let urlstr = url::form_urlencoded::Serializer::new(urlstr).finish();
     let mut req = http::Request::get(urlstr);
     req.body(vec![]).map_err(Error::from)
