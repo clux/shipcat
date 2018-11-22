@@ -116,7 +116,13 @@
                     {% for key, value in mfenv %}
                       <tr>
                         <td>{{key}}</td>
-                        <td>{{value}}</td>
+                        <td>
+                          {% if value == "IN_VAULT" %}
+                            <a href="{{ vault_link }}/{{key}}">{{value}}</a>
+                          {% else %}
+                            {{value}}
+                          {% endif %}
+                        </td>
                       </tr>
                     {% endfor %}
                   </tbody>
