@@ -57,7 +57,7 @@ pub use self::initcontainer::InitContainer;
 mod probes;
 pub use self::probes::Probe;
 /// Kubernetes rolling-update settings
-mod rollingupdate;
+pub mod rollingupdate;
 pub use self::rollingupdate::RollingUpdate;
 /// Kubernetes horizontal pod autoscaler
 pub mod autoscaling;
