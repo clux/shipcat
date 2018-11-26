@@ -71,3 +71,50 @@ impl RollingUpdate {
         Ok(())
      }
 }
+
+
+impl RollingUpdate {
+    /// Estimate how many cycles is needed to roll out a new version
+    ///
+    /// This is a bit arcane extrapolates from [rolling update documentation](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#max-unavailable)
+    /// It needs to keep into account both values.
+    pub fn rollout_iterations(&self, replicas: u32) -> u32 {
+        if let Some(surge) = self.maxSurge {
+            // surge is max number/percentage
+            match surge {
+                AvailabilityPolicy::Percentage(percstr) => {
+                    let digits = percstr.chars().take_while(|ch| *ch != '%').collect::<String>();
+                    let surgeperc : u32 = digits.parse().unwrap(); // safe due to verify ^
+                    ((replicas as f64 * surgeperc as f64)/ 100.0).ceil() as u32
+                },
+                AvailabilityPolicy::Unsigned(u) => {
+                    (replicas as f64 / u as f64).ceil() as u32
+                }
+            }
+        } else {
+            RollingUpdate::rollout_iterations_default(replicas)
+        }
+
+    }
+    pub fn rollout_iterations_default(replicas: u32) -> u32 {
+        // default surge percentage is 25
+        ((replicas as f64 * 25 as f64)/ 100.0).ceil() as u32
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::RollingUpdate;
+
+    #[test]
+    fn rollout_iteration_check() {
+        let ru = RollingUpdate::default();
+        let iters = ru.rollout_iterations(8);
+        assert_eq!()
+
+        assert!(res.is_ok());
+        let ru = res.unwrap();
+        assert_eq!(ru, "prefix-0.1.2-suffix")
+    }
+}

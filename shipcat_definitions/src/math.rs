@@ -1,5 +1,5 @@
 use super::structs::Resources;
-use super::structs::rollingupdate::{AvailabilityPolicy};
+use super::structs::rollingupdate::{RollingUpdate};
 use super::{Result, Manifest};
 
 /// Total resource usage for a Manifest
@@ -26,30 +26,24 @@ impl Manifest {
             // 512 default => extra 120s wait
             let pulltimeestimate = (((size*120) as f64)/(1024 as f64)) as u32;
 
-            let waitmultiplier = if let Some(ru) = self.rollingUpdate {
-                match ru.maxSurge {
-                    AvailabilityPolicy::Percentage(percstr) => {
-                        let digits = percstr.chars().take_while(|ch| *ch != '%').collect::<String>();
-                        let surgeperc : u32 = digits.parse().unwrap();
-                        ((rcount * surgeperc as f64)/ 100).ceil()
-                    },
-                    AvailabilityPolicy::Unsigned(u) => {
-                        (rcount as f64 / u as f64).ceil()
-                    }
-                }
+            let rollout_iterations = if let Some(ru) = self.rollingUpdate {
+                ru.rollout_iterations(rcount)
+            } else {
+                RollingUpdate::rollout_iterations_default(rcount)
             };
+
             // TODO: handle install case, factor of 5?
 
             // NB: we wait to pull on each node because of how rolling-upd
             if let Some(ref hc) = self.health {
                 // wait for at most (bootTime + pulltimeestimate) * replicas
-                (hc.wait + pulltimeestimate) * waitmultiplier
+                Some((hc.wait + pulltimeestimate) * rollout_iterations)
             } else if let Some(ref rp) = self.readinessProbe {
                 // health equivalent for readinessProbes
-                (rp.initialDelaySeconds + pulltimeestimate) * waitmultiplier
+                Some((rp.initialDelaySeconds + pulltimeestimate) * rollout_iterations)
             } else {
                 // sensible guess for boot time (helm default is 300 without any context)
-                (30 + pulltimeestimate) * waitmultiplier
+                Some((30 + pulltimeestimate) * rollout_iterations)
             }
         } else {
             warn!("Missing imageSize or replicaCount in {}", self.name);
