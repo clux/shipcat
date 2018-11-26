@@ -1,7 +1,7 @@
 use kubernetes::client::APIClient;
 use std::collections::BTreeMap;
 use serde_json;
-use shipcat_definitions::{Crd, CrdList, CrdEvent, Manifest, Config};
+use shipcat_definitions::{Crd, CrdList, CrdEvent, CrdEvents, Manifest, Config};
 
 use super::{Result, Error};
 
@@ -38,7 +38,7 @@ fn watch_crd_entry_after(resource: &str, group: &str) -> Result<http::Request<Ve
     qp.append_pair("watch", "true");
 
     // last version to watch after
-    qp.append_pair("resourceVersion", "15179537");
+    qp.append_pair("resourceVersion", "185325344");
 
     let urlstr = qp.finish();
     let mut req = http::Request::get(urlstr);
@@ -48,12 +48,11 @@ fn watch_crd_entry_after(resource: &str, group: &str) -> Result<http::Request<Ve
 
 pub fn watch_for_shipcat_manifest_updates(client: &APIClient, old: ManifestMap) -> Result<ManifestMap> {
     let req = watch_crd_entry_after(SHIPCATMANIFESTS, GROUPNAME)?;
-    let res = client.request::<CrdEvent<Manifest>>(req)?;
+    let res = client.request::<CrdEvents<Manifest>>(req)?;
     let mut data = BTreeMap::new();
-    // for some reason this returns bunch of objects, not separated by anothing on 1.10..
-    let i = res;
+    for i in res {
         let crd = i.object;
-        println!("Got {} event for {}", i.kind, crd.spec.name);
+        println!("Got {:?} event for {}", i.kind, crd.spec.name);
         if let Some(last_annot) = crd.metadata.annotations.get(LASTAPPLIED) {
             let oldmf = old.get(&crd.spec.name);
             println!("comparing {}: {} vs ..", crd.spec.name, last_annot);
@@ -63,7 +62,7 @@ pub fn watch_for_shipcat_manifest_updates(client: &APIClient, old: ManifestMap) 
                 data.insert(crd.spec.name.clone(), crd.spec);
             }
         }
-
+    }
     let keys = data.keys().cloned().into_iter().collect::<Vec<_>>().join(", ");
     debug!("Updated: {}", keys);
     Ok(data)
