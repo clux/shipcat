@@ -30,6 +30,22 @@ impl AvailabilityPolicy {
         }
         Ok(())
     }
+
+    /// FIgure out how many the availability policy refers to
+    ///
+    /// This multiplies the policy with num replicas
+    fn to_replicas(&self, replicas: u32) -> u32 {
+        match self {
+            AvailabilityPolicy::Percentage(percstr) => {
+                let digits = percstr.chars().take_while(|ch| *ch != '%').collect::<String>();
+                let surgeperc : u32 = digits.parse().unwrap(); // safe due to verify ^
+                ((replicas as f64 * surgeperc as f64)/ 100.0).ceil() as u32
+            },
+            AvailabilityPolicy::Unsigned(u) => {
+                *u
+            }
+        }
+    }
 }
 
 /// Configuration parameters for Deployment.spec.strategy.rollingUpdate
@@ -79,22 +95,43 @@ impl RollingUpdate {
     /// This is a bit arcane extrapolates from [rolling update documentation](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#max-unavailable)
     /// It needs to keep into account both values.
     pub fn rollout_iterations(&self, replicas: u32) -> u32 {
-        if let Some(surge) = self.maxSurge {
+        let surge = if let Some(surge) = self.maxSurge.clone() {
             // surge is max number/percentage
-            match surge {
-                AvailabilityPolicy::Percentage(percstr) => {
-                    let digits = percstr.chars().take_while(|ch| *ch != '%').collect::<String>();
-                    let surgeperc : u32 = digits.parse().unwrap(); // safe due to verify ^
-                    ((replicas as f64 * surgeperc as f64)/ 100.0).ceil() as u32
-                },
-                AvailabilityPolicy::Unsigned(u) => {
-                    (replicas as f64 / u as f64).ceil() as u32
-                }
-            }
-        } else {
-            RollingUpdate::rollout_iterations_default(replicas)
-        }
+            surge.to_replicas(replicas)
 
+        } else {
+            // default surge percentage is 25
+            ((replicas * 25) as f64 / 100.0).ceil() as u32
+        };
+        let unavail = if let Some(unav) = self.maxUnavailable.clone() {
+            // maxUnavailable is max number/percentage
+            unav.to_replicas(replicas)
+        } else {
+            ((replicas * 25) as f64 / 100.0).ceil() as u32
+        };
+        // Work out how many iterations is needed assuming consistent rollout time
+        // Often, this is not true, but it provides a good indication
+        let mut newrs = 0;
+        let mut oldrs = replicas; // keep track of for ease of following logic
+        let mut iters = 0;
+        trace!("rollout iterations for {} replicas, surge={},unav={}", replicas, surge, unavail);
+        while newrs < replicas {
+            // kild from oldrs the difference in total if we are surging
+            oldrs -= oldrs + newrs - replicas; // noop if surge == 0
+            // terminate pods so we have at least maxUnavailable
+            let total = newrs + oldrs;
+            let unavail_safe = if total <= unavail { 0 } else { unavail };
+            oldrs -= unavail_safe;
+            // add new pods to cover and allow surging a little
+            newrs += unavail_safe;
+            newrs += surge;
+            // after this iteration, assume we have rolled out newrs replicas
+            // and we hve ~_oldrs remaining (ignoring <0 case)
+            iters += 1;
+            trace!("rollout iter {}: old={}, new={}", iters, oldrs, newrs);
+        }
+        trace!("rollout iters={}", iters);
+        iters
     }
     pub fn rollout_iterations_default(replicas: u32) -> u32 {
         // default surge percentage is 25
@@ -105,16 +142,38 @@ impl RollingUpdate {
 
 #[cfg(test)]
 mod tests {
-    use super::RollingUpdate;
+    use super::{RollingUpdate, AvailabilityPolicy};
 
     #[test]
     fn rollout_iteration_check() {
+        // examples cross referenced with kube
+        // (kube rollout cycles in parens after each assert)
         let ru = RollingUpdate::default();
-        let iters = ru.rollout_iterations(8);
-        assert_eq!()
+        assert_eq!(ru.rollout_iterations(1), 1); // 0 dn 1 up (then 1 down ungated)
+        assert_eq!(ru.rollout_iterations(2), 1); // 1 dn 2 up (then 1 down ungated)
+        assert_eq!(ru.rollout_iterations(4), 2); // 1 dn 2 up, 2 dn 2 up
+        assert_eq!(ru.rollout_iterations(8), 2); // 2 dn 4 up, 4 dn 4 up (then 2 down ungated)
 
-        assert!(res.is_ok());
-        let ru = res.unwrap();
-        assert_eq!(ru, "prefix-0.1.2-suffix")
+        // an example that will surge quickly:
+        let rusurge = RollingUpdate {
+            maxUnavailable: Some(AvailabilityPolicy::Percentage("25%".to_string())),
+            maxSurge: Some(AvailabilityPolicy::Percentage("50%".to_string())),
+        };
+        assert_eq!(rusurge.rollout_iterations(8), 2);  // 2 dn 6  up, 6  dn 2 up
+        assert_eq!(rusurge.rollout_iterations(16), 2); // 4 dn 12 up, 12 dn 4 up
+
+        // an example that kill almost everything immediately
+        let rusurge = RollingUpdate {
+            maxUnavailable: Some(AvailabilityPolicy::Percentage("75%".to_string())),
+            maxSurge: Some(AvailabilityPolicy::Percentage("25%".to_string())),
+        };
+        assert_eq!(rusurge.rollout_iterations(8), 1);  // 6 dn 8 up (then 2 down ungated)
+
+        // an example with no surge
+        let rusurge = RollingUpdate {
+            maxUnavailable: Some(AvailabilityPolicy::Percentage("25%".to_string())),
+            maxSurge: Some(AvailabilityPolicy::Percentage("0%".to_string())),
+        };
+        assert_eq!(rusurge.rollout_iterations(8), 4);  // 2 dn 2 up (x4)
     }
 }

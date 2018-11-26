@@ -18,38 +18,51 @@ pub struct ResourceTotals {
 /// These generally assume that `verify` has passed on all manifests.
 impl Manifest {
 
+
+    /// Estimate how many iterations needed in a kube rolling upgrade
+    ///
+    /// Used to `estimate_wait_time` for a rollout.
+    fn estimate_rollout_iterations(&self) -> u32 {
+        let rcount = if let Some(ref hpa) = self.autoScaling {
+            hpa.minReplicas
+        } else {
+            self.replicaCount.unwrap() // verify ensures we have one of these
+        };
+        if let Some(ru) = self.rollingUpdate.clone() {
+            ru.rollout_iterations(rcount)
+        } else {
+            RollingUpdate::default().rollout_iterations(rcount)
+        }
+    }
+
     /// Estimate how long to wait for a kube rolling upgrade
     ///
     /// Was used by helm, now used by the internal upgrade wait time.
-    pub fn estimate_wait_time(&self) -> Option<u32> {
-        if let (Some(size), Some(rcount)) = (self.imageSize, self.replicaCount) {
-            // 512 default => extra 120s wait
-            let pulltimeestimate = (((size*120) as f64)/(1024 as f64)) as u32;
+    pub fn estimate_wait_time(&self) -> u32 {
+        // TODO: handle install case elsewhere..
+        if let Some(size) = self.imageSize {
+            // 512 default => extra 90s wait, then 90s per half gig...
+            // TODO: smoothen..
+            let pulltimeestimate = std::cmp::max(60, ((size as f64 * 90.0) / 512.0) as u32);
+            let rollout_iterations = self.estimate_rollout_iterations();
+            //println!("estimating wait for {} cycle rollout: size={} (est={})", rollout_iterations, size, pulltimeestimate);
 
-            let rollout_iterations = if let Some(ru) = self.rollingUpdate {
-                ru.rollout_iterations(rcount)
-            } else {
-                RollingUpdate::rollout_iterations_default(rcount)
-            };
-
-            // TODO: handle install case, factor of 5?
-
-            // NB: we wait to pull on each node because of how rolling-upd
-            if let Some(ref hc) = self.health {
-                // wait for at most (bootTime + pulltimeestimate) * replicas
-                Some((hc.wait + pulltimeestimate) * rollout_iterations)
+            // how long each iteration needs to wait due to readinessProbe params.
+            let delayTime = (if let Some(ref hc) = self.health {
+                hc.wait
             } else if let Some(ref rp) = self.readinessProbe {
-                // health equivalent for readinessProbes
-                Some((rp.initialDelaySeconds + pulltimeestimate) * rollout_iterations)
+                rp.initialDelaySeconds
             } else {
-                // sensible guess for boot time (helm default is 300 without any context)
-                Some((30 + pulltimeestimate) * rollout_iterations)
-            }
-        } else {
-            warn!("Missing imageSize or replicaCount in {}", self.name);
-            None
-        }
+                30 // guess value in weird case where no health / readiessProbe
+            } as f64 * 1.5).ceil() as u32; // give it some leeway
+            // leeway scales linearly with wait because we assume accuracy goes down..
 
+            // Final formula: (how long to wait to poll + how long to pull) * num cycles
+            (delayTime + pulltimeestimate) * rollout_iterations
+        } else {
+            warn!("Missing imageSize in {}", self.name);
+            300 // helm default --timeout value
+        }
     }
 
     /// Compute the total resource usage of a service
@@ -94,4 +107,50 @@ impl Manifest {
         Ok(ResourceTotals { base, extra })
     }
 
+}
+
+
+#[cfg(test)]
+mod tests {
+    use structs::HealthCheck;
+    use super::{Manifest};
+
+    #[test]
+    fn mf_wait_time_check() {
+        // standard setup - 300s wait is helm default
+        let mut mf = Manifest::default();
+        mf.imageSize = Some(512);
+        mf.health = Some(HealthCheck {
+            uri: "/".into(),
+            wait: 60,
+            ..Default::default()
+        });
+        mf.replicaCount = Some(2);
+        assert_eq!(mf.estimate_wait_time(), 180); // 60*1.5 + 90s
+        mf.replicaCount = Some(3); // needs two cycles now
+        assert_eq!(mf.estimate_wait_time(), 360); // (60*1.5 + 90s)*2
+
+        // huge image, fast boot
+        // causes some pretty high numbers atm - mostly there to catch variance
+        // this factor can be scaled down in the future
+        mf.imageSize = Some(4096);
+        mf.health = Some(HealthCheck {
+            uri: "/".into(),
+            wait: 10,
+            ..Default::default()
+        });
+        mf.replicaCount = Some(2);
+        assert_eq!(mf.estimate_wait_time(), 735); // very high.. network not always reliable
+
+        // medium images, sloooow boot
+        mf.imageSize = Some(512);
+        mf.health = Some(HealthCheck {
+            uri: "/".into(),
+            wait: 600,
+            ..Default::default()
+        });
+        mf.replicaCount = Some(2);
+        assert_eq!(mf.estimate_wait_time(), 990); // lots of leeway here just in case
+
+    }
 }
