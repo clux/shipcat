@@ -6,7 +6,10 @@ use states::{ManifestType};
 
 /// Basic CRD wrapper struct
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Crd<T> {
+pub struct Crd<T>
+where
+    T: ?Sized
+{
     pub apiVersion: String,
     pub kind: String,
     pub metadata: Metadata,
@@ -80,7 +83,8 @@ pub struct CrdEvent<T> {
     pub object: Crd<T>,
 }
 
-pub struct CrdEvents<T>(Vec<CrdEvent<T>>);
+pub struct CrdEvents<T>(Vec<CrdEvent<T>>)
+    where T: Sized;
 
 impl<T> IntoIterator for CrdEvents<T> {
     type Item = <Vec<CrdEvent<T>> as IntoIterator>::Item;
@@ -94,14 +98,18 @@ impl<T> IntoIterator for CrdEvents<T> {
 // Kube gives watch events back in an akward non-separated list of structs
 use std::fmt;
 use std::marker::PhantomData;
-use serde::de::{self, Deserialize, Deserializer, Visitor, MapAccess, SeqAccess};
+//use serde::de::{self, Deserialize, Deserializer, Visitor, MapAccess, SeqAccess};
 
+use serde::de::{
+    self, Deserialize, Deserializer, DeserializeSeed, EnumAccess, IntoDeserializer,
+    MapAccess, SeqAccess, VariantAccess, Visitor,
+};
 
-impl<'de, T> Deserialize<'de> for CrdEvents<T>
-where
-    T: Deserialize<'de>,
-{
-}
+//impl<'de, T> Deserialize<'de> for CrdEvents<T>
+//where
+//    T: Deserialize<'de>,
+//{
+//}
 
 
 // A Visitor is a type that holds methods that a Deserializer can drive
@@ -118,22 +126,33 @@ impl<T> CrdEventsVisitor<T> {
     }
 }
 
-// In order to handle commas correctly when deserializing a JSON array or map,
-// we need to track whether we are on the first element or past the first
-// element.
-struct CommaSeparated<'a, 'de: 'a> {
-    de: &'a mut Deserializer<'de>,
-    first: bool,
-}
 
-impl<'a, 'de> CommaSeparated<'a, 'de> {
-    fn new(de: &'a mut Deserializer<'de>) -> Self {
-        CommaSeparated {
-            de,
-            first: true,
+// this doesn't work atm because it needs a visitor with the right lifetime...
+// https://serde.rs/impl-deserializer.html
+impl<'de, T> SeqAccess<'de> for CrdEvents<T>
+where
+    T: Sized
+{
+    type Error = de::Error;
+
+    fn next_element_seed<S>(&mut self, seed: S) -> Result<Option<CrdEvent<T>>, Self::Error>
+    where
+        S: DeserializeSeed<'de>,
+    {
+        // Check if there are no more elements.
+        if self.de.peek_char().is_err() {
+            return Ok(None);
         }
+        // Might need a newline between all entries except the first
+        //if !self.first && self.de.next_char()? != '\n' {
+        //    return Err(Error::ExpectedArrayComma);
+        //}
+
+        // Deserialize a map element
+        seed.deserialize_map(&mut *self.de).map(Some)
     }
 }
+
 
 impl<'de, T> Visitor<'de> for CrdEventsVisitor<T>
 where
@@ -146,38 +165,19 @@ where
     }
 
     // This function gets given the full data
-    fn visit_seq<E>(self, A: SeqAccess) -> Result<Self::Value, E>
-    where
-        E: de::Error,
+    fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+      where
+        V: SeqAccess<'de>,
     {
         let mut res = Vec::new();
-        for v in value.lines() {
-            println!("Got line: {}", v);
+        // TODO: get more
+        if let Some(next) = seq.next_element()? {
+            //println!("Got line: {}", next);
+            res.push(next);
             //res.push(self.visit_map(v)?);
+            //de::Error::invalid_length(0, &self)
         }
         Ok(CrdEvents { 0: res } )
-    }
-
-   // Deserialization of compound types like sequences and maps happens by
-    // passing the visitor an "Access" object that gives it the ability to
-    // iterate through the data contained in the sequence.
-    fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        // Parse the opening brace of the element.
-        if self.next_char()? == '{' {
-            // Give the visitor access to each element
-            let value = visitor.visit_map(CommaSeparated::new(&mut self))?;
-            // Parse the closing brace of the element.
-            if self.next_char()? == '}' {
-                Ok(value)
-            } else {
-                Err(Error::ExpectedMapEnd)
-            }
-        } else {
-            Err(Error::ExpectedMap)
-        }
     }
 }
 
@@ -194,3 +194,4 @@ where
         deserializer.deserialize_seq(CrdEventsVisitor::new())
     }
 }
+

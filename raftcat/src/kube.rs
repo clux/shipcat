@@ -38,7 +38,7 @@ fn watch_crd_entry_after(resource: &str, group: &str) -> Result<http::Request<Ve
     qp.append_pair("watch", "true");
 
     // last version to watch after
-    qp.append_pair("resourceVersion", "185325344");
+    qp.append_pair("resourceVersion", "185325379");
 
     let urlstr = qp.finish();
     let mut req = http::Request::get(urlstr);
