@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="x-ua-compatible" content="ie=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+
+  <title>ratfcat</title>
+
+  <link rel="stylesheet" href="/raftcat/static/normalize.css" />
+  <link rel="stylesheet" href="/raftcat/static/raftcat.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/horsey/4.2.2/horsey.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/horsey/4.2.2/horsey.js"></script>
+  <style>
+  input {
+    padding: 40px;
+    font-size: 200%;
+  }
+  li {
+    width: 489px;
+    font-size: 150%;
+  }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <header class="header">
+      <h3>raftcat</h3>
+    </header>
+    <section class="content">
+      <div class="columns">
+        <main class="main">
+          <form id="searchform">
+            <input type="text" name="name" id="searcher" autocomplete="off">
+            <input type="submit" value="Go">
+          </form>
+        </main>
+        <aside class="sidebar">
+        </aside>
+      </div>
+    </section>
+    <footer class="footer">
+      <a href="https://github.com/Babylonpartners/shipcat/tree/master/raftcat">code</a>
+    </footer>
+  </div>
+<script>
+var data = {{ manifests }};
+let checked = data.map(function(mf) {
+  return { "value": mf.name, "text": mf.name + " - " + mf.team, "team": mf.team };
+});
+console.log(checked);
+const searcher = document.querySelector('#searcher');
+horsey(searcher, {
+  source: [{ list: checked }],
+  getText: 'text',
+  getValue: 'value',
+  renderItem: function (li, suggestion) {
+    var small = '<i style="float:right">' + suggestion.team + '</i>';
+    li.innerHTML = suggestion.value + small;
+  },
+  highlighter: true
+});
+  var f = document.querySelector('#searchform');
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    console.log(searcher.value);
+    window.location = "/raftcat/services/" + searcher.value.split(" - ")[0];
+  });
+</script>
+</body>
+</html>

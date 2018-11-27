@@ -1,4 +1,4 @@
-use config::{Region};
+use region::{Region};
 
 
 #[derive(Serialize, Deserialize, Clone)]

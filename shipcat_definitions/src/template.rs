@@ -81,8 +81,7 @@ pub fn one_off(tpl: &str, ctx: &Context) -> Result<String> {
 
 
 // main helpers for the manifest
-use super::{Manifest};
-use super::config::Region;
+use super::{Manifest, Region};
 impl Manifest {
     // This function defines what variables are available within .j2 templates and evars
     fn make_template_context(&self, reg: &Region) -> Result<Context> {

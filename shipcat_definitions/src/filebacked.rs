@@ -3,8 +3,8 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-use config::{Config, Region};
-use super::{Result, Manifest};
+use super::{Config, Region, Manifest};
+use super::Result;
 use states::{ManifestType};
 
 /// Private helpers for a filebacked Manifest Backend

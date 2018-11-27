@@ -122,7 +122,8 @@ error_chain! {
 extern crate shipcat_definitions;
 pub use shipcat_definitions::{Manifest, ConfigType};
 pub use shipcat_definitions::structs;
-pub use shipcat_definitions::config::{self, Config, Region, VersionScheme};
+pub use shipcat_definitions::config::{self, Config, Team};
+pub use shipcat_definitions::region::{Region, VersionScheme, KongConfig};
 //pub use shipcat_definitions::Product;
 
 /// Convenience listers

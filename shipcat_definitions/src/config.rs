@@ -1,17 +1,19 @@
 #![allow(non_snake_case)]
 
-use std::collections::BTreeMap;
 use semver::Version;
+use std::collections::BTreeMap;
+
 
 #[allow(unused_imports)]
 use std::path::{Path, PathBuf};
 use structs::SlackChannel;
 
-use super::Vault;
+
 #[allow(unused_imports)]
 use super::{Result, Error};
-use super::structs::{Kong, Contact};
+use super::structs::{Contact};
 use states::ConfigType;
+use region::Region;
 
 // ----------------------------------------------------------------------------------
 
@@ -38,48 +40,6 @@ impl Default for ManifestDefaults {
     }
 }
 
-/// Versioning Scheme used in region
-///
-/// This is valdiated strictly using `shipcat validate` when versions are found in manifests.
-/// Otherwise, it's validated on upgrade time (via `shipcat apply`) when it's passed.
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum VersionScheme {
-    /// Version must be valid semver (no leading v)
-    ///
-    /// This is the assumed default for regions that lock versions in manifests.
-    Semver,
-    /// Version must be valid semver or a 40 character hex (git sha)
-    ///
-    /// This can be used for rolling environments that does not lock versions in manifests.
-    GitShaOrSemver,
-}
-
-impl Default for VersionScheme {
-    fn default() -> VersionScheme {
-        VersionScheme::Semver
-    }
-}
-
-/// Version validator
-impl VersionScheme {
-    pub fn verify(&self, ver: &str) -> Result<()> {
-        use regex::Regex;
-        let gitre = Regex::new(r"^[0-9a-f\-]{40}$").unwrap();
-        match *self {
-            VersionScheme::GitShaOrSemver => {
-                if !gitre.is_match(&ver) && Version::parse(&ver).is_err() {
-                    bail!("Illegal tag {} (floating tags cannot be rolled back please use 40 char git sha or semver)", ver);
-                }
-            },
-            VersionScheme::Semver => {
-                if Version::parse(&ver).is_err() {
-                    bail!("Version {} is not a semver version in a region using semver versions", ver);
-                }
-            },
-        };
-        Ok(())
-    }
-}
 
 
 /// Kubernetes cluster information
@@ -109,202 +69,28 @@ pub struct Team {
     pub notifications: Option<SlackChannel>,
 }
 
-
-/// Vault configuration for a region
-#[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(test, derive(Default))]
-#[serde(deny_unknown_fields)]
-pub struct VaultConfig {
-    /// Vault url up to and including port
-    pub url: String,
-    /// Root folder under secret/
-    ///
-    /// Typically, the name of the region to disambiguate.
-    pub folder: String,
-}
-
-//#[derive(Serialize, Deserialize, Clone, Default)]
-//#[serde(deny_unknown_fields)]
-//pub struct HostPort {
-//    /// Hostname || IP || FQDN
-//    pub host: String,
-//    /// Port
-//    pub port: u32,
-//}
-
-/// Kafka configuration for a region
-#[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
-pub struct KafkaConfig {
-    /// Broker urls in "hostname:port" format.
-    ///
-    /// These are injected in to the manifest.kafka struct if it's set.
-    pub brokers: Vec<String>,
-}
-
-// ----------------------------------------------------------------------------------
-
-/// Kong configuration for a region
-#[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
-#[serde(deny_unknown_fields)]
-pub struct KongConfig {
-    /// Base URL to use (e.g. uk.dev.babylontech.co.uk)
-    #[serde(skip_serializing)]
-    pub base_url: String,
-    /// Configuration API URL (e.g. https://kong-admin-ops.dev.babylontech.co.uk)
-    #[serde(skip_serializing)]
-    pub config_url: String,
-    /// Kong token expiration time (in seconds)
-    pub kong_token_expiration: u32,
-    pub oauth_provision_key: String,
-    /// TCP logging options
-    pub tcp_log: KongTcpLogConfig,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub anonymous_consumers: Option<KongAnonymousConsumers>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub consumers: BTreeMap<String, KongOauthConsumer>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub internal_ips_whitelist: Vec<String>,
-    #[serde(default, skip_serializing)]
-    pub extra_apis: BTreeMap<String, Kong>,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct KongAnonymousConsumers {
-    pub anonymous: BTreeMap<String, String>,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct KongOauthConsumer {
-    pub oauth_client_id: String,
-    pub oauth_client_secret: String,
-    pub username: String
-}
-
-impl KongConfig {
-    fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
-        for (svc, data) in &mut self.consumers {
-            if data.oauth_client_id == "IN_VAULT" {
-                let vkey = format!("{}/kong/consumers/{}_oauth_client_id", region, svc);
-                data.oauth_client_id = vault.read(&vkey)?;
-            }
-            if data.oauth_client_secret == "IN_VAULT" {
-                let vkey = format!("{}/kong/consumers/{}_oauth_client_secret", region, svc);
-                data.oauth_client_secret = vault.read(&vkey)?;
-            }
-        }
-        if self.oauth_provision_key == "IN_VAULT" {
-            let vkey = format!("{}/kong/oauth_provision_key", region);
-            self.oauth_provision_key = vault.read(&vkey)?;
-        }
-        Ok(())
-    }
-    fn verify_secrets_exist(&self, vault: &Vault, region: &str) -> Result<()> {
-        let mut expected = vec![];
-        for (svc, data) in &self.consumers {
-            if data.oauth_client_id == "IN_VAULT" {
-                expected.push(format!("{}_oauth_client_id", svc));
-            }
-            if data.oauth_client_secret == "IN_VAULT" {
-                expected.push(format!("{}_oauth_client_secret", svc));
-            }
-        }
-        if expected.is_empty() {
-            return Ok(()); // no point trying to cross reference
-        }
-        let secpth = format!("{}/kong/consumers", region);
-        let found = vault.list(&secpth)?;
-        debug!("Found kong secrets {:?} for {}", found, region);
-        for v in expected {
-            if !found.contains(&v) {
-                bail!("Kong secret {} not found in {} vault", v, region);
-            }
-        }
-        Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
-pub struct KongTcpLogConfig {
-    pub enabled: bool,
-    pub host: String,
-    pub port: String,
-}
-
-impl KongConfig {
-    fn verify(&self) -> Result<()> {
-        Ok(())
-    }
-}
-
-// ----------------------------------------------------------------------------------
-
-/// A region is an abstract kube context
-///
-/// Either it's a pure kubernetes context with a namespace and a cluster,
-/// or it's an abstract concept with many associated real kubernetes contexts.
-#[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(test, derive(Default))]
-#[serde(deny_unknown_fields)]
-pub struct Region {
-    /// Name of region
-    pub name: String,
-    /// Kubernetes namespace
-    pub namespace: String,
-    /// Environment (e.g. `dev` or `staging`)
-    pub environment: String,
-    /// Versioning scheme
-    pub versioningScheme: VersionScheme,
-
-    /// Important base urls that can be templated in evars
-    #[serde(default)]
-    pub base_urls: BTreeMap<String, String>,
-
-    /// Environment variables to inject
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub env: BTreeMap<String, String>,
-    /// Kong configuration for the region
-    #[serde(default)]
-    pub kong: KongConfig,
-    /// List of Whitelisted IPs
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub ip_whitelist: Vec<String>,
-    /// Kafka configuration for the region
-    #[serde(default)]
-    pub kafka: KafkaConfig,
-    /// Vault configuration for the region
-    pub vault: VaultConfig,
-    /// List of locations the region serves
-    #[serde(default)]
-    pub locations: Vec<String>,
-}
-
-impl Region {
-    // Internal secret populator for Config::new
-    fn secrets(&mut self) -> Result<()> {
-        let v = Vault::regional(&self.vault)?;
-        self.kong.secrets(&v, &self.name)?;
-        Ok(())
-    }
-
-    // Entry point for region verifier
-    pub fn verify_secrets_exist(&mut self) -> Result<()> {
-        let v = Vault::regional(&self.vault)?;
-        debug!("Validating kong secrets for {}", self.name);
-        self.kong.verify_secrets_exist(&v, &self.name)?;
-        Ok(())
-    }
-}
-
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Location {
     /// Location name
     pub name: String,
 }
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct GithubParameters {
+    /// Location name
+    pub organisation: String,
+}
+
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct SlackParameters {
+    /// Location name
+    pub team: String,
+}
+
 
 // ----------------------------------------------------------------------------------
 
@@ -333,6 +119,12 @@ pub struct Config {
     /// Location definitions
     #[serde(default)]
     pub locations: BTreeMap<String, Location>,
+
+    /// Slack parameters
+    pub slack: SlackParameters,
+
+    /// Gihub parameters
+    pub github: GithubParameters,
 
     /// Team definitions
     pub teams: Vec<Team>,
@@ -633,7 +425,7 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
-    use super::VersionScheme;
+    use region::VersionScheme;
     #[test]
     fn version_validate_test() {
         let scheme = VersionScheme::GitShaOrSemver;

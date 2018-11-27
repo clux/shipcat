@@ -152,3 +152,17 @@ pub fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
     println!("{}", out);
     Ok(graph)
 }
+
+/// Generate first level reverse dependencies for a service
+pub fn reverse(service: &str, conf: &Config, reg: &Region) -> Result<Vec<String>> {
+    let mut res = vec![];
+    for svc in Manifest::available(&reg.name)? {
+        let mf = Manifest::base(&svc, conf, reg)?;
+        if mf.dependencies.into_iter().any(|d| d.name == service) {
+            res.push(svc)
+        }
+    }
+    let out = format!("{}", serde_yaml::to_string(&res)?);
+    println!("{}", out);
+    Ok(res)
+}
