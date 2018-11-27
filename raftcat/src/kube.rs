@@ -48,7 +48,7 @@ fn watch_crd_entry_after(resource: &str, group: &str) -> Result<http::Request<Ve
 
 pub fn watch_for_shipcat_manifest_updates(client: &APIClient, old: ManifestMap) -> Result<ManifestMap> {
     let req = watch_crd_entry_after(SHIPCATMANIFESTS, GROUPNAME)?;
-    let res = client.request::<CrdEvents<Manifest>>(req)?;
+    let res = client.request_events::<CrdEvent<Manifest>>(req)?;
     let mut data = BTreeMap::new();
     for i in res {
         let crd = i.object;
