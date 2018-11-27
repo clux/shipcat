@@ -45,7 +45,7 @@ use std::time::Instant;
 #[derive(Clone)]
 struct AppState {
     pub client: APIClient,
-    pub manifests: ManifestMap,
+    pub cache: ManifestCache,
     pub config: Config,
     pub relics: RelicMap,
     pub sentries: SentryMap,
@@ -60,7 +60,7 @@ impl AppState {
             .expect("Need to be able to read config CRD").spec;
         let mut res = AppState {
             client: client,
-            manifests: BTreeMap::new(),
+            cache: ManifestCache::default(),
             config: config,
             region: rname,
             relics: BTreeMap::new(),
@@ -74,12 +74,13 @@ impl AppState {
 
     fn maybe_update_cache(&mut self, force: bool) -> Result<()> {
         if self.last_update.elapsed().as_secs() > 30 || force {
+            // TODO: replace with a watch thread!
             info!("Refreshing state from CRDs");
-            self.manifests = kube::get_shipcat_manifests(&self.client)?;
+            self.cache = kube::get_shipcat_manifests(&self.client)?;
             match version::get_all() {
                 Ok(versions) => {
                     info!("Loaded {} versions", versions.len());
-                    for (k, mf) in &mut self.manifests {
+                    for (k, mf) in &mut self.cache.manifests {
                         mf.version = versions.get(k).map(String::clone);
                     }
                 }
@@ -113,26 +114,26 @@ impl AppState {
     }
     pub fn watch_manifests(&mut self) -> Result<()> {
         info!("Starting watch!");
-        let res = kube::watch_for_shipcat_manifest_updates(&self.client, self.manifests.clone())?;
+        let res = kube::watch_for_shipcat_manifest_updates(&self.client, self.cache.clone())?;
         info!("got res!");
         Ok(())
     }
     pub fn get_manifest(&mut self, key: &str) -> Result<Option<Manifest>> {
         self.maybe_update_cache(false)?;
-        if let Some(mf) = self.manifests.get(key) {
+        if let Some(mf) = self.cache.manifests.get(key) {
             return Ok(Some(mf.clone()));
         }
         Ok(None)
     }
     pub fn get_manifests_for(&self, team: &str) -> Result<Vec<String>> {
-        let mfs = self.manifests.iter()
+        let mfs = self.cache.manifests.iter()
             .filter(|(_k, mf)| mf.metadata.clone().unwrap().team == team)
             .map(|(_k, mf)| mf.name.clone()).collect();
         Ok(mfs)
     }
     pub fn get_reverse_deps(&self, service: &str) -> Result<Vec<String>> {
         let mut res = vec![];
-        for (svc, mf) in &self.manifests {
+        for (svc, mf) in &self.cache.manifests {
             if mf.dependencies.iter().any(|d| d.name == service) {
                 res.push(svc.clone())
             }
@@ -148,7 +149,7 @@ impl AppState {
     }
     pub fn get_manifests(&mut self) -> Result<ManifestMap> {
         self.maybe_update_cache(false)?;
-        Ok(self.manifests.clone())
+        Ok(self.cache.manifests.clone())
     }
 }
 

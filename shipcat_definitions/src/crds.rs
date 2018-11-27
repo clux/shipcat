@@ -6,19 +6,21 @@ use states::{ManifestType};
 
 /// Basic CRD wrapper struct
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Crd<T>
-{
+pub struct Crd<T> {
     pub apiVersion: String,
     pub kind: String,
     pub metadata: Metadata,
     pub spec: T,
 }
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Metadata {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub name: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub annotations: BTreeMap<String, String>,
-    // TODO: generation / resourceVersion later
+    // TODO: generation?
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub resourceVersion: String,
 }
 
 impl From<Manifest> for Crd<Manifest> {
@@ -62,7 +64,7 @@ impl From<Config> for Crd<Config> {
 pub struct CrdList<T> {
     pub apiVersion: String,
     pub kind: String,
-    //pub metadata: Metadata,
+    pub metadata: Metadata,
     pub items: Vec<Crd<T>>,
 }
 

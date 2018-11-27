@@ -27,7 +27,7 @@ fn make_crd_entry_req(resource: &str, group: &str, name: &str) -> Result<http::R
     let mut req = http::Request::get(urlstr);
     req.body(vec![]).map_err(Error::from)
 }
-fn watch_crd_entry_after(resource: &str, group: &str) -> Result<http::Request<Vec<u8>>> {
+fn watch_crd_entry_after(resource: &str, group: &str, ver: &str) -> Result<http::Request<Vec<u8>>> {
     //let urlstr = format!("/apis/{group}/v1/namespaces/dev/{resource}/{name}?",
     //    group = group, resource = resource, name = name);
     let urlstr = format!("/apis/{group}/v1/namespaces/dev/{resource}?",
@@ -36,9 +36,7 @@ fn watch_crd_entry_after(resource: &str, group: &str) -> Result<http::Request<Ve
 
     qp.append_pair("timeoutSeconds", "10");
     qp.append_pair("watch", "true");
-
-    // last version to watch after
-    qp.append_pair("resourceVersion", "185325400");
+    qp.append_pair("resourceVersion", ver);
 
     let urlstr = qp.finish();
     let mut req = http::Request::get(urlstr);
@@ -46,16 +44,18 @@ fn watch_crd_entry_after(resource: &str, group: &str) -> Result<http::Request<Ve
 }
 
 
-pub fn watch_for_shipcat_manifest_updates(client: &APIClient, old: ManifestMap) -> Result<ManifestMap> {
-    let req = watch_crd_entry_after(SHIPCATMANIFESTS, GROUPNAME)?;
+pub fn watch_for_shipcat_manifest_updates(client: &APIClient, old: ManifestCache) -> Result<ManifestMap> {
+    let req = watch_crd_entry_after(SHIPCATMANIFESTS, GROUPNAME, &old.version)?;
     let res = client.request_events::<CrdEvent<Manifest>>(req)?;
     let mut data = BTreeMap::new();
+    // TODO: catch gone error - and trigger a list
+    //{"type":"ERROR","object":{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"too old resource version: 185325401 (185325402)","reason":"Gone","code":410}}
     for i in res {
         let crd = i.object;
         println!("Got {:?} event for {}", i.kind, crd.spec.name);
         if let Some(last_annot) = crd.metadata.annotations.get(LASTAPPLIED) {
-            let oldmf = old.get(&crd.spec.name);
-            println!("comparing {}: {} vs ..", crd.spec.name, last_annot);
+            let oldmf = old.manifests.get(&crd.spec.name);
+            println!("comparing {} with old annotation", crd.spec.name);
             let lastmf : Crd<Manifest> = serde_json::from_str(last_annot)?;
             if serde_json::to_string(&lastmf.spec)? != serde_json::to_string(&oldmf)? {
                 println!("Found to be different!");
@@ -70,18 +70,26 @@ pub fn watch_for_shipcat_manifest_updates(client: &APIClient, old: ManifestMap) 
 
 
 // program interface - request consumers
+#[derive(Default, Clone)]
+pub struct ManifestCache {
+    pub manifests: ManifestMap,
+    pub version: String, // kube keeps it as a String
+}
 pub type ManifestMap = BTreeMap<String, Manifest>;
 
-pub fn get_shipcat_manifests(client: &APIClient) -> Result<ManifestMap> {
+pub fn get_shipcat_manifests(client: &APIClient) -> Result<ManifestCache> {
     let req = make_all_crd_entry_req(SHIPCATMANIFESTS, GROUPNAME)?;
     let res = client.request::<CrdList<Manifest>>(req)?;
-    let mut data = BTreeMap::new();
+    let mut manifests = BTreeMap::new();
+    let version = res.metadata.resourceVersion;
+    info!("Got {} at resource version: {}", res.kind, version);
+
     for i in res.items {
-        data.insert(i.spec.name.clone(), i.spec);
+        manifests.insert(i.spec.name.clone(), i.spec);
     }
-    let keys = data.keys().cloned().into_iter().collect::<Vec<_>>().join(", ");
+    let keys = manifests.keys().cloned().into_iter().collect::<Vec<_>>().join(", ");
     debug!("Initialized with: {}", keys);
-    Ok(data)
+    Ok(ManifestCache { manifests, version })
 }
 
 pub fn get_shipcat_config(client: &APIClient, name: &str) -> Result<Crd<Config>> {

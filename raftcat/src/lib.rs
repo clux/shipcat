@@ -22,7 +22,7 @@ pub use shipcat_definitions::{Manifest, Config, Cluster, Region, Team};
 
 /// A small CLI kubernetes interface
 pub mod kube;
-pub use kube::{ManifestMap};
+pub use kube::{ManifestMap, ManifestCache};
 
 mod integrations;
 pub use integrations::sentryapi::{self, SentryMap};
