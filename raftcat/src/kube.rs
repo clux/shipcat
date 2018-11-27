@@ -1,7 +1,7 @@
 use kubernetes::client::APIClient;
 use std::collections::BTreeMap;
 use serde_json;
-use shipcat_definitions::{Crd, CrdList, CrdEvent, CrdEvents, Manifest, Config};
+use shipcat_definitions::{Crd, CrdList, CrdEvent, Manifest, Config};
 
 use super::{Result, Error};
 
@@ -38,7 +38,7 @@ fn watch_crd_entry_after(resource: &str, group: &str) -> Result<http::Request<Ve
     qp.append_pair("watch", "true");
 
     // last version to watch after
-    qp.append_pair("resourceVersion", "185325379");
+    qp.append_pair("resourceVersion", "185325400");
 
     let urlstr = qp.finish();
     let mut req = http::Request::get(urlstr);
@@ -56,8 +56,8 @@ pub fn watch_for_shipcat_manifest_updates(client: &APIClient, old: ManifestMap) 
         if let Some(last_annot) = crd.metadata.annotations.get(LASTAPPLIED) {
             let oldmf = old.get(&crd.spec.name);
             println!("comparing {}: {} vs ..", crd.spec.name, last_annot);
-            let lastmf : Manifest = serde_json::from_str(last_annot)?;
-            if serde_json::to_string(&lastmf)? != serde_json::to_string(&oldmf)? {
+            let lastmf : Crd<Manifest> = serde_json::from_str(last_annot)?;
+            if serde_json::to_string(&lastmf.spec)? != serde_json::to_string(&oldmf)? {
                 println!("Found to be different!");
                 data.insert(crd.spec.name.clone(), crd.spec);
             }

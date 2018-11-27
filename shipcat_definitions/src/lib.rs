@@ -110,7 +110,7 @@ pub use manifest::Manifest;
 
 /// Crd wrappers
 mod crds;
-pub use crds::{Crd, CrdList, CrdEvent, CrdEvents};
+pub use crds::{Crd, CrdList, CrdEvent};
 
 /// Internal classifications and states
 mod states;

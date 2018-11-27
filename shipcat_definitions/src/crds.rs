@@ -71,6 +71,7 @@ pub struct CrdList<T> {
 pub enum CrdEventType {
     Added,
     Modified,
+    Deleted,
 }
 
 /// Basic CRD Watch wrapper struct
