@@ -3,12 +3,25 @@ extern crate shipcat;
 extern crate shipcat_definitions;
 
 use self::semver::Version;
+use std::collections::BTreeSet;
 use std::env;
 use std::fs;
 use std::path::Path;
 use std::sync::{Once, ONCE_INIT};
 
 static START: Once = ONCE_INIT;
+
+macro_rules! btree_set {
+    ( $( $x:expr ),* ) => {
+        {
+            let mut set = BTreeSet::new();
+            $(
+                set.insert($x);
+            )*
+            set
+        }
+    };
+}
 
 /// Set cwd to tests directory to be able to test manifest functionality
 ///
@@ -149,27 +162,43 @@ fn templating_test() {
     let mf = Manifest::base("fake-ask", &conf, &reg).unwrap().complete(&reg).unwrap();
 
     // verify templating
-    let env = mf.env;
+    let env = mf.env.plain;
     assert_eq!(env["CORE_URL"], "https://woot.com/somesvc".to_string());
     // check values from Config - one plain, one as_secret
     assert_eq!(env["CLIENT_ID"], "FAKEASKID".to_string());
     assert!(env.get("CLIENT_SECRET").is_none()); // moved to secret
-    let sec = mf.secrets;
-    assert_eq!(sec["CLIENT_SECRET"], "FAKEASKSECRET".to_string()); // via reg.kong consumers
-    assert_eq!(sec["FAKE_SECRET"], "hello".to_string()); // NB: ACTUALLY IN_VAULT
+
+    assert_eq!(
+        mf.env.secrets,
+        btree_set!["CLIENT_SECRET".to_string(), "FAKE_SECRET".to_string()]
+    );
 
     // verify sidecar templating
     let redis = &mf.sidecars[0];
-    assert_eq!(redis.env["STATIC_VALUE"], "static".to_string());
-    assert_eq!(redis.env["CORE_URL"], "https://woot.com/somesvc".to_string());
-    assert_eq!(sec["FAKE_SECRET"], "hello".to_string()); // NB: ACTUALLY IN_VAULT
+    assert_eq!(redis.env.plain["STATIC_VALUE"], "static".to_string());
+    assert_eq!(
+        redis.env.plain["CORE_URL"],
+        "https://woot.com/somesvc".to_string()
+    );
+    assert_eq!(
+        redis.env.secrets,
+        btree_set!["FAKE_NUMBER".to_string(), "FAKE_SECRET".to_string()]
+    );
 
     // verify worker templating
     let w = &mf.workers[0];
-    assert_eq!(w.env["URL"], "https://woot.com/worker".to_string());
+    assert_eq!(w.env.plain["URL"], "https://woot.com/worker".to_string());
+    assert_eq!(w.env.secrets, BTreeSet::new());
 
     let c = &mf.cronJobs[0];
-    assert_eq!(c.env["URL"], "https://woot.com/cronjob".to_string());
+    assert_eq!(c.env.plain["URL"], "https://woot.com/cronjob".to_string());
+    assert_eq!(c.env.secrets, BTreeSet::new());
+
+    // verify secrets
+    let sec = mf.secrets;
+    assert_eq!(sec["CLIENT_SECRET"], "FAKEASKSECRET".to_string()); // via reg.kong consumers
+    assert_eq!(sec["FAKE_SECRET"], "hello".to_string()); // NB: ACTUALLY IN_VAULT
+    assert_eq!(sec["FAKE_NUMBER"], "-2".to_string()); // NB: ACTUALLY IN_VAULT
 
     let configs = mf.configs.clone().unwrap();
     let configini = configs.files[0].clone();

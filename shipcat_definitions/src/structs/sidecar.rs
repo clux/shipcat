@@ -13,7 +13,7 @@ pub struct Sidecar {
   #[serde(skip_serializing_if = "Option::is_none")]
   pub resources: Option<Resources<String>>,
 
-  #[serde(default, skip_serializing_if = "EnvVars::is_empty")]
+  #[serde(default)]
   pub env: EnvVars,
 }
 

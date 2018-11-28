@@ -90,7 +90,7 @@ impl Manifest {
 
         // not great: pass env & secrets in a single btree for backwards compatibility
         // TODO: switch to a bespoke `secrets` struct in manifests
-        let mut full_env = self.env.clone();
+        let mut full_env = self.env.plain.clone();
         full_env.append(&mut self.secrets.clone());
 
         ctx.insert("env", &full_env);
@@ -146,7 +146,7 @@ impl Manifest {
 use super::structs::EnvVars;
 impl EnvVars {
     pub fn template(&mut self, ctx: &Context) -> Result<()> {
-        for (_, v) in &mut self.iter_mut() {
+        for (_, v) in &mut self.plain.iter_mut() {
             *v = one_off(v, &ctx)?;
         }
         Ok(())

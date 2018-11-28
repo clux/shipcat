@@ -1,5 +1,5 @@
 use vault::Vault;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use regex::Regex;
 
 use config::{Config};
@@ -262,7 +262,7 @@ pub struct Manifest {
     /// region, and replace them internally.
     ///
     /// The `as_secret` destinction only serves to put `AUTH_SECRET` into `Manifest::secrets`.
-    #[serde(default, skip_serializing_if = "EnvVars::is_empty")]
+    #[serde(default)]
     pub env: EnvVars,
 
 
@@ -858,6 +858,7 @@ impl Manifest {
         format!("{}/{}", reg, svc)
     }
 
+    // Get EnvVars for all containers, workers etc. for this Manifest.
     pub fn get_env_vars(&mut self) -> Vec<&mut EnvVars> {
         let mut envs = Vec::new();
         envs.push(&mut self.env);
@@ -881,23 +882,25 @@ impl Manifest {
         let pth = self.get_vault_path(vc);
         debug!("Injecting secrets from vault {} ({:?})", pth, client.mode());
 
-        let special = "SHIPCAT_SECRET::".to_string();
-        // iterate over key value evars and replace placeholders
-        for (k, v) in &mut self.env {
-            if v == "IN_VAULT" {
-                let vkey = format!("{}/{}", pth, k);
-                self.secrets.insert(k.to_string(), client.read(&vkey)?);
+        let mut vault_secrets = BTreeSet::new();
+        let mut template_secrets = BTreeMap::new();
+        for e in &mut self.get_env_vars() {
+            for k in &mut e.vault_secrets().iter() {
+                vault_secrets.insert(k.to_string());
             }
-            // Special cases that were handled by `| as_secret` template fn
-            if v.starts_with(&special) {
-                self.secrets.insert(k.to_string(), v.split_off(special.len()));
+            for (k, v) in &mut e.template_secrets().iter() {
+                template_secrets.insert(k.to_string(), v.to_string());
             }
         }
-        // remove placeholders from env
-        self.env = self.env.clone().into_iter()
-            .filter(|&(_, ref v)| v != "IN_VAULT")
-            .filter(|&(_, ref v)| !v.starts_with(&special))
-            .collect();
+
+        // Lookup values for each secret in vault.
+        for k in vault_secrets {
+            let vkey = format!("{}/{}", pth, k);
+            self.secrets.insert(k.to_string(), client.read(&vkey)?);
+        }
+
+        self.secrets.append(&mut template_secrets);
+
         // do the same for secret secrets
         for (k, v) in &mut self.secretFiles {
             if v == "IN_VAULT" {
@@ -921,9 +924,14 @@ impl Manifest {
 
     pub fn verify_secrets_exist(&self, vc: &VaultConfig) -> Result<()> {
         // what are we requesting
-        let keys = self.env.clone().into_iter()
-            .filter(|(_,v)| v == "IN_VAULT")
-            .map(|(k,_)| k)
+        // TODO: Use envvars directly
+        let keys = self
+            .env
+            .plain
+            .clone()
+            .into_iter()
+            .filter(|(_, v)| v == "IN_VAULT")
+            .map(|(k, _)| k)
             .collect::<Vec<_>>();
         let files = self.secretFiles.clone().into_iter()
             .filter(|(_,v)| v == "IN_VAULT")

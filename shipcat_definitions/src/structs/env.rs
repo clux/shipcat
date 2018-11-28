@@ -1,8 +1,7 @@
-use std::collections::{btree_map, BTreeMap};
-use std::ops::{Deref, DerefMut};
-use std::iter::IntoIterator;
-use std::iter::FromIterator;
 use super::Result;
+use serde::de::{Deserialize, Deserializer};
+use std::collections::{BTreeMap, BTreeSet};
+use std::mem;
 
 /// Environment variables to inject
 ///
@@ -34,14 +33,37 @@ use super::Result;
 /// region, and replace them internally.
 ///
 /// The `as_secret` destinction only serves to put `AUTH_SECRET` into `Manifest::secrets`.
-#[derive(Serialize, Deserialize, Clone, Default)]
-pub struct EnvVars(BTreeMap<String, String>);
+#[derive(Serialize, Clone, Default)]
+pub struct EnvVars {
+    /// Plain text (non-secret) environment variables
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub plain: BTreeMap<String, String>,
+
+    /// Environment variable names stored in secrets
+    ///
+    /// This is an internal property that is exposed as an output only.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub secrets: BTreeSet<String>,
+}
 
 
 impl EnvVars {
+    fn is_vault_secret(value: &String) -> bool {
+        value == "IN_VAULT"
+    }
+
+    fn template_secret_value(value: &String) -> Option<String> {
+        let prefix = "SHIPCAT_SECRET::";
+        if value.starts_with(prefix) {
+            Some(value.to_string().split_off(prefix.len()))
+        } else {
+            None
+        }
+    }
+
     pub fn verify(&self) -> Result<()> {
-        for (k, v) in *&self {
-            if v == "IN_VAULT" {
+        for (k, v) in &self.plain {
+            if EnvVars::is_vault_secret(v) {
                 // TODO: can do this generally here now
                 bail!("Secret evars must go in the root service");
             }
@@ -51,75 +73,51 @@ impl EnvVars {
         }
         Ok(())
     }
-}
 
-// Convenience for serde skip_serializing_if
-impl EnvVars {
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+    // Remove variables with a value "IN_VAULT", mark them as a secret and return them.
+    pub fn vault_secrets(&mut self) -> BTreeSet<String> {
+        let mut plain = BTreeMap::new();
+        let mut vs = BTreeSet::new();
+        for (k, v) in self.plain.iter() {
+            if EnvVars::is_vault_secret(&v) {
+                vs.insert(k.to_string());
+                self.secrets.insert(k.to_string());
+            } else {
+                plain.insert(k.to_string(), v.to_string());
+            }
+        }
+        mem::replace(&mut self.plain, plain);
+        vs
+    }
+
+    // Remove secrets generated from templates from the plain variables, mark them as a secret and return them.
+    pub fn template_secrets(&mut self) -> BTreeMap<String, String> {
+        let mut plain = BTreeMap::new();
+        let mut ts = BTreeMap::new();
+        for (k, v) in self.plain.iter() {
+            match EnvVars::template_secret_value(v) {
+                Some(x) => {
+                    ts.insert(k.to_string(), x);
+                    self.secrets.insert(k.to_string());
+                }
+                None => {
+                    plain.insert(k.to_string(), v.to_string());
+                }
+            };
+        }
+        mem::replace(&mut self.plain, plain);
+        ts
     }
 }
 
-// implementations of some std traits on this newtype below
-// this it allows us to ues for loops on an EnvVars direct
-// without having to access the `.0` element everywhere.
+impl<'de> Deserialize<'de> for EnvVars {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let plain = BTreeMap::deserialize(deserializer)?;
+        let secrets = BTreeSet::new();
 
-impl EnvVars {
-    // this seems to work - although have to deref + ref (see verify)
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (&String, &String)> + 'a {
-        self.0.iter()
-    }
-
-    //pub fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a str, &'a str)> + 'a {
-    //    self.0.iter()
-    //}
-}
-
-
-impl IntoIterator for EnvVars {
-    type Item = <BTreeMap<String, String> as IntoIterator>::Item;
-    type IntoIter = <BTreeMap<String, String> as IntoIterator>::IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a EnvVars {
-    type Item = (&'a String, &'a String);
-    type IntoIter = btree_map::Iter<'a, String, String>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a mut EnvVars {
-    type Item = (&'a String, &'a mut String);
-    type IntoIter = btree_map::IterMut<'a, String, String>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter_mut()
-    }
-}
-
-impl FromIterator<(String, String)> for EnvVars {
-    fn from_iter<I: IntoIterator<Item=(String, String)>>(iter: I) -> Self {
-        let map = BTreeMap::from_iter(iter);
-
-        EnvVars(map)
-    }
-}
-
-impl Deref for EnvVars {
-    type Target = BTreeMap<String, String>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for EnvVars {
-    fn deref_mut(&mut self) -> &mut BTreeMap<String, String> {
-        &mut self.0
+        Ok(EnvVars { plain, secrets })
     }
 }

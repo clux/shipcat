@@ -11,7 +11,7 @@ impl Manifest {
     pub fn add_region_implicits(&mut self, reg: &Region) -> Result<()> {
         // environment defaults for a region is merged in only if not set explictly
         for (k, v) in reg.env.clone() {
-            self.env.entry(k).or_insert(v);
+            self.env.plain.entry(k).or_insert(v);
         }
 
         // Kong has implicit, region-scoped values
@@ -95,8 +95,8 @@ impl Manifest {
         // start merging:
 
         // merge maps by appending to keys found in shipcat.yml
-        for (k,v) in mf.env {
-            self.env.insert(k, v);
+        for (k, v) in mf.env.plain {
+            self.env.plain.insert(k, v);
         }
         for (k,v) in mf.secretFiles {
             self.secretFiles.insert(k, v);
