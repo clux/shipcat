@@ -3,6 +3,8 @@ use std::collections::BTreeMap;
 
 use semver::Version;
 
+use url::Url;
+
 use super::Vault;
 #[allow(unused_imports)]
 use super::{Result, Error};
@@ -80,6 +82,25 @@ pub struct KafkaConfig {
     ///
     /// These are injected in to the manifest.kafka struct if it's set.
     pub brokers: Vec<String>,
+}
+
+/// Webhooks that shipcat might trigger after actions
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Webhooks {
+    /// Audit webhook details
+    pub audit: AuditWebhook,
+}
+
+/// Where / how to send audited events
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct AuditWebhook {
+    /// Endpoint
+    #[serde(with = "url_serde")]
+    pub url: Url,
+    /// Credentials
+    pub shipcat_webhook_audit_token: String,
 }
 
 // ----------------------------------------------------------------------------------
@@ -267,6 +288,8 @@ pub struct Region {
     /// List of locations the region serves
     #[serde(default)]
     pub locations: Vec<String>,
+    /// All webhooks
+    pub webhooks: Option<Webhooks>,
 }
 
 impl Region {
