@@ -857,6 +857,22 @@ impl Manifest {
         };
         format!("{}/{}", reg, svc)
     }
+
+    pub fn get_env_vars(&mut self) -> Vec<&mut EnvVars> {
+        let mut envs = Vec::new();
+        envs.push(&mut self.env);
+        for s in &mut self.sidecars {
+            envs.push(&mut s.env);
+        }
+        for w in &mut self.workers {
+            envs.push(&mut w.env);
+        }
+        for c in &mut self.cronJobs {
+            envs.push(&mut c.env);
+        }
+        envs
+    }
+
     /// Populate placeholder fields with secrets from vault
     ///
     /// This will use the HTTP api of Vault using the configuration parameters

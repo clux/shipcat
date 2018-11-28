@@ -135,15 +135,8 @@ impl Manifest {
     /// Template evars - must happen before inline templates!
     pub fn template_evars(&mut self, reg: &Region) -> Result<()> {
         let ctx = self.make_template_context(reg)?;
-        &mut self.env.template(&ctx)?;
-        for s in &mut self.sidecars {
-            &mut s.env.template(&ctx)?;
-        }
-        for w in &mut self.workers {
-            &mut w.env.template(&ctx)?;
-        }
-        for c in &mut self.cronJobs {
-            &mut c.env.template(&ctx)?;
+        for e in &mut self.get_env_vars() {
+            e.template(&ctx)?;
         }
         Ok(())
     }
