@@ -5,3 +5,4 @@ tests/OUTPUT
 shipcat.x86_64-unknown-linux-musl
 raftcat.x86_64-unknown-linux-musl
 shipcat_*/target
+.vscode
