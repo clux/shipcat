@@ -150,6 +150,9 @@ pub mod helm;
 /// A small CLI kong config generator interface
 pub mod kong;
 
+/// A small CLI Statuscake config generator interface
+pub mod statuscake;
+
 /// A graph generator for manifests using `petgraph`
 pub mod graph;
 
