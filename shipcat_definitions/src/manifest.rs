@@ -886,10 +886,19 @@ impl Manifest {
         let mut template_secrets = BTreeMap::new();
         for e in &mut self.get_env_vars() {
             for k in &mut e.vault_secrets().iter() {
+                if template_secrets.contains_key(k) {
+                    bail!("Secret {} can not be templated and fetched from vault", k);
+                }
                 vault_secrets.insert(k.to_string());
             }
             for (k, v) in &mut e.template_secrets().iter() {
-                template_secrets.insert(k.to_string(), v.to_string());
+                if vault_secrets.contains(k) {
+                    bail!("Secret {} can not be templated and fetched from vault", k);
+                }
+                let original = template_secrets.insert(k.to_string(), v.to_string());
+                if original.is_some() {
+                    bail!("Secret {} can not be used in two templates", k);
+                }
             }
         }
 
