@@ -1,14 +1,14 @@
 use kubernetes::client::APIClient;
 use std::collections::BTreeMap;
-use serde_json;
-use shipcat_definitions::{Crd, CrdList, CrdEvent, Manifest, Config};
+//use serde_json;
+use shipcat_definitions::{Crd, CrdList, CrdEvent, CrdEventType, Manifest, Config};
 
 use super::{Result, Error};
 
 static GROUPNAME: &str = "babylontech.co.uk";
 static SHIPCATMANIFESTS: &str = "shipcatmanifests";
 static SHIPCATCONFIGS: &str = "shipcatconfigs";
-static LASTAPPLIED: &str = "kubectl.kubernetes.io/last-applied-configuration";
+//static LASTAPPLIED: &str = "kubectl.kubernetes.io/last-applied-configuration";
 
 // Request builders
 fn make_all_crd_entry_req(resource: &str, group: &str) -> Result<http::Request<Vec<u8>>> {
@@ -44,28 +44,47 @@ fn watch_crd_entry_after(resource: &str, group: &str, ver: &str) -> Result<http:
 }
 
 
-pub fn watch_for_shipcat_manifest_updates(client: &APIClient, old: ManifestCache) -> Result<ManifestMap> {
-    let req = watch_crd_entry_after(SHIPCATMANIFESTS, GROUPNAME, &old.version)?;
+pub fn watch_for_shipcat_manifest_updates(client: &APIClient, mut data: ManifestCache) -> Result<ManifestCache> {
+    let req = watch_crd_entry_after(SHIPCATMANIFESTS, GROUPNAME, &data.version)?;
     let res = client.request_events::<CrdEvent<Manifest>>(req)?;
-    let mut data = BTreeMap::new();
+    //let mut found = vec![];
     // TODO: catch gone error - and trigger a list
     //{"type":"ERROR","object":{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"too old resource version: 185325401 (185325402)","reason":"Gone","code":410}}
     for i in res {
         let crd = i.object;
-        println!("Got {:?} event for {}", i.kind, crd.spec.name);
-        if let Some(last_annot) = crd.metadata.annotations.get(LASTAPPLIED) {
-            let oldmf = old.manifests.get(&crd.spec.name);
-            println!("comparing {} with old annotation", crd.spec.name);
-            let lastmf : Crd<Manifest> = serde_json::from_str(last_annot)?;
-            if serde_json::to_string(&lastmf.spec)? != serde_json::to_string(&oldmf)? {
-                println!("Found to be different!");
-                data.insert(crd.spec.name.clone(), crd.spec);
+        debug!("Got {:?} event for {} (ver={})", i.kind, crd.spec.name, crd.metadata.resourceVersion);
+        // TODO: diff properly
+        //if let Some(last_annot) = crd.metadata.annotations.get(LASTAPPLIED) {
+        //    let oldmf = data.manifests.get(&crd.spec.name);
+        //    println!("comparing {} with old annotation", crd.spec.name);
+        //    let lastmf : Crd<Manifest> = serde_json::from_str(last_annot)?;
+        //    if serde_json::to_string(&lastmf.spec)? != serde_json::to_string(&oldmf)? {
+        //        println!("Found to be different!");
+        //        found.push(crd.spec.name.clone());
+        //    }
+        //}
+        match i.kind {
+            CrdEventType::Added => {
+                info!("Adding service {}", crd.spec.name);
+                data.manifests.entry(crd.spec.name.clone())
+                    .or_insert_with(|| crd.spec.clone());
+            },
+            CrdEventType::Modified => {
+                info!("Modifying service {}", crd.spec.name);
+                data.manifests.entry(crd.spec.name.clone())
+                    .and_modify(|e| *e = crd.spec.clone());
+            },
+            CrdEventType::Deleted => {
+                info!("Removing service {}", crd.spec.name);
+                data.manifests.remove(&crd.spec.name);
             }
         }
+        if crd.metadata.resourceVersion != "" {
+            data.version = crd.metadata.resourceVersion.clone();
+        }
     }
-    let keys = data.keys().cloned().into_iter().collect::<Vec<_>>().join(", ");
-    debug!("Updated: {}", keys);
-    Ok(data)
+    //debug!("Updated: {}", found.join(", "));
+    Ok(data) // updated in place (taken ownership)
 }
 
 

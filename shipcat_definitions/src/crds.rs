@@ -58,6 +58,7 @@ impl From<Config> for Crd<Config> {
     }
 }
 
+// Some extra wrappers for kube api
 
 /// Basic CRD List wrapper struct
 #[derive(Deserialize, Serialize)]
@@ -68,6 +69,7 @@ pub struct CrdList<T> {
     pub items: Vec<Crd<T>>,
 }
 
+/// Types of events returned from watch requests
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum CrdEventType {
@@ -76,7 +78,9 @@ pub enum CrdEventType {
     Deleted,
 }
 
-/// Basic CRD Watch wrapper struct
+/// CRD Event wrapper
+///
+/// This needs to be parsed per line from a kube api watch request.
 #[derive(Deserialize, Serialize)]
 pub struct CrdEvent<T> {
     #[serde(rename = "type")]

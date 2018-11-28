@@ -25,6 +25,7 @@ use kubernetes::config as config;
 use std::collections::BTreeMap;
 use std::env;
 use chrono::Local;
+use std::sync::{Arc, Mutex};
 
 // some slug helpers
 fn team_slug(name: &str) -> String {
@@ -39,12 +40,11 @@ fn find_team(cfg: &Config, slug: &str) -> Option<Team> {
 // Web server interface
 use actix_web::{server, App, Path, Responder, HttpRequest, HttpResponse, middleware};
 use actix_web::http::{header, Method, StatusCode};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 /// State shared between http requests
 #[derive(Clone)]
 struct AppState {
-    pub client: APIClient,
     pub cache: ManifestCache,
     pub config: Config,
     pub relics: RelicMap,
@@ -53,42 +53,37 @@ struct AppState {
     last_update: Instant,
 }
 impl AppState {
-    pub fn new(client: APIClient) -> Self {
+    pub fn new(client: &APIClient) -> Result<Self> {
         info!("Loading state from CRDs");
         let rname = env::var("REGION_NAME").expect("Need REGION_NAME evar (kube context)");
-        let config = kube::get_shipcat_config(&client, &rname)
-            .expect("Need to be able to read config CRD").spec;
+        let state = AppState::init_cache(client)?;
+        let config = kube::get_shipcat_config(client, &rname)?.spec;
         let mut res = AppState {
-            client: client,
-            cache: ManifestCache::default(),
+            cache: state,
             config: config,
             region: rname,
             relics: BTreeMap::new(),
             sentries: BTreeMap::new(),
             last_update: Instant::now(),
         };
-        res.maybe_update_cache(true).expect("Need to be able to read manifest CRDs");
-        res.update_slow_cache().expect("Need to be able to update cache (at least partially)");
-        res
+        res.update_slow_cache()?;
+        Ok(res)
     }
 
-    fn maybe_update_cache(&mut self, force: bool) -> Result<()> {
-        if self.last_update.elapsed().as_secs() > 30 || force {
-            // TODO: replace with a watch thread!
-            info!("Refreshing state from CRDs");
-            self.cache = kube::get_shipcat_manifests(&self.client)?;
-            match version::get_all() {
-                Ok(versions) => {
-                    info!("Loaded {} versions", versions.len());
-                    for (k, mf) in &mut self.cache.manifests {
-                        mf.version = versions.get(k).map(String::clone);
-                    }
+    // Helper for init
+    fn init_cache(client: &APIClient) -> Result<ManifestCache> {
+        info!("Initialising state from CRDs");
+        let mut data = kube::get_shipcat_manifests(client)?;
+        match version::get_all() {
+            Ok(versions) => {
+                info!("Loaded {} versions", versions.len());
+                for (k, mf) in &mut data.manifests {
+                    mf.version = versions.get(k).map(String::clone);
                 }
-                Err(e) => warn!("Unable to load versions. VERSION_URL set? {}", err_msg(e))
             }
-            self.last_update = Instant::now();
+            Err(e) => warn!("Unable to load versions. VERSION_URL set? {}", err_msg(e))
         }
-        Ok(())
+        Ok(data)
     }
     fn update_slow_cache(&mut self) -> Result<()> {
         let (cluster, region) = self.config.resolve_cluster(&self.region).unwrap();
@@ -112,14 +107,7 @@ impl AppState {
         }
         Ok(())
     }
-    pub fn watch_manifests(&mut self) -> Result<()> {
-        info!("Starting watch!");
-        let res = kube::watch_for_shipcat_manifest_updates(&self.client, self.cache.clone())?;
-        info!("got res!");
-        Ok(())
-    }
     pub fn get_manifest(&mut self, key: &str) -> Result<Option<Manifest>> {
-        self.maybe_update_cache(false)?;
         if let Some(mf) = self.cache.manifests.get(key) {
             return Ok(Some(mf.clone()));
         }
@@ -148,24 +136,7 @@ impl AppState {
         Ok(self.config.clone())
     }
     pub fn get_manifests(&mut self) -> Result<ManifestMap> {
-        self.maybe_update_cache(false)?;
         Ok(self.cache.manifests.clone())
-    }
-}
-
-use std::sync::{Arc, Mutex};
-#[derive(Clone)]
-struct StateSafe {
-    pub safe: Arc<Mutex<AppState>>,
-    pub template: Arc<Mutex<tera::Tera>>,
-}
-impl StateSafe {
-    pub fn new(client: APIClient) -> Self {
-        let t = compile_templates!(concat!("raftcat", "/templates/*"));
-        StateSafe {
-            safe: Arc::new(Mutex::new(AppState::new(client))),
-            template: Arc::new(Mutex::new(t)),
-        }
     }
 }
 
@@ -314,9 +285,9 @@ struct SimpleManifest {
 fn index(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let mut ctx = tera::Context::new();
     let mfs = req.state().safe.lock().unwrap().get_manifests()?;
-    let data = mfs.into_iter().map(|(_k, m)| {
+    let data = mfs.into_iter().map(|(k, m)| {
         SimpleManifest {
-            name: m.name,
+            name: k,
             team: m.metadata.unwrap().team.to_lowercase(),
         }
     }).collect::<Vec<_>>();
@@ -327,9 +298,33 @@ fn index(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().content_type("text/html").body(s))
 }
 
-fn watch_blah(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
-    req.state().safe.lock().unwrap().watch_manifests()?;
-    Ok(HttpResponse::NotFound().finish())
+
+#[derive(Clone)]
+struct StateSafe {
+    pub safe: Arc<Mutex<AppState>>,
+    pub client: APIClient,
+    pub template: Arc<Mutex<tera::Tera>>,
+}
+impl StateSafe {
+    pub fn new(client: APIClient) -> Self {
+        let t = compile_templates!(concat!("raftcat", "/templates/*"));
+        let state = AppState::new(&client).expect("Could initialise application");
+        StateSafe {
+            client: client,
+            safe: Arc::new(Mutex::new(state)),
+            template: Arc::new(Mutex::new(t)),
+        }
+    }
+    pub fn watch_manifests(&self) -> Result<()> {
+        let old = self.safe.lock().unwrap().cache.clone();
+        let res = kube::watch_for_shipcat_manifest_updates(
+            &self.client,
+            old
+        )?;
+        // lock to update cache
+        self.safe.lock().unwrap().cache = res;
+        Ok(())
+    }
 }
 
 fn main() -> Result<()> {
@@ -351,6 +346,18 @@ fn main() -> Result<()> {
 
     let client = APIClient::new(cfg);
     let state = StateSafe::new(client);
+    let state2 = state.clone();
+    // continuously poll for updates
+    use std::{thread, time};
+    thread::spawn(move || {
+        loop {
+            thread::sleep(Duration::from_secs(10));
+            match state2.watch_manifests() {
+                Ok(_) => debug!("State refreshed"),
+                Err(e) => error!("Failed to refresh {}", e),
+            }
+        }
+    });
 
     info!("Creating http server");
     let sys = actix::System::new("raftcat");
@@ -367,7 +374,6 @@ fn main() -> Result<()> {
             .resource("/raftcat/teams/{name}", |r| r.method(Method::GET).f(get_manifests_for_team))
             .resource("/raftcat/teams", |r| r.method(Method::GET).f(get_teams))
             .resource("/raftcat/health", |r| r.method(Method::GET).f(health))
-            .resource("/raftcat/blah", |r| r.method(Method::GET).f(watch_blah))
             .resource("/raftcat/", |r| r.method(Method::GET).f(index))
         })
         .bind("0.0.0.0:8080").expect("Can not bind to 0.0.0.0:8080")
