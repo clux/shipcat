@@ -890,8 +890,8 @@ impl Manifest {
             }
             for (k, v) in e.template_secrets() {
                 let original = template_secrets.insert(k.to_string(), v.to_string());
-                if original.is_some() {
-                    bail!("Secret {} can not be used in two templates", k);
+                if original.filter(|x| x.to_string() != v).is_some() {
+                    bail!("Secret {} can not be used in multiple templates with different values", k);
                 }
             }
         }
