@@ -99,8 +99,8 @@ pub struct AuditWebhook {
     /// Endpoint
     #[serde(with = "url_serde")]
     pub url: Url,
-    /// Credentials
-    pub shipcat_webhook_audit_token: String,
+    /// Credential
+    pub token: String,
 }
 
 // ----------------------------------------------------------------------------------
@@ -239,6 +239,27 @@ impl KongConfig {
     }
 }
 
+impl Webhooks {
+    fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
+        let webhook_audit = &mut self.audit;
+        if webhook_audit.token == "IN_VAULT" {
+            let vkey = format!("{}/shipcat/WEBHOOK_AUDIT_TOKEN", region);
+            webhook_audit.token = vault.read(&vkey)?;
+        }
+        Ok(())
+    }
+    fn verify_secrets_exist(&self, vault: &Vault, region: &str) -> Result<()> {
+        let vkey = format!("{}/shipcat/WEBHOOK_AUDIT_TOKEN", region);
+        match vault.read(&vkey) {
+            Ok(_) => {
+                debug!("Found webhook secrets {:?} for {}", vkey, region);
+                Ok(())
+            }
+            Err(_) => bail!("Webhook secret {:?} not found in {} vault", vkey, region)
+        }
+    }
+}
+
 // ----------------------------------------------------------------------------------
 
 /// A region is an abstract kube context
@@ -297,6 +318,9 @@ impl Region {
     pub fn secrets(&mut self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
         self.kong.secrets(&v, &self.name)?;
+        if let Some(webhooks) = &mut self.webhooks {
+            webhooks.secrets(&v, &self.name)?;
+        }
         Ok(())
     }
 
@@ -305,6 +329,9 @@ impl Region {
         let v = Vault::regional(&self.vault)?;
         debug!("Validating kong secrets for {}", self.name);
         self.kong.verify_secrets_exist(&v, &self.name)?;
+        if let Some(webhooks) = &self.webhooks {
+            webhooks.verify_secrets_exist(&v, &self.name)?;
+        }
         Ok(())
     }
 
