@@ -3,14 +3,17 @@ use super::{Manifest, Result, Region, Config};
 
 /// One Statuscake object
 #[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
 struct StatuscakeTest {
+    #[serde(rename = "name")]
     pub name: String,
-    pub WebsiteName: String,
-    pub WebsiteURL: String,
+    pub website_name: String,
+    #[serde(rename = "WebsiteURL")]
+    pub website_url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ContactGroup: Option<String>,
+    pub contact_group: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub TestTags: Option<String>,
+    pub test_tags: Option<String>,
 }
 
 impl StatuscakeTest {
@@ -19,35 +22,31 @@ impl StatuscakeTest {
 
         // Generate the URL to test
         let website_url = if let Some(hosts) = kong.hosts {
-            format!("https://{}/health",
+            Some(format!("https://{}/health",
                     hosts
                     .split(",")
                     .collect::<Vec<&str>>()
                     .first()
-                    .unwrap())
+                    .unwrap()))
         } else if let Some(uris) = kong.uris {
-            format!("{}/status/{}/health",
+            Some(format!("{}/status/{}/health",
                     external_svc,
-                    uris.trim_start_matches("/"))
+                    uris.trim_start_matches("/")))
         } else {
             // No host, no uri, what's going on?
-            format!("")
+            None
         };
 
         // Generate tags, both regional and environment
-        let mut test_tags = [
-            region.name.clone(),
-            region.environment.clone()
-        ].join(",");
+        let mut test_tags = format!("{},{}",
+            region.name,
+            region.environment);
 
         // Process extra region-specific config
         // Set the Contact group if available
         let contact_group = if let Some(ref conf) = region.statuscake {
             if let Some(ref region_tags) = conf.extra_tags {
-                test_tags = [
-                    test_tags,
-                    region_tags.to_string()
-                ].join(",");
+                test_tags = format!("{},{}", test_tags, region_tags);
             }
             conf.contact_group.clone()
         } else {
@@ -56,10 +55,10 @@ impl StatuscakeTest {
 
         StatuscakeTest {
             name: name.into(),
-            WebsiteName: website_name,
-            WebsiteURL: website_url,
-            ContactGroup: contact_group,
-            TestTags: Some(test_tags),
+            website_name,
+            website_url: website_url.unwrap_or("".to_string()),
+            contact_group,
+            test_tags: Some(test_tags),
         }
     }
 }
