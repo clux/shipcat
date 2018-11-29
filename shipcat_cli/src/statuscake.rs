@@ -8,8 +8,8 @@ struct StatuscakeTest {
     #[serde(rename = "name")]
     pub name: String,
     pub website_name: String,
-    #[serde(rename = "WebsiteURL")]
-    pub website_url: String,
+    #[serde(default, rename = "WebsiteURL")]
+    pub website_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub contact_group: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -56,7 +56,7 @@ impl StatuscakeTest {
         StatuscakeTest {
             name: name.into(),
             website_name,
-            website_url: website_url.unwrap_or("".to_string()),
+            website_url,
             contact_group,
             test_tags: Some(test_tags),
         }
