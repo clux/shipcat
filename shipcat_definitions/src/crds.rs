@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use config::{Config};
 
 use super::{Manifest};
@@ -11,9 +12,15 @@ pub struct Crd<T> {
     pub metadata: Metadata,
     pub spec: T,
 }
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Metadata {
-    pub name: String
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub name: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub annotations: BTreeMap<String, String>,
+    // TODO: generation?
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub resourceVersion: String,
 }
 
 impl From<Manifest> for Crd<Manifest> {
@@ -26,6 +33,7 @@ impl From<Manifest> for Crd<Manifest> {
             kind: "ShipcatManifest".into(),
             metadata: Metadata {
                 name: format!("{}", mf.name),
+                ..Metadata::default()
             },
             spec: mf,
         }
@@ -38,24 +46,44 @@ impl From<Config> for Crd<Config> {
         assert!(!conf.has_secrets()); // no secrets
         assert_eq!(rgs.len(), 1); // config must be filtered
         // thus, can infer the region :-)
-        let rname = &rgs[0];
+        let rname = rgs[0].to_owned();
         Crd {
             apiVersion: "babylontech.co.uk/v1".into(),
             kind: "ShipcatConfig".into(),
             metadata: Metadata {
-                name: format!("{}", rname)
+                name: rname, ..Metadata::default()
             },
             spec: conf,
         }
     }
 }
 
+// Some extra wrappers for kube api
 
 /// Basic CRD List wrapper struct
 #[derive(Deserialize, Serialize)]
 pub struct CrdList<T> {
     pub apiVersion: String,
     pub kind: String,
-    //pub metadata: Metadata,
+    pub metadata: Metadata,
     pub items: Vec<Crd<T>>,
+}
+
+/// Types of events returned from watch requests
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum CrdEventType {
+    Added,
+    Modified,
+    Deleted,
+}
+
+/// CRD Event wrapper
+///
+/// This needs to be parsed per line from a kube api watch request.
+#[derive(Deserialize, Serialize)]
+pub struct CrdEvent<T> {
+    #[serde(rename = "type")]
+    pub kind: CrdEventType,
+    pub object: Crd<T>,
 }
