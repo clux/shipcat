@@ -8,12 +8,11 @@ struct StatuscakeTest {
     #[serde(rename = "name")]
     pub name: String,
     pub website_name: String,
-    #[serde(default, rename = "WebsiteURL")]
+    #[serde(rename = "WebsiteURL")]
     pub website_url: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub contact_group: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub test_tags: Option<String>,
+    pub test_tags: String,
 }
 
 impl StatuscakeTest {
@@ -58,7 +57,7 @@ impl StatuscakeTest {
             website_name,
             website_url,
             contact_group,
-            test_tags: Some(test_tags),
+            test_tags,
         }
     }
 }
