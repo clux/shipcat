@@ -885,10 +885,10 @@ impl Manifest {
         let mut vault_secrets = BTreeSet::new();
         let mut template_secrets = BTreeMap::new();
         for e in &mut self.get_env_vars() {
-            for k in &mut e.vault_secrets().iter() {
+            for k in e.vault_secrets() {
                 vault_secrets.insert(k.to_string());
             }
-            for (k, v) in &mut e.template_secrets().iter() {
+            for (k, v) in e.template_secrets() {
                 let original = template_secrets.insert(k.to_string(), v.to_string());
                 if original.is_some() {
                     bail!("Secret {} can not be used in two templates", k);
