@@ -16,10 +16,23 @@ struct StatuscakeTest {
 impl StatuscakeTest {
     fn new(region: &Region, name: String, external_svc: String, kong: Kong) -> Self {
         let website_name = format!("{} {} healthcheck", region.name, name);
-        // TODO HANDLE HOSTS
-        let website_url = format!("{}/status/{}/health",
-                                 external_svc,
-                                 name);
+
+        // Generate the URL to test
+        let website_url = if let Some(hosts) = kong.hosts {
+            format!("https://{}/health",
+                    hosts
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .first()
+                    .unwrap())
+        } else if let Some(uris) = kong.uris {
+            format!("{}/status/{}/health",
+                    external_svc,
+                    uris.trim_start_matches("/"))
+        } else {
+            // No host, no uri, what's going on?
+            format!("")
+        };
 
         // Generate tags, both regional and environment
         let mut test_tags = [
@@ -27,17 +40,18 @@ impl StatuscakeTest {
             region.environment.clone()
         ].join(",");
 
-        let mut contact_group = None;
         // Process extra region-specific config
         // Set the Contact group if available
-        if let Some(ref conf) = region.statuscake {
-            contact_group = conf.contact_group.clone();
+        let contact_group = if let Some(ref conf) = region.statuscake {
             if let Some(ref region_tags) = conf.extra_tags {
                 test_tags = [
                     test_tags,
                     region_tags.to_string()
                 ].join(",");
             }
+            conf.contact_group.clone()
+        } else {
+            None
         };
 
         StatuscakeTest {
@@ -62,11 +76,14 @@ fn generate_statuscake_output(conf: &Config, region: &Region) -> Result<Vec<Stat
             let mf = Manifest::simple(&svc, &conf, region)?; // does not need secrets
             debug!("Found service {} in region {}", mf.name, region.name);
             if let Some(k) = mf.kong.clone() {
+                debug!("Service {:?} has a kong configuration, adding", svc);
                 tests.push(StatuscakeTest::new(
                         region,
                         svc,
                         external_svc.to_string(),
                         k));
+            } else {
+                debug!("Service {:?} has no kong configuration, skipping", svc);
             }
         }
         // Extra APIs - let's not monitor them for now (too complex)
