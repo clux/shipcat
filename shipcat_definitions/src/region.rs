@@ -107,6 +107,18 @@ pub struct KongConfig {
     pub extra_apis: BTreeMap<String, Kong>,
 }
 
+/// StatusCake configuration for a region
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
+pub struct StatuscakeConfig {
+    /// Contact Group that will be used if tests go down
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contact_group: Option<String>,
+    /// Extra tags to add to all tests in this region
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extra_tags: Option<String>,
+}
+
 /// Logz.io configuration for a region
 #[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
 #[serde(deny_unknown_fields)]
@@ -235,6 +247,9 @@ pub struct Region {
     /// Kong configuration for the region
     #[serde(default)]
     pub kong: KongConfig,
+    /// Statuscake configuration for the region
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub statuscake: Option<StatuscakeConfig>,
     /// List of Whitelisted IPs
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ip_whitelist: Vec<String>,

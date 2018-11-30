@@ -189,6 +189,14 @@ fn main() {
                 .help("Produce an experimental custom resource values for this kubernetes region"))
             .subcommand(SubCommand::with_name("config-url")
                 .help("Generate Kong config URL")))
+        // Statuscake helper
+        .subcommand(SubCommand::with_name("statuscake")
+            .about("Generate Statuscake config")
+            .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Region to use (dev-uk, staging-uk, ...)")))
         // dependency graphing
         .subcommand(SubCommand::with_name("graph")
               .arg(Arg::with_name("service")
@@ -577,6 +585,11 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             assert!(conf.has_secrets()); // sanity on cluster disruptive commands
             shipcat::kong::output(&conf, &region, mode)
         };
+    }
+
+    else if let Some(a) = args.subcommand_matches("statuscake") {
+        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        return shipcat::statuscake::output(&conf, &region);
     }
 
     // ------------------------------------------------------------------------------
