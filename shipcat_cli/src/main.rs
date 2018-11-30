@@ -206,7 +206,12 @@ fn main() {
                 .help("Generate Kong config URL")))
         // Statuscake helper
         .subcommand(SubCommand::with_name("statuscake")
-            .about("Generate Statuscake config"))
+            .about("Generate Statuscake config")
+            .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Region to use (dev-uk, staging-uk, ...)")))
         // dependency graphing
         .subcommand(SubCommand::with_name("graph")
               .arg(Arg::with_name("service")
