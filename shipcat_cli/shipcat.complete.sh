@@ -15,12 +15,12 @@ _shipcat()
     fi
 
     local -r subcommands="help validate shell port-forward get graph helm cluster gdpr
-                          kong jenkins debug product list-regions list-services list-products
+                          kong debug product list-regions list-services list-products
                           apply template values status config crd"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|port-forward|debug|get|config|product|status|statuscake|shell|graph|cluster|helm|gdpr|kong|list-services|list-products|jenkins|apply|template|values|status|crd) ]]; then
+        if [[ ${words[i]} == @(help|validate|port-forward|debug|get|config|product|status|statuscake|shell|graph|cluster|helm|gdpr|kong|list-services|list-products|apply|template|values|status|crd) ]]; then
             has_sub=1
         fi
     done
@@ -39,7 +39,7 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(list-services|list-products|validate|config|shell|product|port-forward|debug|graph|get|cluster|helm|gdpr|jenkins|apply|template|values|status|crd) ]]; then
+        if [[ ${words[i]} == @(list-services|list-products|validate|config|shell|product|port-forward|debug|graph|get|cluster|helm|gdpr|apply|template|values|status|crd) ]]; then
             special=${words[i]}
             break
         fi
@@ -141,27 +141,6 @@ _shipcat()
                 else
                     # Suggest subcommands of helm and global flags
                     COMPREPLY=($(compgen -W "values template diff upgrade install history recreate rollback" -- "$cur"))
-                fi
-                ;;
-            jenkins)
-                local -r regions="$(shipcat list-regions)"
-                local jenk_sub i
-                for (( i=2; i < ${#words[@]}-1; i++ )); do
-                    if [[ ${words[i]} = @(latest) ]]; then
-                        jenk_sub=${words[i]}
-                    fi
-                done
-
-                if [[ $prev = "jenkins" ]]; then
-                    local -r region=$(kubectl config current-context)
-                    local -r svcs="$(shipcat list-services "$region")"
-                    COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
-                elif [ -n "${jenk_sub}" ]; then
-                    # TODO; jenkins sub command specific flags here
-                    COMPREPLY=($(compgen -W "-o --output --dry-run" -- "$cur"))
-                else
-                    # Suggest subcommands of helm and global flags
-                    COMPREPLY=($(compgen -W "latest console history" -- "$cur"))
                 fi
                 ;;
             shell)
