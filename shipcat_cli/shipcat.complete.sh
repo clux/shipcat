@@ -20,7 +20,7 @@ _shipcat()
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|port-forward|debug|get|config|product|status|shell|graph|cluster|helm|gdpr|kong|list-services|list-products|jenkins|apply|template|values|status|crd) ]]; then
+        if [[ ${words[i]} == @(help|validate|port-forward|debug|get|config|product|status|statuscake|shell|graph|cluster|helm|gdpr|kong|list-services|list-products|jenkins|apply|template|values|status|crd) ]]; then
             has_sub=1
         fi
     done
