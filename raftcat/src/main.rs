@@ -32,7 +32,7 @@ fn team_slug(name: &str) -> String {
     name.to_lowercase().replace("/", "-").replace(" ", "_")
 }
 fn find_team(cfg: &Config, slug: &str) -> Option<Team> {
-    cfg.teams.iter().find(|t| team_slug(&t.name) == slug).map(Clone::clone)
+    cfg.teams.iter().find(|t| team_slug(&t.name) == slug).cloned()
 }
 
 
@@ -60,7 +60,7 @@ impl AppState {
         let config = kube::get_shipcat_config(client, &rname)?.spec;
         let mut res = AppState {
             cache: state,
-            config: config,
+            config,
             region: rname,
             relics: BTreeMap::new(),
             sentries: BTreeMap::new(),
@@ -200,7 +200,7 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
                 (format!("{}/commit/{}", md.repo, ver), ver)
             }
         } else {
-            (format!("{}", md.repo), "rolling".into())
+            (md.repo, "rolling".into())
         };
         let health = if let Some(h) = mf.health.clone() {
             h.uri
@@ -310,7 +310,7 @@ impl StateSafe {
         let t = compile_templates!(concat!("raftcat", "/templates/*"));
         let state = AppState::new(&client).expect("Could initialise application");
         StateSafe {
-            client: client,
+            client,
             safe: Arc::new(Mutex::new(state)),
             template: Arc::new(Mutex::new(t)),
         }

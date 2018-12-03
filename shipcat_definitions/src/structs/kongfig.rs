@@ -371,7 +371,7 @@ impl Ensure {
 }
 
 fn splitter(value: String) -> Vec<String> {
-    value.split(",")
+    value.split(',')
         .map(|h| h.trim())
         .map(String::from)
         .collect()
@@ -475,9 +475,9 @@ pub fn kongfig_consumers(k: KongConfig) -> Vec<Consumer> {
             credentials: vec![ConsumerCredentials {
                 name: "oauth2".into(),
                 attributes: ConsumerCredentialsAttributes {
-                    name: v.username.into(),
-                    client_id: v.oauth_client_id.into(),
-                    client_secret: v.oauth_client_secret.into(),
+                    name: v.username,
+                    client_id: v.oauth_client_id,
+                    client_secret: v.oauth_client_secret,
                     redirect_uri: vec!["http://example.com/unused".into()]
                 }
             }],

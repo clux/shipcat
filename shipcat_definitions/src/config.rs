@@ -189,7 +189,7 @@ impl Config {
             if r.vault.folder == "" {
                 warn!("Need to set the vault folder {}", r.name);
             }
-            for (_, v) in &r.base_urls {
+            for v in r.base_urls.values() {
                 if v.ends_with('/') {
                     bail!("A base_url must not end with a slash");
                 }

@@ -106,7 +106,7 @@ pub fn get_shipcat_manifests(client: &APIClient) -> Result<ManifestCache> {
     for i in res.items {
         manifests.insert(i.spec.name.clone(), i.spec);
     }
-    let keys = manifests.keys().cloned().into_iter().collect::<Vec<_>>().join(", ");
+    let keys = manifests.keys().cloned().collect::<Vec<_>>().join(", ");
     debug!("Initialized with: {}", keys);
     Ok(ManifestCache { manifests, version })
 }

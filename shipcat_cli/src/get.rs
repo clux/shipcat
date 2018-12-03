@@ -208,7 +208,7 @@ impl ResourceBreakdown {
 
     /// Round all numbers to gigs and full cores (for all teams)
     pub fn normalise(mut self) -> Self {
-        for (_, mut tt) in &mut self.teams {
+        for mut tt in &mut self.teams.values_mut() {
             tt.base.round();
             tt.extra.round();
         }

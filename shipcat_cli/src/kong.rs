@@ -28,7 +28,7 @@ struct KongfigOutput {
 impl KongfigOutput {
     fn new(data: KongOutput) -> Self {
         KongfigOutput {
-            host: data.kong.clone().config_url.into(),
+            host: data.kong.clone().config_url,
             headers: vec![],
             apis: kongfig_apis(data.apis, data.kong.clone()),
             consumers: kongfig_consumers(data.kong.clone()),

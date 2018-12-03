@@ -106,7 +106,7 @@ pub fn generate(service: &str, conf: &Config, reg: &Region, dot: bool) -> Result
         format!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel]))
     }
     else {
-        format!("{}", serde_yaml::to_string(&graph)?)
+        serde_yaml::to_string(&graph)?
     };
     println!("{}", out);
     Ok(graph)
@@ -147,7 +147,7 @@ pub fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
         format!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel]))
     }
     else {
-        format!("{}", serde_yaml::to_string(&graph)?)
+        serde_yaml::to_string(&graph)?
     };
     println!("{}", out);
     Ok(graph)
@@ -162,7 +162,7 @@ pub fn reverse(service: &str, conf: &Config, reg: &Region) -> Result<Vec<String>
             res.push(svc)
         }
     }
-    let out = format!("{}", serde_yaml::to_string(&res)?);
+    let out = serde_yaml::to_string(&res)?;
     println!("{}", out);
     Ok(res)
 }

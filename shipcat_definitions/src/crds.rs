@@ -32,7 +32,7 @@ impl From<Manifest> for Crd<Manifest> {
             apiVersion: "babylontech.co.uk/v1".into(),
             kind: "ShipcatManifest".into(),
             metadata: Metadata {
-                name: format!("{}", mf.name),
+                name: mf.name.clone(),
                 ..Metadata::default()
             },
             spec: mf,

@@ -23,14 +23,14 @@ impl Contact {
         if self.name.is_empty() {
             bail!("Contact name cannot be empty")
         }
-        if !self.slack.starts_with("@") {
+        if !self.slack.starts_with('@') {
             bail!("Contact slack handle needs to start with the slack guid '@U...' - got {}", self.slack)
         }
-        if self.slack.contains("|") {
+        if self.slack.contains('|') {
             bail!("Contact slack user id invalid - got {}", self.slack)
         }
         if let Some(ref gh) = &self.github {
-            if gh.starts_with("@") || gh.contains("/") {
+            if gh.starts_with('@') || gh.contains('/') {
                bail!("github id must be the raw username only - got {}", gh)
             }
             // TODO: check members of org!
