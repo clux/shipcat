@@ -85,21 +85,6 @@ fn main() {
                     .long("dry-run")
                     .help("Show the diff only"))))
 
-        .subcommand(SubCommand::with_name("jenkins")
-            .about("Query jenkins jobs named kube-deploy-{region}")
-            .setting(AppSettings::SubcommandRequiredElseHelp)
-            .arg(Arg::with_name("service")
-                .required(true)
-                .help("Service name"))
-            .subcommand(SubCommand::with_name("console")
-                .arg(Arg::with_name("number")
-                    .help("Build number if not last"))
-                .about("Print the latest jenkins console text for a service deploy"))
-            .subcommand(SubCommand::with_name("history")
-                .about("Print the jenkins deployment history for a service"))
-            .subcommand(SubCommand::with_name("latest")
-                .about("Print the latest jenkins deployment job for a service")))
-
         .subcommand(SubCommand::with_name("shell")
             .about("Shell into pods for a service described in a manifest")
             .arg(Arg::with_name("region")
@@ -204,6 +189,14 @@ fn main() {
                 .help("Produce an experimental custom resource values for this kubernetes region"))
             .subcommand(SubCommand::with_name("config-url")
                 .help("Generate Kong config URL")))
+        // Statuscake helper
+        .subcommand(SubCommand::with_name("statuscake")
+            .about("Generate Statuscake config")
+            .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .help("Region to use (dev-uk, staging-uk, ...)")))
         // dependency graphing
         .subcommand(SubCommand::with_name("graph")
               .arg(Arg::with_name("service")
@@ -594,6 +587,11 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         };
     }
 
+    else if let Some(a) = args.subcommand_matches("statuscake") {
+        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        return shipcat::statuscake::output(&conf, &region);
+    }
+
     // ------------------------------------------------------------------------------
     // everything below needs a kube context!
 
@@ -726,28 +724,6 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     }
 
     // these could technically forgo the kube dependency..
-    // TODO: detangle (needs region flags)
-    else if let Some(a) = args.subcommand_matches("jenkins") {
-        let (_conf, region) = resolve_config(args, ConfigType::Base)?;
-        let svc = a.value_of("service").unwrap();
-
-        return if let Some(_) = a.subcommand_matches("latest") {
-            shipcat::jenkins::latest_build(&svc, &region.name)
-        }
-        else if let Some(b) = a.subcommand_matches("console") {
-            if let Some(n) = b.value_of("number") {
-                let nr : u32 = n.parse().unwrap();
-                shipcat::jenkins::specific_console(&svc, nr, &region.name)
-            } else {
-                shipcat::jenkins::latest_console(&svc, &region.name)
-            }
-        }
-        else if let Some(_) = a.subcommand_matches("history") {
-           shipcat::jenkins::history(&svc, &region.name)
-        } else {
-            unreachable!()
-        };
-    }
     else if let Some(a) = args.subcommand_matches("slack") {
         let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
