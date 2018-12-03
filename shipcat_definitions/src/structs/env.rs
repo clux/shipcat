@@ -63,9 +63,6 @@ impl EnvVars {
 
     pub fn verify(&self) -> Result<()> {
         for (k, v) in &self.plain {
-            if EnvVars::is_vault_secret(v) {
-                bail!("Secret evars must go in the root service");
-            }
             if k != &k.to_uppercase()  {
                 bail!("Env vars need to be uppercase, found: {}", k);
             }
