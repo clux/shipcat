@@ -897,7 +897,7 @@ impl Manifest {
         }
 
         let template_keys = template_secrets.keys().map(|x| x.to_string()).collect();
-        for k in vault_secrets.intersection(&template_keys) {
+        if let Some(k) = vault_secrets.intersection(&template_keys).next() {
             bail!("Secret {} can not be both templated and fetched from vault", k);
         }
 
