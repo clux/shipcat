@@ -90,7 +90,7 @@ impl Manifest {
 
         // not great: pass env & secrets in a single btree for backwards compatibility
         // TODO: switch to a bespoke `secrets` struct in manifests
-        let mut full_env = self.env.clone();
+        let mut full_env = self.env.plain.clone();
         full_env.append(&mut self.secrets.clone());
 
         ctx.insert("env", &full_env);
@@ -135,7 +135,18 @@ impl Manifest {
     /// Template evars - must happen before inline templates!
     pub fn template_evars(&mut self, reg: &Region) -> Result<()> {
         let ctx = self.make_template_context(reg)?;
-        for (_, v) in &mut self.env {
+        for e in &mut self.get_env_vars() {
+            e.template(&ctx)?;
+        }
+        Ok(())
+    }
+}
+
+// helpers for env vars
+use super::structs::EnvVars;
+impl EnvVars {
+    pub fn template(&mut self, ctx: &Context) -> Result<()> {
+        for (_, v) in &mut self.plain.iter_mut() {
             *v = one_off(v, &ctx)?;
         }
         Ok(())

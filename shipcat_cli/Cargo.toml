@@ -4,12 +4,13 @@ authors = [
   "Florent Delannoy <florent.delannoy@babylonhealth.com>",
   "Jeremie Vallee <jeremie.vallee@babylonhealth.com>",
   "Laurent Godet <laurent.godet@babylonhealth.com>",
-  "Guy Leaver <guy.leaver@babylonhealth.com>"
+  "Guy Leaver <guy.leaver@babylonhealth.com>",
+  "Jay Anslow <jay.anslow@babylonhealth.com>"
 ]
 name = "shipcat"
 description = "Deploy right meow."
 readme = "README.md"
-version = "0.75.0"
+version = "0.76.0"
 categories = ["command-line-utilities"]
 keywords = ["kubernetes", "helm", "deployment", "standardisation", "validation"]
 license-file = "LICENSE"

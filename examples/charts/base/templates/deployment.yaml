@@ -92,16 +92,16 @@ spec:
 {{- end }}
 
         env:
-{{- range $k, $v := .Values.env }}
-        - name: {{ $k }}
-          value: "{{ $v }}"
+{{- range $k, $v := .Values.env.plain }}
+        - name: {{ $k | quote }}
+          value: {{ $v | quote }}
 {{- end }}
-{{- range $k, $v := $.Values.secrets }}
-        - name: {{ $k }}
+{{- range _, $name := $.Values.env.secrets }}
+        - name: {{ $name | quote }}
           valueFrom:
             secretKeyRef:
               name: {{ $.Values.name }}-secrets
-              key: {{ $k }}
+              key: {{ $name }}
 {{- end }}
         - name: SERVICE_NAME
           value: {{ .Values.name }}

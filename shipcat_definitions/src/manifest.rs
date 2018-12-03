@@ -1,5 +1,5 @@
 use vault::Vault;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use regex::Regex;
 
 use config::{Config};
@@ -14,7 +14,7 @@ use super::structs::volume::{Volume, VolumeMount};
 use super::structs::{Metadata, VaultOpts, Dependency};
 use super::structs::security::DataHandling;
 use super::structs::Probe;
-use super::structs::{CronJob, Sidecar};
+use super::structs::{CronJob, Sidecar, EnvVars};
 use super::structs::{Kafka, Kong, Rbac};
 use super::structs::RollingUpdate;
 use super::structs::autoscaling::AutoScaling;
@@ -262,8 +262,8 @@ pub struct Manifest {
     /// region, and replace them internally.
     ///
     /// The `as_secret` destinction only serves to put `AUTH_SECRET` into `Manifest::secrets`.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub env: BTreeMap<String, String>,
+    #[serde(default)]
+    pub env: EnvVars,
 
 
     /// Kubernetes Secret Files to inject
@@ -778,6 +778,12 @@ impl Manifest {
         for wrk in &self.workers {
             wrk.verify()?;
         }
+        for s in &self.sidecars {
+            s.verify()?;
+        }
+        for c in &self.cronJobs {
+            c.verify()?;
+        }
         for p in &self.ports {
             p.verify()?;
         }
@@ -795,15 +801,7 @@ impl Manifest {
             ru.verify(self.replicaCount.unwrap())?;
         }
 
-        // Env values are uppercase
-        for (k, _) in &self.env {
-            if k != &k.to_uppercase()  {
-                bail!("Env vars need to be uppercase, found: {}", k);
-            }
-            if k.contains("-") {
-                bail!("Env vars need to use SCREAMING_SNAKE_CASE not dashes, found: {}", k);
-            }
-        }
+        self.env.verify()?;
 
         // internal errors - implicits set these!
         if self.image.is_none() {
@@ -859,6 +857,23 @@ impl Manifest {
         };
         format!("{}/{}", reg, svc)
     }
+
+    // Get EnvVars for all containers, workers etc. for this Manifest.
+    pub fn get_env_vars(&mut self) -> Vec<&mut EnvVars> {
+        let mut envs = Vec::new();
+        envs.push(&mut self.env);
+        for s in &mut self.sidecars {
+            envs.push(&mut s.env);
+        }
+        for w in &mut self.workers {
+            envs.push(&mut w.env);
+        }
+        for c in &mut self.cronJobs {
+            envs.push(&mut c.env);
+        }
+        envs
+    }
+
     /// Populate placeholder fields with secrets from vault
     ///
     /// This will use the HTTP api of Vault using the configuration parameters
@@ -867,23 +882,33 @@ impl Manifest {
         let pth = self.get_vault_path(vc);
         debug!("Injecting secrets from vault {} ({:?})", pth, client.mode());
 
-        let special = "SHIPCAT_SECRET::".to_string();
-        // iterate over key value evars and replace placeholders
-        for (k, v) in &mut self.env {
-            if v == "IN_VAULT" {
-                let vkey = format!("{}/{}", pth, k);
-                self.secrets.insert(k.to_string(), client.read(&vkey)?);
+        let mut vault_secrets = BTreeSet::new();
+        let mut template_secrets = BTreeMap::new();
+        for e in &mut self.get_env_vars() {
+            for k in e.vault_secrets() {
+                vault_secrets.insert(k.to_string());
             }
-            // Special cases that were handled by `| as_secret` template fn
-            if v.starts_with(&special) {
-                self.secrets.insert(k.to_string(), v.split_off(special.len()));
+            for (k, v) in e.template_secrets() {
+                let original = template_secrets.insert(k.to_string(), v.to_string());
+                if original.iter().any(|x| x == &v) {
+                    bail!("Secret {} can not be used in multiple templates with different values", k);
+                }
             }
         }
-        // remove placeholders from env
-        self.env = self.env.clone().into_iter()
-            .filter(|&(_, ref v)| v != "IN_VAULT")
-            .filter(|&(_, ref v)| !v.starts_with(&special))
-            .collect();
+
+        let template_keys = template_secrets.keys().map(|x| x.to_string()).collect();
+        if let Some(k) = vault_secrets.intersection(&template_keys).next() {
+            bail!("Secret {} can not be both templated and fetched from vault", k);
+        }
+
+        // Lookup values for each secret in vault.
+        for k in vault_secrets {
+            let vkey = format!("{}/{}", pth, k);
+            self.secrets.insert(k.to_string(), client.read(&vkey)?);
+        }
+
+        self.secrets.append(&mut template_secrets);
+
         // do the same for secret secrets
         for (k, v) in &mut self.secretFiles {
             if v == "IN_VAULT" {
@@ -907,9 +932,14 @@ impl Manifest {
 
     pub fn verify_secrets_exist(&self, vc: &VaultConfig) -> Result<()> {
         // what are we requesting
-        let keys = self.env.clone().into_iter()
-            .filter(|(_,v)| v == "IN_VAULT")
-            .map(|(k,_)| k)
+        // TODO: Use envvars directly
+        let keys = self
+            .env
+            .plain
+            .clone()
+            .into_iter()
+            .filter(|(_, v)| v == "IN_VAULT")
+            .map(|(k, _)| k)
             .collect::<Vec<_>>();
         let files = self.secretFiles.clone().into_iter()
             .filter(|(_,v)| v == "IN_VAULT")

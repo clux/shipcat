@@ -32,7 +32,7 @@ pub struct CronJob {
     ///
     /// These may be specified in addition to the main deployment `env` vars
     /// or as fresh variables, depending on `preserveEnv`.
-    #[serde(default, skip_serializing_if = "EnvVars::is_empty")]
+    #[serde(default)]
     pub env: EnvVars,
 
     /// Add environment variables from parent deployment into this worker
