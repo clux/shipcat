@@ -5,7 +5,8 @@ authors = [
   "Jeremie Vallee <jeremie.vallee@babylonhealth.com>",
   "Laurent Godet <laurent.godet@babylonhealth.com>",
   "Guy Leaver <guy.leaver@babylonhealth.com>",
-  "Jay Anslow <jay.anslow@babylonhealth.com>"
+  "Jay Anslow <jay.anslow@babylonhealth.com>",
+  "Jose Alban <jose.alban@babylonhealth.com>",
 ]
 name = "shipcat"
 description = "Deploy right meow."
