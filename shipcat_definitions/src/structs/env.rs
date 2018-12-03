@@ -62,7 +62,7 @@ impl EnvVars {
     }
 
     pub fn verify(&self) -> Result<()> {
-        for (k, v) in &self.plain {
+        for k in self.plain.keys() {
             if k != &k.to_uppercase()  {
                 bail!("Env vars need to be uppercase, found: {}", k);
             }
