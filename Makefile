@@ -12,7 +12,8 @@ compile:
 	chmod +x shipcat.x86_64-unknown-linux-musl
 
 test:
-	cargo test
+	cargo test -p shipcat
+	cargo test -p raftcat
 
 build:
 	docker build -t $(REPO)/$(NAME):$(VERSION) .

@@ -81,7 +81,7 @@ impl Default for ManifestType {
 impl Manifest {
     /// Upgrade a `Base` manifest to either a Complete or a Stubbed one
     fn upgrade(mut self, reg: &Region, kind: ManifestType) -> Result<Self> {
-        //assert_eq!(self.kind, ManifestType::Base); // sanity
+        assert_eq!(self.kind, ManifestType::Base); // sanity
         let v = match kind {
             ManifestType::Completed => Vault::regional(&reg.vault)?,
             ManifestType::Stubbed => Vault::mocked(&reg.vault)?,

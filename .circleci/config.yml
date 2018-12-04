@@ -80,8 +80,8 @@ jobs:
       - restore_cache:
           keys:
           - target-test-{{ .Environment.CACHE_VERSION }}
-      - run: cargo test -- --nocapture
-      - run: cargo doc --no-deps --lib
+      - run: cargo test -p shipcat -- --nocapture
+      - run: cargo doc --no-deps --lib -p shipcat
       - save_cache:
           key: target-test-{{ .Environment.CACHE_VERSION }}
           paths:
