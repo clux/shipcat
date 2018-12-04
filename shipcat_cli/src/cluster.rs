@@ -74,11 +74,9 @@ fn crd_reconcile(svcs: Vec<String>, config: &Config, region: &Region, n_workers:
         r
     }).filter_map(Result::err).collect::<Vec<_>>();
     // propagate first non-ignorable error if exists
-    for e in res {
-        match e {
-            // remaining cases not ignorable
-            e => return Err(e),
-        }
+    if let Some(e) = res.into_iter().next() {
+        // no errors ignoreable atm
+        return Err(e)
     }
     Ok(())
 }
