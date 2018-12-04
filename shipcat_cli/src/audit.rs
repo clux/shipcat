@@ -1,5 +1,6 @@
 use std::env;
 
+use url::Url;
 use chrono::{Utc, SecondsFormat};
 
 use super::{Result, ResultExt, ErrorKind};
@@ -16,7 +17,10 @@ struct AuditDeploymentPayload {
     pub timestamp: String,
     pub status: UpgradeState,
     /// Eg a jenkins job id
-    pub upstreamId: Option<String>,
+    pub contextId: Option<String>,
+    /// Eg a jenkins job url
+    #[serde(with = "url_serde")]
+    pub contextLink: Option<Url>,
     /// Domain Object
     pub deployment: AuditDeployment,
 }
@@ -28,7 +32,10 @@ impl AuditDeploymentPayload {
             domainType: String::from(dt),
             timestamp: Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
             status: us.clone(),
-            upstreamId: env::var("SHIPCAT_AUDIT_UPSTREAM_ID").ok(),
+            contextId: env::var("SHIPCAT_AUDIT_CONTEXT_ID").ok(),
+            contextLink: if let Some(urlstr) = env::var("SHIPCAT_AUDIT_CONTEXT_LINK").ok() {
+                url::Url::parse(&urlstr).ok()
+            } else { None },
             ..Default::default()
         }
     }
@@ -41,7 +48,7 @@ struct AuditDeployment {
     pub id: String,
     pub region: String,
     /// Eg Git SHA
-    pub revision: String,
+    pub manifestsRevision: String,
     pub service: String,
     pub version: String,
 }
@@ -53,14 +60,14 @@ impl AuditDeployment {
         } else {
             ("unknown".into(), "unknown".into(), "unknown".into())
         };
-        let revision = match env::var("SHIPCAT_AUDIT_REVISION") {
+        let manifestsRevision = match env::var("SHIPCAT_AUDIT_REVISION") {
             Ok(ev) => ev,
             Err(e) => panic!(e),
         };
 
         AuditDeployment{
-            id: format!("{}-{}-{}", service, version, revision),
-            region, revision, service, version,
+            id: format!("{}-{}-{}", service, version, manifestsRevision),
+            region, manifestsRevision, service, version,
         }
     }
 }
