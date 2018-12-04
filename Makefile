@@ -7,7 +7,7 @@ compile:
 	docker run \
 		-v cargo-cache:/root/.cargo \
 		-v "$$PWD:/volume" -w /volume \
-		--rm -it clux/muslrust:stable cargo build --release --bin shipcat
+		--rm -it clux/muslrust:stable cargo build --release -p shipcat
 	cp target/x86_64-unknown-linux-musl/release/shipcat shipcat.x86_64-unknown-linux-musl
 	chmod +x shipcat.x86_64-unknown-linux-musl
 
@@ -92,7 +92,7 @@ raftcat:
 	docker run \
 		-v cargo-cache:/root/.cargo \
 		-v "$$PWD:/volume" -w /volume \
-		--rm -it clux/muslrust:stable cargo build --release --bin raftcat
+		--rm -it clux/muslrust:stable cargo build --release -p raftcat
 	cp target/x86_64-unknown-linux-musl/release/raftcat raftcat.x86_64-unknown-linux-musl
 	chmod +x raftcat.x86_64-unknown-linux-musl
 	docker build -t $(REPO)/raftcat:$(VERSION) -f Dockerfile.raftcat .

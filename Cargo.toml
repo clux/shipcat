@@ -1,14 +1,10 @@
 [workspace]
 members = [
   "raftcat",
-  "shipcat_definitions",
   "shipcat_cli"
 ]
+# Definitions has its own workspace atm.
+exclude = ["shipcat_definitions"]
 
 [profile.release]
 debug = false
-
-[replace]
-"raftcat:0.76.0" = { path = "raftcat" }
-"shipcat_definitions:0.76.0" = { path = "shipcat_definitions" }
-"shipcat_cli:0.76.0" = { path = "shipcat_cli" }

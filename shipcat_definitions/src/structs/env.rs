@@ -33,7 +33,7 @@ use std::mem;
 ///
 /// The `as_secret` destinction only serves to put `AUTH_SECRET` into `Manifest::secrets`.
 #[derive(Serialize, Clone, Default)]
-#[cfg_attr(crd, derive(Deserialize))]
+#[cfg_attr(feature = "crd", derive(Deserialize))]
 pub struct EnvVars {
     /// Plain text (non-secret) environment variables
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
