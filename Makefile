@@ -38,14 +38,17 @@ tag-latest:
 	docker push $(REPO)/$(NAME):latest
 
 clippy:
-	cargo clippy -- --allow clippy::if_let_redundant_pattern_matching
+	cargo clippy -p shipcat -- --allow clippy::if_let_redundant_pattern_matching --allow clippy::or_fun_call
+	@# raftcat uses actix that requires experimental lints - run this manually on nightly..
+	@#cargo clippy -p raftcat -- --allow clippy::or_fun_call
+
 
 doc:
-	cargo doc --all --all-features
+	cargo doc --lib --no-deps -p shipcat
 	xdg-open target/doc/shipcat/index.html
 
 push-docs:
-	cargo doc --all --all-features
+	cargo doc --lib --no-deps -p shipcat
 	echo "<meta http-equiv=refresh content=0;url=shipcat/index.html>" > target/doc/index.html
 	ghp-import -n target/doc
 	git push -qf "git@github.com:Babylonpartners/shipcat.git" gh-pages
