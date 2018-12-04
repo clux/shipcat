@@ -177,7 +177,7 @@ impl Vault {
             bail!("secret list {} does not contain keys list from vault api!?: {}", url, body);
         }
         let res = lsec.data["keys"].iter()
-            .filter(|e| !e.ends_with("/")) // skip sub folders
+            .filter(|e| !e.ends_with('/')) // skip sub folders
             .map(|e| e.to_string())
             .collect::<Vec<String>>();
         Ok(res)

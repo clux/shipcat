@@ -7,7 +7,7 @@ use super::{Result};
 pub fn diff_format(diff: String) -> String {
     let diff_re = Regex::new(r"has changed|^\-|^\+").unwrap();
     // filter out lines that doesn't contain "has changed" or starting with + or -
-    diff.split("\n").filter(|l| {
+    diff.split('\n').filter(|l| {
         diff_re.is_match(l)
     }).collect::<Vec<_>>().join("\n")
 }
@@ -17,7 +17,7 @@ pub fn diff_is_version_only(diff: &str, vers: (&str, &str)) -> bool {
     trace!("Checking diff for {:?}", vers);
     for l in smalldiff.lines() {
         // ignore headline for resource type (no actual changes)
-        if !l.starts_with("+") && !l.starts_with("-") && l.contains("has changed:") {
+        if !l.starts_with('+') && !l.starts_with('-') && l.contains("has changed:") {
             continue;
         }
         // ignore all lines that contain one of the versions
@@ -43,7 +43,7 @@ pub fn infer_version_change(diff: &str) -> Option<(String, String)> {
 }
 
 pub fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
-    let mut out = input.clone();
+    let mut out = input;
     for s in secrets {
         // If your secret is less than 8 characters, we won't obfuscate it
         // Mostly for fear of clashing with other parts of the output,

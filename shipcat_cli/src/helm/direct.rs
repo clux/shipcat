@@ -306,7 +306,7 @@ fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
     if !hdifferr.is_empty() {
         if hdifferr.starts_with(&format!("Error: \"{}\" has no deployed releases", mf.name)) {
             let cmd = format!("helm --tiller-namespace={} del --purge {}", namespace, mf.name);
-            let reason = format!("to let you be able to retry the install/reconcile");
+            let reason = "to let you be able to retry the install/reconcile";
             error!("Previous installs of {} failed, you need to run: \n\t{}\n{}",
                 mf.name, cmd, reason
             );

@@ -155,7 +155,7 @@ pub fn send(msg: Message) -> Result<()> {
 fn short_ver(ver: &str) -> String {
     if Version::parse(&ver).is_err() && ver.len() == 40 {
         // only abbreviate versions that are not semver and 40 chars (git shas)
-        format!("{}", &ver[..8])
+        ver[..8].to_string()
     } else {
         ver.to_string()
     }

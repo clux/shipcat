@@ -23,7 +23,7 @@ impl StatuscakeTest {
         let website_url = if let Some(hosts) = kong.hosts {
             Some(format!("https://{}/health",
                     hosts
-                    .split(",")
+                    .split(',')
                     .collect::<Vec<&str>>()
                     .first()
                     .unwrap()))
@@ -53,7 +53,7 @@ impl StatuscakeTest {
         };
 
         StatuscakeTest {
-            name: name.into(),
+            name,
             website_name,
             website_url,
             contact_group,

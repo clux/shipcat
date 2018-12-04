@@ -36,7 +36,7 @@ pub struct ConfigMappedFile {
 impl ConfigMap {
     pub fn verify(&self) -> Result<()> {
         // mount paths can't be empty string
-        if self.mount == "" || self.mount.starts_with("~") {
+        if self.mount == "" || self.mount.starts_with('~') {
             bail!("Invalid mountpath '{}'", self.mount)
         }
         // and must end in a slash to have a standard

@@ -22,7 +22,7 @@ fn kout(args: Vec<String>) -> Result<String> {
         warn!("kubectl {} stderr: {}", args.join(" "), err.trim());
     }
     // kubectl keeps returning opening and closing apostrophes - strip them:
-    if out.len() > 2 && out.chars().next() == Some('\'') {
+    if out.len() > 2 && out.starts_with('\'') {
         let res = out.split('\'').collect::<Vec<_>>()[1];
         return Ok(res.trim().into());
     }
@@ -119,7 +119,7 @@ fn get_broken_pods(mf: &Manifest) -> Result<(String, Vec<String>)> {
         "pods".into(),
         format!("-l=app={}", mf.name),
         format!("-n={}", mf.namespace),
-        format!("--no-headers"),
+        "--no-headers".into(),
     ];
     let podres = kout(podargs)?;
     let mut bpods = vec![];
@@ -132,7 +132,7 @@ fn get_broken_pods(mf: &Manifest) -> Result<(String, Vec<String>)> {
             }
         }
         else if let Some(caps) = status_re.captures(l) {
-            if &caps["ready"] != &caps["total"] {
+            if caps["ready"] != caps["total"] {
                 if let Some(p) = l.split(' ').next() {
                     warn!("Found pod with less than necessary containers healthy: {}", p);
                     bpods.push(p.into());
@@ -162,7 +162,7 @@ pub fn debug(mf: &Manifest) -> Result<()> {
             pod.clone(),
             mf.name.clone(),
             format!("-n={}", mf.namespace),
-            format!("--tail=30").into(),
+            "--tail=30".into(),
         ];
         match kout(logvec) {
             Ok(l) => {
@@ -469,7 +469,7 @@ fn find_all_manifest_crds(ns: &str) -> Result<Vec<String>> {
     if out == "''" { // stupid kubectl
         return Ok(vec![])
     }
-    Ok(out.split(" ").map(String::from).collect())
+    Ok(out.split(' ').map(String::from).collect())
 }
 
 use std::collections::HashSet;
