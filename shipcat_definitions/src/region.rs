@@ -129,7 +129,7 @@ pub struct KongConfig {
 }
 
 /// StatusCake configuration for a region
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(deny_unknown_fields)]
 pub struct StatuscakeConfig {
     /// Contact Group that will be used if tests go down
