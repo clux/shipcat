@@ -1,3 +1,5 @@
+use std::env;
+
 use chrono::{Utc, SecondsFormat};
 
 use super::{Result, ResultExt, ErrorKind};
@@ -21,12 +23,15 @@ struct AuditDeploymentPayload {
 
 impl AuditDeploymentPayload {
     /// Timestamped payload skeleton
-    pub fn new(dt: &str, us: &UpgradeState, ui: &Option<String>) -> Self {
+    pub fn new(dt: &str, us: &UpgradeState) -> Self {
         AuditDeploymentPayload{
             domainType: String::from(dt),
             timestamp: format!("{}", Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)),
             status: us.clone(),
-            upstreamId: ui.clone(),
+            upstreamId: match env::var("SHIPCAT_AUDIT_UPSTREAM_ID") {
+                Ok(ev) => Some(ev),
+                _ => None,
+            },
             ..Default::default()
         }
     }
@@ -77,7 +82,7 @@ pub fn audit(us: &UpgradeState, ud: &UpgradeData, audcfg: &AuditWebhook) -> Resu
     let client = reqwest::Client::new();
 
     let ad = AuditDeployment::new(&Option::Some(ud.clone()));
-    let mut ap = AuditDeploymentPayload::new("deployment", &us, &Option::Some("uidTODO".into()));
+    let mut ap = AuditDeploymentPayload::new("deployment", &us);
     ap.deployment = ad;
 
     client.post(endpoint.clone())
@@ -96,6 +101,7 @@ mod tests {
     #[test]
     fn does_audit() {
         let audcfg = AuditWebhook{
+            // TODO: not localhost..
             url: Url::parse("http://localhost:6666/events").unwrap(),
             token: "1234".into(),
         };
