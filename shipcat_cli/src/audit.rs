@@ -10,9 +10,12 @@ use helm::direct::{UpgradeData, UpgradeState};
 struct AuditDeploymentPayload {
     #[serde(rename = "type")]
     pub domainType: String,
+    /// RFC 3339
     pub timestamp: String,
     pub status: UpgradeState,
+    /// Eg a jenkins job id
     pub upstreamId: Option<String>,
+    /// Domain Object
     pub deployment: AuditDeployment,
 }
 
@@ -35,6 +38,7 @@ impl AuditDeploymentPayload {
 struct AuditDeployment {
     pub id: String,
     pub region: String,
+    /// Eg Git SHA
     pub revisionId: String,
     pub service: String,
     pub version: String,
@@ -83,7 +87,6 @@ pub fn audit(us: &UpgradeState, ud: &UpgradeData, audcfg: &AuditWebhook) -> Resu
         .chain_err(&mkerr)?;
     Ok(())
 }
-// TODO monday: make sure that damn obj spec is working fine :D tehee
 
 #[cfg(test)]
 mod tests {
