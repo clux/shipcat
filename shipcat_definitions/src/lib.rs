@@ -27,13 +27,16 @@ extern crate regex;
 extern crate semver;
 extern crate base64;
 
-// Mutually exclusive backing on hold atm..
-// currently breaks Default for ConfigType and ManifestType
-//#[macro_use]
-//extern crate static_assertions;
-//assert_cfg!(all(not(all(feature = "filesystem", feature = "crd")),
-//                any(    feature = "filesystem", feature = "crd")),
-//            "Must exclusively use Filesystem or CRDs as the backing");
+/// The backing for manifests must come from the filesystem or the CRD
+/// This assert enforce that users of this library choses a feature.
+#[macro_use]
+extern crate static_assertions;
+assert_cfg!(all(not(all(feature = "filesystem", feature = "crd")),
+                any(    feature = "filesystem", feature = "crd")),
+"Shipcat definitions library behaves differently depending on compile time feature:\
+A feature must be chosen to be either \"crd\" or \"filesystem\" \n\n\
+Please `cargo build -p shipcat` or `cargo build -p raftcat` to force a choice,\
+or build from shipcat_definitions/ with --features to build the library directly.\n");
 
 #[macro_use]
 extern crate error_chain;

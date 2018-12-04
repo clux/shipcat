@@ -6,7 +6,7 @@ To build yourself, use [rustup](https://rustup.rs/) to get latest stable rust.
 
 ```sh
 rustup update stable # if build breaks on master
-cargo build
+cargo build -p shipcat
 ln -sf $PWD/target/debug/shipcat /usr/local/bin/shipcat
 echo "source $PWD/shipcat_cli/shipcat.complete.sh" >> ~/.bash_completion
 ```
@@ -14,7 +14,7 @@ echo "source $PWD/shipcat_cli/shipcat.complete.sh" >> ~/.bash_completion
 then to update shipcat, you simply:
 
 ```
-git pull && cargo build
+git pull && cargo build -p shipcat
 ```
 
 from the shipcat source repo.

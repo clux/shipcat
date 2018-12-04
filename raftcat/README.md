@@ -27,13 +27,13 @@ cargo run --bin raftcat
 ```
 
 From the shipcat root directory.
-Export the vault secrets and manifest evars:
+Export the vault secrets and manifest evars (provided you have manifests):
 
 ```sh
 source <(shipcat values raftcat -s | yq '.secrets | keys[] as $k | "export \($k)=\(.[$k])"' -r)
 source <(shipcat values raftcat | yq '.env | keys[] as $k | "export \($k)=\(.[$k])"' -r)
 export REGION_NAME="$(kubectl config current-context)"
-export ENV_NAME="staging"
+export ENV_NAME="dev"
 ```
 
 ## Cluster

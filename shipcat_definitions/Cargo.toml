@@ -35,6 +35,8 @@ dirs = { version = "1.0.4", optional = true }
 walkdir = { version = "2.2.5", optional = true }
 static_assertions = "0.3.1"
 
+[workspace]
+
 [features]
 default = []
 filesystem = ["walkdir", "dirs"]

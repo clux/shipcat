@@ -1,6 +1,6 @@
 [package]
 name = "raftcat"
-version = "0.1.0"
+version = "0.76.0"
 authors = ["Eirik Albrigtsen <eirik.albrigtsen@babylonhealth.com>"]
 
 [[bin]]
