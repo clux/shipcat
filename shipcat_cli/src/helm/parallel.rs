@@ -3,7 +3,7 @@ use std::sync::mpsc::channel;
 use std::fs;
 
 use super::{Config, Manifest, Region};
-use super::{UpgradeMode, UpgradeData};
+use super::{UpgradeMode, UpgradeState, UpgradeData};
 use super::direct;
 use super::helpers;
 use super::kube;
@@ -104,6 +104,11 @@ fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, region: 
 
     let upgrade_opt = UpgradeData::new(&mf, &hfile, mode, exists)?;
     if let Some(ref udata) = upgrade_opt {
+        let _ = direct::handle_upgrade_notifies(&UpgradeState::Pending, &udata, &region).map_err(|e| {
+            warn!("Failed to notify about upgrade: {}", e);
+            e
+        });
+
         // upgrade in given mode, potentially rolling back a failure
         match direct::upgrade(&udata) {
             Err(e) => {
@@ -116,15 +121,15 @@ fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, region: 
                 // after helm upgrade / kubectl apply, check rollout status in a loop:
                 if kube::await_rollout_status(&mf)? {
                     // notify about the result directly as they happen
-                    let _ = direct::handle_upgrade_notifies(true, &udata).map_err(|e| {
-                        warn!("Failed to slack notify about upgrade: {}", e);
+                    let _ = direct::handle_upgrade_notifies(&UpgradeState::Completed, &udata, &region).map_err(|e| {
+                        warn!("Failed to notify about upgrade: {}", e);
                         e
                     });
                 } else {
                     error!("Rollout of {} timed out", mf.name);
                     kube::debug(&mf)?;
-                    let _ = direct::handle_upgrade_notifies(false, &udata).map_err(|e| {
-                        warn!("Failed to slack notify about upgrade: {}", e);
+                    let _ = direct::handle_upgrade_notifies(&UpgradeState::Failed, &udata, &region).map_err(|e| {
+                        warn!("Failed to notify about upgrade: {}", e);
                         e
                     });
                     // need set this as a reconcile level error

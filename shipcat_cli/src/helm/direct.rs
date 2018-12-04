@@ -6,6 +6,7 @@ use std::io::Write;
 
 use serde_yaml;
 
+use super::audit::audit;
 use super::grafana;
 use super::slack;
 use super::kube;
@@ -65,6 +66,39 @@ impl UpgradeMode {
             &UpgradeMode::UpgradeInstallWait => "reconciled",
             &UpgradeMode::Apply => "applied",
         }.into()
+    }
+}
+
+/// The different states an upgrade can be in
+#[derive(Serialize, PartialEq, Clone, Debug)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum UpgradeState {
+    /// Before action
+    Pending,
+    /// No errors
+    Completed,
+    /// Errors
+    Failed,
+    /// Before revert
+    RollingBack,
+    /// After revert
+    RolledBack,
+}
+impl Default for UpgradeState {
+    fn default() -> Self {
+        UpgradeState::Pending
+    }
+}
+
+impl fmt::Display for UpgradeState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &UpgradeState::Pending => write!(f, "PENDING"),
+            &UpgradeState::Completed => write!(f, "COMPLETED"),
+            &UpgradeState::Failed => write!(f, "FAILED"),
+            &UpgradeState::RollingBack => write!(f, "ROLLING_BACK"),
+            &UpgradeState::RolledBack => write!(f, "ROLLED_BACK"),
+        }
     }
 }
 
@@ -443,32 +477,51 @@ pub fn handle_upgrade_rollbacks(u: &UpgradeData, mf: &Manifest) -> Result<()> {
     Ok(())
 }
 
-/// Notify slack upgrades from a single upgrade
-pub fn handle_upgrade_notifies(success: bool, u: &UpgradeData) -> Result<()> {
-    let (color, text) = if success {
-        info!("successfully rolled out {}", u.name);
-        ("good".into(), format!("{} `{}` in `{}`", u.mode.action_verb(), u.name, u.region))
-    } else {
-        warn!("failed to roll out {}", u.name);
-        ("danger".into(), format!("failed to {} `{}` in `{}`", u.mode, u.name, u.region))
+/// Notify slack / audit endpoint of upgrades from a single upgrade
+pub fn handle_upgrade_notifies(us: &UpgradeState, ud: &UpgradeData, r: &Region) -> Result<()> {
+    let code = if ud.diff.is_empty() { None } else { Some(ud.diff.clone()) };
+    let (color, text) = match us {
+        UpgradeState::Completed => {
+            info!("successfully rolled out {}", ud.name);
+            ("good".into(), format!("{} `{}` in `{}`", ud.mode.action_verb(), ud.name, ud.region))
+        }
+        UpgradeState::Failed => {
+            warn!("failed to roll out {}", ud.name);
+            ("danger".into(), format!("failed to {} `{}` in `{}`", ud.mode, ud.name, ud.region))
+        }
+        _ => ("good", format!("action state: {}", us))
     };
-    let code = if u.diff.is_empty() { None } else { Some(u.diff.clone()) };
-    if u.mode != UpgradeMode::DiffOnly {
-      let _ = grafana::create(grafana::Annotation {
-          event: grafana::Event::Upgrade,
-          service: u.name.clone(),
-          version: u.version.clone(),
-          region: u.region.clone(),
-          time: grafana::TimeSpec::Now,
-      });
+
+    match us {
+        UpgradeState::Completed | UpgradeState::Failed => {
+            if let Some(ref webhooks) = &r.webhooks {
+                audit(&us, &ud, &webhooks.audit)?;
+            }
+            if ud.mode != UpgradeMode::DiffOnly {
+              let _ = grafana::create(grafana::Annotation {
+                  event: grafana::Event::Upgrade,
+                  service: ud.name.clone(),
+                  version: ud.version.clone(),
+                  region: ud.region.clone(),
+                  time: grafana::TimeSpec::Now,
+              });
+            }
+            slack::send(slack::Message {
+                text, code,
+                color: Some(String::from(color)),
+                version: Some(ud.version.clone()),
+                metadata: ud.metadata.clone(),
+                ..Default::default()
+            })
+        }
+        _ => {
+            if let Some(ref webhooks) = &r.webhooks {
+                audit(&us, &ud, &webhooks.audit)
+            } else {
+                Ok(())
+            }
+        }
     }
-    slack::send(slack::Message {
-        text, code,
-        color: Some(color),
-        version: Some(u.version.clone()),
-        metadata: u.metadata.clone(),
-        ..Default::default()
-    })
 }
 
 /// Independent wrapper for helm values
@@ -519,10 +572,11 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Con
     // Sanity step that gives canonical upgrade data
     let upgrade_opt = UpgradeData::new(&mf, &hfile, mode, exists)?;
     if let Some(ref udata) = upgrade_opt {
+        handle_upgrade_notifies(&UpgradeState::Pending, &udata, &region)?;
         match upgrade(&udata) {
             Err(e) => {
                 // upgrade failed immediately - couldn't create resources
-                handle_upgrade_notifies(false, &udata)?;
+                handle_upgrade_notifies(&UpgradeState::Failed, &udata, &region)?;
                 // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
                 error!("{} from {}", e, udata.name);
                 handle_upgrade_rollbacks(&udata, &mf)?; // for now leave it in..
@@ -531,12 +585,12 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Con
             Ok(_) => {
                 // after helm upgrade / kubectl apply, check rollout status in a loop:
                 if kube::await_rollout_status(&mf)? {
-                    handle_upgrade_notifies(true, &udata)?;
+                    handle_upgrade_notifies(&UpgradeState::Completed, &udata, &region)?;
                 }
                 else {
                     let _ = kube::debug_rollout_status(&mf);
                     let _ = kube::debug(&mf);
-                    handle_upgrade_notifies(false, &udata)?;
+                    handle_upgrade_notifies(&UpgradeState::Completed, &udata, &region)?;
                     // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
                     handle_upgrade_rollbacks(&udata, &mf)?; // for now leave it in..
                     return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), mf.estimate_wait_time()).into());
