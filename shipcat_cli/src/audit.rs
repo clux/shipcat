@@ -26,12 +26,9 @@ impl AuditDeploymentPayload {
     pub fn new(dt: &str, us: &UpgradeState) -> Self {
         AuditDeploymentPayload{
             domainType: String::from(dt),
-            timestamp: format!("{}", Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)),
+            timestamp: Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
             status: us.clone(),
-            upstreamId: match env::var("SHIPCAT_AUDIT_UPSTREAM_ID") {
-                Ok(ev) => Some(ev),
-                _ => None,
-            },
+            upstreamId: env::var("SHIPCAT_AUDIT_UPSTREAM_ID").ok(),
             ..Default::default()
         }
     }
@@ -44,33 +41,33 @@ struct AuditDeployment {
     pub id: String,
     pub region: String,
     /// Eg Git SHA
-    pub revisionId: String,
+    pub revision: String,
     pub service: String,
     pub version: String,
 }
 
 impl AuditDeployment {
-    pub fn new(udopt: &Option<UpgradeData>, ) -> Self {
-        let (service, region, version) = if let Some(ref ud) = udopt {
+    pub fn new(udopt: Option<UpgradeData>, ) -> Self {
+        let (service, region, version) = if let Some(ud) = udopt {
             (ud.name.clone(), ud.region.clone(), ud.version.clone())
         } else {
             ("unknown".into(), "unknown".into(), "unknown".into())
         };
-        let rid = "todo".into();
+        let revision = match env::var("SHIPCAT_AUDIT_REVISION") {
+            Ok(ev) => ev,
+            Err(e) => panic!(e),
+        };
 
         AuditDeployment{
-            id: format!("{}-{}-{}", service, version, rid),
-            region: region,
-            revisionId: rid,
-            service: service,
-            version: version,
+            id: format!("{}-{}-{}", service, version, revision),
+            region, revision, service, version,
         }
     }
 }
 
 impl Default for AuditDeployment {
     fn default() -> Self {
-        AuditDeployment::new(&Option::None)
+        AuditDeployment::new(None)
     }
 }
 
@@ -81,7 +78,7 @@ pub fn audit(us: &UpgradeState, ud: &UpgradeData, audcfg: &AuditWebhook) -> Resu
     let mkerr = || ErrorKind::Url(endpoint.clone());
     let client = reqwest::Client::new();
 
-    let ad = AuditDeployment::new(&Option::Some(ud.clone()));
+    let ad = AuditDeployment::new(Some(ud.clone()));
     let mut ap = AuditDeploymentPayload::new("deployment", &us);
     ap.deployment = ad;
 
