@@ -11,6 +11,7 @@ use super::Result;
 use super::structs::{HealthCheck, ConfigMap};
 use super::structs::{InitContainer, Resources, HostAlias};
 use super::structs::volume::{Volume, VolumeMount};
+use super::structs::PersistentVolume;
 use super::structs::{Metadata, VaultOpts, Dependency};
 use super::structs::security::DataHandling;
 use super::structs::Probe;
@@ -559,6 +560,22 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub volumeMounts: Vec<VolumeMount>,
 
+    /// PersistentVolume injected in helm chart
+    ///
+    /// Exposed from shipcat, but not overrideable.
+    /// Straight from [kubernetes volumes](https://kubernetes.io/docs/concepts/storage/volumes/)
+    ///
+    /// ```yaml
+    /// persistentVolumes:
+    /// - name: data
+    ///   claim: mysql
+    ///   storageClass: "gp2"
+    ///   accessMode: ReadWriteOnce
+    ///   size: 10Gi
+    /// ```
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub persistentVolumes: Vec<PersistentVolume>,
+
     /// Cronjobs images to run as kubernetes `CronJob` objects
     ///
     /// Limited usefulness abstraction, that should be avoided.
@@ -789,6 +806,9 @@ impl Manifest {
         }
         for r in &self.rbac {
             r.verify()?;
+        }
+        for pv in &self.persistentVolumes {
+            pv.verify()?;
         }
         if let Some(ref cmap) = self.configs {
             cmap.verify()?;

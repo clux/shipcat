@@ -189,6 +189,9 @@ impl Manifest {
         if !mf.volumes.is_empty() {
             self.volumes = mf.volumes;
         }
+        if !mf.persistentVolumes.is_empty() {
+            self.persistentVolumes = mf.persistentVolumes;
+        }
         if !mf.cronJobs.is_empty() {
             self.cronJobs = mf.cronJobs;
         }

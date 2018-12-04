@@ -151,7 +151,7 @@ impl Resources<String> {
 
 
 // Parse normal k8s memory resource value into floats
-fn parse_memory(s: &str) -> Result<f64> {
+pub fn parse_memory(s: &str) -> Result<f64> {
     let digits = s.chars().take_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
     let unit = s.chars().skip_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
     let mut res : f64 = digits.parse()?;

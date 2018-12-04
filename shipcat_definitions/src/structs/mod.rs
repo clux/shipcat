@@ -44,6 +44,7 @@ pub use self::env::EnvVars;
 /// Kubernetes resource structs
 mod resources;
 pub use self::resources::Resources;
+pub use self::resources::parse_memory;
 /// Kubernetes volumes
 pub mod volume;
 pub use self::volume::{Volume, VolumeMount};
@@ -91,3 +92,7 @@ pub use self::port::Port;
 /// Rbac
 pub mod rbac;
 pub use self::rbac::Rbac;
+
+// PersistentVolume
+mod persistentvolume;
+pub use self::persistentvolume::PersistentVolume;
