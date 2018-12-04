@@ -22,7 +22,8 @@ name = "shipcat"
 path = "src/main.rs"
 
 [dependencies]
-shipcat_definitions = { path = "../shipcat_definitions", features = ["filesystem"] }
+#shipcat_definitions = { path = "../shipcat_definitions", features = ["filesystem"] }
+shipcat_definitions = { version = "0.76.0", features = ["filesystem"] }
 clap = "2.31.2"
 error-chain = "0.12.0"
 log = "0.4.5"

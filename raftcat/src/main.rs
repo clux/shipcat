@@ -306,14 +306,14 @@ struct StateSafe {
     pub template: Arc<Mutex<tera::Tera>>,
 }
 impl StateSafe {
-    pub fn new(client: APIClient) -> Self {
+    pub fn new(client: APIClient) -> Result<Self> {
         let t = compile_templates!(concat!("raftcat", "/templates/*"));
-        let state = AppState::new(&client).expect("Could initialise application");
-        StateSafe {
+        let state = AppState::new(&client)?;
+        Ok(StateSafe {
             client,
             safe: Arc::new(Mutex::new(state)),
             template: Arc::new(Mutex::new(t)),
-        }
+        })
     }
     pub fn watch_manifests(&self) -> Result<()> {
         let old = self.safe.lock().unwrap().cache.clone();
@@ -345,7 +345,7 @@ fn main() -> Result<()> {
     }.expect("Failed to load kube config");
 
     let client = APIClient::new(cfg);
-    let state = StateSafe::new(client);
+    let state = StateSafe::new(client)?;
     let state2 = state.clone();
     // continuously poll for updates
     use std::{thread, time};

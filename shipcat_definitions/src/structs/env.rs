@@ -1,5 +1,4 @@
 use super::Result;
-use serde::de::{Deserialize, Deserializer};
 use std::collections::{BTreeMap, BTreeSet};
 use std::mem;
 
@@ -34,6 +33,7 @@ use std::mem;
 ///
 /// The `as_secret` destinction only serves to put `AUTH_SECRET` into `Manifest::secrets`.
 #[derive(Serialize, Clone, Default)]
+#[cfg_attr(crd, derive(Deserialize))]
 pub struct EnvVars {
     /// Plain text (non-secret) environment variables
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -106,6 +106,10 @@ impl EnvVars {
     }
 }
 
+#[cfg(feature = "filesystem")]
+use serde::de::{Deserialize, Deserializer};
+
+#[cfg(feature = "filesystem")]
 impl<'de> Deserialize<'de> for EnvVars {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
