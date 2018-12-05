@@ -18,7 +18,8 @@ use crate::region::Region;
 // ----------------------------------------------------------------------------------
 
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 #[serde(deny_unknown_fields)]
 pub struct ManifestDefaults {
     /// Image prefix string
@@ -43,7 +44,8 @@ impl Default for ManifestDefaults {
 
 
 /// Kubernetes cluster information
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 #[serde(deny_unknown_fields)]
 pub struct Cluster {
     /// Name of the cluster
@@ -54,7 +56,8 @@ pub struct Cluster {
     pub regions: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 pub struct Team {
     /// Team name
     pub name: String,
@@ -69,14 +72,16 @@ pub struct Team {
     pub notifications: Option<SlackChannel>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 #[serde(deny_unknown_fields)]
 pub struct Location {
     /// Location name
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 #[serde(deny_unknown_fields)]
 pub struct GithubParameters {
     /// Location name
@@ -84,7 +89,8 @@ pub struct GithubParameters {
 }
 
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 #[serde(deny_unknown_fields)]
 pub struct SlackParameters {
     /// Location name
@@ -96,7 +102,8 @@ pub struct SlackParameters {
 
 
 /// Main manifest, serializable from shipcat.yml
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     /// Global defaults for the manifests

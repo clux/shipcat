@@ -70,7 +70,8 @@ impl UpgradeMode {
 }
 
 /// The different states an upgrade can be in
-#[derive(Serialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, PartialEq, Clone)]
+#[cfg_attr(test, derive(Debug))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum UpgradeState {
     /// Before action

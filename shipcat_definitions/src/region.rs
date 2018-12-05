@@ -13,7 +13,8 @@ use super::{Result, Error};
 ///
 /// This is valdiated strictly using `shipcat validate` when versions are found in manifests.
 /// Otherwise, it's validated on upgrade time (via `shipcat apply`) when it's passed.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 pub enum VersionScheme {
     /// Version must be valid semver (no leading v)
     ///
@@ -53,8 +54,8 @@ impl VersionScheme {
 }
 
 /// Vault configuration for a region
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[cfg_attr(test, derive(Default))]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Default, Debug))]
 #[serde(deny_unknown_fields)]
 pub struct VaultConfig {
     /// Vault url up to and including port
@@ -85,7 +86,8 @@ pub struct KafkaConfig {
 }
 
 /// Webhooks that shipcat might trigger after actions
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 #[serde(deny_unknown_fields)]
 pub struct Webhooks {
     /// Audit webhook details
@@ -93,7 +95,8 @@ pub struct Webhooks {
 }
 
 /// Where / how to send audited events
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 #[serde(deny_unknown_fields)]
 pub struct AuditWebhook {
     /// Endpoint
@@ -266,8 +269,8 @@ impl Webhooks {
 ///
 /// Either it's a pure kubernetes context with a namespace and a cluster,
 /// or it's an abstract concept with many associated real kubernetes contexts.
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[cfg_attr(test, derive(Default))]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug, Default))]
 #[serde(deny_unknown_fields)]
 pub struct Region {
     /// Name of region

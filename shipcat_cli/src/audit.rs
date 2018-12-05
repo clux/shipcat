@@ -8,7 +8,8 @@ use super::AuditWebhook;
 use helm::direct::{UpgradeData, UpgradeState};
 
 /// Payload that gets sent via audit webhook
-#[derive(Serialize, Clone, Default, Debug)]
+#[derive(Serialize, Clone, Default)]
+#[cfg_attr(test, derive(Debug))]
 #[serde(rename_all = "snake_case")]
 struct AuditDeploymentPayload {
     #[serde(rename = "type")]
@@ -42,7 +43,8 @@ impl AuditDeploymentPayload {
 }
 
 /// Payload for single deployment domain object
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 #[serde(rename_all = "snake_case")]
 struct AuditDeployment {
     pub id: String,
