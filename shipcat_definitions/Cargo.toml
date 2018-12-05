@@ -4,7 +4,8 @@ authors = [
   "Florent Delannoy <florent.delannoy@babylonhealth.com>",
   "Jeremie Vallee <jeremie.vallee@babylonhealth.com>",
   "Laurent Godet <laurent.godet@babylonhealth.com>",
-  "Guy Leaver <guy.leaver@babylonhealth.com>"
+  "Guy Leaver <guy.leaver@babylonhealth.com>",
+  "Jose Alban <jose.alban@babylonhealth.com>"
 ]
 name = "shipcat_definitions"
 description = "Definition for Manifest and Config for shipcat"
