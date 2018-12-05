@@ -49,6 +49,9 @@ url = "1.7.2"
 features = ["serde-1"]
 version = "0.4.13"
 
+[dev-dependencies]
+mockito = "0.14.0"
+
 [lib]
 name = "shipcat"
 path = "src/lib.rs"

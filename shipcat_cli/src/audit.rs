@@ -101,15 +101,23 @@ pub fn audit(us: &UpgradeState, ud: &UpgradeData, audcfg: &AuditWebhook) -> Resu
 
 #[cfg(test)]
 mod tests {
+    extern crate mockito;
+
+    use std::env;
     use super::*;
     use reqwest::Url;
+    use self::mockito::mock;
+    // use self::mockito::Matcher;
 
     #[test]
     fn does_audit() {
+        env::set_var("SHIPCAT_AUDIT_CONTEXT_ID", "egcontextid");
+        env::set_var("SHIPCAT_AUDIT_CONTEXT_LINK", "http://eg.server/");
+        env::set_var("SHIPCAT_AUDIT_REVISION", "egrevision");
+
         let audcfg = AuditWebhook{
-            // TODO: not localhost..
-            url: Url::parse("http://localhost:6666/events").unwrap(),
-            token: "1234".into(),
+            url: Url::parse(&format!("{}/audit", mockito::SERVER_URL)).unwrap(),
+            token: "1234auth".into(),
         };
         let us = UpgradeState::Completed;
         let ud = UpgradeData{
@@ -119,6 +127,32 @@ mod tests {
             region: "r1".into(),
             ..Default::default()
         };
+
+        let mocked = mock("POST", "/audit")
+            .match_header("content-type", "application/json")
+            .match_header("Authorization", "Bearer 1234auth")
+            // TODO: match body with frozen timestamp
+            // .match_body(Matcher::Json(json!(
+            //     {
+            //         "type": "deployment",
+            //         "timestamp": "frozen",
+            //         "status": "COMPLETED",
+            //         "contextId": "egcontextid",
+            //         "contextLink": "http://eg.server/",
+            //         "deployment": {
+            //             "id": "svc-v1-egrevision",
+            //             "region": "r1",
+            //             "manifestsRevision": "egrevision",
+            //             "service": "svc",
+            //             "version": "v1"
+            //         }
+            //     }
+            // )))
+            .expect(1)
+            .create();
+
         assert!(audit(&us, &ud, &audcfg).is_ok());
+        mocked.assert();
+
     }
 }
