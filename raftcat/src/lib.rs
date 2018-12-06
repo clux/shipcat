@@ -22,10 +22,10 @@ pub use shipcat_definitions::{Manifest, Config, Cluster, Region, Team};
 
 /// A small CLI kubernetes interface
 pub mod kube;
-pub use kube::{ManifestMap, ManifestCache};
+pub use crate::kube::{ManifestMap, ManifestCache};
 
 
 mod integrations;
-pub use integrations::sentryapi::{self, SentryMap};
-pub use integrations::newrelic::{self, RelicMap};
-pub use integrations::version::{self, VersionMap};
+pub use crate::integrations::sentryapi::{self, SentryMap};
+pub use crate::integrations::newrelic::{self, RelicMap};
+pub use crate::integrations::version::{self, VersionMap};
