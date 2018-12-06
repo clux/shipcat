@@ -1,4 +1,5 @@
 use std::fs;
+use std::env;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::fs::File;
@@ -550,6 +551,17 @@ pub fn values_wrapper(svc: &str, region: &Region, conf: &Config, ver: Option<Str
 
 /// Full helm wrapper for a single upgrade/diff/install
 pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
+    if let Some(_) = &region.webhooks {
+        // Assume that webhooks strictly contains audit struct if present
+
+        if let Err(e) = env::var("SHIPCAT_AUDIT_REVISION") {
+            bail!("SHIPCAT_AUDIT_REVISION is required: {}", e);
+        }
+        if let Err(e) = env::var("SHIPCAT_AUDIT_CONTEXT_ID") {
+            bail!("SHIPCAT_AUDIT_CONTEXT_ID is required: {}", e);
+        }
+    }
+
     let mut mf = Manifest::base(svc, conf, region)?.complete(region)?;
 
     // Ensure we have a version - or are able to infer one

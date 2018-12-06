@@ -72,10 +72,7 @@ impl AuditDomainObject {
         } else {
             ("unknown".into(), "unknown".into(), "unknown".into())
         };
-        let manifestsRevision = match env::var("SHIPCAT_AUDIT_REVISION") {
-            Ok(ev) => ev,
-            Err(e) => panic!(e),
-        };
+        let manifestsRevision = env::var("SHIPCAT_AUDIT_REVISION").ok().unwrap_or("undefined".into());
 
         AuditDomainObject::Deployment{
             id: format!("{}-{}-{}-{}", manifestsRevision, region, service, version),
@@ -84,10 +81,7 @@ impl AuditDomainObject {
     }
 
     pub fn new_reconciliation(r: &str) -> Self {
-        let manifestsRevision = match env::var("SHIPCAT_AUDIT_REVISION") {
-            Ok(ev) => ev,
-            Err(e) => panic!(e),
-        };
+        let manifestsRevision = env::var("SHIPCAT_AUDIT_REVISION").ok().unwrap_or("undefined".into());
 
         let region = r.into();
         AuditDomainObject::Reconciliation{

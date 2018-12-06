@@ -36,7 +36,6 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
         let reg = region.clone();
         let config = conf.clone();
 
-
         let tx = tx.clone(); // tx channel reused in each thread
         pool.execute(move || {
             info!("Running {} for {}", mode, mf.name);
