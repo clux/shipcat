@@ -55,7 +55,6 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
     }).filter_map(Result::err).collect::<Vec<_>>();
 
     // propagate first non-ignorable error if exists
-    let mut anyNonIgnorableError = false;
     for e in res {
         match e {
             Error(ErrorKind::MissingRollingVersion(svc),_) => {
@@ -64,16 +63,18 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
             },
             // remaining cases not ignorable
             e => {
-                anyNonIgnorableError = true;
+                if let Some(ref webhooks) = &region.webhooks {
+                    if let Err(e) = audit_reconciliation(&UpgradeState::Failed, &region.name, &webhooks.audit) {
+                        warn!("Failed to notify about reconcile: {}", e);
+                    }
+                }
                 return Err(e)
             },
         }
     }
 
     if let Some(ref webhooks) = &region.webhooks {
-        let us = if anyNonIgnorableError { UpgradeState::Failed }
-                                    else { UpgradeState::Completed };
-        if let Err(e) = audit_reconciliation(&us, &region.name, &webhooks.audit) {
+        if let Err(e) = audit_reconciliation(&UpgradeState::Completed, &region.name, &webhooks.audit) {
             warn!("Failed to notify about reconcile: {}", e);
         }
     }
