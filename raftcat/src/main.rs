@@ -337,7 +337,7 @@ fn main() -> Result<()> {
     let state = StateSafe::new(client)?;
     let state2 = state.clone();
     // continuously poll for updates
-    use std::{thread, time};
+    use std::thread;
     thread::spawn(move || {
         loop {
             thread::sleep(Duration::from_secs(10));
