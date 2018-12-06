@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use structs::resources::Resources;
+use crate::structs::resources::Resources;
 use super::EnvVars;
 use super::Result;
 

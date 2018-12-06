@@ -98,25 +98,25 @@ error_chain! {
 
 /// Config with regional data
 pub mod region;
-pub use region::{Region, VaultConfig, VersionScheme, KongConfig};
+pub use crate::region::{Region, VaultConfig, VersionScheme, KongConfig};
 /// Master config with cross-region data
 pub mod config;
-pub use config::{Config, Cluster, Team, ManifestDefaults};
+pub use crate::config::{Config, Cluster, Team, ManifestDefaults};
 
 
 /// Structs for the manifest
 pub mod structs;
 
 pub mod manifest;
-pub use manifest::Manifest;
+pub use crate::manifest::Manifest;
 
 /// Crd wrappers
 mod crds;
-pub use crds::{Crd, CrdList, CrdEvent, CrdEventType};
+pub use crate::crds::{Crd, CrdList, CrdEvent, CrdEventType};
 
 /// Internal classifications and states
 mod states;
-pub use states::{ConfigType};
+pub use crate::states::{ConfigType};
 
 /// File backing
 #[cfg(feature = "filesystem")]
@@ -139,4 +139,4 @@ pub mod template;
 
 /// A Hashicorp Vault HTTP client using `reqwest`
 pub mod vault;
-pub use vault::Vault;
+pub use crate::vault::Vault;

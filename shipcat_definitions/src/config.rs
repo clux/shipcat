@@ -6,14 +6,14 @@ use std::collections::BTreeMap;
 
 #[allow(unused_imports)]
 use std::path::{Path, PathBuf};
-use structs::SlackChannel;
+use crate::structs::SlackChannel;
 
 
 #[allow(unused_imports)]
 use super::{Result, Error};
 use super::structs::{Contact};
-use states::ConfigType;
-use region::Region;
+use crate::states::ConfigType;
+use crate::region::Region;
 
 // ----------------------------------------------------------------------------------
 
@@ -425,7 +425,7 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
-    use region::VersionScheme;
+    use crate::region::VersionScheme;
     #[test]
     fn version_validate_test() {
         let scheme = VersionScheme::GitShaOrSemver;

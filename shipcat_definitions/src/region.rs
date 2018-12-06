@@ -1,4 +1,4 @@
-use structs::kong::Kong;
+use crate::structs::kong::Kong;
 use std::collections::BTreeMap;
 
 use semver::Version;

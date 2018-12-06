@@ -3,7 +3,7 @@ use std::env;
 use std::io::Read;
 
 use super::{Result, ErrorKind, ResultExt, Error};
-use region::{VaultConfig};
+use crate::region::{VaultConfig};
 
 fn default_addr() -> Result<String> {
     env::var("VAULT_ADDR").map_err(|_| ErrorKind::MissingVaultAddr.into())
