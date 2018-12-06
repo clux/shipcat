@@ -1,9 +1,5 @@
 mod common;
 use crate::common::setup;
-
-extern crate shipcat;
-extern crate shipcat_definitions;
-
 use shipcat_definitions::{Manifest, Config, ConfigType};
 use shipcat::helm::values;
 

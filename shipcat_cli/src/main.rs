@@ -1,11 +1,5 @@
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate log;
-extern crate loggerv;
-extern crate libc;
-
-extern crate shipcat;
+#[macro_use] extern crate clap;
+#[macro_use] extern crate log;
 
 #[allow(unused_imports)]
 use shipcat::*;

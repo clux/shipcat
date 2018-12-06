@@ -1,22 +1,11 @@
 #![allow(unused_imports, unused_variables)]
 #[macro_use] extern crate log;
-extern crate env_logger; // TODO: slog + slog-json
-
-extern crate sentry;
-extern crate sentry_actix;
-extern crate actix;
-extern crate actix_web;
-extern crate semver;
 #[macro_use] extern crate tera;
-extern crate kubernetes;
-extern crate chrono;
-
 extern crate failure;
 use failure::err_msg;
 
 #[macro_use] extern crate serde_derive;
 
-extern crate raftcat;
 pub use raftcat::*;
 
 use kubernetes::client::APIClient;
