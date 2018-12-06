@@ -247,6 +247,7 @@ impl Config {
     }
 
     /// Complete a Base config for a know to exist region
+    #[cfg(feature = "filesystem")]
     fn complete(&mut self, region: &str) -> Result<()> {
         assert_eq!(self.kind, ConfigType::Base);
         assert_eq!(self.regions.len(), 1);

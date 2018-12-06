@@ -1,40 +1,13 @@
 #![recursion_limit = "1024"]
 #![allow(renamed_and_removed_lints)]
 #![allow(non_snake_case)]
+#![warn(rust_2018_idioms)]
 
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_yaml;
-extern crate serde;
-#[macro_use]
-extern crate serde_json;
+#[macro_use] extern crate serde_derive;
+#[macro_use] extern crate serde_json;
+#[macro_use] extern crate log;
 
-// grafana / slack
-extern crate reqwest;
-
-extern crate openssl_probe;
-
-extern crate chrono;
-
-// notifications
-extern crate slack_hook;
-
-// graphing
-extern crate petgraph;
-
-#[macro_use]
-extern crate log;
-
-// sanity
-extern crate dirs;
-extern crate regex;
-extern crate semver;
-
-// parallel upgrades:
-extern crate threadpool;
-
-#[macro_use]
-extern crate error_chain;
+#[macro_use] extern crate error_chain;
 error_chain! {
     types {
         Error, ErrorKind, ResultExt, Result;
@@ -97,7 +70,6 @@ error_chain! {
     }
 }
 
-extern crate shipcat_definitions;
 pub use shipcat_definitions::{Manifest, ConfigType};
 pub use shipcat_definitions::structs;
 pub use shipcat_definitions::config::{self, Config, Team};

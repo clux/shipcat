@@ -18,8 +18,8 @@ struct GdprOutput {
 pub fn show(svc: Option<String>, conf: &Config, region: &Region) -> Result<()> {
     let out = if let Some(s) = svc {
         let mf = Manifest::base(&s, conf, region)?;
-        let data = if let Some(mut dh) = mf.dataHandling {
-                dh
+        let data = if let Some(dh) = mf.dataHandling {
+            dh
         } else {
             DataHandling::default()
         };
@@ -29,7 +29,7 @@ pub fn show(svc: Option<String>, conf: &Config, region: &Region) -> Result<()> {
         let mut services = vec![];
         for s in Manifest::available(&region.name)? {
             let mf = Manifest::base(&s, conf, region)?;
-            if let Some(mut dh) = mf.dataHandling {
+            if let Some(dh) = mf.dataHandling {
                 mappings.insert(s.clone(), dh);
             }
             services.push(s);

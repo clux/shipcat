@@ -1,44 +1,25 @@
 #![recursion_limit = "1024"]
 #![allow(renamed_and_removed_lints)]
 #![allow(non_snake_case)]
+#![warn(rust_2018_idioms)]
 
-//extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_yaml;
-extern crate serde_json;
-extern crate serde;
+#[macro_use] extern crate serde_derive;
+#[macro_use] extern crate tera;
 
-#[macro_use]
-extern crate tera;
-#[cfg(feature = "filesystem")]
-extern crate walkdir;
 
-#[cfg(feature = "filesystem")]
-extern crate dirs;
+#[macro_use] extern crate log;
 
-#[macro_use]
-extern crate log;
-
-extern crate reqwest;
-
-extern crate regex;
-
-extern crate semver;
-extern crate base64;
 
 /// The backing for manifests must come from the filesystem or the CRD
 /// This assert enforce that users of this library choses a feature.
-#[macro_use]
-extern crate static_assertions;
+#[macro_use] extern crate static_assertions;
 assert_cfg!(all(not(all(feature = "filesystem", feature = "crd")),
                 any(    feature = "filesystem", feature = "crd")),
 "shipcat definitions library behaves differently depending on compile time features:\n\n\
 Please `cargo build -p shipcat` or `cargo build -p raftcat` to force a backend choice, \
 or build from shipcat_definitions/ with --features to build the library directly.\n");
 
-#[macro_use]
-extern crate error_chain;
+#[macro_use] extern crate error_chain;
 error_chain! {
     types {
         Error, ErrorKind, ResultExt, Result;
