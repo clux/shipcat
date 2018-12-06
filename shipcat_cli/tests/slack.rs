@@ -1,5 +1,5 @@
 mod common;
-use common::setup;
+use crate::common::setup;
 
 extern crate shipcat;
 extern crate shipcat_definitions;
