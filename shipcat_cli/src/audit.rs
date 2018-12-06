@@ -8,55 +8,65 @@ use super::AuditWebhook;
 use helm::direct::{UpgradeData, UpgradeState};
 
 /// Payload that gets sent via audit webhook
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Clone)]
 #[cfg_attr(test, derive(Debug))]
-#[serde(rename_all = "snake_case")]
-struct AuditDeploymentPayload {
-    #[serde(rename = "type")]
-    pub domainType: String,
+// #[serde(rename_all = "snake_case")] // well, it just didn't work. :/ maybe on a later serde version?
+struct AuditEvent {
     /// RFC 3339
     pub timestamp: String,
     pub status: UpgradeState,
     /// Eg a jenkins job id
+    #[serde(rename = "context_id")]
     pub contextId: Option<String>,
     /// Eg a jenkins job url
-    #[serde(with = "url_serde")]
+    #[serde(rename = "context_link", with = "url_serde", skip_serializing_if = "Option::is_none")]
     pub contextLink: Option<Url>,
-    /// Domain Object
-    pub deployment: AuditDeployment,
+
+    /// represents a single helm upgrade or a reconciliation
+    #[serde(flatten)]
+    pub payload: AuditDomainObject,
 }
 
-impl AuditDeploymentPayload {
+impl AuditEvent {
     /// Timestamped payload skeleton
-    pub fn new(dt: &str, us: &UpgradeState) -> Self {
-        AuditDeploymentPayload{
-            domainType: String::from(dt),
+    pub fn new(us: &UpgradeState) -> Self {
+        AuditEvent{
             timestamp: Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
             status: us.clone(),
             contextId: env::var("SHIPCAT_AUDIT_CONTEXT_ID").ok(),
             contextLink: if let Some(urlstr) = env::var("SHIPCAT_AUDIT_CONTEXT_LINK").ok() {
                 url::Url::parse(&urlstr).ok()
             } else { None },
-            ..Default::default()
+            payload: AuditDomainObject::Empty,
         }
     }
 }
 
-/// Payload for single deployment domain object
 #[derive(Serialize, Clone)]
 #[cfg_attr(test, derive(Debug))]
-#[serde(rename_all = "snake_case")]
-struct AuditDeployment {
-    pub id: String,
-    pub region: String,
-    /// Eg Git SHA
-    pub manifestsRevision: String,
-    pub service: String,
-    pub version: String,
+#[serde(tag = "type", content = "payload", rename_all="snake_case")]
+enum AuditDomainObject {
+    Deployment {
+        id: String,
+        region: String,
+        /// Eg Git SHA
+        #[serde(rename = "manifests_revision")]
+        manifestsRevision: String,
+        service: String,
+        version: String,
+    },
+    Reconciliation {
+        id: String,
+        region: String,
+        /// Eg Git SHA
+        #[serde(rename = "manifests_revision")]
+        manifestsRevision: String,
+    },
+    Empty,
 }
 
-impl AuditDeployment {
-    pub fn new(udopt: Option<UpgradeData>, ) -> Self {
+impl AuditDomainObject {
+    pub fn new_deployment(udopt: Option<UpgradeData>) -> Self {
         let (service, region, version) = if let Some(ud) = udopt {
             (ud.name.clone(), ud.region.clone(), ud.version.clone())
         } else {
@@ -67,16 +77,27 @@ impl AuditDeployment {
             Err(e) => panic!(e),
         };
 
-        AuditDeployment{
-            id: format!("{}-{}-{}", service, version, manifestsRevision),
-            region, manifestsRevision, service, version,
+        AuditDomainObject::Deployment{
+            id: format!("{}-{}-{}-{}", manifestsRevision, region, service, version),
+            manifestsRevision, region, service, version,
         }
     }
-}
 
-impl Default for AuditDeployment {
-    fn default() -> Self {
-        AuditDeployment::new(None)
+    pub fn new_reconciliation(udopt: Option<UpgradeData>) -> Self {
+        let region = if let Some(ud) = udopt {
+            ud.region.clone()
+        } else {
+            "unknown".into()
+        };
+        let manifestsRevision = match env::var("SHIPCAT_AUDIT_REVISION") {
+            Ok(ev) => ev,
+            Err(e) => panic!(e),
+        };
+
+        AuditDomainObject::Reconciliation{
+            id: format!("{}-{}", manifestsRevision, region),
+            manifestsRevision, region,
+        }
     }
 }
 
@@ -86,10 +107,8 @@ pub fn audit(us: &UpgradeState, ud: &UpgradeData, audcfg: &AuditWebhook) -> Resu
 
     let mkerr = || ErrorKind::Url(endpoint.clone());
     let client = reqwest::Client::new();
-
-    let ad = AuditDeployment::new(Some(ud.clone()));
-    let mut ap = AuditDeploymentPayload::new("deployment", &us);
-    ap.deployment = ad;
+    let mut ap = AuditEvent::new(&us);
+    ap.payload = AuditDomainObject::new_deployment(Some(ud.clone()));
 
     client.post(endpoint.clone())
         .bearer_auth(audcfg.token.clone())
@@ -134,12 +153,12 @@ mod tests {
             // TODO: match body with frozen timestamp
             // .match_body(Matcher::Json(json!(
             //     {
-            //         "type": "deployment",
             //         "timestamp": "frozen",
             //         "status": "COMPLETED",
-            //         "contextId": "egcontextid",
-            //         "contextLink": "http://eg.server/",
-            //         "deployment": {
+            //         "context_id": "egcontextid",
+            //         "context_link": "http://eg.server/",
+            //         "type": "deployment",
+            //         "payload": {
             //             "id": "svc-v1-egrevision",
             //             "region": "r1",
             //             "manifestsRevision": "egrevision",
@@ -153,6 +172,5 @@ mod tests {
 
         assert!(audit(&us, &ud, &audcfg).is_ok());
         mocked.assert();
-
     }
 }
