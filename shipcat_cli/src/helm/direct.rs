@@ -41,7 +41,7 @@ impl Default for UpgradeMode {
 }
 
 impl fmt::Display for UpgradeMode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             &UpgradeMode::DiffOnly => write!(f, "diff"),
             &UpgradeMode::UpgradeWait => write!(f, "blindly upgrade"),
@@ -271,7 +271,7 @@ enum DiffMode {
 }
 
 impl fmt::Display for DiffMode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             &DiffMode::Upgrade => write!(f, "upgrade"),
             //&DiffMode::Rollback => write!(f, "rollback"),
