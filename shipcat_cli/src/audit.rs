@@ -11,7 +11,7 @@ use helm::direct::{UpgradeData, UpgradeState};
 #[derive(Serialize, Clone)]
 #[cfg_attr(test, derive(Debug))]
 // #[serde(rename_all = "snake_case")] // well, it just didn't work. :/ maybe on a later serde version?
-struct AuditEvent {
+pub struct AuditEvent {
     /// RFC 3339
     pub timestamp: String,
     pub status: UpgradeState,
@@ -45,7 +45,7 @@ impl AuditEvent {
 #[derive(Serialize, Clone)]
 #[cfg_attr(test, derive(Debug))]
 #[serde(tag = "type", content = "payload", rename_all="snake_case")]
-enum AuditDomainObject {
+pub enum AuditDomainObject {
     Deployment {
         id: String,
         region: String,
@@ -83,17 +83,13 @@ impl AuditDomainObject {
         }
     }
 
-    pub fn new_reconciliation(udopt: Option<UpgradeData>) -> Self {
-        let region = if let Some(ud) = udopt {
-            ud.region.clone()
-        } else {
-            "unknown".into()
-        };
+    pub fn new_reconciliation(r: &str) -> Self {
         let manifestsRevision = match env::var("SHIPCAT_AUDIT_REVISION") {
             Ok(ev) => ev,
             Err(e) => panic!(e),
         };
 
+        let region = r.into();
         AuditDomainObject::Reconciliation{
             id: format!("{}-{}", manifestsRevision, region),
             manifestsRevision, region,
@@ -101,18 +97,28 @@ impl AuditDomainObject {
     }
 }
 
-pub fn audit(us: &UpgradeState, ud: &UpgradeData, audcfg: &AuditWebhook) -> Result<()> {
+pub fn audit_deployment(us: &UpgradeState, ud: &UpgradeData, audcfg: &AuditWebhook) -> Result<()> {
+    let mut ae = AuditEvent::new(&us);
+    ae.payload = AuditDomainObject::new_deployment(Some(ud.clone()));
+    audit(&ae, &audcfg)
+}
+
+pub fn audit_reconciliation(us: &UpgradeState, region: &str, audcfg: &AuditWebhook) -> Result<()> {
+    let mut ae = AuditEvent::new(&us);
+    ae.payload = AuditDomainObject::new_reconciliation(region);
+    audit(&ae, &audcfg)
+}
+
+pub fn audit(ae: &AuditEvent, audcfg: &AuditWebhook) -> Result<()> {
     let endpoint = &audcfg.url;
-    debug!("state: {}, url: {:?}", us, endpoint);
+    debug!("event status: {}, url: {:?}", ae.status, endpoint);
 
     let mkerr = || ErrorKind::Url(endpoint.clone());
     let client = reqwest::Client::new();
-    let mut ap = AuditEvent::new(&us);
-    ap.payload = AuditDomainObject::new_deployment(Some(ud.clone()));
 
     client.post(endpoint.clone())
         .bearer_auth(audcfg.token.clone())
-        .json(&ap)
+        .json(&ae)
         .send()
         .chain_err(&mkerr)?;
     Ok(())
@@ -170,7 +176,7 @@ mod tests {
             .expect(1)
             .create();
 
-        assert!(audit(&us, &ud, &audcfg).is_ok());
+        assert!(audit_deployment(&us, &ud, &audcfg).is_ok());
         mocked.assert();
     }
 }

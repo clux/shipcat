@@ -6,7 +6,7 @@ use std::io::Write;
 
 use serde_yaml;
 
-use super::audit::audit;
+use super::audit::audit_deployment;
 use super::grafana;
 use super::slack;
 use super::kube;
@@ -496,7 +496,9 @@ pub fn handle_upgrade_notifies(us: &UpgradeState, ud: &UpgradeData, r: &Region) 
     match us {
         UpgradeState::Completed | UpgradeState::Failed => {
             if let Some(ref webhooks) = &r.webhooks {
-                audit(&us, &ud, &webhooks.audit)?;
+                if let Err(e) = audit_deployment(&us, &ud, &webhooks.audit) {
+                    warn!("Failed to notify about deployment: {}", e);
+                }
             }
             if ud.mode != UpgradeMode::DiffOnly {
               let _ = grafana::create(grafana::Annotation {
@@ -517,7 +519,12 @@ pub fn handle_upgrade_notifies(us: &UpgradeState, ud: &UpgradeData, r: &Region) 
         }
         _ => {
             if let Some(ref webhooks) = &r.webhooks {
-                audit(&us, &ud, &webhooks.audit)
+                if let Err(e) = audit_deployment(&us, &ud, &webhooks.audit) {
+                    warn!("Failed to notify about deployment: {}", e);
+                    Err(e)
+                } else {
+                    Ok(())
+                }
             } else {
                 Ok(())
             }
