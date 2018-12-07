@@ -1,11 +1,10 @@
-#![allow(renamed_and_removed_lints)]
 #![warn(rust_2018_idioms)]
 
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate log;
 #[macro_use] extern crate failure;
 
-pub use failure::{Error}; //Fail
+pub use failure::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub use shipcat_definitions::{Manifest, Config, Cluster, Region, Team};
@@ -16,6 +15,8 @@ pub use crate::kube::{ManifestMap, ManifestCache};
 
 
 mod integrations;
-pub use crate::integrations::sentryapi::{self, SentryMap};
-pub use crate::integrations::newrelic::{self, RelicMap};
-pub use crate::integrations::version::{self, VersionMap};
+pub use crate::integrations::{
+  sentryapi::{self, SentryMap},
+  newrelic::{self, RelicMap},
+  version::{self, VersionMap},
+};

@@ -4,22 +4,18 @@
 #![warn(rust_2018_idioms)]
 
 #[macro_use] extern crate serde_derive;
-#[macro_use] extern crate tera;
-
-
 #[macro_use] extern crate log;
 
 
 /// The backing for manifests must come from the filesystem or the CRD
 /// This assert enforce that users of this library choses a feature.
-#[macro_use] extern crate static_assertions;
-assert_cfg!(all(not(all(feature = "filesystem", feature = "crd")),
+static_assertions::assert_cfg!(all(not(all(feature = "filesystem", feature = "crd")),
                 any(    feature = "filesystem", feature = "crd")),
 "shipcat definitions library behaves differently depending on compile time features:\n\n\
 Please `cargo build -p shipcat` or `cargo build -p raftcat` to force a backend choice, \
 or build from shipcat_definitions/ with --features to build the library directly.\n");
 
-#[macro_use] extern crate error_chain;
+#[macro_use] extern crate error_chain; // bail and error_chain macro
 error_chain! {
     types {
         Error, ErrorKind, ResultExt, Result;

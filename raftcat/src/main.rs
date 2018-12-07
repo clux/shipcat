@@ -1,20 +1,24 @@
 #![allow(unused_imports, unused_variables)]
-#[macro_use] extern crate log;
-#[macro_use] extern crate tera;
-extern crate failure;
+
+use log::{info, warn, error, debug};
+use serde_derive::Serialize;
+use tera::compile_templates;
 use failure::err_msg;
 
-#[macro_use] extern crate serde_derive;
+use kubernetes::{
+    client::APIClient,
+    config,
+};
+
+use std::{
+    collections::BTreeMap,
+    env,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
+use chrono::Local;
 
 pub use raftcat::*;
-
-use kubernetes::client::APIClient;
-use kubernetes::config as config;
-
-use std::collections::BTreeMap;
-use std::env;
-use chrono::Local;
-use std::sync::{Arc, Mutex};
 
 // some slug helpers
 fn team_slug(name: &str) -> String {
@@ -27,9 +31,10 @@ fn find_team(cfg: &Config, slug: &str) -> Option<Team> {
 
 // ----------------------------------------------------------------------------------
 // Web server interface
-use actix_web::{server, App, Path, Responder, HttpRequest, HttpResponse, middleware};
-use actix_web::http::{header, Method, StatusCode};
-use std::time::{Duration, Instant};
+use actix_web::{
+    server, App, Path, Responder, HttpRequest, HttpResponse, middleware,
+    http::{header, Method, StatusCode},
+};
 
 /// State shared between http requests
 #[derive(Clone)]
@@ -245,7 +250,7 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         ctx.insert("revdeps", &revdeps);
 
         let date = Local::now();
-        let time = format!("{now}", now = date.format("%Y-%m-%d %H:%M:%S"));
+        let time = date.format("%Y-%m-%d %H:%M:%S").to_string();
 
         ctx.insert("time", &time);
         let t = req.state().template.lock().unwrap();

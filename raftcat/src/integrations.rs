@@ -1,10 +1,7 @@
-use super::{Result};
-
 pub mod version {
-    use reqwest::Url;
+    use crate::Result;
     use std::collections::BTreeMap;
-    use std::env;
-    use super::Result;
+    use reqwest::Url;
 
     // version fetching stuff
     #[derive(Deserialize)]
@@ -20,7 +17,7 @@ pub mod version {
     // The actual HTTP GET logic
     pub fn get_all() -> Result<VersionMap> {
         let client = reqwest::Client::new();
-        let vurl = Url::parse(&env::var("VERSION_URL")?)?;
+        let vurl = Url::parse(&std::env::var("VERSION_URL")?)?;
         let mut res = client.get(vurl).send()?;
         if !res.status().is_success() {
             bail!("Failed to fetch version");
@@ -38,9 +35,8 @@ pub mod version {
 }
 
 pub mod sentryapi {
+    use crate::Result;
     use std::collections::BTreeMap;
-    use super::Result;
-    use std::env;
 
     // Sentry project struct
     #[derive(Deserialize)]
@@ -55,7 +51,7 @@ pub mod sentryapi {
     // Get Sentry info
     pub fn get_slugs(sentry_url: &str, env: &str) -> Result<SentryMap> {
         let client = reqwest::Client::new();
-        let token = env::var("SENTRY_TOKEN")?;
+        let token = std::env::var("SENTRY_TOKEN")?;
 
         let projects_url = format!("{sentry_url}/api/0/teams/sentry/{env}/projects/",
                                    sentry_url = &sentry_url,
@@ -82,10 +78,8 @@ pub mod sentryapi {
 
 
 pub mod newrelic {
+    use crate::Result;
     use std::collections::BTreeMap;
-    use super::Result;
-    use std::env;
-
     // NewRelic Applications info
     #[derive(Deserialize)]
     struct Application {
@@ -103,8 +97,8 @@ pub mod newrelic {
     // Get NewRelic link
     pub fn get_links(region: &str) -> Result<RelicMap> {
         let client = reqwest::Client::new();
-        let api_key = env::var("NEWRELIC_API_KEY")?;
-        let account_id = env::var("NEWRELIC_ACCOUNT_ID")?;
+        let api_key = std::env::var("NEWRELIC_API_KEY")?;
+        let account_id = std::env::var("NEWRELIC_ACCOUNT_ID")?;
 
         let search = format!("({region})", region = region);
         let mut res = client
