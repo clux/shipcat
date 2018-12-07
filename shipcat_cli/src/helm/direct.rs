@@ -1,5 +1,4 @@
 use std::fs;
-use std::env;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::fs::File;
@@ -7,7 +6,7 @@ use std::io::Write;
 
 use serde_yaml;
 
-use super::audit::audit_deployment;
+use super::audit;
 use super::grafana;
 use super::slack;
 use super::kube;
@@ -497,7 +496,7 @@ pub fn handle_upgrade_notifies(us: &UpgradeState, ud: &UpgradeData, r: &Region) 
     match us {
         UpgradeState::Completed | UpgradeState::Failed => {
             if let Some(ref webhooks) = &r.webhooks {
-                if let Err(e) = audit_deployment(&us, &ud, &webhooks.audit) {
+                if let Err(e) = audit::audit_deployment(&us, &ud, &webhooks.audit) {
                     warn!("Failed to notify about deployment: {}", e);
                 }
             }
@@ -520,15 +519,11 @@ pub fn handle_upgrade_notifies(us: &UpgradeState, ud: &UpgradeData, r: &Region) 
         }
         _ => {
             if let Some(ref webhooks) = &r.webhooks {
-                if let Err(e) = audit_deployment(&us, &ud, &webhooks.audit) {
+                if let Err(e) = audit::audit_deployment(&us, &ud, &webhooks.audit) {
                     warn!("Failed to notify about deployment: {}", e);
-                    Err(e)
-                } else {
-                    Ok(())
                 }
-            } else {
-                Ok(())
             }
+            Ok(())
         }
     }
 }
@@ -551,16 +546,7 @@ pub fn values_wrapper(svc: &str, region: &Region, conf: &Config, ver: Option<Str
 
 /// Full helm wrapper for a single upgrade/diff/install
 pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
-    if let Some(_) = &region.webhooks {
-        // Assume that webhooks strictly contains audit struct if present
-
-        if let Err(e) = env::var("SHIPCAT_AUDIT_REVISION") {
-            bail!("SHIPCAT_AUDIT_REVISION is required: {}", e);
-        }
-        if let Err(e) = env::var("SHIPCAT_AUDIT_CONTEXT_ID") {
-            bail!("SHIPCAT_AUDIT_CONTEXT_ID is required: {}", e);
-        }
-    }
+    audit::ensure_requirements(region.webhooks.clone())?;
 
     let mut mf = Manifest::base(svc, conf, region)?.complete(region)?;
 

@@ -4,13 +4,12 @@ use url::Url;
 use chrono::{Utc, SecondsFormat};
 
 use super::{Result, ResultExt, ErrorKind};
-use super::AuditWebhook;
+use super::{Webhooks, AuditWebhook};
 use helm::direct::{UpgradeData, UpgradeState};
 
 /// Payload that gets sent via audit webhook
 #[derive(Serialize, Clone)]
 #[cfg_attr(test, derive(Debug))]
-// #[serde(rename_all = "snake_case")] // well, it just didn't work. :/ maybe on a later serde version?
 pub struct AuditEvent {
     /// RFC 3339
     pub timestamp: String,
@@ -91,6 +90,15 @@ impl AuditDomainObject {
     }
 }
 
+pub fn ensure_requirements(wh: Option<Webhooks>) -> Result<()> {
+    if let Some(_) = &wh {
+        // Assume that webhooks strictly contains audit struct if present
+        env::var("SHIPCAT_AUDIT_CONTEXT_ID").map_err(|_| ErrorKind::MissingAuditContextId.to_string())?;
+        env::var("SHIPCAT_AUDIT_REVISION").map_err(|_| ErrorKind::MissingAuditRevision.to_string())?;
+    }
+    Ok(())
+}
+
 pub fn audit_deployment(us: &UpgradeState, ud: &UpgradeData, audcfg: &AuditWebhook) -> Result<()> {
     let mut ae = AuditEvent::new(&us);
     ae.payload = AuditDomainObject::new_deployment(Some(ud.clone()));
@@ -129,7 +137,23 @@ mod tests {
     // use self::mockito::Matcher;
 
     #[test]
-    fn does_audit() {
+    fn audit_does_ensure_requirements() {
+        // env::set_var("SHIPCAT_AUDIT_CONTEXT_ID", "egcontextid");
+        env::set_var("SHIPCAT_AUDIT_REVISION", "egrevision");
+
+        let audcfg = AuditWebhook{
+            url: Url::parse(&format!("{}/audit", mockito::SERVER_URL)).unwrap(),
+            token: "1234auth".into(),
+        };
+        let wh = Some(Webhooks{
+            audit: audcfg,
+        });
+
+        assert!(ensure_requirements(wh).is_ok());
+    }
+
+    #[test]
+    fn audit_does_audit_deployment() {
         env::set_var("SHIPCAT_AUDIT_CONTEXT_ID", "egcontextid");
         env::set_var("SHIPCAT_AUDIT_CONTEXT_LINK", "http://eg.server/");
         env::set_var("SHIPCAT_AUDIT_REVISION", "egrevision");

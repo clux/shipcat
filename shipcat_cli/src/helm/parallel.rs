@@ -5,7 +5,7 @@ use std::fs;
 use super::{Config, Manifest, Region};
 use super::{UpgradeMode, UpgradeState, UpgradeData};
 use super::direct;
-use super::audit::audit_reconciliation;
+use super::audit;
 use super::helpers;
 use super::kube;
 use super::{Result, Error, ErrorKind};
@@ -24,7 +24,7 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
     info!("Starting {} parallel helm jobs using {} workers", n_jobs, n_workers);
 
     if let Some(ref webhooks) = &region.webhooks {
-        if let Err(e) = audit_reconciliation(&UpgradeState::Pending, &region.name, &webhooks.audit) {
+        if let Err(e) = audit::audit_reconciliation(&UpgradeState::Pending, &region.name, &webhooks.audit) {
             warn!("Failed to notify about reconcile: {}", e);
         }
     }
@@ -64,7 +64,7 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
             // remaining cases not ignorable
             e => {
                 if let Some(ref webhooks) = &region.webhooks {
-                    if let Err(e) = audit_reconciliation(&UpgradeState::Failed, &region.name, &webhooks.audit) {
+                    if let Err(e) = audit::audit_reconciliation(&UpgradeState::Failed, &region.name, &webhooks.audit) {
                         warn!("Failed to notify about reconcile: {}", e);
                     }
                 }
@@ -74,7 +74,7 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
     }
 
     if let Some(ref webhooks) = &region.webhooks {
-        if let Err(e) = audit_reconciliation(&UpgradeState::Completed, &region.name, &webhooks.audit) {
+        if let Err(e) = audit::audit_reconciliation(&UpgradeState::Completed, &region.name, &webhooks.audit) {
             warn!("Failed to notify about reconcile: {}", e);
         }
     }

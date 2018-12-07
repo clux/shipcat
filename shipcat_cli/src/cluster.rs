@@ -1,5 +1,4 @@
-use std::env;
-
+use super::audit;
 use super::{Config, Region};
 use super::helm::{self, UpgradeMode};
 use super::{Result, Manifest};
@@ -9,17 +8,7 @@ use super::{Result, Manifest};
 /// Upgrades multiple services at a time using rolling upgrade in a threadpool.
 /// Ignores upgrade failures.
 pub fn helm_reconcile(conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
-    if let Some(_) = &region.webhooks {
-        // Assume that webhooks strictly contains audit struct if present
-
-        if let Err(e) = env::var("SHIPCAT_AUDIT_REVISION") {
-            bail!("SHIPCAT_AUDIT_REVISION is required: {}", e);
-        }
-        if let Err(e) = env::var("SHIPCAT_AUDIT_CONTEXT_ID") {
-            bail!("SHIPCAT_AUDIT_CONTEXT_ID is required: {}", e);
-        }
-    }
-
+    audit::ensure_requirements(region.webhooks.clone())?;
     mass_helm(conf, region, UpgradeMode::UpgradeInstallWait, n_workers)
 }
 

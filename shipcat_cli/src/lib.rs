@@ -43,6 +43,14 @@ error_chain! {
             description("GRAFANA_SHIPCAT_TOKEN not specified")
             display("GRAFANA_SHIPCAT_TOKEN not specified")
         }
+        MissingAuditContextId {
+            description("SHIPCAT_AUDIT_CONTEXT_ID not specified")
+            display("SHIPCAT_AUDIT_CONTEXT_ID not specified")
+        }
+        MissingAuditRevision {
+            description("SHIPCAT_AUDIT_REVISION not specified")
+            display("SHIPCAT_AUDIT_REVISION not specified")
+        }
         Url(url: reqwest::Url) {
             description("could not access URL")
             display("could not access URL '{}'", &url)
@@ -73,7 +81,7 @@ error_chain! {
 pub use shipcat_definitions::{Manifest, ConfigType};
 pub use shipcat_definitions::structs;
 pub use shipcat_definitions::config::{self, Config, Team};
-pub use shipcat_definitions::region::{Region, VersionScheme, KongConfig, AuditWebhook};
+pub use shipcat_definitions::region::{Region, VersionScheme, KongConfig, Webhooks, AuditWebhook};
 //pub use shipcat_definitions::Product;
 
 /// Convenience listers
