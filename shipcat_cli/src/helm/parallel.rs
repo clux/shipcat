@@ -62,13 +62,13 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
                 warn!("'{}' missing version for {} - please add or install", svc, region.name);
             },
             // remaining cases not ignorable
-            e => {
+            enoig => {
                 if let Some(ref webhooks) = &region.webhooks {
                     if let Err(e) = audit::audit_reconciliation(&UpgradeState::Failed, &region.name, &webhooks.audit) {
                         warn!("Failed to notify about reconcile: {}", e);
                     }
                 }
-                return Err(e)
+                return Err(enoig)
             },
         }
     }

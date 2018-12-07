@@ -596,7 +596,7 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Con
                 else {
                     let _ = kube::debug_rollout_status(&mf);
                     let _ = kube::debug(&mf);
-                    handle_upgrade_notifies(&UpgradeState::Completed, &udata, &region)?;
+                    handle_upgrade_notifies(&UpgradeState::Failed, &udata, &region)?;
                     // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
                     handle_upgrade_rollbacks(&udata, &mf)?; // for now leave it in..
                     return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), mf.estimate_wait_time()).into());
