@@ -1,16 +1,7 @@
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate log;
-extern crate loggerv;
-extern crate libc;
+#[macro_use] extern crate clap;
+#[macro_use] extern crate log;
 
-extern crate shipcat;
-
-#[allow(unused_imports)]
 use shipcat::*;
-
-#[allow(unused_imports)]
 use clap::{Arg, App, AppSettings, SubCommand, ArgMatches};
 use std::process;
 

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::iter;
 
-use tera::{self, Value, Tera, Context};
+use tera::{self, Value, Tera, Context, try_get_value};
 use super::{Result, ErrorKind, ResultExt};
 
 #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]

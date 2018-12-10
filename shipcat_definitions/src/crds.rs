@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
-use config::{Config};
+use crate::config::{Config};
 
 use super::{Manifest};
-use states::{ManifestType};
+use crate::states::{ManifestType};
 
 /// Basic CRD wrapper struct
 #[derive(Serialize, Deserialize, Clone)]

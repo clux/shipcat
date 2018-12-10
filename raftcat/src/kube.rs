@@ -1,6 +1,5 @@
 use kubernetes::client::APIClient;
 use std::collections::BTreeMap;
-//use serde_json;
 use shipcat_definitions::{Crd, CrdList, CrdEvent, CrdEventType, Manifest, Config};
 
 use super::{Result, Error};

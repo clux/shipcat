@@ -38,9 +38,9 @@ tag-latest:
 	docker push $(REPO)/$(NAME):latest
 
 clippy:
-	cargo clippy -p shipcat -- --allow clippy::if_let_redundant_pattern_matching --allow clippy::or_fun_call
-	@# raftcat uses actix that requires experimental lints - run this manually on nightly..
-	@#cargo clippy -p raftcat -- --allow clippy::or_fun_call
+	touch shipcat_definitions/src/lib.rs
+	cargo clippy -p shipcat -- --allow clippy::or_fun_call --allow clippy::redundant_pattern_matching
+	cargo clippy -p raftcat -- --allow clippy::or_fun_call
 
 
 doc:

@@ -5,7 +5,7 @@ use walkdir::WalkDir;
 
 use super::{Config, Region, Manifest};
 use super::Result;
-use states::{ManifestType};
+use crate::states::{ManifestType};
 
 /// Private helpers for a filebacked Manifest Backend
 impl Manifest {

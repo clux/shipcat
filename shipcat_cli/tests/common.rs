@@ -1,8 +1,4 @@
-extern crate semver;
-extern crate shipcat;
-extern crate shipcat_definitions;
-
-use self::semver::Version;
+use semver::Version;
 use std::collections::BTreeSet;
 use std::env;
 use std::fs;

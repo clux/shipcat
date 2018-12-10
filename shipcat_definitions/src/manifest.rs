@@ -1,10 +1,10 @@
-use vault::Vault;
+use crate::vault::Vault;
 use std::collections::{BTreeMap, BTreeSet};
 use regex::Regex;
 
-use config::{Config};
-use region::{VaultConfig, Region};
-use states::ManifestType;
+use crate::config::{Config};
+use crate::region::{VaultConfig, Region};
+use crate::states::ManifestType;
 use super::Result;
 
 // All structs come from the structs directory

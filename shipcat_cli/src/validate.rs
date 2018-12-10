@@ -29,10 +29,10 @@ pub fn manifest(services: Vec<String>, conf: &Config, reg: &Region, secrets: boo
 pub fn secret_presence(conf: &Config, regions: Vec<String>) -> Result<()> {
     for r in regions {
         info!("validating secrets in {}", r);
-        let mut reg = conf.get_region(&r)?; // verifies region or region alias exists
+        let reg = conf.get_region(&r)?; // verifies region or region alias exists
         reg.verify_secrets_exist()?; // verify secrets for the region
         for svc in Manifest::available(&reg.name)? {
-            let mut mf = Manifest::base(&svc, conf, &reg)?;
+            let mf = Manifest::base(&svc, conf, &reg)?;
             debug!("validating secrets for {} in {}", svc, r);
             mf.verify_secrets_exist(&reg.vault)?;
         }
