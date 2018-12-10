@@ -74,6 +74,12 @@ pub struct Team {
 pub struct Location {
     /// Location name
     pub name: String,
+
+    /// Name of global region
+    pub global_region: String,
+
+    /// Name of local region
+    pub local_region: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
