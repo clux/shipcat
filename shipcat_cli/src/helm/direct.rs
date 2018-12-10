@@ -1,3 +1,4 @@
+use crate::webhooks::UpgradeState;
 use std::fs;
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -5,10 +6,7 @@ use std::fs::File;
 use std::io::Write;
 
 use serde_yaml;
-
-use super::audit;
-use super::grafana;
-use super::slack;
+use crate::webhooks;
 use super::kube;
 use super::Metadata;
 use super::{Manifest, Config, Region};
@@ -69,40 +67,6 @@ impl UpgradeMode {
     }
 }
 
-/// The different states an upgrade can be in
-#[derive(Serialize, PartialEq, Clone)]
-#[cfg_attr(test, derive(Debug))]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum UpgradeState {
-    /// Before action
-    Pending,
-    /// No errors
-    Completed,
-    /// Errors
-    Failed,
-    /// Before revert
-    RollingBack,
-    /// After revert
-    RolledBack,
-}
-impl Default for UpgradeState {
-    fn default() -> Self {
-        UpgradeState::Pending
-    }
-}
-
-impl fmt::Display for UpgradeState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            &UpgradeState::Pending => write!(f, "PENDING"),
-            &UpgradeState::Completed => write!(f, "COMPLETED"),
-            &UpgradeState::Failed => write!(f, "FAILED"),
-            &UpgradeState::RollingBack => write!(f, "ROLLING_BACK"),
-            &UpgradeState::RolledBack => write!(f, "ROLLED_BACK"),
-        }
-    }
-}
-
 /// Direct rollback command using synthetic or failed `UpgradeData`
 ///
 /// Always just rolls back using to the helm's previous release and doesn't block
@@ -119,15 +83,12 @@ pub fn rollback(ud: &UpgradeData, mf: &Manifest) -> Result<()> {
         "0".into(), // magic helm number for previous
     ];
     info!("helm {}", rollbackvec.join(" "));
+    // TODO: webhook before starting rollout
     match hexec(rollbackvec) {
         Err(e) => {
             error!("{}", e);
-            let _ = slack::send(slack::Message {
-                text: format!("failed to rollback `{}` in {}", &ud.name, &ud.region),
-                color: Some("danger".into()),
-                metadata: ud.metadata.clone(),
-                ..Default::default()
-            });
+            // TODO: distinguish RolledBack with RollbackFailed
+            webhooks::upgrade_rollback_event(UpgradeState::RolledBack, &ud, reg: &Region);
             Err(e)
         },
         Ok(_) => {
@@ -478,55 +439,7 @@ pub fn handle_upgrade_rollbacks(u: &UpgradeData, mf: &Manifest) -> Result<()> {
     Ok(())
 }
 
-/// Notify slack / audit endpoint of upgrades from a single upgrade
-pub fn handle_upgrade_notifies(us: &UpgradeState, ud: &UpgradeData, r: &Region) -> Result<()> {
-    let code = if ud.diff.is_empty() { None } else { Some(ud.diff.clone()) };
-    let (color, text) = match us {
-        UpgradeState::Completed => {
-            info!("successfully rolled out {}", ud.name);
-            ("good".into(), format!("{} `{}` in `{}`", ud.mode.action_verb(), ud.name, ud.region))
-        }
-        UpgradeState::Failed => {
-            warn!("failed to roll out {}", ud.name);
-            ("danger".into(), format!("failed to {} `{}` in `{}`", ud.mode, ud.name, ud.region))
-        }
-        _ => ("good", format!("action state: {}", us))
-    };
 
-    match us {
-        UpgradeState::Completed | UpgradeState::Failed => {
-            if let Some(ref webhooks) = &r.webhooks {
-                if let Err(e) = audit::audit_deployment(&us, &ud, &webhooks.audit) {
-                    warn!("Failed to notify about deployment: {}", e);
-                }
-            }
-            if ud.mode != UpgradeMode::DiffOnly {
-              let _ = grafana::create(grafana::Annotation {
-                  event: grafana::Event::Upgrade,
-                  service: ud.name.clone(),
-                  version: ud.version.clone(),
-                  region: ud.region.clone(),
-                  time: grafana::TimeSpec::Now,
-              });
-            }
-            slack::send(slack::Message {
-                text, code,
-                color: Some(String::from(color)),
-                version: Some(ud.version.clone()),
-                metadata: ud.metadata.clone(),
-                ..Default::default()
-            })
-        }
-        _ => {
-            if let Some(ref webhooks) = &r.webhooks {
-                if let Err(e) = audit::audit_deployment(&us, &ud, &webhooks.audit) {
-                    warn!("Failed to notify about deployment: {}", e);
-                }
-            }
-            Ok(())
-        }
-    }
-}
 
 /// Independent wrapper for helm values
 ///
@@ -546,7 +459,7 @@ pub fn values_wrapper(svc: &str, region: &Region, conf: &Config, ver: Option<Str
 
 /// Full helm wrapper for a single upgrade/diff/install
 pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
-    audit::ensure_requirements(region.webhooks.clone())?;
+    audit::ensure_requirements(&region.webhooks)?;
 
     let mut mf = Manifest::base(svc, conf, region)?.complete(region)?;
 
@@ -578,11 +491,11 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Con
     // Sanity step that gives canonical upgrade data
     let upgrade_opt = UpgradeData::new(&mf, &hfile, mode, exists)?;
     if let Some(ref udata) = upgrade_opt {
-        handle_upgrade_notifies(&UpgradeState::Pending, &udata, &region)?;
+        webhooks::upgrade_event(UpgradeState::Pending, &udata, &region);
         match upgrade(&udata) {
             Err(e) => {
                 // upgrade failed immediately - couldn't create resources
-                handle_upgrade_notifies(&UpgradeState::Failed, &udata, &region)?;
+                webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
                 // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
                 error!("{} from {}", e, udata.name);
                 handle_upgrade_rollbacks(&udata, &mf)?; // for now leave it in..
@@ -591,12 +504,12 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Con
             Ok(_) => {
                 // after helm upgrade / kubectl apply, check rollout status in a loop:
                 if kube::await_rollout_status(&mf)? {
-                    handle_upgrade_notifies(&UpgradeState::Completed, &udata, &region)?;
+                    webhooks::upgrade_event(UpgradeState::Completed, &udata, &region);
                 }
                 else {
                     let _ = kube::debug_rollout_status(&mf);
                     let _ = kube::debug(&mf);
-                    handle_upgrade_notifies(&UpgradeState::Failed, &udata, &region)?;
+                    webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
                     // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
                     handle_upgrade_rollbacks(&udata, &mf)?; // for now leave it in..
                     return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), mf.estimate_wait_time()).into());

@@ -8,7 +8,7 @@ use super::{Result, Manifest};
 /// Upgrades multiple services at a time using rolling upgrade in a threadpool.
 /// Ignores upgrade failures.
 pub fn helm_reconcile(conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
-    audit::ensure_requirements(region.webhooks.clone())?;
+    audit::ensure_requirements(&region.webhooks)?;
     mass_helm(conf, region, UpgradeMode::UpgradeInstallWait, n_workers)
 }
 

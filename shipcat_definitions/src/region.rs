@@ -85,18 +85,16 @@ pub struct KafkaConfig {
     pub brokers: Vec<String>,
 }
 
-/// Webhooks that shipcat might trigger after actions
+/// Webhook types that shipcat might trigger after actions
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(test, derive(Debug))]
 #[serde(deny_unknown_fields)]
-pub struct Webhooks {
+pub enum Webhook {
     /// Audit webhook details
-    pub audit: AuditWebhook,
+    Audit(AuditWebhook),
 }
 
 /// Where / how to send audited events
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(test, derive(Debug))]
 #[serde(deny_unknown_fields)]
 pub struct AuditWebhook {
     /// Endpoint
@@ -105,6 +103,7 @@ pub struct AuditWebhook {
     /// Credential
     pub token: String,
 }
+
 
 // ----------------------------------------------------------------------------------
 
@@ -242,24 +241,27 @@ impl KongConfig {
     }
 }
 
-impl Webhooks {
+impl Webhook {
     fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
-        let webhook_audit = &mut self.audit;
-        if webhook_audit.token == "IN_VAULT" {
-            let vkey = format!("{}/shipcat/WEBHOOK_AUDIT_TOKEN", region);
-            webhook_audit.token = vault.read(&vkey)?;
+        match self {
+            Webhook::Audit(h) => {
+                if h.token == "IN_VAULT" {
+                    let vkey = format!("{}/shipcat/WEBHOOK_AUDIT_TOKEN", region);
+                    h.token = vault.read(&vkey)?;
+                }
+            }
         }
         Ok(())
     }
     fn verify_secrets_exist(&self, vault: &Vault, region: &str) -> Result<()> {
-        let vkey = format!("{}/shipcat/WEBHOOK_AUDIT_TOKEN", region);
-        match vault.read(&vkey) {
-            Ok(_) => {
-                debug!("Found webhook secrets {:?} for {}", vkey, region);
-                Ok(())
+        match self {
+            Webhook::Audit(_h) => {
+                let vkey = format!("{}/shipcat/WEBHOOK_AUDIT_TOKEN", region);
+                vault.read(&vkey)?;
             }
-            Err(_) => bail!("Webhook secret {:?} not found in {} vault", vkey, region)
         }
+        // TODO: when more secrets, build up a list and do a LIST on shipcat folder
+        Ok(())
     }
 }
 
@@ -313,7 +315,7 @@ pub struct Region {
     #[serde(default)]
     pub locations: Vec<String>,
     /// All webhooks
-    pub webhooks: Option<Webhooks>,
+    pub webhooks: Vec<Webhook>,
 }
 
 impl Region {
@@ -321,8 +323,8 @@ impl Region {
     pub fn secrets(&mut self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
         self.kong.secrets(&v, &self.name)?;
-        if let Some(webhooks) = &mut self.webhooks {
-            webhooks.secrets(&v, &self.name)?;
+        for wh in &mut self.webhooks {
+            wh.secrets(&v, &self.name)?;
         }
         Ok(())
     }
@@ -332,8 +334,8 @@ impl Region {
         let v = Vault::regional(&self.vault)?;
         debug!("Validating kong secrets for {}", self.name);
         self.kong.verify_secrets_exist(&v, &self.name)?;
-        if let Some(webhooks) = &self.webhooks {
-            webhooks.verify_secrets_exist(&v, &self.name)?;
+        for wh in &self.webhooks {
+            wh.verify_secrets_exist(&v, &self.name)?;
         }
         Ok(())
     }

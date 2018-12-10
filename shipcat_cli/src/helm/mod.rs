@@ -27,4 +27,4 @@ pub mod helpers;
 // Commonly used helper
 pub use self::helpers::infer_fallback_version;
 
-pub use self::direct::{UpgradeMode, UpgradeState, UpgradeData};
+pub use self::direct::{UpgradeMode, UpgradeData};

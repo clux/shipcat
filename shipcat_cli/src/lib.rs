@@ -81,7 +81,7 @@ error_chain! {
 pub use shipcat_definitions::{Manifest, ConfigType};
 pub use shipcat_definitions::structs;
 pub use shipcat_definitions::config::{self, Config, Team};
-pub use shipcat_definitions::region::{Region, VersionScheme, KongConfig, Webhooks, AuditWebhook};
+pub use shipcat_definitions::region::{Region, VersionScheme, KongConfig, Webhook, AuditWebhook};
 //pub use shipcat_definitions::Product;
 
 /// Convenience listers
@@ -118,6 +118,9 @@ pub mod graph;
 
 /// Various simple reducers
 pub mod get;
+
+/// Webhook mux/demux
+pub mod webhooks;
 
 /// Simple printers
 pub mod show;

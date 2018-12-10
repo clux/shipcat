@@ -3,11 +3,11 @@ use std::sync::mpsc::channel;
 use std::fs;
 
 use super::{Config, Manifest, Region};
-use super::{UpgradeMode, UpgradeState, UpgradeData};
+use super::{UpgradeMode, UpgradeData};
 use super::direct;
-use super::audit;
 use super::helpers;
 use super::kube;
+use crate::webhooks::{self, UpgradeState};
 use super::{Result, Error, ErrorKind};
 
 
@@ -22,12 +22,7 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
     let n_jobs = svcs.len();
     let pool = ThreadPool::new(n_workers);
     info!("Starting {} parallel helm jobs using {} workers", n_jobs, n_workers);
-
-    if let Some(ref webhooks) = &region.webhooks {
-        if let Err(e) = audit::audit_reconciliation(&UpgradeState::Pending, &region.name, &webhooks.audit) {
-            warn!("Failed to notify about reconcile: {}", e);
-        }
-    }
+    webhooks::reconcile_event(UpgradeState::Pending, &region);
 
     let (tx, rx) = channel();
     for mf in svcs {
@@ -62,23 +57,13 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
                 warn!("'{}' missing version for {} - please add or install", svc, region.name);
             },
             // remaining cases not ignorable
-            enoig => {
-                if let Some(ref webhooks) = &region.webhooks {
-                    if let Err(e) = audit::audit_reconciliation(&UpgradeState::Failed, &region.name, &webhooks.audit) {
-                        warn!("Failed to notify about reconcile: {}", e);
-                    }
-                }
-                return Err(enoig)
+            _ => {
+                webhooks::reconcile_event(UpgradeState::Failed, &region);
+                return Err(e)
             },
         }
     }
-
-    if let Some(ref webhooks) = &region.webhooks {
-        if let Err(e) = audit::audit_reconciliation(&UpgradeState::Completed, &region.name, &webhooks.audit) {
-            warn!("Failed to notify about reconcile: {}", e);
-        }
-    }
-
+    webhooks::reconcile_event(UpgradeState::Completed, &region);
     Ok(())
 }
 

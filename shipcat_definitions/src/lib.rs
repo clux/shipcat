@@ -104,7 +104,6 @@ mod merge;
 /// Computational helpers
 pub mod math;
 
-
 /// A renderer of `tera` templates (jinja style)
 ///
 /// Used for small app configs that are inlined in the completed manifests.
