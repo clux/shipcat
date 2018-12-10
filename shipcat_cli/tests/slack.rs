@@ -3,7 +3,8 @@ use crate::common::setup;
 use shipcat::{Manifest};
 use shipcat::slack::{send, Message, env_channel};
 
-#[test]
+// integration temporarily disabled
+//#[test]
 fn slack_test() {
     setup();
     // metadata is global - can use a blank manifest for this test
