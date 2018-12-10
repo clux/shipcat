@@ -15,6 +15,7 @@ categories = ["command-line-utilities"]
 keywords = ["kubernetes", "helm", "deployment", "standardisation", "validation"]
 license-file = "LICENSE"
 homepage = "https://github.com/Babylonpartners/shipcat"
+edition = "2018"
 
 [[bin]]
 doc = false

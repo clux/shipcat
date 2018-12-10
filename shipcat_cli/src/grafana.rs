@@ -1,11 +1,12 @@
 ///
 /// Interface for adding grafana annotations about deploys
 ///
-
 use reqwest;
-use super::{Result, ErrorKind, ResultExt};
 use chrono::Utc;
 use std::env;
+use serde_json::json;
+
+use super::{Result, ErrorKind, ResultExt};
 
 /// At what time the annotation should be made
 #[derive(Debug)]

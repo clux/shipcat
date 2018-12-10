@@ -2,7 +2,7 @@ use regex::Regex;
 use std::ops::{Deref, DerefMut};
 
 use super::Result;
-use config::{Team, SlackParameters};
+use crate::config::{Team, SlackParameters};
 
 /// Contact data
 #[derive(Serialize, Deserialize, Clone, Debug)]

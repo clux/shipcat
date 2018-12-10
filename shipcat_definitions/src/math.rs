@@ -112,7 +112,7 @@ impl Manifest {
 
 #[cfg(test)]
 mod tests {
-    use structs::HealthCheck;
+    use crate::structs::HealthCheck;
     use super::{Manifest};
 
     #[test]

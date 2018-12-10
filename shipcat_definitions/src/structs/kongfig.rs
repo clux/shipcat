@@ -1,6 +1,6 @@
 //use super::traits::Verify;
-use structs::{Kong, Cors, BabylonAuthHeader};
-use region::{KongConfig};
+use crate::structs::{Kong, Cors, BabylonAuthHeader};
+use crate::region::{KongConfig};
 use std::collections::BTreeMap;
 use serde::ser::{Serialize, Serializer, SerializeMap};
 

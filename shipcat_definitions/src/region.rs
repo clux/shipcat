@@ -1,4 +1,4 @@
-use structs::kong::Kong;
+use crate::structs::kong::Kong;
 use std::collections::BTreeMap;
 
 use semver::Version;
@@ -278,7 +278,7 @@ impl Region {
     }
 
     // Entry point for region verifier
-    pub fn verify_secrets_exist(&mut self) -> Result<()> {
+    pub fn verify_secrets_exist(&self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
         debug!("Validating kong secrets for {}", self.name);
         self.kong.verify_secrets_exist(&v, &self.name)?;

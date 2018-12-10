@@ -1,13 +1,6 @@
-extern crate serde_yaml;
 mod common;
-
-use common::setup;
-
-extern crate shipcat;
-extern crate shipcat_definitions;
-
+use crate::common::setup;
 use shipcat_definitions::{Config, ConfigType};
-
 use shipcat::graph::{generate, nodeidx_from_name};
 
 #[test]
