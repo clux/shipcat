@@ -117,7 +117,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {% for key, value in mfenv %}
+                    {% for key, value in mfenv.plain %}
                       <tr>
                         <td>{{key}}</td>
                         <td>

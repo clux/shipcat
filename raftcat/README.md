@@ -23,7 +23,7 @@ A small web api for shipcat manifests reading the current state of shipcat crds 
 Given a kube context with client key data and a token (kops clusters / minikube), you can run the server locally using your kube config:
 
 ```sh
-cargo run --bin raftcat
+cargo run -p raftcat
 ```
 
 From the shipcat root directory.
