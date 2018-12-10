@@ -92,7 +92,7 @@ impl Default for UpgradeState {
 }
 
 impl fmt::Display for UpgradeState {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             &UpgradeState::Pending => write!(f, "PENDING"),
             &UpgradeState::Completed => write!(f, "COMPLETED"),
