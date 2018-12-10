@@ -5,7 +5,7 @@ REPO=quay.io/babylonhealth
 
 compile:
 	docker run \
-		-v cargo-cache:/root/.cargo \
+		-v cargo-cache:/root/.cargo/registry \
 		-v "$$PWD:/volume" -w /volume \
 		--rm -it clux/muslrust:stable cargo build --release -p shipcat
 	cp target/x86_64-unknown-linux-musl/release/shipcat shipcat.x86_64-unknown-linux-musl
@@ -94,7 +94,7 @@ kongfig-tag-latest:
 # raftcat experiment
 raftcat:
 	docker run \
-		-v cargo-cache:/root/.cargo \
+		-v cargo-cache:/root/.cargo/registry \
 		-v "$$PWD:/volume" -w /volume \
 		--rm -it clux/muslrust:stable cargo build --release -p raftcat
 	cp target/x86_64-unknown-linux-musl/release/raftcat raftcat.x86_64-unknown-linux-musl
