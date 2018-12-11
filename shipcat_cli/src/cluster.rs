@@ -1,14 +1,14 @@
-use super::audit;
 use super::{Config, Region};
 use super::helm::{self, UpgradeMode};
 use super::{Result, Manifest};
+use crate::webhooks;
 
 /// Helm upgrade the region (reconcile)
 ///
 /// Upgrades multiple services at a time using rolling upgrade in a threadpool.
 /// Ignores upgrade failures.
 pub fn helm_reconcile(conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
-    audit::ensure_requirements(&region.webhooks)?;
+    webhooks::ensure_requirements(&region)?;
     mass_helm(conf, region, UpgradeMode::UpgradeInstallWait, n_workers)
 }
 

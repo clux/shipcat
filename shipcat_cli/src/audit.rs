@@ -6,8 +6,8 @@ use chrono::{Utc, SecondsFormat};
 
 use crate::webhooks::UpgradeState;
 use super::{Result, ResultExt, ErrorKind};
-use super::{Webhook, AuditWebhook};
-use crate::helm::direct::{UpgradeData};
+use super::AuditWebhook;
+use crate::helm::direct::UpgradeData;
 
 /// Payload that gets sent via audit webhook
 #[derive(Serialize, Clone)]
@@ -27,10 +27,10 @@ pub struct AuditEvent<T> where T: Serialize + Clone {
 
 impl<T> AuditEvent<T> where T: Serialize + Clone {
     /// Timestamped payload skeleton
-    pub fn new(status: UpgradeState, payload: T) -> Self {
+    pub fn new(status: &UpgradeState, payload: T) -> Self {
         AuditEvent{
             timestamp: Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
-            status,
+            status: status.clone(),
             context_id: env::var("SHIPCAT_AUDIT_CONTEXT_ID").ok(),
             context_link: if let Ok(l) = env::var("SHIPCAT_AUDIT_CONTEXT_LINK") {
                 Url::parse(&l).ok()
@@ -85,25 +85,13 @@ impl AuditReconciliationPayload {
     }
 }
 
-pub fn ensure_requirements(hooks: &[Webhook]) -> Result<()> {
-    for wh in hooks {
-        match wh {
-            Webhook::Audit(h) => {
-                env::var("SHIPCAT_AUDIT_CONTEXT_ID").map_err(|_| ErrorKind::MissingAuditContextId.to_string())?;
-                env::var("SHIPCAT_AUDIT_REVISION").map_err(|_| ErrorKind::MissingAuditRevision.to_string())?;
-            }
-        }
-    }
-    Ok(())
-}
-
-pub fn audit_deployment(us: UpgradeState, ud: &UpgradeData, audcfg: &AuditWebhook) -> Result<()> {
-    let ae = AuditEvent::new(us, AuditDeploymentPayload::new(Some(ud.clone())));
+pub fn audit_deployment(us: &UpgradeState, ud: &UpgradeData, audcfg: &AuditWebhook) -> Result<()> {
+    let ae = AuditEvent::new(&us, AuditDeploymentPayload::new(Some(ud.clone())));
     audit(ae, &audcfg)
 }
 
-pub fn audit_reconciliation(us: UpgradeState, region: &str, audcfg: &AuditWebhook) -> Result<()> {
-    let ae = AuditEvent::new(us, AuditReconciliationPayload::new(region));
+pub fn audit_reconciliation(us: &UpgradeState, region: &str, audcfg: &AuditWebhook) -> Result<()> {
+    let ae = AuditEvent::new(&us, AuditReconciliationPayload::new(region));
     audit(ae, &audcfg)
 }
 
