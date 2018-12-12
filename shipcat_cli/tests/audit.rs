@@ -1,35 +1,33 @@
+#![warn(rust_2018_idioms)]
+
 mod common;
 
-extern crate url;
-extern crate mockito;
-
-extern crate shipcat;
-extern crate shipcat_definitions;
-
 use std::env;
-
 use url::Url;
-use mockito::mock;
+
+use mockito;
+use shipcat;
+use shipcat_definitions;
+
+use crate::mockito::mock;
 // use mockito::Matcher;
 
-use shipcat::audit;
-use shipcat::{Webhooks, AuditWebhook};
-use shipcat::helm::direct::{UpgradeData, UpgradeState};
+use crate::shipcat::audit;
+use crate::shipcat::{AuditWebhook};
+use crate::shipcat::helm::direct::UpgradeData;
+use crate::shipcat::webhooks;
+use crate::shipcat_definitions::{Config, ConfigType};
 
 #[test]
 fn audit_does_ensure_requirements() {
+    common::setup();
+
     env::set_var("SHIPCAT_AUDIT_CONTEXT_ID", "egcontextid");
     env::set_var("SHIPCAT_AUDIT_REVISION", "egrevision");
 
-    let audcfg = AuditWebhook{
-        url: Url::parse(&format!("{}/audit", mockito::SERVER_URL)).unwrap(),
-        token: "1234auth".into(),
-    };
-    let wh = Some(Webhooks{
-        audit: audcfg,
-    });
+    let (_conf, reg) = Config::new(ConfigType::Completed, "dev-uk").unwrap();
 
-    assert!(audit::ensure_requirements(wh).is_ok());
+    assert!(webhooks::ensure_requirements(&reg).is_ok());
 }
 
 #[test]
@@ -42,7 +40,7 @@ fn audit_does_audit_deployment() {
         url: Url::parse(&format!("{}/audit", mockito::SERVER_URL)).unwrap(),
         token: "1234auth".into(),
     };
-    let us = UpgradeState::Completed;
+    let us = webhooks::UpgradeState::Completed;
     let ud = UpgradeData{
         name: "svc".into(),
         chart: "wtv".into(),

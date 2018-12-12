@@ -87,7 +87,7 @@ pub struct KafkaConfig {
 
 /// Webhook types that shipcat might trigger after actions
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[serde(tag = "name", deny_unknown_fields, rename_all = "snake_case")]
 pub enum Webhook {
     /// Audit webhook details
     Audit(AuditWebhook),
@@ -315,7 +315,7 @@ pub struct Region {
     #[serde(default)]
     pub locations: Vec<String>,
     /// All webhooks
-    pub webhooks: Vec<Webhook>,
+    pub webhooks: Option<Vec<Webhook>>,
 }
 
 impl Region {
@@ -323,8 +323,10 @@ impl Region {
     pub fn secrets(&mut self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
         self.kong.secrets(&v, &self.name)?;
-        for wh in &mut self.webhooks {
-            wh.secrets(&v, &self.name)?;
+        if let Some(ref mut whs) = &mut self.webhooks {
+            for wh in whs.iter_mut() {
+                wh.secrets(&v, &self.name)?;
+            }
         }
         Ok(())
     }
@@ -334,8 +336,10 @@ impl Region {
         let v = Vault::regional(&self.vault)?;
         debug!("Validating kong secrets for {}", self.name);
         self.kong.verify_secrets_exist(&v, &self.name)?;
-        for wh in &self.webhooks {
-            wh.verify_secrets_exist(&v, &self.name)?;
+        if let Some(whs) = &self.webhooks {
+            for wh in whs.iter() {
+                wh.verify_secrets_exist(&v, &self.name)?;
+            }
         }
         Ok(())
     }

@@ -423,8 +423,6 @@ pub fn handle_upgrade_rollbacks(reg: &Region, u: &UpgradeData, mf: &Manifest) ->
     Ok(())
 }
 
-
-
 /// Independent wrapper for helm values
 ///
 /// Completes a manifest and prints it out with the given version
