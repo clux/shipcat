@@ -61,3 +61,10 @@ fn audit_does_audit_deployment() {
     assert!(audit::audit_deployment(&us, &ud, &audcfg).is_ok());
     mocked.assert();
 }
+
+#[test]
+fn audit_reconciliation_has_type() {
+    let arp = audit::AuditReconciliationPayload::new("region_name");
+    let ae = audit::AuditEvent::new(&webhooks::UpgradeState::Completed, arp);
+    assert_eq!(ae.domain_type, "reconciliation");
+}

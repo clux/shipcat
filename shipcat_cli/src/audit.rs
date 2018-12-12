@@ -11,7 +11,11 @@ use crate::helm::direct::UpgradeData;
 
 /// Payload that gets sent via audit webhook
 #[derive(Serialize, Clone)]
-pub struct AuditEvent<T> where T: Serialize + Clone {
+pub struct AuditEvent<T>
+where T: Serialize + Clone + AuditType {
+    /// Payload type
+    #[serde(rename = "type")]
+    pub domain_type: String,
     /// RFC 3339
     pub timestamp: String,
     pub status: UpgradeState,
@@ -25,10 +29,12 @@ pub struct AuditEvent<T> where T: Serialize + Clone {
     pub payload: T,
 }
 
-impl<T> AuditEvent<T> where T: Serialize + Clone {
+impl<T> AuditEvent<T>
+where T: Serialize + Clone + AuditType {
     /// Timestamped payload skeleton
     pub fn new(status: &UpgradeState, payload: T) -> Self {
         AuditEvent{
+            domain_type: AuditType::get_domain_type(&payload),
             timestamp: Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
             status: status.clone(),
             context_id: env::var("SHIPCAT_AUDIT_CONTEXT_ID").ok(),
@@ -38,6 +44,10 @@ impl<T> AuditEvent<T> where T: Serialize + Clone {
             payload
         }
     }
+}
+
+pub trait AuditType {
+    fn get_domain_type(&self) -> String;
 }
 
 #[derive(Serialize, Clone)]
@@ -73,6 +83,13 @@ impl AuditDeploymentPayload {
         }
     }
 }
+
+impl AuditType for AuditDeploymentPayload {
+    fn get_domain_type(&self) -> String {
+        "deployment".into()
+    }
+}
+
 impl AuditReconciliationPayload {
     pub fn new(r: &str) -> Self {
         let manifests_revision = env::var("SHIPCAT_AUDIT_REVISION").unwrap_or("undefined".into());
@@ -82,6 +99,12 @@ impl AuditReconciliationPayload {
             id: format!("{}-{}", manifests_revision, region),
             manifests_revision, region,
         }
+    }
+}
+
+impl AuditType for AuditReconciliationPayload {
+    fn get_domain_type(&self) -> String {
+        "reconciliation".into()
     }
 }
 
@@ -95,7 +118,7 @@ pub fn audit_reconciliation(us: &UpgradeState, region: &str, audcfg: &AuditWebho
     audit(ae, &audcfg)
 }
 
-fn audit<T: Serialize + Clone>(ae: AuditEvent<T>, audcfg: &AuditWebhook) -> Result<()> {
+fn audit<T: Serialize + Clone + AuditType>(ae: AuditEvent<T>, audcfg: &AuditWebhook) -> Result<()> {
     let endpoint = &audcfg.url;
     debug!("event status: {}, url: {:?}", serde_json::to_string(&ae.status)?, endpoint);
 
