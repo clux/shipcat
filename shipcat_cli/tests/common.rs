@@ -107,15 +107,15 @@ fn clusterinfo() {
     // NB: needs a base config to be able to verify region/cluster constraints
     let conf = Config::read().unwrap();
 
-    assert!(get::clusterinfo(&conf, "preproduk-blue").is_ok());
-    assert!(get::clusterinfo(&conf, "preproduk-green").is_ok());
-    assert!(get::clusterinfo(&conf, "preprod-uk").is_err()); // ambiguous
+    assert!(get::clusterinfo(&conf, "preproduk-blue", Some("preproduk-blue")).is_ok());
+    assert!(get::clusterinfo(&conf, "preproduk-green", None).is_err()); // ambiguous
+    assert!(get::clusterinfo(&conf, "preprod-uk", None).is_err()); // ambiguous
 
-    let blue = get::clusterinfo(&conf, "preproduk-blue").unwrap();
+    let blue = get::clusterinfo(&conf, "preprod-uk", Some("preproduk-blue")).unwrap();
     assert_eq!(blue.region, "preprod-uk"); // correctly resolved
 
-    assert!(get::clusterinfo(&conf, "dev-global").is_ok());
-    let devglob = get::clusterinfo(&conf, "dev-global").unwrap();
+    assert!(get::clusterinfo(&conf, "dev-global", None).is_ok());
+    let devglob = get::clusterinfo(&conf, "dev-global", None).unwrap();
     assert_eq!(devglob.region, "dev-global");
     assert_eq!(devglob.cluster, "kops-global")
 }

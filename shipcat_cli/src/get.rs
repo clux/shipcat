@@ -90,9 +90,9 @@ pub struct ClusterInfo {
 /// Entry point for clusterinfo
 ///
 /// Need explicit region: shipcat get -r preprodca-green clusterinfo
-pub fn clusterinfo(conf: &Config, ctx: &str) -> Result<ClusterInfo> {
+pub fn clusterinfo(conf: &Config, ctx: &str, cluster: Option<&str>) -> Result<ClusterInfo> {
     assert!(conf.has_all_regions()); // can't work with reduced configs
-    let (clust, reg) = conf.resolve_cluster(ctx)?;
+    let (clust, reg) = conf.resolve_cluster(ctx, cluster)?;
     let ci = ClusterInfo {
         region: reg.name,
         namespace: reg.namespace,
