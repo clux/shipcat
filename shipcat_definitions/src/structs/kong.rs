@@ -3,7 +3,7 @@ use std::ops::Not;
 use std::collections::BTreeMap;
 
 /// Kong setup for a service
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct Kong {
     #[serde(default)]
@@ -90,7 +90,7 @@ impl Kong {
 fn preserve_host_default() -> bool { true }
 
 /// Cors plugin data
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct Cors {
     pub credentials: bool,
@@ -104,7 +104,7 @@ pub struct Cors {
 }
 
 /// Babylon Auth Header plugin data
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct BabylonAuthHeader {
     pub auth_service: String,
