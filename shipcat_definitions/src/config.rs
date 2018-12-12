@@ -54,7 +54,7 @@ pub struct Cluster {
     pub regions: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Team {
     /// Team name
     pub name: String,
