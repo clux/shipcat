@@ -14,7 +14,6 @@ use super::{Result, Error};
 /// This is valdiated strictly using `shipcat validate` when versions are found in manifests.
 /// Otherwise, it's validated on upgrade time (via `shipcat apply`) when it's passed.
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(test, derive(Debug))]
 pub enum VersionScheme {
     /// Version must be valid semver (no leading v)
     ///
