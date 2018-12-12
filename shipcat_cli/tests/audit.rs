@@ -7,7 +7,6 @@ use url::Url;
 
 use mockito;
 use shipcat;
-use shipcat_definitions;
 
 use crate::mockito::mock;
 // use mockito::Matcher;
@@ -16,19 +15,6 @@ use crate::shipcat::audit;
 use crate::shipcat::{AuditWebhook};
 use crate::shipcat::helm::direct::UpgradeData;
 use crate::shipcat::webhooks;
-use crate::shipcat_definitions::{Config, ConfigType};
-
-#[test]
-fn audit_does_ensure_requirements() {
-    common::setup();
-
-    env::set_var("SHIPCAT_AUDIT_CONTEXT_ID", "egcontextid");
-    env::set_var("SHIPCAT_AUDIT_REVISION", "egrevision");
-
-    let (_conf, reg) = Config::new(ConfigType::Completed, "dev-uk").unwrap();
-
-    assert!(webhooks::ensure_requirements(&reg).is_ok());
-}
 
 #[test]
 fn audit_does_audit_deployment() {
