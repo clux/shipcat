@@ -107,6 +107,6 @@ fn audit<T: Serialize + Clone>(ae: AuditEvent<T>, audcfg: &AuditWebhook) -> Resu
         .json(&ae)
         .send()
         .chain_err(&mkerr)?;
-    // TODO: check _res.is_success
+    // TODO: check _res.is_success if it's a requirement in future
     Ok(())
 }
