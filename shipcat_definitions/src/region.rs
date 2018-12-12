@@ -13,7 +13,7 @@ use super::{Result, Error};
 ///
 /// This is valdiated strictly using `shipcat validate` when versions are found in manifests.
 /// Otherwise, it's validated on upgrade time (via `shipcat apply`) when it's passed.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum VersionScheme {
     /// Version must be valid semver (no leading v)
     ///
@@ -54,7 +54,7 @@ impl VersionScheme {
 
 /// Vault configuration for a region
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(test, derive(Default, Debug))]
+#[cfg_attr(test, derive(Default))]
 #[serde(deny_unknown_fields)]
 pub struct VaultConfig {
     /// Vault url up to and including port
@@ -65,7 +65,7 @@ pub struct VaultConfig {
     pub folder: String,
 }
 
-//#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+//#[derive(Serialize, Deserialize, Clone, Default)]
 //#[serde(deny_unknown_fields)]
 //pub struct HostPort {
 //    /// Hostname || IP || FQDN
@@ -75,7 +75,7 @@ pub struct VaultConfig {
 //}
 
 /// Kafka configuration for a region
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct KafkaConfig {
     /// Broker urls in "hostname:port" format.
@@ -107,7 +107,7 @@ pub struct AuditWebhook {
 // ----------------------------------------------------------------------------------
 
 /// Kong configuration for a region
-#[derive(Serialize, Deserialize, Clone, Debug, Default)] // TODO: better Default impl
+#[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
 #[serde(deny_unknown_fields)]
 pub struct KongConfig {
     /// Base URL to use (e.g. uk.dev.babylontech.co.uk)
@@ -130,7 +130,7 @@ pub struct KongConfig {
 }
 
 /// StatusCake configuration for a region
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct StatuscakeConfig {
     /// Contact Group that will be used if tests go down
@@ -142,7 +142,7 @@ pub struct StatuscakeConfig {
 }
 
 /// Logz.io configuration for a region
-#[derive(Serialize, Deserialize, Clone, Debug, Default)] // TODO: better Default impl
+#[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
 #[serde(deny_unknown_fields)]
 pub struct LogzIoConfig {
     /// Base URL to use (e.g. https://app-eu.logz.io/#/dashboard/kibana/dashboard)
@@ -152,7 +152,7 @@ pub struct LogzIoConfig {
 }
 
 /// Grafana details for a region
-#[derive(Serialize, Deserialize, Clone, Debug, Default)] // TODO: better Default impl
+#[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
 #[serde(deny_unknown_fields)]
 pub struct GrafanaConfig {
     /// Base URL to use (e.g. https://dev-grafana.ops.babylontech.co.uk)
@@ -162,20 +162,20 @@ pub struct GrafanaConfig {
 }
 
 /// Sentry details for a region
-#[derive(Serialize, Deserialize, Clone, Debug, Default)] // TODO: better Default impl
+#[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
 #[serde(deny_unknown_fields)]
 pub struct SentryConfig {
     /// Base URL to use (e.g. https://dev-uk-sentry.ops.babylontech.co.uk)
     pub url: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct KongAnonymousConsumers {
     pub anonymous: BTreeMap<String, String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct KongOauthConsumer {
     pub oauth_client_id: String,
@@ -226,7 +226,7 @@ impl KongConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct KongTcpLogConfig {
     pub enabled: bool,
@@ -271,7 +271,7 @@ impl Webhook {
 /// Either it's a pure kubernetes context with a namespace and a cluster,
 /// or it's an abstract concept with many associated real kubernetes contexts.
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(test, derive(Debug, Default))]
+#[cfg_attr(test, derive(Default))]
 #[serde(deny_unknown_fields)]
 pub struct Region {
     /// Name of region
