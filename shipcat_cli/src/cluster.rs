@@ -8,7 +8,9 @@ use crate::webhooks;
 /// Upgrades multiple services at a time using rolling upgrade in a threadpool.
 /// Ignores upgrade failures.
 pub fn helm_reconcile(conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
-    webhooks::ensure_requirements(&region)?;
+    if let Err(e) = webhooks::ensure_requirements(&region) {
+        warn!("Could not ensure webhook requirements: {}", e);
+    }
     mass_helm(conf, region, UpgradeMode::UpgradeInstallWait, n_workers)
 }
 

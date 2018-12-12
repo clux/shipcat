@@ -441,7 +441,9 @@ pub fn values_wrapper(svc: &str, region: &Region, conf: &Config, ver: Option<Str
 
 /// Full helm wrapper for a single upgrade/diff/install
 pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
-    webhooks::ensure_requirements(&region)?;
+    if let Err(e) = webhooks::ensure_requirements(&region) {
+        warn!("Could not ensure webhook requirements: {}", e);
+    }
 
     let mut mf = Manifest::base(svc, conf, region)?.complete(region)?;
 
