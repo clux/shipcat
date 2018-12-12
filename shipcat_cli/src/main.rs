@@ -157,6 +157,11 @@ fn main() {
                 .long("region")
                 .takes_value(true)
                 .help("Specific region to check"))
+              .arg(Arg::with_name("cluster")
+                .short("c")
+                .long("cluster")
+                .takes_value(true)
+                .help("Specific cluster to check (if relevant)"))
               .about("Reduce encoded info")
               .subcommand(SubCommand::with_name("images")
                 .help("Reduce encoded image info"))
@@ -434,7 +439,10 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         if let Some(_) = a.subcommand_matches("clusterinfo") {
             let rawconf = Config::read()?;
             assert!(a.is_present("region"), "explicit context needed for clusterinfo");
-            return shipcat::get::clusterinfo(&rawconf, a.value_of("region").unwrap()).map(void);
+            return shipcat::get::clusterinfo(&rawconf,
+                a.value_of("region").unwrap(),
+                a.value_of("cluster")
+            ).map(void);
         }
 
         // resolve region from kube context here if unspecified

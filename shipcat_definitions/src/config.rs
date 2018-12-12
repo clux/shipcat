@@ -269,24 +269,30 @@ impl Config {
 
     /// Work out the cluster from the kube config
     ///
-    /// Can be done unambiguously in two cases:
-    /// - cluster.name === kube context name
-    /// - region.name === kube context name && region is served by one cluster only
-    pub fn resolve_cluster(&self, ctx: &str) -> Result<(Cluster, Region)> {
+    /// Can be done unambiguously when cluster name is specified,
+    /// Otherwise we will find the first candidate cluster serving this context
+    /// and bail if there's more than one.
+    pub fn resolve_cluster(&self, ctx: &str, cluster: Option<&str>) -> Result<(Cluster, Region)> {
         let reg = self.get_region(ctx)?;
 
-        // 1: `cluster.name == context` (dump apps cluster with dedicated context)
-        // e.g. `preproduk-blue` cluster serves `preprod-uk` region
-        if let Some(c) = self.clusters.get(ctx) {
-            return Ok((c.clone(), reg));
+        // 1. `get -r dev-uk -c kops-uk`
+        // Most precise - just get what asked for.
+        // region must exist because `ctx` is either a region or a contextAlias
+        if let Some(c) = cluster {
+            if let Some(c) = self.clusters.get(c) {
+                return Ok((c.clone(), reg));
+            } else {
+                bail!("Specified cluster '{}' does not exist in shipcat.conf", c);
+            }
         }
-        // 2: `region.name == context` (big cluster with many namespaces and regions)
-        // e.g. `kops-global` cluster serving `dev-global` + `staging-global` regions
+
+        // 2. `get -r preprodca-blue`
+        // Infer cluster from the one serving it (if only one)
         let candidates = self.clusters.values().cloned().filter(|v| {
             v.regions.contains(&reg.name)
         }).collect::<Vec<_>>();
         if candidates.len() != 1 {
-            bail!("Ambiguous context {} must be served by exactly one cluster", ctx);
+            bail!("Ambiguous context {} served by more than one cluster - please specify -c cluster", ctx);
         }
         Ok((candidates[0].clone(), reg))
     }
