@@ -1,5 +1,6 @@
 use crate::structs::kong::Kong;
 use std::collections::BTreeMap;
+use std::env;
 
 use semver::Version;
 
@@ -7,7 +8,7 @@ use url::Url;
 
 use super::Vault;
 #[allow(unused_imports)]
-use super::{Result, Error};
+use super::{Result, Error, ErrorKind};
 
 /// Versioning Scheme used in region
 ///
@@ -252,6 +253,7 @@ impl Webhook {
         }
         Ok(())
     }
+
     fn verify_secrets_exist(&self, vault: &Vault, region: &str) -> Result<()> {
         match self {
             Webhook::Audit(_h) => {
@@ -261,6 +263,29 @@ impl Webhook {
         }
         // TODO: when more secrets, build up a list and do a LIST on shipcat folder
         Ok(())
+    }
+
+    pub fn get_configuration(&self) -> Result<BTreeMap<String, String>> {
+        let mut whc = BTreeMap::default();
+        match self {
+            Webhook::Audit(_h) => {
+                whc.insert("SHIPCAT_AUDIT_REVISION".into(),
+                                env::var("SHIPCAT_AUDIT_REVISION")
+                                    .map_err(|_| ErrorKind::MissingAuditRevision.to_string())?);
+                whc.insert("SHIPCAT_AUDIT_CONTEXT_ID".into(),
+                                env::var("SHIPCAT_AUDIT_CONTEXT_ID")
+                                    .map_err(|_| ErrorKind::MissingAuditContextId.to_string())?);
+
+                if let Ok(v) = env::var("SHIPCAT_AUDIT_CONTEXT_LINK") {
+                    whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), v);
+                }
+            }
+        }
+
+        // TODO: when slack webhook is cfged, require this:
+        // slack::have_credentials()?;
+        
+        Ok(whc)
     }
 }
 

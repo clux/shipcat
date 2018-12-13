@@ -43,14 +43,6 @@ error_chain! {
             description("GRAFANA_SHIPCAT_TOKEN not specified")
             display("GRAFANA_SHIPCAT_TOKEN not specified")
         }
-        MissingAuditContextId {
-            description("SHIPCAT_AUDIT_CONTEXT_ID not specified")
-            display("SHIPCAT_AUDIT_CONTEXT_ID not specified")
-        }
-        MissingAuditRevision {
-            description("SHIPCAT_AUDIT_REVISION not specified")
-            display("SHIPCAT_AUDIT_REVISION not specified")
-        }
         Url(url: reqwest::Url) {
             description("could not access URL")
             display("could not access URL '{}'", &url)

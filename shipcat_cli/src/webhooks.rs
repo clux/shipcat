@@ -1,10 +1,8 @@
-use std::env;
 use crate::{
     audit,
     grafana,
     slack,
-    Result,
-    ErrorKind,
+    Result
 };
 use crate::helm::{UpgradeData, UpgradeMode};
 use super::{Region, Webhook};
@@ -30,32 +28,26 @@ pub enum UpgradeState {
 pub fn ensure_requirements(reg: &Region) -> Result<()> {
     if let Some(whs) = &reg.webhooks {
         for wh in whs.iter() {
-            match wh {
-                Webhook::Audit(_) => {
-                    env::var("SHIPCAT_AUDIT_CONTEXT_ID").map_err(|_| ErrorKind::MissingAuditContextId.to_string())?;
-                    env::var("SHIPCAT_AUDIT_REVISION").map_err(|_| ErrorKind::MissingAuditRevision.to_string())?;
-                }
-            }
+            wh.get_configuration()?;
         }
     }
-    
     Ok(())
-    // TODO: when slack webhook is cfged, require this:
-    // slack::have_credentials()?;
 }
 
 /// Throw events to configured webhooks - warning on delivery errors
 ///
 /// Http errors are NOT propagated from here
-pub fn reconcile_event(state: UpgradeState, reg: &Region) {
+pub fn reconcile_event(us: UpgradeState, reg: &Region) {
     if let Some(whs) = &reg.webhooks {
         for wh in whs.iter() {
-            if let Err(e) = match wh {
-                Webhook::Audit(h) => {
-                    audit::audit_reconciliation(&state, &reg.name, &h)
+            if let Ok(whc) = wh.get_configuration() {
+                if let Err(e) = match wh {
+                    Webhook::Audit(h) => {
+                        audit::audit_reconciliation(&us, &reg.name, &h, whc)
+                    }
+                } {
+                    warn!("Failed to notify about reconciliation event: {}", e)
                 }
-            } {
-                warn!("Failed to notify about reconciliation event: {}", e)
             }
         }
     }
@@ -64,36 +56,37 @@ pub fn reconcile_event(state: UpgradeState, reg: &Region) {
 /// Throw events to configured webhooks - warning on delivery errors
 ///
 /// Http errors are NOT propagated from here
-pub fn upgrade_event(state: UpgradeState, ud: &UpgradeData, reg: &Region) {
+pub fn upgrade_event(us: UpgradeState, ud: &UpgradeData, reg: &Region) {
     //for wh in &reg.webhooks {
     //    if let Err(e) = match wh {
     //        Webhook::Audit(h) => {
-    //            audit::audit_deployment(state, ud, h)
+    //            audit::audit_deployment(us, ud, h)
     //        }
     //    } {
     //        warn!("Failed to notify about deployment event: {}", e)
     //    }
     //}
-    handle_upgrade_notifies(state, ud, &reg);
+    handle_upgrade_notifies(us, ud, &reg);
     // TODO: make a smarter loop over webhooks in here
     // TODO: first add grafana and slack to webhooks for region
 }
-
 
 /// Notify slack / audit endpoint of upgrades from a single upgrade
 pub fn handle_upgrade_notifies(us: UpgradeState, ud: &UpgradeData, reg: &Region) {
     if let Some(whs) = &reg.webhooks {
         for wh in whs.iter() {
-           if let Err(e) = match wh {
-               Webhook::Audit(h) => {
-                   audit::audit_deployment(&us, ud, &h)
-               }
-           } {
-               warn!("Failed to notify about deployment event: {}", e)
-           }
+            if let Ok(whc) = wh.get_configuration() {
+                if let Err(e) = match wh {
+                    Webhook::Audit(h) => {
+                        audit::audit_deployment(&us, &ud, &h, whc)
+                    }
+                } {
+                    warn!("Failed to notify about deployment event: {}", e)
+                }
+            }
         }
     }
-    
+
     // Slack and Grafana
 
     let code = if ud.diff.is_empty() { None } else { Some(ud.diff.clone()) };
@@ -138,12 +131,14 @@ pub fn handle_upgrade_notifies(us: UpgradeState, ud: &UpgradeData, reg: &Region)
 pub fn upgrade_rollback_event(us: UpgradeState, ud: &UpgradeData, reg: &Region) {
     if let Some(whs) = &reg.webhooks {
         for wh in whs.iter() {
-            if let Err(e) = match wh {
-                Webhook::Audit(h) => {
-                    audit::audit_deployment(&us, &ud, &h)
+            if let Ok(whc) = wh.get_configuration() {
+                if let Err(e) = match wh {
+                    Webhook::Audit(h) => {
+                        audit::audit_deployment(&us, &ud, &h, whc)
+                    }
+                } {
+                    warn!("Failed to notify about rollback event: {}", e)
                 }
-            } {
-                warn!("Failed to notify about rollback event: {}", e)
             }
         }
     }

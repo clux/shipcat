@@ -2,7 +2,8 @@
 
 mod common;
 
-use std::env;
+use std::collections::BTreeMap;
+
 use url::Url;
 
 use mockito;
@@ -18,9 +19,10 @@ use crate::shipcat::webhooks;
 
 #[test]
 fn audit_does_audit_deployment() {
-    env::set_var("SHIPCAT_AUDIT_CONTEXT_ID", "egcontextid");
-    env::set_var("SHIPCAT_AUDIT_CONTEXT_LINK", "http://eg.server/");
-    env::set_var("SHIPCAT_AUDIT_REVISION", "egrevision");
+    let mut whc: BTreeMap<String, String> = BTreeMap::default();
+    whc.insert("SHIPCAT_AUDIT_CONTEXT_ID".into(), "egcontextid".into());
+    whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), "http://eg.server/".into());
+    whc.insert("SHIPCAT_AUDIT_REVISION".into(), "egrevision".into());
 
     let audcfg = AuditWebhook{
         url: Url::parse(&format!("{}/audit", mockito::SERVER_URL)).unwrap(),
@@ -58,13 +60,18 @@ fn audit_does_audit_deployment() {
         .expect(1)
         .create();
 
-    assert!(audit::audit_deployment(&us, &ud, &audcfg).is_ok());
+    assert!(audit::audit_deployment(&us, &ud, &audcfg, whc).is_ok());
     mocked.assert();
 }
 
 #[test]
 fn audit_reconciliation_has_type() {
-    let arp = audit::AuditReconciliationPayload::new("region_name");
-    let ae = audit::AuditEvent::new(&webhooks::UpgradeState::Completed, arp);
+    let mut whc: BTreeMap<String, String> = BTreeMap::default();
+    whc.insert("SHIPCAT_AUDIT_CONTEXT_ID".into(), "egcontextid".into());
+    whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), "http://eg.server/".into());
+    whc.insert("SHIPCAT_AUDIT_REVISION".into(), "egrevision".into());
+
+    let arp = audit::AuditReconciliationPayload::new(&whc, "region_name");
+    let ae = audit::AuditEvent::new(&whc, &webhooks::UpgradeState::Completed, arp);
     assert_eq!(ae.domain_type, "reconciliation");
 }
