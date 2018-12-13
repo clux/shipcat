@@ -91,15 +91,9 @@ pub fn handle_upgrade_notifies(us: UpgradeState, ud: &UpgradeData, reg: &Region)
 
     let code = if ud.diff.is_empty() { None } else { Some(ud.diff.clone()) };
     let (color, text) = match us {
-        UpgradeState::Completed => {
-            info!("successfully rolled out {}", ud.name);
-            ("good".into(), format!("{} `{}` in `{}`", ud.mode.action_verb(), ud.name, ud.region))
-        }
-        UpgradeState::Failed => {
-            warn!("failed to roll out {}", ud.name);
-            ("danger".into(), format!("failed to {} `{}` in `{}`", ud.mode, ud.name, ud.region))
-        }
-        _ => ("good", format!("action state: {}", serde_json::to_string(&us).unwrap_or("unknown".into())))
+        UpgradeState::Completed => ("good".into(), format!("{} `{}` in `{}`", ud.mode.action_verb(), ud.name, ud.region)),
+        UpgradeState::Failed => ("danger".into(), format!("failed to {} `{}` in `{}`", ud.mode, ud.name, ud.region)),
+        _ => ("good", format!("action state: {}", serde_json::to_string(&us).unwrap_or("unknown".into()))),
     };
 
     match us {

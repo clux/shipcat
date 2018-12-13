@@ -122,6 +122,7 @@ fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, region: 
             Ok(_)  => {
                 // after helm upgrade / kubectl apply, check rollout status in a loop:
                 if kube::await_rollout_status(&mf)? {
+                    info!("successfully rolled out {}", &udata.name);
                     // notify about the result directly as they happen
                     webhooks::upgrade_event(UpgradeState::Completed, &udata, &region);
                 } else {

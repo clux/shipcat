@@ -478,21 +478,23 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Con
         webhooks::upgrade_event(UpgradeState::Pending, &udata, &region);
         match upgrade(&udata) {
             Err(e) => {
-                // upgrade failed immediately - couldn't create resources
-                webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
                 // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
                 error!("{} from {}", e, udata.name);
+                // upgrade failed immediately - couldn't create resources
+                webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
                 handle_upgrade_rollbacks(&region, &udata, &mf)?; // for now leave it in..
                 return Err(e);
             },
             Ok(_) => {
                 // after helm upgrade / kubectl apply, check rollout status in a loop:
                 if kube::await_rollout_status(&mf)? {
+                    info!("successfully rolled out {}", &udata.name);
                     webhooks::upgrade_event(UpgradeState::Completed, &udata, &region);
                 }
                 else {
                     let _ = kube::debug_rollout_status(&mf);
                     let _ = kube::debug(&mf);
+                    warn!("failed to roll out {}", &udata.name);
                     webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
                     // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
                     handle_upgrade_rollbacks(&region, &udata, &mf)?; // for now leave it in..
