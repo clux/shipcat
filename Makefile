@@ -92,13 +92,15 @@ kongfig-tag-latest:
 	docker push $(REPO)/$(NAME):kongfig
 
 # raftcat experiment
-raftcat:
+raftcat-build:
 	docker run \
 		-v cargo-cache:/root/.cargo/registry \
 		-v "$$PWD:/volume" -w /volume \
 		--rm -it clux/muslrust:stable cargo build --release -p raftcat
 	cp target/x86_64-unknown-linux-musl/release/raftcat raftcat.x86_64-unknown-linux-musl
 	chmod +x raftcat.x86_64-unknown-linux-musl
+
+raftcat:
 	docker build -t $(REPO)/raftcat:$(VERSION) -f Dockerfile.raftcat .
 	docker push $(REPO)/raftcat:$(VERSION)
 
