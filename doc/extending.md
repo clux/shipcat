@@ -66,11 +66,45 @@ pub use self::dependency::Dependency;
 This exposes it so it can be used from `manifest.rs`:
 
 ```rust
-use super::structs::dependency::Dependency:
+use crate::structs::dependency::Dependency:
 ```
 
 ## 4. Attach it to the manifest
-Attach it to the main [Manifest struct](https://github.com/Babylonpartners/shipcat/blob/master/src/manifest.rs), and in the same file, call your `verify` method in `verify`. You can also implement how merging is done in the merge function. See what other structs are doing.
+Attach it to the main [Manifest struct](https://github.com/Babylonpartners/shipcat/blob/master/src/manifest.rs):
+
+```rust
+
+    /// Service dependencies
+    ///
+    /// Used to construct a dependency graph, and in the case of non-circular trees,
+    /// it can be used to arrange deploys in the correct order.
+    ///
+    /// ```yaml
+    /// dependencies:
+    /// - name: auth
+    /// - name: ask2
+    /// - name: chatbot-reporting
+    /// - name: clinical-knowledge
+    /// ```
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dependencies: Vec<Dependency>,
+```
+
+make sure you call its verifier from master `verify` in the same file:
+
+```rust
+        for d in &self.dependencies {
+            d.verify()?;
+        }
+```
+
+Finally, make it mergeable (overrideable from an environment override file), by adding a check to `merge.rs` to the `merge` fn:
+
+```rust
+        if !mf.dependencies.is_empty() {
+            self.dependencies = mf.dependencies;
+        }
+```
 
 ## 5. Code review
 If everyone's happy in code review, then, after merge there will be a new version of `shipcat` available to use in the [manifests repository](https://github.com/Babylonpartners/manifests).
@@ -92,11 +126,11 @@ pub mod graph;
 Create `graph.rs` with your generation logic. Typically this involves using a specific manifest by service name (via either `Manifest::base(svcname)` or `Manifest::completed`). You can loop over all the available manifests using the `available` helper from `Manifest`:
 
 ```rust
-pub fn generate(region: &Region) -> Result<MyReturnType>
+pub fn generate(conf: &Config, region: &Region) -> Result<MyReturnType>
     let services = Manifest::available(&region.name)?;
     for svc in services {
         // read the manifest for the service:
-        let mf = Manifest::base(&svc, region)?;
+        let mf = Manifest::base(&svc, conf, region)?;
         // TODO: do something with the manifests
     }
     unimplemented!()
@@ -104,21 +138,16 @@ pub fn generate(region: &Region) -> Result<MyReturnType>
 ```
 
 ## 3. Define tests for the module
-Work with the fake manifests in shipcat's `tests/` directory to lock down functionality:
+Work with the fake manifests in shipcat_cli's `tests/` directory to lock down functionality:
 
 ```rust
-#[cfg(test)]
-mod tests {
-    use super::generate;
-    use tests::setup;
-
-    #[test]
-    fn graph_generate() {
-        setup();
-        let res = generate("fake-ask", true).unwrap();
-        assert!(res.edge_count() > 0);
-        // test output properly here -  unwrap or assert! on assumptions
-    }
+#[test]
+fn graph_generate() {
+    setup();
+    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let graph = generate("fake-ask", &conf, &reg, true).unwrap();
+    assert!(graph.edge_count() > 0);
+    // test output properly here -  unwrap or assert! on assumptions
 }
 ```
 
@@ -149,7 +178,10 @@ then defer to your new interface from `main.rs`:
 ## 5. Autocomplete
 Try to extend the various arrays in `shipcat.complete.sh` with your new subcommand if you can grok it. Otherwise, don't worry, it's not essential.
 
-## 6. Code review
+## 6. Bump the version
+Bump a minor in all three Cargo.toml files. The versions all stay in sync.
+
+## 7. Code review
 If everyone's happy in code review, then, after merge there will be a new version of `shipcat` available.
 
 # Success

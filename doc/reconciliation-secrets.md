@@ -3,7 +3,8 @@ Reconciliation is currently performed in a tight loop around a manifest reposito
 
 ```bash
 export SLACK_SHIPCAT_CHANNEL="#platform-reconcile"
-export KUBE_REGION="platformus-green"
+export KUBE_REGION="platform-us"
+export KUBE_CLUSTER="platformus-green"
 export TILLER_NAMESPACE="apps"
 export SHIPCAT_VER="$(grep babylonhealth/kubecat .circleci/config.yml | cut -d":" -f3)"
 
@@ -16,6 +17,7 @@ kubecat() {
     -v $PWD/ca.crt:/volume/ca.crt \
     -e KUBE_TOKEN="${KUBE_TOKEN}" \
     -e KUBE_REGION="${KUBE_REGION}" \
+    -e KUBE_CLUSTER="${KUBE_CLUSTER}" \
     -e GITHUB_PAT="${GITHUB_PAT}" \
     -e SLACK_SHIPCAT_HOOK_URL="${SLACK_SHIPCAT_HOOK_URL}" \
     -e SLACK_SHIPCAT_CHANNEL="${SLACK_SHIPCAT_CHANNEL}" \
@@ -77,8 +79,8 @@ kube-login() {
     echo "To be run inside docker only" # smashes env otherwise
     exit 2
   fi
-  local -r namespace="$(shipcat get -r "$KUBE_REGION" clusterinfo | jq ".namespace" -r)"
-  local -r apiserver="$(shipcat get -r "$KUBE_REGION" clusterinfo | jq ".apiserver" -r)"
+  local -r namespace="$(shipcat get -r "$KUBE_REGION" -c "$KUBE_CLUSTER" clusterinfo | jq ".namespace" -r)"
+  local -r apiserver="$(shipcat get -r "$KUBE_REGION" -c "$KUBE_CLUSTER" clusterinfo | jq ".apiserver" -r)"
 
   # Logs in to kubernetes with the jenkins sa credentials
   # Assumes that
