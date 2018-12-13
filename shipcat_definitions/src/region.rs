@@ -1,11 +1,14 @@
 use crate::structs::kong::Kong;
 use std::collections::BTreeMap;
+use std::env;
 
 use semver::Version;
 
+use url::Url;
+
 use super::Vault;
 #[allow(unused_imports)]
-use super::{Result, Error};
+use super::{Result, Error, ErrorKind};
 
 /// Versioning Scheme used in region
 ///
@@ -81,6 +84,26 @@ pub struct KafkaConfig {
     /// These are injected in to the manifest.kafka struct if it's set.
     pub brokers: Vec<String>,
 }
+
+/// Webhook types that shipcat might trigger after actions
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(tag = "name", deny_unknown_fields, rename_all = "snake_case")]
+pub enum Webhook {
+    /// Audit webhook details
+    Audit(AuditWebhook),
+}
+
+/// Where / how to send audited events
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct AuditWebhook {
+    /// Endpoint
+    #[serde(with = "url_serde")]
+    pub url: Url,
+    /// Credential
+    pub token: String,
+}
+
 
 // ----------------------------------------------------------------------------------
 
@@ -218,6 +241,54 @@ impl KongConfig {
     }
 }
 
+impl Webhook {
+    fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
+        match self {
+            Webhook::Audit(h) => {
+                if h.token == "IN_VAULT" {
+                    let vkey = format!("{}/shipcat/WEBHOOK_AUDIT_TOKEN", region);
+                    h.token = vault.read(&vkey)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn verify_secrets_exist(&self, vault: &Vault, region: &str) -> Result<()> {
+        match self {
+            Webhook::Audit(_h) => {
+                let vkey = format!("{}/shipcat/WEBHOOK_AUDIT_TOKEN", region);
+                vault.read(&vkey)?;
+            }
+        }
+        // TODO: when more secrets, build up a list and do a LIST on shipcat folder
+        Ok(())
+    }
+
+    pub fn get_configuration(&self) -> Result<BTreeMap<String, String>> {
+        let mut whc = BTreeMap::default();
+        match self {
+            Webhook::Audit(_h) => {
+                whc.insert("SHIPCAT_AUDIT_REVISION".into(),
+                                env::var("SHIPCAT_AUDIT_REVISION")
+                                    .map_err(|_| ErrorKind::MissingAuditRevision.to_string())?);
+                whc.insert("SHIPCAT_AUDIT_CONTEXT_ID".into(),
+                                env::var("SHIPCAT_AUDIT_CONTEXT_ID")
+                                    .map_err(|_| ErrorKind::MissingAuditContextId.to_string())?);
+
+                if let Ok(v) = env::var("SHIPCAT_AUDIT_CONTEXT_LINK") {
+                    whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), v);
+                }
+            }
+        }
+
+        // TODO: when slack webhook is cfged, require this:
+        // slack::have_credentials()?;
+        
+        Ok(whc)
+    }
+}
+
 // ----------------------------------------------------------------------------------
 
 /// A region is an abstract kube context
@@ -267,6 +338,8 @@ pub struct Region {
     /// List of locations the region serves
     #[serde(default)]
     pub locations: Vec<String>,
+    /// All webhooks
+    pub webhooks: Option<Vec<Webhook>>,
 }
 
 impl Region {
@@ -274,6 +347,11 @@ impl Region {
     pub fn secrets(&mut self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
         self.kong.secrets(&v, &self.name)?;
+        if let Some(ref mut whs) = &mut self.webhooks {
+            for wh in whs.iter_mut() {
+                wh.secrets(&v, &self.name)?;
+            }
+        }
         Ok(())
     }
 
@@ -282,6 +360,11 @@ impl Region {
         let v = Vault::regional(&self.vault)?;
         debug!("Validating kong secrets for {}", self.name);
         self.kong.verify_secrets_exist(&v, &self.name)?;
+        if let Some(whs) = &self.webhooks {
+            for wh in whs.iter() {
+                wh.verify_secrets_exist(&v, &self.name)?;
+            }
+        }
         Ok(())
     }
 

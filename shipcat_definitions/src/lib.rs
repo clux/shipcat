@@ -6,7 +6,6 @@
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate log;
 
-
 /// The backing for manifests must come from the filesystem or the CRD
 /// This assert enforce that users of this library choses a feature.
 static_assertions::assert_cfg!(all(not(all(feature = "filesystem", feature = "crd")),
@@ -41,6 +40,14 @@ error_chain! {
         MissingVaultToken {
             description("VAULT_TOKEN not specified")
             display("VAULT_TOKEN not specified")
+        }
+        MissingAuditContextId {
+            description("SHIPCAT_AUDIT_CONTEXT_ID not specified")
+            display("SHIPCAT_AUDIT_CONTEXT_ID not specified")
+        }
+        MissingAuditRevision {
+            description("SHIPCAT_AUDIT_REVISION not specified")
+            display("SHIPCAT_AUDIT_REVISION not specified")
         }
         UnexpectedHttpStatus(status: reqwest::StatusCode) {
             description("unexpected HTTP status")
@@ -104,7 +111,6 @@ mod merge;
 
 /// Computational helpers
 pub mod math;
-
 
 /// A renderer of `tera` templates (jinja style)
 ///

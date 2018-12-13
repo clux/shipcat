@@ -7,6 +7,7 @@
 #[macro_use] extern crate log;
 
 #[macro_use] extern crate error_chain;
+
 error_chain! {
     types {
         Error, ErrorKind, ResultExt, Result;
@@ -72,7 +73,7 @@ error_chain! {
 pub use shipcat_definitions::{Manifest, ConfigType};
 pub use shipcat_definitions::structs;
 pub use shipcat_definitions::config::{self, Config, Team};
-pub use shipcat_definitions::region::{Region, VersionScheme, KongConfig};
+pub use shipcat_definitions::region::{Region, VersionScheme, KongConfig, Webhook, AuditWebhook};
 //pub use shipcat_definitions::Product;
 
 /// Convenience listers
@@ -81,6 +82,8 @@ pub mod list;
 pub mod slack;
 /// A REST interface to grafana using `reqwest`
 pub mod grafana;
+/// Audit objects and API caller
+pub mod audit;
 /// Cluster level operations
 pub mod cluster;
 
@@ -107,6 +110,9 @@ pub mod graph;
 
 /// Various simple reducers
 pub mod get;
+
+/// Webhook mux/demux
+pub mod webhooks;
 
 /// Simple printers
 pub mod show;

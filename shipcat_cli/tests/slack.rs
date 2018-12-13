@@ -4,7 +4,8 @@ use shipcat::{Manifest};
 use shipcat::slack::{send, Message, env_channel};
 
 // integration temporarily disabled
-//#[test]
+#[test]
+#[ignore]
 fn slack_test() {
     setup();
     // metadata is global - can use a blank manifest for this test

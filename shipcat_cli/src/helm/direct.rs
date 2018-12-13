@@ -5,9 +5,7 @@ use std::fs::File;
 use std::io::Write;
 
 use serde_yaml;
-
-use super::grafana;
-use super::slack;
+use crate::webhooks::{self, UpgradeState};
 use super::kube;
 use super::Metadata;
 use super::{Manifest, Config, Region};
@@ -55,7 +53,7 @@ impl fmt::Display for UpgradeMode {
 }
 
 impl UpgradeMode {
-    fn action_verb(&self) -> String {
+    pub fn action_verb(&self) -> String {
         match self {
             &UpgradeMode::DiffOnly => "diffed",
             &UpgradeMode::UpgradeWait => "blindly upgraded",
@@ -75,7 +73,7 @@ impl UpgradeMode {
 /// If this is not the case you might have degraded service (fewer replicas).
 ///
 /// TODO: deprecate
-pub fn rollback(ud: &UpgradeData, mf: &Manifest) -> Result<()> {
+pub fn rollback(reg: &Region, ud: &UpgradeData, mf: &Manifest) -> Result<()> {
     assert!(ud.namespace.len() > 0);
     let rollbackvec = vec![
         format!("--tiller-namespace={}", ud.namespace),
@@ -84,32 +82,17 @@ pub fn rollback(ud: &UpgradeData, mf: &Manifest) -> Result<()> {
         "0".into(), // magic helm number for previous
     ];
     info!("helm {}", rollbackvec.join(" "));
+
+    webhooks::upgrade_rollback_event(UpgradeState::RollingBack, &ud, &reg);
     match hexec(rollbackvec) {
         Err(e) => {
             error!("{}", e);
-            let _ = slack::send(slack::Message {
-                text: format!("failed to rollback `{}` in {}", &ud.name, &ud.region),
-                color: Some("danger".into()),
-                metadata: ud.metadata.clone(),
-                ..Default::default()
-            });
+            webhooks::upgrade_rollback_event(UpgradeState::RollbackFailed, &ud, &reg);
             Err(e)
         },
         Ok(_) => {
             let res = kube::await_rollout_status(&mf);
-            let _ = grafana::create(grafana::Annotation {
-                event: grafana::Event::Rollback,
-                service: ud.name.clone(),
-                version: ud.version.clone(),
-                region: ud.region.clone(),
-                time: grafana::TimeSpec::Now,
-            });
-            slack::send(slack::Message {
-                text: format!("rolling back `{}` in {}",  &ud.name, &ud.region),
-                color: Some("warning".into()),
-                metadata: ud.metadata.clone(),
-                ..Default::default()
-            })?;
+            webhooks::upgrade_rollback_event(UpgradeState::RolledBack, &ud, &reg);
             res?; // propagate errors from rollback check if any
             Ok(())
         }
@@ -120,7 +103,7 @@ pub fn rollback(ud: &UpgradeData, mf: &Manifest) -> Result<()> {
 pub fn rollback_wrapper(svc: &str, conf: &Config, region: &Region) -> Result<()> {
     let base = Manifest::base(svc, &conf, region)?;
     let ud = UpgradeData::from_rollback(&base);
-    rollback(&ud, &base)
+    rollback(&region, &ud, &base)
 }
 
 // All data needed for an upgrade
@@ -156,9 +139,6 @@ impl UpgradeData {
     ///
     /// Performs basic sanity checks, and populates canonical values that are reused a lot.
     pub fn new(mf: &Manifest, hfile: &str, mode: UpgradeMode, exists: bool) ->  Result<Option<UpgradeData>> {
-        if mode != UpgradeMode::DiffOnly {
-            slack::have_credentials()?;
-        }
         let helmdiff = if !exists {
             "".into() // can't diff against what's not there!
         } else {
@@ -430,7 +410,7 @@ pub fn status(svc: &str, conf: &Config, region: &Region) -> Result<()> {
 
 /// Handle error for a single upgrade
 /// TODO: deprecate (see #183)
-pub fn handle_upgrade_rollbacks(u: &UpgradeData, mf: &Manifest) -> Result<()> {
+pub fn handle_upgrade_rollbacks(reg: &Region, u: &UpgradeData, mf: &Manifest) -> Result<()> {
     match u.mode {
         UpgradeMode::UpgradeRecreateWait |
         UpgradeMode::UpgradeInstall |
@@ -438,37 +418,9 @@ pub fn handle_upgrade_rollbacks(u: &UpgradeData, mf: &Manifest) -> Result<()> {
         _ => {}
     }
     if u.mode == UpgradeMode::UpgradeWaitMaybeRollback {
-        rollback(&u, mf)?;
+        rollback(&reg, &u, mf)?;
     }
     Ok(())
-}
-
-/// Notify slack upgrades from a single upgrade
-pub fn handle_upgrade_notifies(success: bool, u: &UpgradeData) -> Result<()> {
-    let (color, text) = if success {
-        info!("successfully rolled out {}", u.name);
-        ("good".into(), format!("{} `{}` in `{}`", u.mode.action_verb(), u.name, u.region))
-    } else {
-        warn!("failed to roll out {}", u.name);
-        ("danger".into(), format!("failed to {} `{}` in `{}`", u.mode, u.name, u.region))
-    };
-    let code = if u.diff.is_empty() { None } else { Some(u.diff.clone()) };
-    if u.mode != UpgradeMode::DiffOnly {
-      let _ = grafana::create(grafana::Annotation {
-          event: grafana::Event::Upgrade,
-          service: u.name.clone(),
-          version: u.version.clone(),
-          region: u.region.clone(),
-          time: grafana::TimeSpec::Now,
-      });
-    }
-    slack::send(slack::Message {
-        text, code,
-        color: Some(color),
-        version: Some(u.version.clone()),
-        metadata: u.metadata.clone(),
-        ..Default::default()
-    })
 }
 
 /// Independent wrapper for helm values
@@ -489,6 +441,10 @@ pub fn values_wrapper(svc: &str, region: &Region, conf: &Config, ver: Option<Str
 
 /// Full helm wrapper for a single upgrade/diff/install
 pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
+    if let Err(e) = webhooks::ensure_requirements(&region) {
+        warn!("Could not ensure webhook requirements: {}", e);
+    }
+
     let mut mf = Manifest::base(svc, conf, region)?.complete(region)?;
 
     // Ensure we have a version - or are able to infer one
@@ -519,26 +475,29 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Con
     // Sanity step that gives canonical upgrade data
     let upgrade_opt = UpgradeData::new(&mf, &hfile, mode, exists)?;
     if let Some(ref udata) = upgrade_opt {
+        webhooks::upgrade_event(UpgradeState::Pending, &udata, &region);
         match upgrade(&udata) {
             Err(e) => {
-                // upgrade failed immediately - couldn't create resources
-                handle_upgrade_notifies(false, &udata)?;
                 // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
                 error!("{} from {}", e, udata.name);
-                handle_upgrade_rollbacks(&udata, &mf)?; // for now leave it in..
+                // upgrade failed immediately - couldn't create resources
+                webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
+                handle_upgrade_rollbacks(&region, &udata, &mf)?; // for now leave it in..
                 return Err(e);
             },
             Ok(_) => {
                 // after helm upgrade / kubectl apply, check rollout status in a loop:
                 if kube::await_rollout_status(&mf)? {
-                    handle_upgrade_notifies(true, &udata)?;
+                    info!("successfully rolled out {}", &udata.name);
+                    webhooks::upgrade_event(UpgradeState::Completed, &udata, &region);
                 }
                 else {
                     let _ = kube::debug_rollout_status(&mf);
                     let _ = kube::debug(&mf);
-                    handle_upgrade_notifies(false, &udata)?;
+                    warn!("failed to roll out {}", &udata.name);
+                    webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
                     // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
-                    handle_upgrade_rollbacks(&udata, &mf)?; // for now leave it in..
+                    handle_upgrade_rollbacks(&region, &udata, &mf)?; // for now leave it in..
                     return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), mf.estimate_wait_time()).into());
                 }
             }

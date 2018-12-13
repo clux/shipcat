@@ -7,6 +7,7 @@ use super::{UpgradeMode, UpgradeData};
 use super::direct;
 use super::helpers;
 use super::kube;
+use crate::webhooks::{self, UpgradeState};
 use super::{Result, Error, ErrorKind};
 
 
@@ -21,6 +22,7 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
     let n_jobs = svcs.len();
     let pool = ThreadPool::new(n_workers);
     info!("Starting {} parallel helm jobs using {} workers", n_jobs, n_workers);
+    webhooks::reconcile_event(UpgradeState::Pending, &region);
 
     let (tx, rx) = channel();
     for mf in svcs {
@@ -28,7 +30,6 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
         let mode = umode.clone();
         let reg = region.clone();
         let config = conf.clone();
-
 
         let tx = tx.clone(); // tx channel reused in each thread
         pool.execute(move || {
@@ -56,9 +57,13 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
                 warn!("'{}' missing version for {} - please add or install", svc, region.name);
             },
             // remaining cases not ignorable
-            e => return Err(e),
+            _ => {
+                webhooks::reconcile_event(UpgradeState::Failed, &region);
+                return Err(e)
+            },
         }
     }
+    webhooks::reconcile_event(UpgradeState::Completed, &region);
     Ok(())
 }
 
@@ -104,6 +109,8 @@ fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, region: 
 
     let upgrade_opt = UpgradeData::new(&mf, &hfile, mode, exists)?;
     if let Some(ref udata) = upgrade_opt {
+        webhooks::upgrade_event(UpgradeState::Pending, &udata, &region);
+
         // upgrade in given mode, potentially rolling back a failure
         match direct::upgrade(&udata) {
             Err(e) => {
@@ -115,18 +122,13 @@ fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, region: 
             Ok(_)  => {
                 // after helm upgrade / kubectl apply, check rollout status in a loop:
                 if kube::await_rollout_status(&mf)? {
+                    info!("successfully rolled out {}", &udata.name);
                     // notify about the result directly as they happen
-                    let _ = direct::handle_upgrade_notifies(true, &udata).map_err(|e| {
-                        warn!("Failed to slack notify about upgrade: {}", e);
-                        e
-                    });
+                    webhooks::upgrade_event(UpgradeState::Completed, &udata, &region);
                 } else {
                     error!("Rollout of {} timed out", mf.name);
                     kube::debug(&mf)?;
-                    let _ = direct::handle_upgrade_notifies(false, &udata).map_err(|e| {
-                        warn!("Failed to slack notify about upgrade: {}", e);
-                        e
-                    });
+                    webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
                     // need set this as a reconcile level error
                     return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), mf.estimate_wait_time()).into());
                 }

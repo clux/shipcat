@@ -4,12 +4,13 @@ authors = [
   "Florent Delannoy <florent.delannoy@babylonhealth.com>",
   "Jeremie Vallee <jeremie.vallee@babylonhealth.com>",
   "Laurent Godet <laurent.godet@babylonhealth.com>",
-  "Guy Leaver <guy.leaver@babylonhealth.com>"
+  "Guy Leaver <guy.leaver@babylonhealth.com>",
+  "Jose Alban <jose.alban@babylonhealth.com>",
 ]
 name = "shipcat_definitions"
 description = "Definition for Manifest and Config for shipcat"
 readme = "README.md"
-version = "0.78.0"
+version = "0.79.0"
 categories = ["configuration"]
 keywords = ["kubernetes", "helm", "deployment", "standardisation", "validation"]
 license-file = "LICENSE"
@@ -35,6 +36,8 @@ serde_json = "1.0.32"
 dirs = { version = "1.0.4", optional = true }
 walkdir = { version = "2.2.5", optional = true }
 static_assertions = "0.3.1"
+url_serde = "0.2.0"
+url = "1.7.2"
 
 [workspace]
 
