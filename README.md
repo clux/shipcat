@@ -50,7 +50,24 @@ Browse the API documentation, or the setup guides availble at:
 - [Error handling](https://github.com/Babylonpartners/shipcat/blob/master/doc/errors.md)
 - [Nautical terminology](https://en.wikipedia.org/wiki/Ship%27s_cat)
 
-## Installation
+## Components
+Shipcat is made up of three main components:
+
+- [shipcat_definitions](https://babylonpartners.github.io/shipcat/shipcat_definitions/index.html) - allowed syntax in our kube clusters - shipcat.yml + shipcat.conf
+- [shipcat](https://github.com/Babylonpartners/shipcat/tree/master/shipcat_cli) - the pipeline cli and validator useable by developers and CI
+- [raftcat](https://github.com/Babylonpartners/shipcat/tree/master/raftcat) - an experimental kubernetes operator that reads CRD manifests
+
+## Integrations
+While shipcat mainly deals with kubernetes, there are extensive and optional integrations with:
+
+- [Vault](https://www.vaultproject.io/)
+- [Kong](https://konghq.com/)
+- [StatusCake](https://www.statuscake.com/)
+- [Slack](https://slack.com/)
+
+and some minor convencience integrations from common technologies like: [Grafana](https://grafana.com/), [CircleCI](https://circleci.com/), [Quay.io](https://quay.io/), [logz.io](https://logz.io/), [Sentry](https://sentry.io/), [New Relic](https://newrelic.com/)
+
+## CLI installation
 
 - Mac/Linux users can install from the [releases page](https://github.com/Babylonpartners/shipcat/releases)
 - Users with [rust](https://rustup.rs/) installed can use `git pull && cargo build`
@@ -60,6 +77,8 @@ See the [building guide](https://github.com/Babylonpartners/shipcat/blob/master/
 
 ## CLI Usage
 Define your `shipcat.yml` file in a [manifests repo](https://github.com/Babylonpartners/shipcat/blob/master/examples), make sure `shipcat validate` passes.
+
+You either need to have a `~/.kube/config` whose `current-context` is set to the shipcat region you wish to validate, or pass the shipcat region in explicitly with `-r region`.
 
 If you have `vault` read credentials (a `VAULT_TOKEN` evar, or a `~/.vault-token` file) you can validate secret existence and generate the completed manifest (values):
 
@@ -77,19 +96,5 @@ If you have `helm` installed you can generate the helm template via the associat
 shipcat template webapp
 ```
 
-### Upgrading and diffing
-With rollout access you can also perform upgrades:
-
-```sh
-# helm upgrade corresponding service (check your context first)
-shipcat apply webapp
-```
-
-This requires [helm diff](https://github.com/databus23/helm-diff) installed to work, and it will work against the region in your context (`kubectl config current-context`).
-
-For auditing; this also uses slack credentials to notify about these upgrades:
-
-```sh
-export SLACK_SHIPCAT_HOOK_URL=...
-export SLACK_SHIPCAT_CHANNEL="#kubernetes"
-```
+## License
+Apache 2.0 licensed. See LICENSE for details.
