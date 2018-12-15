@@ -1,7 +1,6 @@
 # shipcat
 [![CircleCI](https://circleci.com/gh/Babylonpartners/shipcat.svg?style=shield)](https://circleci.com/gh/Babylonpartners/shipcat)
 [![Docker Repository on Quay](https://quay.io/repository/babylonhealth/kubecat/status "Docker Repository on Quay")](https://quay.io/repository/babylonhealth/kubecat?tab=tags)
-[![Crates.io](https://img.shields.io/crates/v/shipcat.svg)](https://crates.io/crates/shipcat)
 
 A standardisation tool and security layer on top of `kubernetes` to config manage microservices. Developers write manifests:
 
