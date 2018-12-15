@@ -78,7 +78,7 @@ Graph specified dependencies by following the `dependencies` keywords for all ma
 
 ## CRD generators
 These requires the CRDs in the crds folder to be installed first.
-Then these commands can be piped to `kubectl apply -f -`.
+The output of these commands can be piped to `kubectl apply`.
 
 ### crd
 Wraps a `Base` manifest type in a CRD so that it can be completed or stubbed by a kube operator.

@@ -54,7 +54,7 @@ Browse the API documentation, or the setup guides availble at:
 Shipcat is made up of three main components:
 
 - [shipcat_definitions](https://babylonpartners.github.io/shipcat/shipcat_definitions/index.html) - allowed syntax in our kube clusters - shipcat.yml + shipcat.conf
-- `shipcat` - the pipeline cli and validator useable by developers and CI
+- [shipcat](https://github.com/Babylonpartners/shipcat/tree/master/shipcat_cli) - the pipeline cli and validator useable by developers and CI
 - [raftcat](https://github.com/Babylonpartners/shipcat/tree/master/raftcat) - an experimental kubernetes operator that reads CRD manifests
 
 ## Integrations
@@ -65,7 +65,7 @@ While shipcat mainly deals with kubernetes, there are extensive and optional int
 - [StatusCake](https://www.statuscake.com/)
 - [Slack](https://slack.com/)
 
-and tons of minor convencience integrations from common technologies like: , [Grafana](https://grafana.com/), [CircleCI](https://circleci.com/), [Quay.io](https://quay.io/), [logz.io](https://logz.io/), [Sentry](https://sentry.io/), [New Relic](https://newrelic.com/)
+and some minor convencience integrations from common technologies like: [Grafana](https://grafana.com/), [CircleCI](https://circleci.com/), [Quay.io](https://quay.io/), [logz.io](https://logz.io/), [Sentry](https://sentry.io/), [New Relic](https://newrelic.com/)
 
 ## CLI installation
 
