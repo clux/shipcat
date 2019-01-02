@@ -5,6 +5,7 @@ use std::env;
 use semver::Version;
 
 use url::Url;
+use uuid::Uuid;
 
 use super::Vault;
 #[allow(unused_imports)]
@@ -269,14 +270,22 @@ impl Webhook {
         let mut whc = BTreeMap::default();
         match self {
             Webhook::Audit(_h) => {
-                whc.insert("SHIPCAT_AUDIT_REVISION".into(),
-                                env::var("SHIPCAT_AUDIT_REVISION")
-                                    .map_err(|_| ErrorKind::MissingAuditRevision.to_string())?);
                 whc.insert("SHIPCAT_AUDIT_CONTEXT_ID".into(),
                                 env::var("SHIPCAT_AUDIT_CONTEXT_ID")
-                                    .map_err(|_| ErrorKind::MissingAuditContextId.to_string())?);
+                                .unwrap_or_else(|_| {
+                                    let uuid = Uuid::new_v4().to_string();
+                                    debug!("Assigning random UUID as SHIPCAT_AUDIT_CONTEXT_ID: {}", uuid);
+                                    uuid
+                                }
+                                ));
 
-                if let Ok(v) = env::var("SHIPCAT_AUDIT_CONTEXT_LINK") {
+                whc.insert("SHIPCAT_AUDIT_REVISION".into(),
+                                env::var("SHIPCAT_AUDIT_REVISION")
+                                .or_else(|_| env::var("GIT_COMMIT")) // Jenkins default coupling
+                                .map_err(|_| ErrorKind::MissingAuditRevision.to_string())?);
+
+                if let Ok(v) = env::var("SHIPCAT_AUDIT_CONTEXT_LINK")
+                                .or_else(|_| env::var("BUILD_URL")) { // Jenkins default coupling
                     whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), v);
                 }
             }
@@ -286,6 +295,33 @@ impl Webhook {
         // slack::have_credentials()?;
         
         Ok(whc)
+    }
+}
+
+#[cfg(test)]
+mod test_webhooks {
+    use super::Webhook;
+    use super::AuditWebhook;
+
+    use url::Url;
+    use regex::Regex;
+    use std::env;
+
+    #[test]
+    fn region_webhook_audit_config_jenkins_defaults() {
+        let wha = Webhook::Audit(AuditWebhook{
+            url: Url::parse("http://testnoop").unwrap(),
+            token: "noop".into(),
+        });
+
+        let reuuid = Regex::new(r"\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b").unwrap();
+        env::set_var("GIT_COMMIT", "gc1");
+        env::set_var("BUILD_URL", "burl");
+        let cfg = wha.get_configuration().unwrap();
+
+        assert!(reuuid.is_match(&cfg["SHIPCAT_AUDIT_CONTEXT_ID"]));
+        assert_eq!(cfg["SHIPCAT_AUDIT_REVISION"], "gc1");
+        assert_eq!(cfg["SHIPCAT_AUDIT_CONTEXT_LINK"], "burl");
     }
 }
 
