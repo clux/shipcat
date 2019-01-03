@@ -310,7 +310,6 @@ impl Webhook {
 mod test_webhooks {
     use super::Webhook;
     use super::AuditWebhook;
-
     use url::Url;
     use regex::Regex;
     use std::env;
