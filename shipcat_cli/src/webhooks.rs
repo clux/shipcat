@@ -27,7 +27,7 @@ pub enum UpgradeState {
 
 pub fn ensure_requirements(reg: &Region) -> Result<()> {
     if let Some(whs) = &reg.webhooks {
-        for wh in whs.iter() {
+        for wh in whs {
             wh.get_configuration()?;
         }
     }
@@ -39,7 +39,7 @@ pub fn ensure_requirements(reg: &Region) -> Result<()> {
 /// Http errors are NOT propagated from here
 pub fn reconcile_event(us: UpgradeState, reg: &Region) {
     if let Some(whs) = &reg.webhooks {
-        for wh in whs.iter() {
+        for wh in whs {
             if let Ok(whc) = wh.get_configuration() {
                 if let Err(e) = match wh {
                     Webhook::Audit(h) => {
@@ -72,9 +72,9 @@ pub fn upgrade_event(us: UpgradeState, ud: &UpgradeData, reg: &Region) {
 }
 
 /// Notify slack / audit endpoint of upgrades from a single upgrade
-pub fn handle_upgrade_notifies(us: UpgradeState, ud: &UpgradeData, reg: &Region) {
+fn handle_upgrade_notifies(us: UpgradeState, ud: &UpgradeData, reg: &Region) {
     if let Some(whs) = &reg.webhooks {
-        for wh in whs.iter() {
+        for wh in whs {
             if let Ok(whc) = wh.get_configuration() {
                 if let Err(e) = match wh {
                     Webhook::Audit(h) => {
@@ -124,7 +124,7 @@ pub fn handle_upgrade_notifies(us: UpgradeState, ud: &UpgradeData, reg: &Region)
 /// Http errors are NOT propagated from here
 pub fn upgrade_rollback_event(us: UpgradeState, ud: &UpgradeData, reg: &Region) {
     if let Some(whs) = &reg.webhooks {
-        for wh in whs.iter() {
+        for wh in whs {
             if let Ok(whc) = wh.get_configuration() {
                 if let Err(e) = match wh {
                     Webhook::Audit(h) => {

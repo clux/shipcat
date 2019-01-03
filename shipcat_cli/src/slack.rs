@@ -11,7 +11,7 @@ use super::{Result, ErrorKind, ResultExt};
 ///
 /// These parameters get distilled into the attachments API.
 /// Mostly because this is the only thing API that supports colour.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Message {
     /// Text in message
     pub text: String,
@@ -55,15 +55,26 @@ pub fn have_credentials() -> Result<()> {
     Ok(())
 }
 
-/// Send a `Message` to a configured slack destination
 pub fn send(msg: Message) -> Result<()> {
-    let hook_url : &str = &env_hook_url()?;
     let hook_chan : String = env_channel()?;
+    send_internal(msg.clone(), hook_chan)?;
+    if let Some(md) = &msg.metadata {
+        if let Some(chan) = &md.notifications {
+            let c = chan.clone();
+            send_internal(msg, c.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+/// Send a `Message` to a configured slack destination
+fn send_internal(msg: Message, chan: String) -> Result<()> {
+    let hook_url : &str = &env_hook_url()?;
     let hook_user : String = env_username();
 
     // if hook url is invalid, chain it so we know where it came from:
     let slack = Slack::new(hook_url).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
-    let mut p = PayloadBuilder::new().channel(hook_chan)
+    let mut p = PayloadBuilder::new().channel(chan)
       .icon_emoji(":ship:")
       .username(hook_user);
 
