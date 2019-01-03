@@ -41,10 +41,6 @@ error_chain! {
             description("VAULT_TOKEN not specified")
             display("VAULT_TOKEN not specified")
         }
-        MissingAuditRevision {
-            description("SHIPCAT_AUDIT_REVISION not specified")
-            display("SHIPCAT_AUDIT_REVISION not specified")
-        }
         UnexpectedHttpStatus(status: reqwest::StatusCode) {
             description("unexpected HTTP status")
             display("unexpected HTTP status: {}", &status)

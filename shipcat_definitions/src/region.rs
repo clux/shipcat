@@ -272,28 +272,36 @@ impl Webhook {
             Webhook::Audit(_h) => {
                 whc.insert("SHIPCAT_AUDIT_CONTEXT_ID".into(),
                                 env::var("SHIPCAT_AUDIT_CONTEXT_ID")
-                                .unwrap_or_else(|_| {
-                                    let uuid = Uuid::new_v4().to_string();
-                                    debug!("Assigning random UUID as SHIPCAT_AUDIT_CONTEXT_ID: {}", uuid);
-                                    uuid
-                                }
-                                ));
+                                .unwrap_or_else(|_| Uuid::new_v4().to_string()));
 
-                whc.insert("SHIPCAT_AUDIT_REVISION".into(),
-                                env::var("SHIPCAT_AUDIT_REVISION")
-                                .or_else(|_| env::var("GIT_COMMIT")) // Jenkins default coupling
-                                .map_err(|_| ErrorKind::MissingAuditRevision.to_string())?);
-
-                if let Ok(v) = env::var("SHIPCAT_AUDIT_CONTEXT_LINK")
-                                .or_else(|_| env::var("BUILD_URL")) { // Jenkins default coupling
-                    whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), v);
+                // if we are on jenkins
+                if let (Ok(url), Ok(revision), Ok(_)) = (env::var("BUILD_URL"),
+                                                         env::var("GIT_COMMIT"),
+                                                         env::var("BUILD_NUMBER")) {
+                    whc.insert("SHIPCAT_AUDIT_REVISION".into(), revision);
+                    whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), url);
                 }
+                
+                // shipcat evars
+                if let Ok(url) = env::var("SHIPCAT_AUDIT_CONTEXT_LINK") {
+                    whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), url);
+                }
+                if let Ok(revision) = env::var("SHIPCAT_AUDIT_REVISION") {
+                    whc.insert("SHIPCAT_AUDIT_REVISION".into(), revision);
+                }
+
+                // strict requirements
+                if !whc.contains_key("SHIPCAT_AUDIT_REVISION") {
+                    return Err("SHIPCAT_AUDIT_REVISION not specified".into())
+                }
+
+                debug!("Audit webhook config {:?}", whc);
             }
         }
 
         // TODO: when slack webhook is cfged, require this:
         // slack::have_credentials()?;
-        
+
         Ok(whc)
     }
 }
@@ -313,15 +321,37 @@ mod test_webhooks {
             url: Url::parse("http://testnoop").unwrap(),
             token: "noop".into(),
         });
+        let reuuid = Regex::new(r"^[0-9a-f-]{36}$").unwrap();
 
-        let reuuid = Regex::new(r"\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b").unwrap();
+        // enforce jenkins environment
         env::set_var("GIT_COMMIT", "gc1");
         env::set_var("BUILD_URL", "burl");
+        env::set_var("BUILD_NUMBER", "1234");
+
         let cfg = wha.get_configuration().unwrap();
 
         assert!(reuuid.is_match(&cfg["SHIPCAT_AUDIT_CONTEXT_ID"]));
         assert_eq!(cfg["SHIPCAT_AUDIT_REVISION"], "gc1");
         assert_eq!(cfg["SHIPCAT_AUDIT_CONTEXT_LINK"], "burl");
+
+        // And in serial, test that shipcat-specific evars trumps it
+        env::set_var("SHIPCAT_AUDIT_CONTEXT_ID", "cid1");
+        env::set_var("SHIPCAT_AUDIT_CONTEXT_LINK", "burl2");
+        env::set_var("SHIPCAT_AUDIT_REVISION", "gc2");
+
+        let cfg = wha.get_configuration().unwrap();    
+
+        assert_eq!(cfg["SHIPCAT_AUDIT_CONTEXT_ID"], "cid1");
+        assert_eq!(cfg["SHIPCAT_AUDIT_CONTEXT_LINK"], "burl2");
+        assert_eq!(cfg["SHIPCAT_AUDIT_REVISION"], "gc2");
+
+        // without revision set up, it should err
+        env::remove_var("GIT_COMMIT");
+        env::remove_var("SHIPCAT_AUDIT_REVISION");
+
+        let cfg = wha.get_configuration();    
+
+        assert!(cfg.is_err());
     }
 }
 
