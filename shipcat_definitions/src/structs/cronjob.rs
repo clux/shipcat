@@ -6,6 +6,14 @@ use super::Result;
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
+pub struct CronJobVolumeClaim {
+    /// The cron job name
+    pub size: String,
+    pub mountPath: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub struct CronJob {
     /// The cron job name
     pub name: String,
@@ -27,6 +35,10 @@ pub struct CronJob {
     /// Resource limits and requests
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resources: Option<Resources<String>>,
+
+    /// Volume claim for this job if it needs local scratch space
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub volumeClaim: Option<CronJobVolumeClaim>,
 
     /// Environment variables for the workers
     ///
