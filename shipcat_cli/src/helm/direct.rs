@@ -44,8 +44,8 @@ impl fmt::Display for UpgradeMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             &UpgradeMode::DiffOnly => write!(f, "diff"),
-            &UpgradeMode::UpgradeWait => write!(f, "blindly upgrade"),
-            &UpgradeMode::UpgradeNoWait => write!(f, "blindly upgrade (no wait)"),
+            &UpgradeMode::UpgradeWait => write!(f, "upgrade"),
+            &UpgradeMode::UpgradeNoWait => write!(f, "upgrade (fire and forget)"),
             &UpgradeMode::UpgradeRecreateWait => write!(f, "recreate"),
             &UpgradeMode::UpgradeInstall => write!(f, "install"),
             &UpgradeMode::UpgradeWaitMaybeRollback => write!(f, "upgrade"),
@@ -59,8 +59,8 @@ impl UpgradeMode {
     pub fn action_verb(&self) -> String {
         match self {
             &UpgradeMode::DiffOnly => "diffed",
-            &UpgradeMode::UpgradeWait => "blindly upgraded",
-            &UpgradeMode::UpgradeNoWait => "blindly upgraded (no wait)",
+            &UpgradeMode::UpgradeWait => "upgraded",
+            &UpgradeMode::UpgradeNoWait => "upgraded (fire and forget)",
             &UpgradeMode::UpgradeRecreateWait => "recreated pods for",
             &UpgradeMode::UpgradeInstall => "installed",
             &UpgradeMode::UpgradeWaitMaybeRollback => "upgraded",
