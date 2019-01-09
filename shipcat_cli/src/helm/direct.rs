@@ -19,6 +19,8 @@ pub enum UpgradeMode {
     DiffOnly,
     /// Normal Upgrade waiting for the calculated amount of time
     UpgradeWait,
+    /// Upgrade, but don't wait
+    UpgradeNoWait,
     /// Upgrade and wait, but also debug and rollback if helm returned 1
     UpgradeWaitMaybeRollback,
     /// Upgrade with force recreate pods
@@ -42,7 +44,8 @@ impl fmt::Display for UpgradeMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             &UpgradeMode::DiffOnly => write!(f, "diff"),
-            &UpgradeMode::UpgradeWait => write!(f, "blindly upgrade"),
+            &UpgradeMode::UpgradeWait => write!(f, "upgrade"),
+            &UpgradeMode::UpgradeNoWait => write!(f, "upgrade (fire and forget)"),
             &UpgradeMode::UpgradeRecreateWait => write!(f, "recreate"),
             &UpgradeMode::UpgradeInstall => write!(f, "install"),
             &UpgradeMode::UpgradeWaitMaybeRollback => write!(f, "upgrade"),
@@ -56,7 +59,8 @@ impl UpgradeMode {
     pub fn action_verb(&self) -> String {
         match self {
             &UpgradeMode::DiffOnly => "diffed",
-            &UpgradeMode::UpgradeWait => "blindly upgraded",
+            &UpgradeMode::UpgradeWait => "upgraded",
+            &UpgradeMode::UpgradeNoWait => "upgraded (fire and forget)",
             &UpgradeMode::UpgradeRecreateWait => "recreated pods for",
             &UpgradeMode::UpgradeInstall => "installed",
             &UpgradeMode::UpgradeWaitMaybeRollback => "upgraded",
@@ -213,7 +217,7 @@ pub fn upgrade(data: &UpgradeData) -> Result<()> {
 
     // TODO: dedupe
     match data.mode {
-        UpgradeMode::UpgradeWaitMaybeRollback | UpgradeMode::UpgradeWait => {
+        UpgradeMode::UpgradeWaitMaybeRollback | UpgradeMode::UpgradeWait | UpgradeMode::UpgradeNoWait => {
             upgradevec.extend_from_slice(&[
             ]);
         },
@@ -487,7 +491,7 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Con
             },
             Ok(_) => {
                 // after helm upgrade / kubectl apply, check rollout status in a loop:
-                if kube::await_rollout_status(&mf)? {
+                if udata.mode == UpgradeMode::UpgradeNoWait || kube::await_rollout_status(&mf)? {
                     info!("successfully rolled out {}", &udata.name);
                     webhooks::upgrade_event(UpgradeState::Completed, &udata, &region);
                 }
