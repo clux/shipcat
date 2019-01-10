@@ -2,6 +2,7 @@
 use std::collections::BTreeMap;
 use semver::Version;
 
+use crate::structs::rds::Rds;
 use super::{Config, Team, Region};
 use super::{Result, Manifest};
 
@@ -111,7 +112,6 @@ pub fn vault_url(region: &Region) -> Result<String> {
     Ok(out)
 }
 
-
 // ----------------------------------------------------------------------------
 // hybrid reducers
 
@@ -171,6 +171,24 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
     let output = APIStatusOutput{environment, services};
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
+}
+
+
+/// Find the RDS instances to be provisioned for a region
+///
+/// Reduces all manifests in a region and produces a list for a terraform component
+/// to act on.
+pub fn databases(conf: &Config, region: &Region) -> Result<Vec<Rds>> {
+    let mut output = Vec::new();
+    for svc in Manifest::available(&region.name)? {
+        // NB: needs > raw version of manifests because we need image implicits..
+        let mf = Manifest::simple(&svc, &conf, &region)?;
+        if let Some(db) = mf.database {
+            output.push(db);
+        }
+    }
+    println!("{}", serde_json::to_string_pretty(&output)?);
+    Ok(output)
 }
 
 // ----------------------------------------------------------------------------
