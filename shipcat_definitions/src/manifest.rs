@@ -681,7 +681,7 @@ pub struct Manifest {
     ///   engine: postgres
     ///   version: 9.6
     ///   size: 20
-    ///   instance_class: "db.m4.large"
+    ///   instanceClass: "db.m4.large"
     pub database: Option<Rds>,
 
     // ------------------------------------------------------------------------

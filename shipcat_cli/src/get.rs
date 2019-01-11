@@ -174,19 +174,28 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
 }
 
 
+#[derive(Serialize)]
+pub struct DatabaseParams {
+    databases: Vec<Rds>,
+    vault: String,
+}
 /// Find the RDS instances to be provisioned for a region
 ///
 /// Reduces all manifests in a region and produces a list for a terraform component
 /// to act on.
-pub fn databases(conf: &Config, region: &Region) -> Result<Vec<Rds>> {
-    let mut output = Vec::new();
+pub fn databases(conf: &Config, region: &Region) -> Result<DatabaseParams> {
+    let mut dbs = Vec::new();
     for svc in Manifest::available(&region.name)? {
         // NB: needs > raw version of manifests because we need image implicits..
         let mf = Manifest::simple(&svc, &conf, &region)?;
         if let Some(db) = mf.database {
-            output.push(db);
+            dbs.push(db);
         }
     }
+    let output = DatabaseParams {
+        databases: dbs,
+        vault: region.vault.url.clone(),
+    };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(output)
 }

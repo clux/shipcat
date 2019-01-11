@@ -61,7 +61,7 @@ pub struct Rds {
     /// The instance type of the RDS instance
     ///
     /// Defaults to db.m4.large
-    pub instance_class: Option<InstanceClass>,
+    pub instanceClass: Option<InstanceClass>,
 
     // TODO: allow customizing backup setup?
 }
@@ -87,6 +87,6 @@ impl Rds {
     pub fn implicits(&mut self, svc: &str) {
         // databases named after services
         self.name = Some(svc.into());
-        self.instance_class = Some(InstanceClass::default());
+        self.instanceClass = Some(InstanceClass::default());
     }
 }
