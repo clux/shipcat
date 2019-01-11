@@ -177,7 +177,6 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
 #[derive(Serialize)]
 pub struct DatabaseParams {
     databases: Vec<Rds>,
-    vault: String,
 }
 /// Find the RDS instances to be provisioned for a region
 ///
@@ -194,7 +193,6 @@ pub fn databases(conf: &Config, region: &Region) -> Result<DatabaseParams> {
     }
     let output = DatabaseParams {
         databases: dbs,
-        vault: region.vault.url.clone(),
     };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(output)
