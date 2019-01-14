@@ -211,9 +211,8 @@ use shipcat_definitions::structs::kongfig;
 fn kong_test() {
     setup();
     let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
-    let kongrs = kong::generate_kong_output(&conf, &reg);
-    assert!(kongrs.is_ok());
-    let output = kong::KongfigOutput::new(kongrs.unwrap());
+    let kongrs = kong::generate_kong_output(&conf, &reg).unwrap();
+    let output = kong::KongfigOutput::new(kongrs);
 
     assert_eq!(output.host, "admin.dev.something.domain.com");
 
