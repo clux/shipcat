@@ -65,15 +65,15 @@ fn crd_reconcile(svcs: Vec<String>, config: &Config, region: &Region, n_workers:
         let tx = tx.clone(); // tx channel reused in each thread
         pool.execute(move || {
             debug!("Running CRD reconcile for {}", svc);
-            let res = crd_reconcile_worker(svc, conf, reg);
+            let res = crd_reconcile_worker(&svc, &conf, &reg);
             tx.send(res).expect("channel will be there waiting for the pool");
         });
     }
     // wait for threads collect errors
     let res = rx.iter().take(n_jobs).map(|r| {
-        match &r {
-            &Ok(_) => {},
-            &Err(ref e) => warn!("error: {}", e),
+        match r {
+            Ok(_) => {},
+            Err(ref e) => warn!("error: {}", e),
         }
         r
     }).filter_map(Result::err).collect::<Vec<_>>();
@@ -85,8 +85,8 @@ fn crd_reconcile(svcs: Vec<String>, config: &Config, region: &Region, n_workers:
     Ok(())
 }
 
-fn crd_reconcile_worker(svc: String, conf: Config, reg: Region) -> Result<()> {
-    let mf = Manifest::base(&svc, &conf, &reg)?;
-    kube::apply_crd(&svc, mf, &reg.namespace)?;
+fn crd_reconcile_worker(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
+    let mf = Manifest::base(svc, conf, reg)?;
+    kube::apply_crd(svc, mf, &reg.namespace)?;
     Ok(())
 }
