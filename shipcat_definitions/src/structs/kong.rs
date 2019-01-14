@@ -28,8 +28,8 @@ pub struct Kong {
     /// Full value sent to Kong
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hosts: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auth: Option<String>,
+    #[serde(default)]
+    pub auth: Authentication,
     #[serde(default)]
     pub strip_uri: bool,
     #[serde(default = "preserve_host_default")]
@@ -59,7 +59,7 @@ impl Kong {
     pub fn implicits(&mut self, svc: String, reg: Region, tophosts: Vec<String>) {
         self.name = svc;
         if self.unauthenticated {
-            self.auth = Some("none".into());
+            self.auth = Authentication::None;
         }
         // Generate upstream_url for an in-kubernetes service
         if self.upstream_url.is_empty() {
@@ -121,6 +121,24 @@ impl Kong {
         if self.uris.is_some() && self.host.is_some() {
             bail!("Only one of `uris` or `host` needs to be defined for Kong");
         }
+        if let (Some(_), Authentication::None) = (&self.oauth2_anonymous, &self.auth) {
+            bail!("`oauth2_anonymous` not supported when Kong `auth` is `none`");
+        }
         Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub enum Authentication {
+    None,
+    // Not o-auth2
+    #[serde(rename = "oauth2")]
+    OAuth2,
+}
+
+impl Default for Authentication {
+    fn default() -> Self {
+        Authentication::OAuth2
     }
 }

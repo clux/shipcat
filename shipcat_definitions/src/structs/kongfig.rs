@@ -1,5 +1,5 @@
 //use super::traits::Verify;
-use crate::structs::{Kong, Cors, BabylonAuthHeader};
+use crate::structs::{Kong, Cors, BabylonAuthHeader, Authentication};
 use crate::region::{KongConfig};
 use std::collections::BTreeMap;
 use serde::ser::{Serialize, Serializer, SerializeMap};
@@ -396,10 +396,9 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig) -> Vec<Api
         }
 
         // If enabled: Oauth2 and extension
-        let en = if v.auth.unwrap_or("".into()) != "none" {
-            Ensure::default()
-        } else {
-            Ensure::Removed
+        let en = match v.auth {
+            Authentication::OAuth2 => Ensure::default(),
+            _ => Ensure::Removed,
         };
 
         plugins.push(ApiPlugin::Oauth2(PluginBase::<Oauth2PluginAttributes> {
