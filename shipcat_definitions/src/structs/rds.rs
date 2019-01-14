@@ -1,4 +1,5 @@
 use super::Result;
+use super::Metadata;
 
 /// Supported RDS engines
 ///
@@ -59,6 +60,10 @@ pub struct Rds {
     #[serde(skip_deserializing)]
     pub name: Option<String>,
 
+    /// Name of team owning the service (filled from manifest)
+    #[serde(skip_deserializing)]
+    pub team: Option<String>,
+
     /// The allocated storage in gibibytes
     pub size: u32,
 
@@ -98,9 +103,10 @@ impl Rds {
         Ok(())
     }
 
-    pub fn implicits(&mut self, svc: &str) {
+    pub fn implicits(&mut self, svc: &str, md: &Metadata) {
         // databases named after services
         self.name = Some(svc.into());
+        self.team = Some(md.team.clone());
         self.instanceClass = Some(InstanceClass::default());
     }
 }
