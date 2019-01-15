@@ -40,6 +40,11 @@ pub struct CronJob {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub volumeClaim: Option<CronJobVolumeClaim>,
 
+    /// Optional timeout, in seconds.
+    /// u32 is enough; it'd fit a timeout 136 years in the future
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<u32>,
+
     /// Environment variables for the workers
     ///
     /// These may be specified in addition to the main deployment `env` vars
