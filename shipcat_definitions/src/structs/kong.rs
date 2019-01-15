@@ -121,8 +121,16 @@ impl Kong {
         if self.uris.is_some() && self.host.is_some() {
             bail!("Only one of `uris` or `host` needs to be defined for Kong");
         }
-        if let (Some(_), Authentication::None) = (&self.oauth2_anonymous, &self.auth) {
-            bail!("`oauth2_anonymous` not supported when Kong `auth` is `none`");
+        match self.auth {
+            Authentication::OAuth2 => {},
+            Authentication::None => {
+                if let Some(_) = self.oauth2_anonymous {
+                    bail!("`oauth2_anonymous` not supported when Kong `auth` is `none`");
+                }
+                if let Some(true) = self.oauth2_extension_plugin {
+                    bail!("`oauth2_extension_plugin` not supported when Kong `auth` is `none`");
+                }
+            }
         }
         Ok(())
     }

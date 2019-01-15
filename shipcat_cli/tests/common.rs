@@ -19,6 +19,16 @@ macro_rules! btree_set {
     };
 }
 
+macro_rules! plugin_attributes {
+    ( $name:expr, $plugin:expr, $type:path ) => {
+        match $plugin {
+            $type(kongfig::PluginBase::Present(attributes)) => attributes,
+            $type(kongfig::PluginBase::Removed) => panic!("{} plugin is removed", $name),
+            _ => panic!("plugin is not a {} plugin", $name),
+        }
+    };
+}
+
 /// Set cwd to tests directory to be able to test manifest functionality
 ///
 /// The tests directory provides a couple of fake services for verification
@@ -234,29 +244,18 @@ fn kong_test() {
     assert_eq!(api.attributes.upstream_url, "http://fake-ask.dev.svc.cluster.local");
     assert_eq!(api.plugins.len(), 3);
 
-    if let kongfig::ApiPlugin::CorrelationId(p) = &api.plugins[0] {
-        assert!(p.ensure == kongfig::Ensure::Present);
-        assert_eq!(p.attributes.enabled, true);
-        assert_eq!(p.attributes.config.header_name, "babylon-request-id");
-    } else {
-        panic!("plugin 0 is not a correlation-id plugin")
-    }
+    // api plugins
+    let attr = plugin_attributes!("CorrelationId", &api.plugins[0], kongfig::ApiPlugin::CorrelationId);
+    assert_eq!(attr.enabled, true);
+    assert_eq!(attr.config.header_name, "babylon-request-id");
 
-    if let kongfig::ApiPlugin::TcpLog(p) = &api.plugins[1] {
-        assert!(p.ensure == kongfig::Ensure::Present);
-        assert_eq!(p.attributes.enabled, true);
-    } else {
-        panic!("plugin 1 is not a tcp-log plugin")
-    }
+    let attr = plugin_attributes!("TcpLog", &api.plugins[1], kongfig::ApiPlugin::TcpLog);
+    assert_eq!(attr.enabled, true);
 
-    if let kongfig::ApiPlugin::Oauth2(p) = &api.plugins[2] {
-        assert!(p.ensure == kongfig::Ensure::Present);
-        assert_eq!(p.attributes.enabled, true);
-        assert_eq!(p.attributes.config.global_credentials, true);
-        assert_eq!(p.attributes.config.provision_key, "key");
-        assert_eq!(p.attributes.config.anonymous, Some("".to_string()));
-        assert_eq!(p.attributes.config.token_expiration, 1800);
-    } else {
-        panic!("plugin 2 is not a oauth2 plugin")
-    }
+    let attr = plugin_attributes!("Oauth2", &api.plugins[2], kongfig::ApiPlugin::Oauth2);
+    assert_eq!(attr.enabled, true);
+    assert_eq!(attr.config.global_credentials, true);
+    assert_eq!(attr.config.provision_key, "key");
+    assert_eq!(attr.config.anonymous, Some("".to_string()));
+    assert_eq!(attr.config.token_expiration, 1800);
 }
