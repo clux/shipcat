@@ -123,6 +123,11 @@ impl Kong {
         }
         match self.auth {
             Authentication::OAuth2 => {},
+            Authentication::Jwt => {
+                if let Some(true) = self.oauth2_extension_plugin {
+                    bail!("`oauth2_extension_plugin` not supported when Kong `auth` is `jwt`");
+                }
+            }
             Authentication::None => {
                 if let Some(_) = self.oauth2_anonymous {
                     bail!("`oauth2_anonymous` not supported when Kong `auth` is `none`");
@@ -143,6 +148,7 @@ pub enum Authentication {
     // Not o-auth2
     #[serde(rename = "oauth2")]
     OAuth2,
+    Jwt,
 }
 
 impl Default for Authentication {

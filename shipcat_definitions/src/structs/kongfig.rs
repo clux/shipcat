@@ -169,6 +169,31 @@ impl Oauth2PluginConfig {
 #[serde(deny_unknown_fields)]
 pub struct Oauth2ExtensionPluginConfig {}
 
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct JwtPluginConfig {
+    pub uri_param_names: Vec<String>,
+    pub claims_to_verify: Vec<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anonymous_username: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anonymous: Option<String>,
+}
+impl JwtPluginConfig {
+    fn new(anonymous_consumer: Option<String>) -> Self {
+        JwtPluginConfig {
+            uri_param_names: vec![],
+            claims_to_verify: vec!["exp".into()],
+
+            anonymous: match anonymous_consumer.clone() {
+                Some(_s) => None,
+                None     => Some("".into()),
+            },
+            anonymous_username: anonymous_consumer.map(|_| "anonymous".into()),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct JsonCookiesCsrfPluginConfig {
@@ -246,6 +271,7 @@ pub enum ApiPlugin {
     TcpLog(PluginBase<TcpLogPluginConfig>),
     Oauth2(PluginBase<Oauth2PluginConfig>),
     Oauth2Extension(PluginBase<Oauth2ExtensionPluginConfig>),
+    Jwt(PluginBase<JwtPluginConfig>),
     Cors(PluginBase<CorsPluginConfig>),
     CorrelationId(PluginBase<CorrelationIdPluginConfig>),
     BabylonAuthHeader(PluginBase<BabylonAuthHeaderPluginConfig>),
@@ -322,10 +348,19 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig) -> Vec<Api
             Authentication::OAuth2 => PluginBase::new(Oauth2PluginConfig::new(
                 config.kong_token_expiration,
                 &config.oauth_provision_key,
-                v.oauth2_anonymous)),
+                v.oauth2_anonymous.clone())),
             _ => PluginBase::removed(),
         };
         plugins.push(ApiPlugin::Oauth2(plugin));
+
+        // JWT plugin
+        let plugin = match v.auth {
+            Authentication::Jwt => PluginBase::new(JwtPluginConfig::new(
+                v.oauth2_anonymous.clone(),
+            )),
+            _ => PluginBase::removed(),
+        };
+        plugins.push(ApiPlugin::Jwt(plugin));
 
         // OAuth2 extension plugin
         // TODO: Remove plugin if not Some(false)/None

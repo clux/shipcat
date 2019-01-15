@@ -29,6 +29,16 @@ macro_rules! plugin_attributes {
     };
 }
 
+macro_rules! assert_plugin_removed {
+    ( $name:expr, $plugin:expr, $type:path ) => {
+        match $plugin {
+            $type(kongfig::PluginBase::Removed) => {},
+            $type(_) => panic!("{} plugin is not removed", $name),
+            _ => panic!("plugin is not a {} plugin", $name),
+        }
+    };
+}
+
 /// Set cwd to tests directory to be able to test manifest functionality
 ///
 /// The tests directory provides a couple of fake services for verification
@@ -242,7 +252,7 @@ fn kong_test() {
     assert_eq!(api.attributes.uris, Some(vec!["/ai-auth".to_string()]));
     assert_eq!(api.attributes.strip_uri, false);
     assert_eq!(api.attributes.upstream_url, "http://fake-ask.dev.svc.cluster.local");
-    assert_eq!(api.plugins.len(), 3);
+    assert_eq!(api.plugins.len(), 4);
 
     // api plugins
     let attr = plugin_attributes!("CorrelationId", &api.plugins[0], kongfig::ApiPlugin::CorrelationId);
@@ -258,4 +268,6 @@ fn kong_test() {
     assert_eq!(attr.config.provision_key, "key");
     assert_eq!(attr.config.anonymous, Some("".to_string()));
     assert_eq!(attr.config.token_expiration, 1800);
+
+    assert_plugin_removed!("Jwt", &api.plugins[3], kongfig::ApiPlugin::Jwt);
 }
