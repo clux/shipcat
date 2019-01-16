@@ -117,11 +117,11 @@ impl Manifest {
 /// This only matters within shipcat and is used to optimize speed of accessors.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub enum ConfigType {
-    /// A completed config for a specific region
-    ///
-    /// This is the upgraded version of a Filtered config for the same region.
-    /// Secrets have been resolved here.
-    Completed,
+    /// The full config, region-independent, resolved secrets
+    // Completed,
+
+    /// A filtered config for a specific region, with resolved secrets
+    Filtered,
 
     /// A config with a single region entry with blank secrets
     ///

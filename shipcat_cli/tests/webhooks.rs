@@ -15,7 +15,7 @@ use crate::shipcat_definitions::{Config, ConfigType};
 fn webhooks_ensure_requirements() {
     common::setup();
 
-    let (_conf, reg) = Config::new(ConfigType::Completed, "dev-uk").unwrap();
+    let (_conf, reg) = Config::new(ConfigType::Filtered, "dev-uk").unwrap();
 
     env::set_var("SHIPCAT_AUDIT_REVISION", "egrevision");
     env::set_var("SHIPCAT_AUDIT_CONTEXT_ID", "egcontextid");

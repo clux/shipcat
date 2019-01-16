@@ -47,8 +47,8 @@ fn config_test() {
     setup();
     assert!(Config::read().is_ok());
     assert!(Config::new(ConfigType::Base, "dev-uk").is_ok());
-    let fullcfg = Config::new(ConfigType::Completed, "dev-uk");
-    let (conf, _region) = fullcfg.unwrap(); // better to unwrap and get full trace
+    let filteredcfg = Config::new(ConfigType::Filtered, "dev-uk");
+    let (conf, _region) = filteredcfg.unwrap(); // better to unwrap and get full trace
     assert!(Config::new(ConfigType::File, "dev-uk").is_err());
     assert!(conf.print().is_ok());
 }
