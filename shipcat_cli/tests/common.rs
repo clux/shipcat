@@ -54,6 +54,16 @@ fn config_test() {
 }
 
 #[test]
+fn config_cr_settings_test() {
+    setup();
+    Config::read().unwrap(); // iof assert!(Config::read().is_ok());
+    assert!(Config::new(ConfigType::Base, "dev-ops").is_ok());
+    let filteredcfg = Config::new(ConfigType::Filtered, "dev-ops");
+    let (conf, _region) = filteredcfg.unwrap();
+    assert!(conf.print().is_ok());
+}
+
+#[test]
 fn config_defaults_test() {
     setup();
     let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();

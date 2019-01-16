@@ -114,11 +114,11 @@ impl Manifest {
 
 /// Various states a Config can exist in depending on resolution.
 ///
-/// This only matters within shipcat and is used to optimize speed of accessors.
+/// Within shipcat, this is used to optimize speed of accessors.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub enum ConfigType {
     /// The full config, region-independent, resolved secrets
-    // Completed,
+    Completed,
 
     /// A filtered config for a specific region, with resolved secrets
     Filtered,
