@@ -481,6 +481,18 @@ pub fn kongfig_consumers(k: KongConfig) -> Vec<Consumer> {
         }
     }).collect();
 
+    k.jwt_consumers.into_iter().map(|(k,v)| {
+        Consumer {
+            username: k.to_string(),
+            acls: vec![],
+            credentials: vec![ConsumerCredentials::Jwt(JwtCredentialsAttributes {
+                key: v.issuer,
+                algorithm: "RS256".into(),
+                rsa_public_key: v.public_key,
+            })]
+        }
+    }).for_each(|c| consumers.push(c));
+
     // Add the anonymous customer as well
     consumers.push(Consumer {
         username: "anonymous".into(),
@@ -504,6 +516,7 @@ pub struct Consumer {
 pub enum ConsumerCredentials {
     #[serde(rename = "oauth2")]
     OAuth2(OAuth2CredentialsAttributes),
+    Jwt(JwtCredentialsAttributes),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -515,6 +528,13 @@ pub struct OAuth2CredentialsAttributes {
     pub client_secret: String,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct JwtCredentialsAttributes {
+    pub algorithm: String,
+    pub key: String,
+    pub rsa_public_key: String,
+}
 
 /// Not used yet
 #[derive(Serialize, Deserialize, Clone, Default)]
