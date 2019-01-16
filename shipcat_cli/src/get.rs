@@ -2,6 +2,7 @@
 use std::collections::BTreeMap;
 use semver::Version;
 
+use crate::structs::rds::Rds;
 use super::{Config, Team, Region};
 use super::{Result, Manifest};
 
@@ -13,10 +14,8 @@ use super::{Result, Manifest};
 ///
 /// Services without a hardcoded version are not returned.
 pub fn versions(conf: &Config, region: &Region) -> Result<BTreeMap<String, Version>> {
-    let services = Manifest::available(&region.name)?;
     let mut output = BTreeMap::new();
-
-    for svc in services {
+    for svc in Manifest::available(&region.name)? {
         let mf = Manifest::simple(&svc, &conf, &region)?;
         if let Some(v) = mf.version {
             if let Ok(sv) = Version::parse(&v) {
@@ -32,9 +31,8 @@ pub fn versions(conf: &Config, region: &Region) -> Result<BTreeMap<String, Versi
 ///
 /// Services without a hardcoded image will assume the shipcat.conf specific default
 pub fn images(conf: &Config, region: &Region) -> Result<BTreeMap<String, String>> {
-    let services = Manifest::available(&region.name)?;
     let mut output = BTreeMap::new();
-    for svc in services {
+    for svc in Manifest::available(&region.name)? {
         // NB: needs > raw version of manifests because we need image implicits..
         let mf = Manifest::simple(&svc, &conf, &region)?;
         if let Some(i) = mf.image {
@@ -50,10 +48,8 @@ pub fn images(conf: &Config, region: &Region) -> Result<BTreeMap<String, String>
 /// Cross references config.teams with manifest.metadata.team
 /// Each returned string is Github CODEOWNER syntax
 pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
-    let services = Manifest::all()?;
     let mut output = vec![];
-
-    for svc in services {
+    for svc in Manifest::all()? {
         // Can rely on blank here because metadata is a global property
         let mf = Manifest::blank(&svc)?;
         if let Some(md) = mf.metadata {
@@ -116,7 +112,6 @@ pub fn vault_url(region: &Region) -> Result<String> {
     Ok(out)
 }
 
-
 // ----------------------------------------------------------------------------
 // hybrid reducers
 
@@ -176,6 +171,24 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
     let output = APIStatusOutput{environment, services};
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
+}
+
+
+/// Find the RDS instances to be provisioned for a region
+///
+/// Reduces all manifests in a region and produces a list for a terraform component
+/// to act on.
+pub fn databases(conf: &Config, region: &Region) -> Result<Vec<Rds>> {
+    let mut dbs = Vec::new();
+    for svc in Manifest::available(&region.name)? {
+        // NB: needs > raw version of manifests because we need image implicits..
+        let mf = Manifest::simple(&svc, &conf, &region)?;
+        if let Some(db) = mf.database {
+            dbs.push(db);
+        }
+    }
+    println!("{}", serde_yaml::to_string(&dbs)?);
+    Ok(dbs)
 }
 
 // ----------------------------------------------------------------------------

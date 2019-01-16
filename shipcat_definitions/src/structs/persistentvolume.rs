@@ -1,7 +1,7 @@
 use super::Result;
 use super::resources::parse_memory;
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PersistentVolume {
     pub name: String,
     pub claim: String,

@@ -70,6 +70,9 @@ fn main() {
                 .about("Recreate pods and reconcile helm config for a service"))
             .subcommand(SubCommand::with_name("upgrade")
                 .about("Upgrade a helm release from a manifest")
+                .arg(Arg::with_name("no-wait")
+                    .long("no-wait")
+                    .help("Do not wait for service timeout"))
                 .arg(Arg::with_name("auto-rollback")
                     .long("auto-rollback"))
                 .arg(Arg::with_name("dryrun")
@@ -165,6 +168,8 @@ fn main() {
               .about("Reduce encoded info")
               .subcommand(SubCommand::with_name("images")
                 .help("Reduce encoded image info"))
+              .subcommand(SubCommand::with_name("databases")
+                .help("Reduce encoded databases"))
               .subcommand(SubCommand::with_name("resources")
                 .help("Reduce encoded resouce requests and limits"))
               .subcommand(SubCommand::with_name("apistatus")
@@ -456,6 +461,9 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         if let Some(_) = a.subcommand_matches("images") {
             return shipcat::get::images(&conf, &region).map(void);
         }
+        if let Some(_) = a.subcommand_matches("databases") {
+            return shipcat::get::databases(&conf, &region).map(void);
+        }
         if let Some(_) = a.subcommand_matches("codeowners") {
             return shipcat::get::codeowners(&conf).map(void);
         }
@@ -642,6 +650,9 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             }
             else if b.is_present("auto-rollback") {
                 shipcat::helm::UpgradeMode::UpgradeWaitMaybeRollback
+            }
+            else if b.is_present("no-wait") {
+                shipcat::helm::UpgradeMode::UpgradeNoWait
             }
             else {
                 shipcat::helm::UpgradeMode::UpgradeWait

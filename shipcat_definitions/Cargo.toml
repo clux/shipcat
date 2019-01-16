@@ -10,7 +10,7 @@ authors = [
 name = "shipcat_definitions"
 description = "Definition for Manifest and Config for shipcat"
 readme = "README.md"
-version = "0.79.0"
+version = "0.81.1"
 categories = ["configuration"]
 keywords = ["kubernetes", "helm", "deployment", "standardisation", "validation"]
 license-file = "LICENSE"
@@ -38,6 +38,7 @@ walkdir = { version = "2.2.5", optional = true }
 static_assertions = "0.3.1"
 url_serde = "0.2.0"
 url = "1.7.2"
+uuid = { version = "0.7.1", features = ["v4"] }
 
 [workspace]
 

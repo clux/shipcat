@@ -25,6 +25,11 @@ impl Manifest {
             // dataHandling has cascading encryption values
             dh.implicits();
         }
+        if let Some(ref mut db) = self.database {
+            // databases use service name as database name - and pass on team from metadata
+            let md = self.metadata.clone().unwrap(); // exists by merge_and_fill_defaults
+            db.implicits(&self.name, &md);
+        }
 
         // Inject the region's environment name and namespace
         self.environment = reg.environment.clone();
@@ -138,6 +143,9 @@ impl Manifest {
         }
         if mf.kong.is_some() {
             self.kong = mf.kong;
+        }
+        if mf.database.is_some() {
+            self.database = mf.database;
         }
         if mf.vault.is_some() {
             self.vault = mf.vault;
