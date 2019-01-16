@@ -472,17 +472,26 @@ pub fn kongfig_consumers(k: KongConfig) -> Vec<Consumer> {
         Consumer {
             username: k.to_string(),
             acls: vec![],
-            credentials: vec![ConsumerCredentials {
-                name: "oauth2".into(),
-                attributes: ConsumerCredentialsAttributes {
-                    name: v.username,
-                    client_id: v.oauth_client_id,
-                    client_secret: v.oauth_client_secret,
-                    redirect_uri: vec!["http://example.com/unused".into()]
-                }
-            }],
+            credentials: vec![ConsumerCredentials::OAuth2(OAuth2CredentialsAttributes {
+                name: v.username,
+                client_id: v.oauth_client_id,
+                client_secret: v.oauth_client_secret,
+                redirect_uri: vec!["http://example.com/unused".into()]
+            })],
         }
     }).collect();
+
+    k.jwt_consumers.into_iter().map(|(k,v)| {
+        Consumer {
+            username: k.to_string(),
+            acls: vec![],
+            credentials: vec![ConsumerCredentials::Jwt(JwtCredentialsAttributes {
+                key: v.issuer,
+                algorithm: "RS256".into(),
+                rsa_public_key: v.public_key,
+            })]
+        }
+    }).for_each(|c| consumers.push(c));
 
     // Add the anonymous customer as well
     consumers.push(Consumer {
@@ -503,21 +512,29 @@ pub struct Consumer {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct ConsumerCredentials {
-    pub name: String,
-    pub attributes: ConsumerCredentialsAttributes,
+#[serde(tag = "name", content = "attributes", rename_all="kebab-case")]
+pub enum ConsumerCredentials {
+    #[serde(rename = "oauth2")]
+    OAuth2(OAuth2CredentialsAttributes),
+    Jwt(JwtCredentialsAttributes),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct ConsumerCredentialsAttributes {
+pub struct OAuth2CredentialsAttributes {
     pub client_id: String,
     pub redirect_uri: Vec<String>,
     pub name: String,
     pub client_secret: String,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct JwtCredentialsAttributes {
+    pub algorithm: String,
+    pub key: String,
+    pub rsa_public_key: String,
+}
 
 /// Not used yet
 #[derive(Serialize, Deserialize, Clone, Default)]
