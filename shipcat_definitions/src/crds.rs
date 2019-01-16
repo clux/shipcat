@@ -12,6 +12,7 @@ pub struct Crd<T> {
     pub metadata: Metadata,
     pub spec: T,
 }
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Metadata {
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -21,6 +22,85 @@ pub struct Metadata {
     // TODO: generation?
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub resourceVersion: String,
+}
+
+/// Literal CRD - eg for creating definitions against kube api
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct CrdSpec {
+    #[serde(skip_serializing)]
+    pub nameInKubeApi: String,
+
+    pub group: String,
+    pub version: String,
+    pub scope: String,
+    pub names: CrdNames,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additionalPrinterColumns: Option<Vec<CrdAdditionalPrinterColumns>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct CrdNames {
+    pub plural: String,
+    pub singular: String,
+    pub kind: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct CrdAdditionalPrinterColumns {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub apcType: String,
+    pub description: String,
+    pub JSONPath: String,
+}
+
+pub fn gen_all_crds() -> Vec<CrdSpec> {
+    let shipcatConfig = CrdSpec{
+        nameInKubeApi: "shipcatconfigs.babylontech.co.uk".into(),
+        group: "babylontech.co.uk".into(),
+        version: "v1".into(),
+        scope: "Namespaced".into(),
+        names: CrdNames{
+            plural: "shipcatconfigs".into(),
+            singular: "shipcatconfig".into(),
+            kind: "ShipcatConfig".into(),
+        },
+        ..CrdSpec::default()
+    };
+    let shipcatManifest = CrdSpec{
+        nameInKubeApi: "shipcatmanifests.babylontech.co.uk".into(),
+        group: "babylontech.co.uk".into(),
+        version: "v1".into(),
+        scope: "Namespaced".into(),
+        names: CrdNames{
+            plural: "shipcatmanifests".into(),
+            singular: "shipcatmanifest".into(),
+            kind: "ShipcatManifest".into(),
+        },
+        additionalPrinterColumns: Some(vec![
+            CrdAdditionalPrinterColumns{
+                name: "Kong".into(),
+                apcType: "string".into(),
+                description: "The URI where the service is available through kong".into(),
+                JSONPath: ".spec.kong.uris".into(),
+            }
+        ]),
+    };
+    vec![shipcatConfig, shipcatManifest]
+}
+
+impl From<CrdSpec> for Crd<CrdSpec> {
+    fn from(cs: CrdSpec) -> Crd<CrdSpec> {
+        Crd {
+            apiVersion: "apiextensions.k8s.io/v1beta1".into(),
+            kind: "CustomResourceDefinition".into(),
+            metadata: Metadata {
+                name: cs.nameInKubeApi.clone(),
+                ..Metadata::default()
+            },
+            spec: cs,
+        }
+    }
 }
 
 impl From<Manifest> for Crd<Manifest> {

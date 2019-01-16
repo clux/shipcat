@@ -46,6 +46,12 @@ fn crd_reconcile(svcs: Vec<String>, config: &Config, region: &Region, n_workers:
     use threadpool::ThreadPool;
     use std::sync::mpsc::channel;
 
+    // Reconcile CRDs (definition itself)
+    use shipcat_definitions::gen_all_crds;
+    for crdef in gen_all_crds() {
+        kube::apply_crd(&region.name, crdef.clone(), &region.namespace)?;
+    }    
+
     // Make sure config can apply first
     kube::apply_crd(&region.name, config.clone(), &region.namespace)?;
 
