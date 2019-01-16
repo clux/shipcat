@@ -512,7 +512,7 @@ pub struct Consumer {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(tag = "name", content = "attributes")]
+#[serde(tag = "name", content = "attributes", rename_all="kebab-case")]
 pub enum ConsumerCredentials {
     #[serde(rename = "oauth2")]
     OAuth2(OAuth2CredentialsAttributes),
