@@ -8,14 +8,14 @@ use super::structs::kongfig::{Api, Consumer, Plugin, Upstream, Certificate};
 
 /// KongOutput matches the format expected by the Kong Configurator script
 #[derive(Serialize)]
-struct KongOutput {
+pub struct KongOutput {
     pub apis: BTreeMap<String, Kong>,
     pub kong: KongConfig,
 }
 
 /// KongOutput for Kongfig
 #[derive(Serialize, Deserialize)]
-struct KongfigOutput {
+pub struct KongfigOutput {
     pub host: String,
     pub headers: Vec<String>,
     pub apis: Vec<Api>,
@@ -26,7 +26,7 @@ struct KongfigOutput {
 }
 
 impl KongfigOutput {
-    fn new(data: KongOutput) -> Self {
+    pub fn new(data: KongOutput) -> Self {
         KongfigOutput {
             host: data.kong.clone().config_url,
             headers: vec![],
@@ -64,7 +64,7 @@ impl KongCrdOutput {
     }
 }
 
-fn generate_kong_output(conf: &Config, region: &Region) -> Result<KongOutput> {
+pub fn generate_kong_output(conf: &Config, region: &Region) -> Result<KongOutput> {
     let mut apis = BTreeMap::new();
 
     // Generate list of APIs to feed to Kong
