@@ -219,10 +219,9 @@ fn kong_test() {
     assert_eq!(output.consumers.len(), 2);
     assert_eq!(output.consumers[0].username, "fake-ask");
     assert_eq!(output.consumers[0].credentials.len(), 1);
-    let creds = &output.consumers[0].credentials[0];
-    assert_eq!(creds.name, "oauth2");
-    assert_eq!(creds.attributes.client_id, "FAKEASKID");
-    assert_eq!(creds.attributes.client_secret, "FAKEASKSECRET");
+    let kongfig::ConsumerCredentials::OAuth2(attrs) = &output.consumers[0].credentials[0];
+    assert_eq!(attrs.client_id, "FAKEASKID");
+    assert_eq!(attrs.client_secret, "FAKEASKSECRET");
 
     assert_eq!(output.consumers[1].username, "anonymous");
 

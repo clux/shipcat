@@ -472,15 +472,12 @@ pub fn kongfig_consumers(k: KongConfig) -> Vec<Consumer> {
         Consumer {
             username: k.to_string(),
             acls: vec![],
-            credentials: vec![ConsumerCredentials {
-                name: "oauth2".into(),
-                attributes: ConsumerCredentialsAttributes {
-                    name: v.username,
-                    client_id: v.oauth_client_id,
-                    client_secret: v.oauth_client_secret,
-                    redirect_uri: vec!["http://example.com/unused".into()]
-                }
-            }],
+            credentials: vec![ConsumerCredentials::OAuth2(OAuth2CredentialsAttributes {
+                name: v.username,
+                client_id: v.oauth_client_id,
+                client_secret: v.oauth_client_secret,
+                redirect_uri: vec!["http://example.com/unused".into()]
+            })],
         }
     }).collect();
 
@@ -503,15 +500,15 @@ pub struct Consumer {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct ConsumerCredentials {
-    pub name: String,
-    pub attributes: ConsumerCredentialsAttributes,
+#[serde(tag = "name", content = "attributes")]
+pub enum ConsumerCredentials {
+    #[serde(rename = "oauth2")]
+    OAuth2(OAuth2CredentialsAttributes),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct ConsumerCredentialsAttributes {
+pub struct OAuth2CredentialsAttributes {
     pub client_id: String,
     pub redirect_uri: Vec<String>,
     pub name: String,
