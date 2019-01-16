@@ -203,3 +203,60 @@ fn templating_test() {
     assert!(cfgtpl.contains("CLIENT_ID"));
     assert!(cfgtpl.contains("CLIENT_ID=FAKEASKID"));
 }
+
+use shipcat::kong;
+use shipcat_definitions::structs::kongfig;
+
+#[test]
+fn kong_test() {
+    setup();
+    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let kongrs = kong::generate_kong_output(&conf, &reg).unwrap();
+    let output = kong::KongfigOutput::new(kongrs);
+
+    assert_eq!(output.host, "admin.dev.something.domain.com");
+
+    assert_eq!(output.consumers.len(), 2);
+    assert_eq!(output.consumers[0].username, "fake-ask");
+    assert_eq!(output.consumers[0].credentials.len(), 1);
+    let creds = &output.consumers[0].credentials[0];
+    assert_eq!(creds.name, "oauth2");
+    assert_eq!(creds.attributes.client_id, "FAKEASKID");
+    assert_eq!(creds.attributes.client_secret, "FAKEASKSECRET");
+
+    assert_eq!(output.consumers[1].username, "anonymous");
+
+    assert_eq!(output.apis.len(), 1);
+    let api = &output.apis[0];
+    assert_eq!(api.name, "fake-ask");
+    assert_eq!(api.attributes.uris, Some(vec!["/ai-auth".to_string()]));
+    assert_eq!(api.attributes.strip_uri, false);
+    assert_eq!(api.attributes.upstream_url, "http://fake-ask.dev.svc.cluster.local");
+    assert_eq!(api.plugins.len(), 3);
+
+    if let kongfig::ApiPlugin::CorrelationId(p) = &api.plugins[0] {
+        assert!(p.ensure == kongfig::Ensure::Present);
+        assert_eq!(p.attributes.enabled, true);
+        assert_eq!(p.attributes.config.header_name, "babylon-request-id");
+    } else {
+        panic!("plugin 0 is not a correlation-id plugin")
+    }
+
+    if let kongfig::ApiPlugin::TcpLog(p) = &api.plugins[1] {
+        assert!(p.ensure == kongfig::Ensure::Present);
+        assert_eq!(p.attributes.enabled, true);
+    } else {
+        panic!("plugin 1 is not a tcp-log plugin")
+    }
+
+    if let kongfig::ApiPlugin::Oauth2(p) = &api.plugins[2] {
+        assert!(p.ensure == kongfig::Ensure::Present);
+        assert_eq!(p.attributes.enabled, true);
+        assert_eq!(p.attributes.config.global_credentials, true);
+        assert_eq!(p.attributes.config.provision_key, "key");
+        assert_eq!(p.attributes.config.anonymous, Some("".to_string()));
+        assert_eq!(p.attributes.config.token_expiration, 1800);
+    } else {
+        panic!("plugin 2 is not a oauth2 plugin")
+    }
+}
