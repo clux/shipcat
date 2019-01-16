@@ -252,7 +252,7 @@ impl Config {
         self.regions.iter().map(|r| r.name.clone()).collect()
     }
 
-    /// Fill secrets on a Base config for a know to exist region
+    /// Fill secrets on a Base config for a known to exist region
     #[cfg(feature = "filesystem")]
     fn fill_secrets(&mut self, region: &str) -> Result<()> {
         assert_eq!(self.kind, ConfigType::Base);
