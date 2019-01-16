@@ -23,6 +23,7 @@ use super::structs::tolerations::Tolerations;
 use super::structs::LifeCycle;
 use super::structs::Worker;
 use super::structs::Port;
+use super::structs::rds::Rds;
 
 /// Main manifest, serializable from shipcat.yml or the shipcat CRD.
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -672,6 +673,17 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rbac: Vec<Rbac>,
 
+    /// Database provisioning sent to terraform
+    ///
+    /// Set the base parameters for an RDS instance.
+    ///
+    /// database:
+    ///   engine: postgres
+    ///   version: 9.6
+    ///   size: 20
+    ///   instanceClass: "db.m4.large"
+    pub database: Option<Rds>,
+
     // ------------------------------------------------------------------------
     // Output variables
     //
@@ -863,6 +875,9 @@ impl Manifest {
 
         if !self.serviceAnnotations.is_empty() {
             warn!("serviceAnnotation is an experimental/temporary feature")
+        }
+        if let Some(db) = &self.database {
+            db.verify()?;
         }
 
         Ok(())

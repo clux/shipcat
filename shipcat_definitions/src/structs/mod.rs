@@ -96,3 +96,6 @@ pub use self::rbac::Rbac;
 // PersistentVolume
 mod persistentvolume;
 pub use self::persistentvolume::PersistentVolume;
+
+/// AWS RDS
+pub mod rds;
