@@ -58,8 +58,11 @@ impl Manifest {
             self.replicaCount = Some(conf.defaults.replicaCount);
         }
         if let Some(ref mut md) = &mut self.metadata {
-            // teams are guaranteed to exist in shipcat.conf via Metadata::verify
-            let team = conf.teams.iter().find(|t| t.name == md.team ).unwrap();
+            let team = if let Some(t) = conf.teams.iter().find(|t| t.name == md.team) {
+                t
+            } else {
+                bail!("The team name must match one of the team names in shipcat.conf");
+            };
             if md.support.is_none() {
                 md.support = team.support.clone();
             }
