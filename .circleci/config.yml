@@ -70,6 +70,7 @@ jobs:
     docker:
       - image: clux/muslrust:stable
     working_directory: /volume
+    resource_class: xlarge
     environment:
       - RUST_BACKTRACE: "full"
     steps:
