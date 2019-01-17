@@ -353,8 +353,8 @@ impl Config {
 
         if kind == ConfigType::Filtered || kind == ConfigType::Base {
             conf.remove_redundant_regions(&region)?;
-        } else {
-            bail!("Config::new only supports Completed or Base type");
+        } else if kind != ConfigType::RegionAgnosticBase {
+            bail!("Config::new only supports Filtered, Base and RegionAgnosticBase types");
         }
 
         if kind == ConfigType::Filtered {

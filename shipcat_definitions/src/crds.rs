@@ -44,9 +44,13 @@ impl From<Config> for Crd<Config> {
     fn from(conf: Config) -> Crd<Config> {
         let rgs = conf.list_regions();
         assert!(!conf.has_secrets()); // no secrets
-        assert_eq!(rgs.len(), 1); // config must be filtered
-        // thus, can infer the region :-)
-        let rname = rgs[0].to_owned();
+        let rname: String = if rgs.len() == 1 { // config has been filtered
+            // thus, can infer the region :-)
+            rgs[0].to_owned()
+        } else { // non-filtered
+            "region-agnostic".to_owned()
+        };
+
         Crd {
             apiVersion: "babylontech.co.uk/v1".into(),
             kind: "ShipcatConfig".into(),

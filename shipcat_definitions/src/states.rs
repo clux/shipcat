@@ -117,11 +117,13 @@ impl Manifest {
 /// Within shipcat, this is used to optimize speed of accessors.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub enum ConfigType {
-    /// The full config, region-independent, resolved secrets
-    Completed,
-
     /// A filtered config for a specific region, with resolved secrets
     Filtered,
+
+    /// Region-independent, unresolved secrets
+    /// 
+    /// Just like Base - but for all regions
+    RegionAgnosticBase,
 
     /// A config with a single region entry with blank secrets
     ///

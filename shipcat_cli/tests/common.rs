@@ -58,8 +58,8 @@ fn config_cr_settings_test() {
     setup();
     Config::read().unwrap(); // iof assert!(Config::read().is_ok());
     assert!(Config::new(ConfigType::Base, "dev-ops").is_ok());
-    let filteredcfg = Config::new(ConfigType::Filtered, "dev-ops");
-    let (conf, _region) = filteredcfg.unwrap();
+    let gbcfg = Config::new(ConfigType::RegionAgnosticBase, "dev-ops");
+    let (conf, _region) = gbcfg.unwrap();
     assert!(conf.print().is_ok());
 }
 
