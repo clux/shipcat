@@ -414,7 +414,7 @@ pub struct Region {
     /// All webhooks
     pub webhooks: Option<Vec<Webhook>>,
     /// CRD tuning
-    pub customResource: Option<CRSettings>
+    pub customResources: Option<CRSettings>
 }
 
 impl Region {
