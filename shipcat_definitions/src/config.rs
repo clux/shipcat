@@ -252,9 +252,11 @@ impl Config {
         self.regions.iter().map(|r| r.name.clone()).collect()
     }
 
-    /// Fill secrets on a Base config for a known to exist region
+    /// Fill secrets from vault on a Base config for a known to exist region
+    ///
+    /// This will use the HTTP api of Vault using the configuration parameters.
     #[cfg(feature = "filesystem")]
-    fn fill_secrets(&mut self, region: &str) -> Result<()> {
+    fn secrets(&mut self, region: &str) -> Result<()> {
         assert_eq!(self.kind, ConfigType::Base);
         assert_eq!(self.regions.len(), 1);
         self.kind = ConfigType::Filtered;
@@ -358,7 +360,7 @@ impl Config {
         }
 
         if kind == ConfigType::Filtered {
-            conf.fill_secrets(&region)?;
+            conf.secrets(&region)?;
         }
         let reg = conf.get_region(&region)?;
         Ok((conf, reg))
