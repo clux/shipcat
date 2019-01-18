@@ -423,9 +423,9 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
 
 use shipcat_definitions::Crd;
 use serde::Serialize;
-/// Apply the CRD definition for any struct that can be turned into a CRD
+/// Apply the CRD for any struct that can be turned into a CRD
 ///
-/// Manifest and Config typically.
+/// CRDs itself, Manifest and Config typically.
 pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> Result<()> {
     use std::path::Path;
     use std::fs::{self, File};
