@@ -125,9 +125,15 @@ impl From<Config> for Crd<Config> {
     fn from(conf: Config) -> Crd<Config> {
         let rgs = conf.list_regions();
         assert!(!conf.has_secrets()); // no secrets
-        assert_eq!(rgs.len(), 1); // config must be filtered
-        // thus, can infer the region :-)
-        let rname = rgs[0].to_owned();
+        let allRegs = "unionised";
+        let rname: String = if rgs.len() == 1 { // config has been filtered
+            // thus, can infer the region :-)
+            assert_ne!(rgs[0], allRegs); // it'd be silly to name a region like that, right?
+            rgs[0].to_owned()
+        } else { // non-filtered
+            allRegs.to_owned()
+        };
+
         Crd {
             apiVersion: format!("{}/{}", DOMAIN, VERSION),
             kind: SHIPCATCONFIG_KIND.into(),

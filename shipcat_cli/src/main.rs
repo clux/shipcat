@@ -542,14 +542,14 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
         // this only needs a kube context if you don't specify it
-        let ss = if a.is_present("secrets") { ConfigType::Completed } else { ConfigType::Base };
+        let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
         let (conf, region) = resolve_config(a, ss)?;
         return shipcat::validate::manifest(services, &conf, &region, a.is_present("secrets"));
     }
     else if let Some(a) = args.subcommand_matches("values") {
         let svc = a.value_of("service").map(String::from).unwrap();
 
-        let ss = if a.is_present("secrets") { ConfigType::Completed } else { ConfigType::Base };
+        let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
         let (conf, region) = resolve_config(a, ss)?;
 
         let mf = if a.is_present("secrets") {
@@ -563,7 +563,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("template") {
         let svc = a.value_of("service").map(String::from).unwrap();
 
-        let ss = if a.is_present("secrets") { ConfigType::Completed } else { ConfigType::Base };
+        let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
         let (conf, region) = resolve_config(a, ss)?;
 
         let mock = !a.is_present("secrets");
@@ -583,7 +583,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             let (_conf, region) = resolve_config(a, ConfigType::Base)?;
             shipcat::kong::config_url(&region)
         } else {
-            let (conf, region) = resolve_config(a, ConfigType::Completed)?;
+            let (conf, region) = resolve_config(a, ConfigType::Filtered)?;
             let mode = if a.is_present("crd") {
                 kong::KongOutputMode::Crd
             } else {
@@ -605,7 +605,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("apply") {
         let svc = a.value_of("service").map(String::from).unwrap();
         // this absolutely needs secrets..
-        let (conf, region) = resolve_config(a, ConfigType::Completed)?;
+        let (conf, region) = resolve_config(a, ConfigType::Filtered)?;
         let umode = shipcat::helm::UpgradeMode::UpgradeInstall;
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
         assert!(conf.has_secrets()); // sanity on cluster disruptive commands
@@ -619,7 +619,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let svc = a.value_of("service").unwrap(); // defined required above
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
 
-        let (conf, region) = resolve_config(args, ConfigType::Completed)?;
+        let (conf, region) = resolve_config(args, ConfigType::Filtered)?;
 
         // small wrapper around helm history does not need anything fancy
         if let Some(_) = a.subcommand_matches("history") {
@@ -688,7 +688,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         }
         if let Some(b) = a.subcommand_matches("helm") {
             // absolutely need secrets for helm reconcile
-            let (conf, region) = resolve_config(args, ConfigType::Completed)?;
+            let (conf, region) = resolve_config(args, ConfigType::Filtered)?;
             assert!(conf.has_secrets()); // sanity on cluster disruptive commands
 
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();

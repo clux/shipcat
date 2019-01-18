@@ -10,6 +10,7 @@ use uuid::Uuid;
 use super::Vault;
 #[allow(unused_imports)]
 use super::{Result, Error, ErrorKind};
+use super::ConfigType;
 
 /// Versioning Scheme used in region
 ///
@@ -105,6 +106,13 @@ pub struct AuditWebhook {
     pub token: String,
 }
 
+/// Configure how CRs will be deployed on a region
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct CRSettings {
+    #[serde(rename = "config")]
+    pub shipcatConfig: ConfigType,
+}
 
 // ----------------------------------------------------------------------------------
 
@@ -414,6 +422,8 @@ pub struct Region {
     pub locations: Vec<String>,
     /// All webhooks
     pub webhooks: Option<Vec<Webhook>>,
+    /// CRD tuning
+    pub customResources: Option<CRSettings>
 }
 
 impl Region {

@@ -53,7 +53,13 @@ fn crd_reconcile(svcs: Vec<String>, config: &Config, region: &Region, n_workers:
     }    
 
     // Make sure config can apply first
-    kube::apply_crd(&region.name, config.clone(), &region.namespace)?;
+    let applycfg = if let Some(ref crs) = &region.customResources {
+        // special configtype detected - re-populating config object
+        Config::new(crs.shipcatConfig.clone(), &region.name)?.0
+    } else {
+        config.clone()
+    };
+    kube::apply_crd(&region.name, applycfg, &region.namespace)?;
 
     // Single instruction kubectl delete shipcat manifests .... of excess ones
     kube::remove_redundant_manifests(&region.namespace, &svcs)?;
