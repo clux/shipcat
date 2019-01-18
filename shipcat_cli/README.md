@@ -76,11 +76,10 @@ A data handling policy reducer. Experimental. See `security.rs` for more info.
 ### graph
 Graph specified dependencies by following the `dependencies` keywords for all manifests in a region. Can give `graphviz` output or `petgraph` yaml output.
 
-## CRD generators
-These requires the CRDs in the crds folder to be installed first.
-The output of these commands can be piped to `kubectl apply`.
+## CRDs
+A CRD reconcile will ensure that CRDs are in the correct state (created/updated), config CR is applied, and manifest CRs are applied in parallel.
 
-### crd
+### manifest crd
 Wraps a `Base` manifest type in a CRD so that it can be completed or stubbed by a kube operator.
 
 ### config crd

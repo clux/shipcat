@@ -133,6 +133,8 @@ pub struct KongConfig {
     pub anonymous_consumers: Option<KongAnonymousConsumers>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub consumers: BTreeMap<String, KongOauthConsumer>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub jwt_consumers: BTreeMap<String, KongJwtConsumer>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub internal_ips_whitelist: Vec<String>,
     #[serde(default, skip_serializing)]
@@ -191,6 +193,13 @@ pub struct KongOauthConsumer {
     pub oauth_client_id: String,
     pub oauth_client_secret: String,
     pub username: String
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct KongJwtConsumer {
+    pub issuer: String,
+    pub public_key: String,
 }
 
 impl KongConfig {

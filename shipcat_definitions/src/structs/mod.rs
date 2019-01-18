@@ -17,7 +17,7 @@ pub use self::worker::Worker;
 
 /// Kong configs
 pub mod kong;
-pub use self::kong::{Kong, Cors, BabylonAuthHeader};
+pub use self::kong::{Kong, Cors, BabylonAuthHeader, Authentication};
 
 /// Kongfig configs
 pub mod kongfig;
@@ -96,3 +96,6 @@ pub use self::rbac::Rbac;
 // PersistentVolume
 mod persistentvolume;
 pub use self::persistentvolume::PersistentVolume;
+
+/// AWS RDS
+pub mod rds;

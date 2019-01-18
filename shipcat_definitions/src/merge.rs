@@ -25,6 +25,11 @@ impl Manifest {
             // dataHandling has cascading encryption values
             dh.implicits();
         }
+        if let Some(ref mut db) = self.database {
+            // databases use service name as database name - and pass on team from metadata
+            let md = self.metadata.clone().unwrap(); // exists by merge_and_fill_defaults
+            db.implicits(&self.name, &md);
+        }
 
         // Inject the region's environment name and namespace
         self.environment = reg.environment.clone();
@@ -53,8 +58,11 @@ impl Manifest {
             self.replicaCount = Some(conf.defaults.replicaCount);
         }
         if let Some(ref mut md) = &mut self.metadata {
-            // teams are guaranteed to exist in shipcat.conf via Metadata::verify
-            let team = conf.teams.iter().find(|t| t.name == md.team ).unwrap();
+            let team = if let Some(t) = conf.teams.iter().find(|t| t.name == md.team) {
+                t
+            } else {
+                bail!("The team name must match one of the team names in shipcat.conf");
+            };
             if md.support.is_none() {
                 md.support = team.support.clone();
             }
@@ -138,6 +146,9 @@ impl Manifest {
         }
         if mf.kong.is_some() {
             self.kong = mf.kong;
+        }
+        if mf.database.is_some() {
+            self.database = mf.database;
         }
         if mf.vault.is_some() {
             self.vault = mf.vault;
