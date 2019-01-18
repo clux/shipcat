@@ -48,7 +48,7 @@ impl From<Config> for Crd<Config> {
             // thus, can infer the region :-)
             rgs[0].to_owned()
         } else { // non-filtered
-            "region-agnostic".to_owned()
+            "unionised".to_owned()
         };
 
         Crd {
