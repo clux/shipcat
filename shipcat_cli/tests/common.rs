@@ -57,7 +57,7 @@ fn config_test() {
 fn config_cr_settings_test() {
     setup();
     Config::read().unwrap(); // iof assert!(Config::read().is_ok());
-    assert!(Config::new(ConfigType::Base, "dev-ops").is_ok());
+    Config::new(ConfigType::Base, "dev-ops").unwrap();
     let gbcfg = Config::new(ConfigType::UnionisedBase, "dev-ops");
     let (conf, _region) = gbcfg.unwrap();
     assert!(conf.print().is_ok());
