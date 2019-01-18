@@ -125,11 +125,13 @@ impl From<Config> for Crd<Config> {
     fn from(conf: Config) -> Crd<Config> {
         let rgs = conf.list_regions();
         assert!(!conf.has_secrets()); // no secrets
+        let allRegs = "unionised";
         let rname: String = if rgs.len() == 1 { // config has been filtered
             // thus, can infer the region :-)
+            assert_ne!(rgs[0], allRegs); // it'd be silly to name a region like that, right?
             rgs[0].to_owned()
         } else { // non-filtered
-            "unionised".to_owned()
+            allRegs.to_owned()
         };
 
         Crd {
