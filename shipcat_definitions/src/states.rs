@@ -123,7 +123,7 @@ pub enum ConfigType {
     /// Region-independent, unresolved secrets
     /// 
     /// Just like Base - but for all regions
-    RegionAgnosticBase,
+    UnionisedBase,
 
     /// A config with a single region entry with blank secrets
     ///
