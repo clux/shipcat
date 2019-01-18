@@ -4,6 +4,12 @@ use crate::config::{Config};
 use super::{Manifest};
 use crate::states::{ManifestType};
 
+const KUBE_API_VERSION: &str = "apiextensions.k8s.io/v1beta1";
+const DOMAIN: &str = "babylontech.co.uk";
+const VERSION: &str = "v1";
+const SHIPCATCONFIG_KIND: &str = "ShipcatConfig";
+const SHIPCATMANIFEST_KIND: &str = "ShipcatManifest";
+
 /// Basic CRD wrapper struct
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Crd<T> {
@@ -27,9 +33,6 @@ pub struct Metadata {
 /// Literal CRD - eg for creating definitions against kube api
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct CrdSpec {
-    #[serde(skip_serializing)]
-    pub nameInKubeApi: String,
-
     pub group: String,
     pub version: String,
     pub scope: String,
@@ -56,26 +59,24 @@ pub struct CrdAdditionalPrinterColumns {
 
 pub fn gen_all_crds() -> Vec<CrdSpec> {
     let shipcatConfig = CrdSpec{
-        nameInKubeApi: "shipcatconfigs.babylontech.co.uk".into(),
-        group: "babylontech.co.uk".into(),
-        version: "v1".into(),
+        group: DOMAIN.into(),
+        version: VERSION.into(),
         scope: "Namespaced".into(),
         names: CrdNames{
             plural: "shipcatconfigs".into(),
             singular: "shipcatconfig".into(),
-            kind: "ShipcatConfig".into(),
+            kind: SHIPCATCONFIG_KIND.into(),
         },
         ..CrdSpec::default()
     };
     let shipcatManifest = CrdSpec{
-        nameInKubeApi: "shipcatmanifests.babylontech.co.uk".into(),
-        group: "babylontech.co.uk".into(),
-        version: "v1".into(),
+        group: DOMAIN.into(),
+        version: VERSION.into(),
         scope: "Namespaced".into(),
         names: CrdNames{
             plural: "shipcatmanifests".into(),
             singular: "shipcatmanifest".into(),
-            kind: "ShipcatManifest".into(),
+            kind: SHIPCATMANIFEST_KIND.into(),
         },
         additionalPrinterColumns: Some(vec![
             CrdAdditionalPrinterColumns{
@@ -92,10 +93,10 @@ pub fn gen_all_crds() -> Vec<CrdSpec> {
 impl From<CrdSpec> for Crd<CrdSpec> {
     fn from(cs: CrdSpec) -> Crd<CrdSpec> {
         Crd {
-            apiVersion: "apiextensions.k8s.io/v1beta1".into(),
+            apiVersion: KUBE_API_VERSION.into(),
             kind: "CustomResourceDefinition".into(),
             metadata: Metadata {
-                name: cs.nameInKubeApi.clone(),
+                name: format!("{}.{}", cs.names.plural, DOMAIN),
                 ..Metadata::default()
             },
             spec: cs,
@@ -109,8 +110,8 @@ impl From<Manifest> for Crd<Manifest> {
         // but no secrets!
         assert_eq!(mf.kind, ManifestType::Base);
         Crd {
-            apiVersion: "babylontech.co.uk/v1".into(),
-            kind: "ShipcatManifest".into(),
+            apiVersion: format!("{}/{}", DOMAIN, VERSION),
+            kind: SHIPCATMANIFEST_KIND.into(),
             metadata: Metadata {
                 name: mf.name.clone(),
                 ..Metadata::default()
@@ -128,8 +129,8 @@ impl From<Config> for Crd<Config> {
         // thus, can infer the region :-)
         let rname = rgs[0].to_owned();
         Crd {
-            apiVersion: "babylontech.co.uk/v1".into(),
-            kind: "ShipcatConfig".into(),
+            apiVersion: format!("{}/{}", DOMAIN, VERSION),
+            kind: SHIPCATCONFIG_KIND.into(),
             metadata: Metadata {
                 name: rname, ..Metadata::default()
             },
