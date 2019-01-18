@@ -508,7 +508,8 @@ mod tests {
         // ignoring this test on circleci..
         if kubecfg.is_file() {
             let ctx = current_context().unwrap();
-            assert_eq!(ctx, "devuk-green".to_string());
+            assert_eq!(ctx, ctx.trim());
+            assert_ne!(ctx, "");
         }
     }
 }

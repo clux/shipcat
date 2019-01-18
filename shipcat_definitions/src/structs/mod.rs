@@ -17,7 +17,7 @@ pub use self::worker::Worker;
 
 /// Kong configs
 pub mod kong;
-pub use self::kong::{Kong, Cors, BabylonAuthHeader};
+pub use self::kong::{Kong, Cors, BabylonAuthHeader, Authentication};
 
 /// Kongfig configs
 pub mod kongfig;
