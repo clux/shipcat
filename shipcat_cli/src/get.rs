@@ -126,6 +126,7 @@ struct APIServiceParams {
     uris: String,
     internal: bool,
     publiclyAccessible: bool,
+    websockets: bool,
 }
 #[derive(Serialize)]
 struct EnvironmentInfo {
@@ -149,12 +150,24 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
     for svc in Manifest::available(&reg.name)? {
         let mf = Manifest::simple(&svc, &conf, &reg)?;
         if let Some(k) = mf.kong {
-            services.insert(svc, APIServiceParams {
+            let mut params = APIServiceParams {
                 uris: k.uris.unwrap_or("".into()),
                 hosts: k.hosts.unwrap_or("".into()),
                 internal: k.internal,
                 publiclyAccessible: mf.publiclyAccessible,
-            });
+                websockets: false,
+            };
+            if let Some(g) = mf.gate {
+                // `manifest.verify` ensures that if there is a gate conf,
+                // `gate.public` must be equal to `publiclyAccessible`.
+                // That means that the following line does not alter the value
+                // of `params.publiclyAccessible` but will be useful during the
+                // migration of manifest configuration (ie deprecate
+                // `publiclyAccessible` in favour of `gate.public`).
+                params.publiclyAccessible = g.public;
+                params.websockets = g.websockets;
+            }
+            services.insert(svc, params);
         }
     }
 
@@ -165,6 +178,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
             hosts: api.hosts.unwrap_or("".into()),
             internal: api.internal,
             publiclyAccessible: api.publiclyAccessible,
+            websockets: false,
         });
     }
 
