@@ -16,7 +16,7 @@ use super::structs::{Metadata, VaultOpts, Dependency};
 use super::structs::security::DataHandling;
 use super::structs::Probe;
 use super::structs::{CronJob, Sidecar, EnvVars};
-use super::structs::{Kafka, Kong, Rbac};
+use super::structs::{Gate, Kafka, Kong, Rbac};
 use super::structs::RollingUpdate;
 use super::structs::autoscaling::AutoScaling;
 use super::structs::tolerations::Tolerations;
@@ -631,6 +631,10 @@ pub struct Manifest {
     /// ```
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kong: Option<Kong>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate: Option<Gate>,
+
     /// Hosts to override kong hosts
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hosts: Vec<String>,
@@ -781,6 +785,16 @@ impl Manifest {
 
         if let Some(v) = &self.version {
             region.versioningScheme.verify(v)?;
+        }
+
+        // TODO [DIP-499]: Separate gate/kong params + adjust the checks
+        if let Some(g) = &self.gate {
+            if self.kong.is_none() {
+                bail!("Can't have a `gate` configuration without a `kong` one");
+            }
+            if g.public != self.publiclyAccessible {
+                bail!("[Migration plan] `publiclyAccessible` and `gate.public` must be equal");
+            }
         }
 
         // run the `Verify` trait on all imported structs

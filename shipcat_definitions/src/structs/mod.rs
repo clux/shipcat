@@ -19,6 +19,10 @@ pub use self::worker::Worker;
 pub mod kong;
 pub use self::kong::{Kong, Cors, BabylonAuthHeader, Authentication};
 
+/// Gate configs
+pub mod gate;
+pub use self::gate::{Gate};
+
 /// Kongfig configs
 pub mod kongfig;
 pub use self::kongfig::{Api, Consumer, Plugin, Upstream, Certificate};
