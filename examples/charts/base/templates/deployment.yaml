@@ -65,13 +65,14 @@ spec:
           containerPort: {{ $p.port }}
           protocol: {{ $p.protocol }}
 {{- end }}
-{{- if false }}
+{{- if .Values.livenessProbe }}
         livenessProbe:
-          httpGet:
-            path: {{ .Values.health.uri }}
-            port: http
+{{ toYaml .Values.livenessProbe | indent 10 }}
 {{- end }}
         readinessProbe:
+{{- if .Values.readinessProbe }}
+{{ toYaml .Values.readinessProbe | indent 10 }}
+{{- else }}
           httpGet:
             path: {{ .Values.health.uri }}
 {{- if .Values.health.port }}
@@ -86,23 +87,14 @@ spec:
           initialDelaySeconds: {{ .Values.health.wait }}
           periodSeconds: 5
 {{- end }}
+{{- end }}
 {{- if .Values.hostAliases }}
         hostAliases:
 {{ toYaml .Values.hostAliases | indent 10 }}
 {{- end }}
 
         env:
-{{- range $k, $v := .Values.env.plain }}
-        - name: {{ $k | quote }}
-          value: {{ $v | quote }}
-{{- end }}
-{{- range _, $name := $.Values.env.secrets }}
-        - name: {{ $name | quote }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ $.Values.name }}-secrets
-              key: {{ $name }}
-{{- end }}
+        {{- include "container-env" (merge (dict "root" $) .Values.env) | trim | nindent 8 }}
         - name: SERVICE_NAME
           value: {{ .Values.name }}
         - name: ENV_NAME
@@ -135,7 +127,7 @@ spec:
 
       {{- range $index, $sidecar := .Values.sidecars }}
       {{- $sidecar_template := printf "%s-sidecar" $sidecar.name -}}
-      {{- include $sidecar_template $sidecar | indent 6 }}
+      {{- include $sidecar_template (merge (dict "parent" $) $sidecar) | indent 6 }}
       {{- end }}
 
       volumes:
