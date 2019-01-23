@@ -178,6 +178,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
             hosts: api.hosts.unwrap_or("".into()),
             internal: api.internal,
             publiclyAccessible: api.publiclyAccessible,
+            // TODO [DIP-499]: `extra_apis` do not support `gate` confs
             websockets: false,
         });
     }

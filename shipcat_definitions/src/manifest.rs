@@ -787,6 +787,7 @@ impl Manifest {
             region.versioningScheme.verify(v)?;
         }
 
+        // TODO [DIP-499]: Separate gate/kong params + adjust the checks
         if let Some(g) = &self.gate {
             if self.kong.is_none() {
                 bail!("Can't have a `gate` configuration without a `kong` one");
