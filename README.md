@@ -70,7 +70,7 @@ and some minor convencience integrations from common technologies like: [Grafana
 
 - Mac/Linux users can install from the [releases page](https://github.com/Babylonpartners/shipcat/releases)
 - Users with [rust](https://rustup.rs/) installed can use `git pull && cargo build`
-- Babylon employees can use `brew install shipcat` via the internal brew tap
+- Babylon employees can `brew install shipcat` or `brew update && brew upgrade shipcat` via the internal brew tap
 
 See the [building guide](https://github.com/Babylonpartners/shipcat/blob/master/doc/building.md), for setting up auto-complete, and being able to use from outside a manifests repo.
 
