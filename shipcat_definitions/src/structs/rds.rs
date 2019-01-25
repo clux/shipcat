@@ -43,12 +43,6 @@ pub enum InstanceClass {
 // TODO: pr to serde for extra case rename type?
 // https://github.com/serde-rs/serde/blob/7950f3cdc52d4898aa4195b853cbec12d65bb091/serde_derive/src/internals/case.rs
 
-// TODO: maybe force this explicit?
-// this was a standard.
-impl Default for InstanceClass {
-    fn default() -> Self { InstanceClass::DbM4Large }
-}
-
 /// AWS RDS parameters for infrastructure provisioning
 ///
 /// Simplified input for configuring a database for your service.
@@ -107,6 +101,5 @@ impl Rds {
         // databases named after services
         self.name = Some(svc.into());
         self.team = Some(md.team.clone());
-        self.instanceClass = Some(InstanceClass::default());
     }
 }
