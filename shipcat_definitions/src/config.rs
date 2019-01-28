@@ -274,14 +274,14 @@ impl Config {
     /// Can be done unambiguously when cluster name is specified,
     /// Otherwise we will find the first candidate cluster serving this context
     /// and bail if there's more than one.
-    pub fn resolve_cluster(&self, ctx: &str, cluster: Option<&str>) -> Result<(Cluster, Region)> {
+    pub fn resolve_cluster(&self, ctx: &str, cluster: Option<String>) -> Result<(Cluster, Region)> {
         let reg = self.get_region(ctx)?;
 
         // 1. `get -r dev-uk -c kops-uk`
         // Most precise - just get what asked for.
         // region must exist because `ctx` is either a region or a contextAlias
         if let Some(c) = cluster {
-            if let Some(c) = self.clusters.get(c) {
+            if let Some(c) = self.clusters.get(&c) {
                 return Ok((c.clone(), reg));
             } else {
                 bail!("Specified cluster '{}' does not exist in shipcat.conf", c);
@@ -306,7 +306,7 @@ impl Config {
     /// Retrieve region name using either a region name, or a context as a fallback
     ///
     /// This returns a a valid key in `self.regions` if Some.
-    fn resolve_context(&self, context: &str) -> Option<String> {
+    fn resolve_context(&self, context: String) -> Option<String> {
         let ctx = context.to_string();
         if self.has_region(&ctx) {
             Some(ctx)
@@ -329,7 +329,7 @@ impl Config {
     /// This retieves the region after calling resolve_context.
     /// Useful for small helper subcommands that do validation later.
     pub fn get_region(&self, ctx: &str) -> Result<Region> {
-        if let Some(region) = self.resolve_context(ctx) {
+        if let Some(region) = self.resolve_context(ctx.to_string()) {
             return Ok(self.regions.iter().find(|r| r.name == region).unwrap().clone())
         }
         bail!("You need to define your kube context '{}' in shipcat.conf regions first", ctx)
@@ -346,7 +346,7 @@ impl Config {
     /// Pass this a region request via argument or a current context
     pub fn new(kind: ConfigType, context: &str) -> Result<(Config, Region)> {
         let mut conf = Config::read()?;
-        let region = if let Some(r) = conf.resolve_context(context) {
+        let region = if let Some(r) = conf.resolve_context(context.to_string()) {
             r
         } else {
             error!("Please use an existing kube context or add your current context to shipcat.conf");

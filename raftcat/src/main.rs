@@ -80,7 +80,7 @@ impl AppState {
         Ok(data)
     }
     fn update_slow_cache(&mut self) -> Result<()> {
-        let cname = None; // TODO: evar
+        let cname = env::var("KUBE_CLUSTER").ok();
         let (cluster, region) = self.config.resolve_cluster(&self.region, cname).unwrap();
         if let Some(s) = region.sentry {
             match sentryapi::get_slugs(&s.url, &region.environment) {
@@ -124,7 +124,7 @@ impl AppState {
         Ok(res)
     }
     pub fn get_cluster_region(&self) -> Result<(Cluster, Region)> {
-        let cname = None; // TODO: evar
+        let cname = env::var("KUBE_CLUSTER").ok();
         let (cluster, region) = self.config.resolve_cluster(&self.region, cname).expect("could not resolve cluster");
         Ok((cluster, region))
     }

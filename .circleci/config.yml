@@ -51,6 +51,7 @@ jobs:
           keys:
           - target-musl-{{ .Environment.CACHE_VERSION }}
       - run: cargo build --release -p shipcat
+      - run: cargo build --release -p raftcat
       - save_cache:
           key: target-musl-{{ .Environment.CACHE_VERSION }}
           paths:
@@ -61,10 +62,12 @@ jobs:
             - /root/.cargo
       # Ensure we have a built `shipcat.x86_64-unknown-linux-musl` at workspace root
       - run: mv target/x86_64-unknown-linux-musl/release/shipcat{,.x86_64-unknown-linux-musl}
+      - run: mv target/x86_64-unknown-linux-musl/release/raftcat{,.x86_64-unknown-linux-musl}
       - persist_to_workspace:
           root: target/x86_64-unknown-linux-musl/release/
           paths:
             - shipcat.x86_64-unknown-linux-musl
+            - raftcat.x86_64-unknown-linux-musl
 
   cargo_test:
     docker:
@@ -103,6 +106,7 @@ jobs:
       - run: make install
       - run: make tag-latest
       - run: make tag-semver
+      - run: make raftcat
 
   mac_build:
     macos:
