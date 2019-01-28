@@ -14,40 +14,47 @@ pub enum RdsEngine {
 /// RDS Instance types
 ///
 /// Subset of the official [AWS RDS instance type list](https://aws.amazon.com/rds/instance-types/).
+/// Current gen (m5 + t3) along with older m4 + t2.
 #[derive(Deserialize, Serialize, Clone)]
 pub enum InstanceClass {
+    // Burstable T2 instances for compat
+    #[serde(rename = "db.t2.micro")]
+    DbT2micro,
+    #[serde(rename = "db.t2.small")]
+    DbT2small,
     #[serde(rename = "db.t2.medium")]
-    DbT2Medium,
+    DbT2medium,
 
+    // Burstable T3 instance
+    #[serde(rename = "db.t3.micro")]
+    DbT3micro,
+    #[serde(rename = "db.t3.small")]
+    DbT3small,
+    #[serde(rename = "db.t3.medium")]
+    DbT3medium,
+
+    // General purpose M4 instances for compat
     #[serde(rename = "db.m4.large")]
     DbM4Large,
-
     #[serde(rename = "db.m4.xlarge")]
     DbM4Xlarge,
-
+    #[serde(rename = "db.m4.2xlarge")]
+    DbM42xlarge,
     #[serde(rename = "db.m4.4xlarge")]
     DbM44xlarge,
 
+    // General purpose M5 instances
     #[serde(rename = "db.m5.large")]
     DbM5Large,
-
     #[serde(rename = "db.m5.xlarge")]
     DbM5Xlarge,
-
     #[serde(rename = "db.m5.2xlarge")]
     DbM52xlarge,
-
     #[serde(rename = "db.m5.4xlarge")]
     DbM54xlarge,
 }
 // TODO: pr to serde for extra case rename type?
 // https://github.com/serde-rs/serde/blob/7950f3cdc52d4898aa4195b853cbec12d65bb091/serde_derive/src/internals/case.rs
-
-// TODO: maybe force this explicit?
-// this was a standard.
-impl Default for InstanceClass {
-    fn default() -> Self { InstanceClass::DbM4Large }
-}
 
 /// AWS RDS parameters for infrastructure provisioning
 ///
@@ -79,7 +86,7 @@ pub struct Rds {
 
     /// The instance type of the RDS instance
     ///
-    /// Defaults to db.m4.large
+    /// E.g. db.m4.large
     pub instanceClass: Option<InstanceClass>,
 
     // TODO: allow customizing backup setup?
@@ -107,6 +114,5 @@ impl Rds {
         // databases named after services
         self.name = Some(svc.into());
         self.team = Some(md.team.clone());
-        self.instanceClass = Some(InstanceClass::default());
     }
 }
