@@ -252,14 +252,16 @@ impl Config {
         self.regions.iter().map(|r| r.name.clone()).collect()
     }
 
-    /// Complete a Base config for a know to exist region
+    /// Fill secrets from vault on a Base config for a known to exist region
+    ///
+    /// This will use the HTTP api of Vault using the configuration parameters.
     #[cfg(feature = "filesystem")]
-    fn complete(&mut self, region: &str) -> Result<()> {
+    fn secrets(&mut self, region: &str) -> Result<()> {
         assert_eq!(self.kind, ConfigType::Base);
         assert_eq!(self.regions.len(), 1);
-        self.kind = ConfigType::Completed;
+        self.kind = ConfigType::Filtered;
         if let Some(idx) = self.regions.iter().position(|r| r.name == region) {
-            self.regions.get_mut(idx).unwrap().secrets()?;
+            self.regions[idx].secrets()?;
         } else {
             bail!("Region {} does not exist in the config", region)
         }
@@ -298,7 +300,7 @@ impl Config {
     }
 
     pub fn has_secrets(&self) -> bool {
-        self.kind == ConfigType::Completed
+        self.kind == ConfigType::Filtered
     }
 
     /// Retrieve region name using either a region name, or a context as a fallback
@@ -351,14 +353,14 @@ impl Config {
             bail!("The current kube context ('{}') is not defined in shipcat.conf", context);
         };
 
-        if kind == ConfigType::Completed || kind == ConfigType::Base {
+        if kind == ConfigType::Filtered || kind == ConfigType::Base {
             conf.remove_redundant_regions(&region)?;
-        } else {
-            bail!("Config::new only supports Completed or Base type");
+        } else if kind != ConfigType::UnionisedBase {
+            bail!("Config::new only supports Filtered, Base and UnionisedBase types");
         }
 
-        if kind == ConfigType::Completed {
-            conf.complete(&region)?;
+        if kind == ConfigType::Filtered {
+            conf.secrets(&region)?;
         }
         let reg = conf.get_region(&region)?;
         Ok((conf, reg))

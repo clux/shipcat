@@ -17,7 +17,11 @@ pub use self::worker::Worker;
 
 /// Kong configs
 pub mod kong;
-pub use self::kong::{Kong, Cors, BabylonAuthHeader};
+pub use self::kong::{Kong, Cors, BabylonAuthHeader, Authentication};
+
+/// Gate configs
+pub mod gate;
+pub use self::gate::{Gate};
 
 /// Kongfig configs
 pub mod kongfig;
@@ -99,3 +103,5 @@ pub use self::persistentvolume::PersistentVolume;
 
 /// AWS RDS
 pub mod rds;
+/// AWS ElastiCache
+pub mod elasticache;

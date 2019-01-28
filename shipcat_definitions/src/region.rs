@@ -10,6 +10,7 @@ use uuid::Uuid;
 use super::Vault;
 #[allow(unused_imports)]
 use super::{Result, Error, ErrorKind};
+use super::ConfigType;
 
 /// Versioning Scheme used in region
 ///
@@ -105,6 +106,13 @@ pub struct AuditWebhook {
     pub token: String,
 }
 
+/// Configure how CRs will be deployed on a region
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct CRSettings {
+    #[serde(rename = "config")]
+    pub shipcatConfig: ConfigType,
+}
 
 // ----------------------------------------------------------------------------------
 
@@ -125,6 +133,8 @@ pub struct KongConfig {
     pub anonymous_consumers: Option<KongAnonymousConsumers>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub consumers: BTreeMap<String, KongOauthConsumer>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub jwt_consumers: BTreeMap<String, KongJwtConsumer>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub internal_ips_whitelist: Vec<String>,
     #[serde(default, skip_serializing)]
@@ -183,6 +193,13 @@ pub struct KongOauthConsumer {
     pub oauth_client_id: String,
     pub oauth_client_secret: String,
     pub username: String
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct KongJwtConsumer {
+    pub issuer: String,
+    pub public_key: String,
 }
 
 impl KongConfig {
@@ -405,6 +422,8 @@ pub struct Region {
     pub locations: Vec<String>,
     /// All webhooks
     pub webhooks: Option<Vec<Webhook>>,
+    /// CRD tuning
+    pub customResources: Option<CRSettings>
 }
 
 impl Region {

@@ -32,11 +32,19 @@ fn main() {
         .arg(Arg::with_name("verbose")
             .short("v")
             .multiple(true)
+            .global(true)
             .help("Increase verbosity"))
         .arg(Arg::with_name("debug")
             .short("d")
             .long("debug")
+            .global(true)
             .help("Adds line numbers to log statements"))
+        .arg(Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .takes_value(true)
+                .global(true)
+                .help("Region to use (dev-uk, staging-uk, prod-uk)"))
         .subcommand(SubCommand::with_name("debug")
             .about("Get debug information about a release running in a cluster")
             .arg(Arg::with_name("service")
@@ -81,11 +89,6 @@ fn main() {
 
         .subcommand(SubCommand::with_name("shell")
             .about("Shell into pods for a service described in a manifest")
-            .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .takes_value(true)
-                .help("Region to use (dev-uk, staging-uk, prod-uk)"))
             .arg(Arg::with_name("pod")
                 .takes_value(true)
                 .short("p")
@@ -128,11 +131,6 @@ fn main() {
                 .required(true)
                 .multiple(true)
                 .help("Service names to validate"))
-              .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .takes_value(true)
-                .help("Specific region to check"))
               .arg(Arg::with_name("secrets")
                 .short("s")
                 .long("secrets")
@@ -155,11 +153,6 @@ fn main() {
               .about("Reduce data handling structs"))
 
         .subcommand(SubCommand::with_name("get")
-              .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .takes_value(true)
-                .help("Specific region to check"))
               .arg(Arg::with_name("cluster")
                 .short("c")
                 .long("cluster")
@@ -170,6 +163,8 @@ fn main() {
                 .help("Reduce encoded image info"))
               .subcommand(SubCommand::with_name("databases")
                 .help("Reduce encoded databases"))
+              .subcommand(SubCommand::with_name("caches")
+                .help("Reduce encoded redis caches"))
               .subcommand(SubCommand::with_name("resources")
                 .help("Reduce encoded resouce requests and limits"))
               .subcommand(SubCommand::with_name("apistatus")
@@ -192,21 +187,11 @@ fn main() {
                 .help("Generate Kong config URL")))
         // Statuscake helper
         .subcommand(SubCommand::with_name("statuscake")
-            .about("Generate Statuscake config")
-            .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .takes_value(true)
-                .help("Region to use (dev-uk, staging-uk, ...)")))
+            .about("Generate Statuscake config"))
         // dependency graphing
         .subcommand(SubCommand::with_name("graph")
               .arg(Arg::with_name("service")
                 .help("Service name to graph around"))
-              .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .takes_value(true)
-                .help("Specific region to graph for"))
               .arg(Arg::with_name("dot")
                 .long("dot")
                 .help("Generate dot output for graphviz"))
@@ -245,9 +230,6 @@ fn main() {
             .about("list supported product locations"))
         .subcommand(SubCommand::with_name("list-services")
             .setting(AppSettings::Hidden)
-            .arg(Arg::with_name("region")
-                .required(true)
-                .help("Region to filter on"))
             .about("list supported services for a specified"))
         .subcommand(SubCommand::with_name("list-products")
             .setting(AppSettings::Hidden)
@@ -258,33 +240,18 @@ fn main() {
 
         // new service subcommands (absorbing some service manifest responsibility from helm/validate cmds)
         .subcommand(SubCommand::with_name("status")
-              .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .takes_value(true)
-                .help("Specific region to check"))
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service to check"))
               .about("Show kubernetes status for all the resources for a service"))
 
         .subcommand(SubCommand::with_name("crd")
-              .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .takes_value(true)
-                .help("Specific region to use"))
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service to generate crd for"))
               .about("Generate the kube equivalent ShipcatManifest CRD"))
 
         .subcommand(SubCommand::with_name("values")
-              .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .takes_value(true)
-                .help("Specific region to use"))
               .arg(Arg::with_name("secrets")
                 .short("s")
                 .long("secrets")
@@ -294,11 +261,6 @@ fn main() {
                 .help("Service to generate values for"))
               .about("Generate the completed service manifest that will be passed to the helm chart"))
         .subcommand(SubCommand::with_name("template")
-              .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .takes_value(true)
-                .help("Specific region to template for"))
               .arg(Arg::with_name("secrets")
                 .short("s")
                 .long("secrets")
@@ -322,11 +284,6 @@ fn main() {
         .subcommand(SubCommand::with_name("config")
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .about("Run interactions on shipcat.conf")
-            .arg(Arg::with_name("region")
-                .short("r")
-                .long("region")
-                .takes_value(true)
-                .help("Region to filter the config for"))
             .subcommand(SubCommand::with_name("show")
                 .about("Show the config"))
             .subcommand(SubCommand::with_name("crd")
@@ -464,6 +421,9 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         if let Some(_) = a.subcommand_matches("databases") {
             return shipcat::get::databases(&conf, &region).map(void);
         }
+        if let Some(_) = a.subcommand_matches("caches") {
+            return shipcat::get::caches(&conf, &region).map(void);
+        }
         if let Some(_) = a.subcommand_matches("codeowners") {
             return shipcat::get::codeowners(&conf).map(void);
         }
@@ -542,14 +502,14 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
         // this only needs a kube context if you don't specify it
-        let ss = if a.is_present("secrets") { ConfigType::Completed } else { ConfigType::Base };
+        let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
         let (conf, region) = resolve_config(a, ss)?;
         return shipcat::validate::manifest(services, &conf, &region, a.is_present("secrets"));
     }
     else if let Some(a) = args.subcommand_matches("values") {
         let svc = a.value_of("service").map(String::from).unwrap();
 
-        let ss = if a.is_present("secrets") { ConfigType::Completed } else { ConfigType::Base };
+        let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
         let (conf, region) = resolve_config(a, ss)?;
 
         let mf = if a.is_present("secrets") {
@@ -563,7 +523,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("template") {
         let svc = a.value_of("service").map(String::from).unwrap();
 
-        let ss = if a.is_present("secrets") { ConfigType::Completed } else { ConfigType::Base };
+        let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
         let (conf, region) = resolve_config(a, ss)?;
 
         let mock = !a.is_present("secrets");
@@ -583,7 +543,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             let (_conf, region) = resolve_config(a, ConfigType::Base)?;
             shipcat::kong::config_url(&region)
         } else {
-            let (conf, region) = resolve_config(a, ConfigType::Completed)?;
+            let (conf, region) = resolve_config(a, ConfigType::Filtered)?;
             let mode = if a.is_present("crd") {
                 kong::KongOutputMode::Crd
             } else {
@@ -605,7 +565,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("apply") {
         let svc = a.value_of("service").map(String::from).unwrap();
         // this absolutely needs secrets..
-        let (conf, region) = resolve_config(a, ConfigType::Completed)?;
+        let (conf, region) = resolve_config(a, ConfigType::Filtered)?;
         let umode = shipcat::helm::UpgradeMode::UpgradeInstall;
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
         assert!(conf.has_secrets()); // sanity on cluster disruptive commands
@@ -619,7 +579,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let svc = a.value_of("service").unwrap(); // defined required above
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
 
-        let (conf, region) = resolve_config(args, ConfigType::Completed)?;
+        let (conf, region) = resolve_config(args, ConfigType::Filtered)?;
 
         // small wrapper around helm history does not need anything fancy
         if let Some(_) = a.subcommand_matches("history") {
@@ -688,7 +648,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         }
         if let Some(b) = a.subcommand_matches("helm") {
             // absolutely need secrets for helm reconcile
-            let (conf, region) = resolve_config(args, ConfigType::Completed)?;
+            let (conf, region) = resolve_config(args, ConfigType::Filtered)?;
             assert!(conf.has_secrets()); // sanity on cluster disruptive commands
 
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();

@@ -8,22 +8,25 @@ use crate::states::ManifestType;
 use super::Result;
 
 // All structs come from the structs directory
-use super::structs::{HealthCheck, ConfigMap};
-use super::structs::{InitContainer, Resources, HostAlias};
-use super::structs::volume::{Volume, VolumeMount};
-use super::structs::PersistentVolume;
-use super::structs::{Metadata, VaultOpts, Dependency};
-use super::structs::security::DataHandling;
-use super::structs::Probe;
-use super::structs::{CronJob, Sidecar, EnvVars};
-use super::structs::{Kafka, Kong, Rbac};
-use super::structs::RollingUpdate;
-use super::structs::autoscaling::AutoScaling;
-use super::structs::tolerations::Tolerations;
-use super::structs::LifeCycle;
-use super::structs::Worker;
-use super::structs::Port;
-use super::structs::rds::Rds;
+use super::structs::{
+    {HealthCheck, ConfigMap},
+    {InitContainer, Resources, HostAlias},
+    volume::{Volume, VolumeMount},
+    PersistentVolume,
+    {Metadata, VaultOpts, Dependency},
+    security::DataHandling,
+    Probe,
+    {CronJob, Sidecar, EnvVars},
+    {Gate, Kafka, Kong, Rbac},
+    RollingUpdate,
+    autoscaling::AutoScaling,
+    tolerations::Tolerations,
+    LifeCycle,
+    Worker,
+    Port,
+    rds::Rds,
+    elasticache::ElastiCache,
+};
 
 /// Main manifest, serializable from shipcat.yml or the shipcat CRD.
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -631,6 +634,10 @@ pub struct Manifest {
     /// ```
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kong: Option<Kong>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate: Option<Gate>,
+
     /// Hosts to override kong hosts
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hosts: Vec<String>,
@@ -677,12 +684,25 @@ pub struct Manifest {
     ///
     /// Set the base parameters for an RDS instance.
     ///
+    /// ```yaml
     /// database:
     ///   engine: postgres
     ///   version: 9.6
     ///   size: 20
     ///   instanceClass: "db.m4.large"
+    /// ```
     pub database: Option<Rds>,
+
+    /// Redis provisioning sent to terraform
+    ///
+    /// Set the base parameters for an ElastiCache instance
+    ///
+    /// ```yaml
+    /// redis:
+    ///   nodes: 2
+    ///   nodeType: cache.m4.large
+    /// ```
+    pub redis: Option<ElastiCache>,
 
     // ------------------------------------------------------------------------
     // Output variables
@@ -783,6 +803,16 @@ impl Manifest {
             region.versioningScheme.verify(v)?;
         }
 
+        // TODO [DIP-499]: Separate gate/kong params + adjust the checks
+        if let Some(g) = &self.gate {
+            if self.kong.is_none() {
+                bail!("Can't have a `gate` configuration without a `kong` one");
+            }
+            if g.public != self.publiclyAccessible {
+                bail!("[Migration plan] `publiclyAccessible` and `gate.public` must be equal");
+            }
+        }
+
         // run the `Verify` trait on all imported structs
         // mandatory structs first
         if let Some(ref r) = self.resources {
@@ -878,6 +908,9 @@ impl Manifest {
         }
         if let Some(db) = &self.database {
             db.verify()?;
+        }
+        if let Some(redis) = &self.redis {
+            redis.verify()?;
         }
 
         Ok(())
