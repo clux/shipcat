@@ -103,3 +103,5 @@ pub use self::persistentvolume::PersistentVolume;
 
 /// AWS RDS
 pub mod rds;
+/// AWS ElastiCache
+pub mod elasticache;

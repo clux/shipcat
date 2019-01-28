@@ -8,22 +8,25 @@ use crate::states::ManifestType;
 use super::Result;
 
 // All structs come from the structs directory
-use super::structs::{HealthCheck, ConfigMap};
-use super::structs::{InitContainer, Resources, HostAlias};
-use super::structs::volume::{Volume, VolumeMount};
-use super::structs::PersistentVolume;
-use super::structs::{Metadata, VaultOpts, Dependency};
-use super::structs::security::DataHandling;
-use super::structs::Probe;
-use super::structs::{CronJob, Sidecar, EnvVars};
-use super::structs::{Gate, Kafka, Kong, Rbac};
-use super::structs::RollingUpdate;
-use super::structs::autoscaling::AutoScaling;
-use super::structs::tolerations::Tolerations;
-use super::structs::LifeCycle;
-use super::structs::Worker;
-use super::structs::Port;
-use super::structs::rds::Rds;
+use super::structs::{
+    {HealthCheck, ConfigMap},
+    {InitContainer, Resources, HostAlias},
+    volume::{Volume, VolumeMount},
+    PersistentVolume,
+    {Metadata, VaultOpts, Dependency},
+    security::DataHandling,
+    Probe,
+    {CronJob, Sidecar, EnvVars},
+    {Gate, Kafka, Kong, Rbac},
+    RollingUpdate,
+    autoscaling::AutoScaling,
+    tolerations::Tolerations,
+    LifeCycle,
+    Worker,
+    Port,
+    rds::Rds,
+    elasticache::ElastiCache,
+};
 
 /// Main manifest, serializable from shipcat.yml or the shipcat CRD.
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -681,12 +684,25 @@ pub struct Manifest {
     ///
     /// Set the base parameters for an RDS instance.
     ///
+    /// ```yaml
     /// database:
     ///   engine: postgres
     ///   version: 9.6
     ///   size: 20
     ///   instanceClass: "db.m4.large"
+    /// ```
     pub database: Option<Rds>,
+
+    /// Redis provisioning sent to terraform
+    ///
+    /// Set the base parameters for an ElastiCache instance
+    ///
+    /// ```yaml
+    /// redis:
+    ///   nodes: 2
+    ///   nodeType: cache.m4.large
+    /// ```
+    pub redis: Option<ElastiCache>,
 
     // ------------------------------------------------------------------------
     // Output variables
@@ -892,6 +908,9 @@ impl Manifest {
         }
         if let Some(db) = &self.database {
             db.verify()?;
+        }
+        if let Some(redis) = &self.redis {
+            redis.verify()?;
         }
 
         Ok(())

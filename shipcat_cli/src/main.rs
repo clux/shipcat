@@ -163,6 +163,8 @@ fn main() {
                 .help("Reduce encoded image info"))
               .subcommand(SubCommand::with_name("databases")
                 .help("Reduce encoded databases"))
+              .subcommand(SubCommand::with_name("caches")
+                .help("Reduce encoded redis caches"))
               .subcommand(SubCommand::with_name("resources")
                 .help("Reduce encoded resouce requests and limits"))
               .subcommand(SubCommand::with_name("apistatus")
@@ -418,6 +420,9 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         }
         if let Some(_) = a.subcommand_matches("databases") {
             return shipcat::get::databases(&conf, &region).map(void);
+        }
+        if let Some(_) = a.subcommand_matches("caches") {
+            return shipcat::get::caches(&conf, &region).map(void);
         }
         if let Some(_) = a.subcommand_matches("codeowners") {
             return shipcat::get::codeowners(&conf).map(void);

@@ -58,7 +58,7 @@ _shipcat()
                 COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 ;;
             get)
-                COMPREPLY=($(compgen -W "versions databases resources images clusterinfo vault-url apistatus codeowners" -- "$cur"))
+                COMPREPLY=($(compgen -W "versions databases caches resources images clusterinfo vault-url apistatus codeowners" -- "$cur"))
                 ;;
             apply|template|values|status|crd)
                 local -r region="$(kubectl config current-context)"
