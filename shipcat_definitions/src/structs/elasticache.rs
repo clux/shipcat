@@ -11,7 +11,7 @@ use super::Metadata;
 /// Only current generation (m5 + r5) + along with cheap t2 nodes
 #[derive(Deserialize, Serialize, Clone)]
 pub enum NodeType {
-    // Standard t2 nodes
+    // Cheap t2 nodes
     #[serde(rename = "cache.t2.micro")]
     CacheT2micro,
     #[serde(rename = "cache.t2.small")]
@@ -19,7 +19,7 @@ pub enum NodeType {
     #[serde(rename = "cache.t2.medium")]
     CacheT2medium,
 
-    // Standard m5
+    // General purpose m5
     #[serde(rename = "cache.m5.large")]
     CacheM5large,
     #[serde(rename = "cache.m5.xlarge")]
