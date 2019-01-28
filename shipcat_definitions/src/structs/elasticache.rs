@@ -56,7 +56,7 @@ pub struct ElastiCache {
 
     /// The node type of the ElastiCache instance
     ///
-    /// Defaults to cache.m4.large
+    /// E.g. cache.m4.large
     pub nodeType: Option<NodeType>,
 }
 

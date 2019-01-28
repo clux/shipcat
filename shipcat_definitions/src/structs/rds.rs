@@ -73,7 +73,7 @@ pub struct Rds {
 
     /// The instance type of the RDS instance
     ///
-    /// Defaults to db.m4.large
+    /// E.g. db.m4.large
     pub instanceClass: Option<InstanceClass>,
 
     // TODO: allow customizing backup setup?
