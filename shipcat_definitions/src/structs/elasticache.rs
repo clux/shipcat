@@ -8,25 +8,36 @@ use super::Metadata;
 /// ElastiCache Node Types
 ///
 /// Subset of the official [AWS ElastiCache node type list](https://aws.amazon.com/elasticache/pricing/).
+/// Only current generation (m5 + r5) + along with cheap t2 nodes
 #[derive(Deserialize, Serialize, Clone)]
 pub enum NodeType {
+    // Standard t2 nodes
     #[serde(rename = "cache.t2.micro")]
-    CacheT2Micro,
-
+    CacheT2micro,
     #[serde(rename = "cache.t2.small")]
-    CacheT2Small,
-
+    CacheT2small,
     #[serde(rename = "cache.t2.medium")]
-    CacheT2Medium,
+    CacheT2medium,
 
-    #[serde(rename = "cache.m4.large")]
-    CacheM4Large,
+    // Standard m5
+    #[serde(rename = "cache.m5.large")]
+    CacheM5large,
+    #[serde(rename = "cache.m5.xlarge")]
+    CacheM5xlarge,
+    #[serde(rename = "cache.m5.2xlarge")]
+    CacheM52xlarge,
+    #[serde(rename = "cache.m5.4xlarge")]
+    CacheM54xlarge,
 
-    #[serde(rename = "cache.m4.xlarge")]
-    CacheM4Xlarge,
-
-    #[serde(rename = "cache.r4.large")]
-    CacheR4Large,
+    // Memory optimized
+    #[serde(rename = "cache.r5.large")]
+    CacheR5large,
+    #[serde(rename = "cache.r5.xlarge")]
+    CacheR5xlarge,
+    #[serde(rename = "cache.r5.2xlarge")]
+    CacheR52xlarge,
+    #[serde(rename = "cache.r5.4xlarge")]
+    CacheR54xlarge,
 }
 
 /// AWS ElastiCache parameters for infrastructure provisioning
