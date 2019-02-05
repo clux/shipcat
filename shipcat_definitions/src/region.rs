@@ -68,6 +68,21 @@ pub struct VaultConfig {
     pub folder: String,
 }
 
+impl VaultConfig {
+    pub fn verify(&self, region: &str) -> Result<()> {
+        if self.url == "" {
+            bail!("Need to set vault url for {}", region);
+        }
+        if self.folder == "" {
+            bail!("Need to set the vault folder for {}", region);
+        }
+        if self.folder.contains("/") {
+            bail!("vault config folder '{}' (under {}) cannot contain slashes", self.folder, self.url);
+        }
+        Ok(())
+    }
+}
+
 //#[derive(Serialize, Deserialize, Clone, Default)]
 //#[serde(deny_unknown_fields)]
 //pub struct HostPort {
@@ -298,7 +313,7 @@ impl Webhook {
                     whc.insert("SHIPCAT_AUDIT_REVISION".into(), revision);
                     whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), url);
                 }
-                
+
                 // shipcat evars
                 if let Ok(url) = env::var("SHIPCAT_AUDIT_CONTEXT_LINK") {
                     whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), url);
@@ -355,7 +370,7 @@ mod test_webhooks {
         env::set_var("SHIPCAT_AUDIT_CONTEXT_LINK", "burl2");
         env::set_var("SHIPCAT_AUDIT_REVISION", "gc2");
 
-        let cfg = wha.get_configuration().unwrap();    
+        let cfg = wha.get_configuration().unwrap();
 
         assert_eq!(cfg["SHIPCAT_AUDIT_CONTEXT_ID"], "cid1");
         assert_eq!(cfg["SHIPCAT_AUDIT_CONTEXT_LINK"], "burl2");
@@ -365,7 +380,7 @@ mod test_webhooks {
         env::remove_var("GIT_COMMIT");
         env::remove_var("SHIPCAT_AUDIT_REVISION");
 
-        let cfg = wha.get_configuration();    
+        let cfg = wha.get_configuration();
 
         assert!(cfg.is_err());
     }

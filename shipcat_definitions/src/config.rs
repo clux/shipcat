@@ -58,10 +58,19 @@ pub struct Cluster {
 pub struct Team {
     /// Team name
     pub name: String,
+
     /// Code owners for this team
+    ///
+    /// Used to generate CODEOWNERS merge policies.
     #[serde(default)]
     pub owners: Vec<Contact>,
+
+    /// Admin team on github
+    ///
+    /// Used to generate vault policies
     #[serde(default)]
+    pub admins: Option<String>,
+
     /// Default support channel - human interaction
     pub support: Option<SlackChannel>,
     /// Default notifications channel - automated messages
@@ -189,12 +198,7 @@ impl Config {
             if r.environment == "" {
                 bail!("Need to set `environment` in {}", r.name)
             }
-            if r.vault.url == "" {
-                bail!("Need to set vault url for {}", r.name);
-            }
-            if r.vault.folder == "" {
-                warn!("Need to set the vault folder {}", r.name);
-            }
+            r.vault.verify(&r.name)?;
             for v in r.base_urls.values() {
                 if v.ends_with('/') {
                     bail!("A base_url must not end with a slash");

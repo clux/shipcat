@@ -170,7 +170,12 @@ fn main() {
               .subcommand(SubCommand::with_name("apistatus")
                 .help("Reduce encoded API info"))
               .subcommand(SubCommand::with_name("codeowners")
-                .help("Reduce code owners across services"))
+                .help("Generate CODEOWNERS syntax for manifests based on team ownership"))
+              .subcommand(SubCommand::with_name("vaultpolicy")
+                .arg(Arg::with_name("team")
+                  .required(true)
+                  .help("Team to generate the policy for"))
+                .help("Generate vault-policies syntax for a region based on team ownership"))
               .subcommand(SubCommand::with_name("clusterinfo")
                 .help("Reduce encoded cluster information"))
               .subcommand(SubCommand::with_name("vault-url")
@@ -426,6 +431,10 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         }
         if let Some(_) = a.subcommand_matches("codeowners") {
             return shipcat::get::codeowners(&conf).map(void);
+        }
+        if let Some(b) = a.subcommand_matches("vaultpolicy") {
+            let team = b.value_of("team").unwrap(); // required param
+            return shipcat::get::vaultpolicy(&conf, team).map(void);
         }
         if let Some(_) = a.subcommand_matches("apistatus") {
             return shipcat::get::apistatus(&conf, &region);
