@@ -69,7 +69,7 @@ pub struct Team {
     ///
     /// Used to generate vault policies
     #[serde(default)]
-    pub admins: Option<String>,
+    pub vaultAdmins: Option<String>,
 
     /// Default support channel - human interaction
     pub support: Option<SlackChannel>,

@@ -83,42 +83,21 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
 ///
 /// Assumes you have setup github provider using right organisation.
 /// vault write auth/github/config organization={GithubOrganisation}
-pub fn vaultpolicy(conf: &Config, team_name: &str) -> Result<String> {
-    let mut output = String::new();
-
-    let _team = if let Some(t) = conf.teams.iter().find(|t| t.name == team_name) {
+pub fn vaultpolicy(conf: &Config, region: &Region, team_name: &str) -> Result<String> {
+    let team = if let Some(t) = conf.teams.iter().find(|t| t.name == team_name) {
         t
     } else {
         bail!("Team '{}' does not exist in shipcat.conf", team_name);
     };
-
-    let default_sys_deny = "path \"sys/*\" {\n  policy = \"deny\"\n}\n";
-    let default_secret_list = "path \"secret/*\" {\n  capabilities = [\"list\"]\n}\n";
-    output += default_sys_deny;
-    output += default_secret_list;
-
-    //let admins = if let Some(gha) = team.admins {
-    //    gha
-    //} else {
-    //    warn!("Team '{}' does not have a defined admin team in shipcat.conf", team_name);
-    //    // default policy only
-    //    return Ok(output)
-    //};
-
-    for svc in Manifest::all()? {
-        // Can rely on blank here because metadata is a global property
-        let mf = Manifest::blank(&svc)?;
-        if let Some(md) = mf.metadata {
-            if md.team == team_name {
-                // allow this team to manage this folder <- later
-                //full: "[\"create\", \"read\", \"update\", \"delete\", \"list\"]";
-                // stick to base perms for now - rolling update may not coincide with code changes..
-                let base_perms = "[\"create\", \"list\"]";
-                // NB: extra star is the mandatory vault.folder (varies per environment)
-                output += &format!("path \"secret/*/{}/*\" {{\n  capabilities = {}\n}}\n", mf.name, base_perms);
-            }
-        }
+    if team.vaultAdmins.is_none() {
+        warn!("Team '{}' does not define a vaultAdmins team in shipcat.conf", team.name);
     }
+    let mut svcs = vec![];
+    for svc in Manifest::all()? {
+        // Can rely on blank manifests in here because metadata is a global property:
+        svcs.push(Manifest::blank(&svc)?);
+    }
+    let output = region.vault.make_policy(svcs, team.clone())?;
     println!("{}", output);
     Ok(output)
 }

@@ -74,7 +74,7 @@ _shipcat()
                 done
 
                 if [[ $prev = "cluster" ]]; then
-                    COMPREPLY=($(compgen -W "helm kong" -- "$cur"))
+                    COMPREPLY=($(compgen -W "helm kong vault" -- "$cur"))
                 elif [[ $clustr_sub = @(helm|kong) ]]; then
                     # Suggest subcommands of helm and global flags
                     COMPREPLY=($(compgen -W "diff reconcile" -- "$cur"))

@@ -216,6 +216,14 @@ fn main() {
                     .help("Number of worker threads used"))
                 .subcommand(SubCommand::with_name("reconcile")
                     .about("Reconcile shipcat custom resource definitions with local state")))
+            .subcommand(SubCommand::with_name("vault")
+                .arg(Arg::with_name("num-jobs")
+                    .short("j")
+                    .long("num-jobs")
+                    .takes_value(true)
+                    .help("Number of worker threads used"))
+                .subcommand(SubCommand::with_name("reconcile")
+                    .about("Reconcile vault policies with manifest state")))
             .subcommand(SubCommand::with_name("helm")
                 .arg(Arg::with_name("num-jobs")
                     .short("j")
@@ -434,7 +442,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         }
         if let Some(b) = a.subcommand_matches("vaultpolicy") {
             let team = b.value_of("team").unwrap(); // required param
-            return shipcat::get::vaultpolicy(&conf, team).map(void);
+            return shipcat::get::vaultpolicy(&conf, &region, team).map(void);
         }
         if let Some(_) = a.subcommand_matches("apistatus") {
             return shipcat::get::apistatus(&conf, &region);
@@ -653,6 +661,13 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("reconcile") {
                 return shipcat::cluster::mass_crd(&conf, &region, jobs);
+            }
+        }
+        if let Some(b) = a.subcommand_matches("vault") {
+            let (conf, region) = resolve_config(args, ConfigType::Base)?;
+            let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
+            if let Some(_) = b.subcommand_matches("reconcile") {
+                return shipcat::cluster::mass_vault(&conf, &region, jobs);
             }
         }
         if let Some(b) = a.subcommand_matches("helm") {

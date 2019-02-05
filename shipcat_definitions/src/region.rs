@@ -1,3 +1,5 @@
+use crate::Team;
+use crate::Manifest;
 use crate::structs::kong::Kong;
 use std::collections::BTreeMap;
 use std::env;
@@ -80,6 +82,32 @@ impl VaultConfig {
             bail!("vault config folder '{}' (under {}) cannot contain slashes", self.folder, self.url);
         }
         Ok(())
+    }
+
+    /// Make vault a vault policy for a team based on team ownership
+    ///
+    /// Returns plaintext hcl
+    pub fn make_policy(&self, mfs: Vec<Manifest>, team: Team) -> Result<String> {
+        let mut output = String::new();
+        let default_sys_deny = "path \"sys/*\" {\n  policy = \"deny\"\n}\n";
+        let default_secret_list = "path \"secret/*\" {\n  capabilities = [\"list\"]\n}\n";
+        output += default_sys_deny;
+        output += default_secret_list;
+
+        // TODO: maybe account for self.folder here
+        for mf in mfs {
+            if let Some(md) = mf.metadata {
+                if md.team == team.name {
+                    // allow this team to manage this folder <- later
+                    //full: "[\"create\", \"read\", \"update\", \"delete\", \"list\"]";
+                    // stick to base perms for now - rolling update may not coincide with code changes..
+                    let base_perms = "[\"create\", \"list\"]";
+                    // NB: extra star is the mandatory vault.folder (varies per environment)
+                    output += &format!("path \"secret/*/{}/*\" {{\n  capabilities = {}\n}}\n", mf.name, base_perms);
+                }
+            }
+        }
+        Ok(output)
     }
 }
 
