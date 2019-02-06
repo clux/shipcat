@@ -216,7 +216,7 @@ fn main() {
                     .help("Number of worker threads used"))
                 .subcommand(SubCommand::with_name("reconcile")
                     .about("Reconcile shipcat custom resource definitions with local state")))
-            .subcommand(SubCommand::with_name("vault")
+            .subcommand(SubCommand::with_name("vault-policy")
                 .arg(Arg::with_name("num-jobs")
                     .short("j")
                     .long("num-jobs")
@@ -440,7 +440,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         if let Some(_) = a.subcommand_matches("codeowners") {
             return shipcat::get::codeowners(&conf).map(void);
         }
-        if let Some(b) = a.subcommand_matches("vaultpolicy") {
+        if let Some(b) = a.subcommand_matches("vault-policy") {
             let team = b.value_of("team").unwrap(); // required param
             return shipcat::get::vaultpolicy(&conf, &region, team).map(void);
         }
@@ -663,7 +663,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
                 return shipcat::cluster::mass_crd(&conf, &region, jobs);
             }
         }
-        if let Some(b) = a.subcommand_matches("vault") {
+        if let Some(b) = a.subcommand_matches("vault-policy") {
             let (conf, region) = resolve_config(args, ConfigType::Base)?;
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("reconcile") {

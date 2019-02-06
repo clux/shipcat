@@ -98,7 +98,7 @@ impl VaultConfig {
         for mf in mfs {
             if let Some(md) = mf.metadata {
                 if md.team == team.name {
-                    // allow this team to manage this folder <- later
+                    // TODO: allow this team to manage this folder fully later!
                     //full: "[\"create\", \"read\", \"update\", \"delete\", \"list\"]";
                     // stick to base perms for now - rolling update may not coincide with code changes..
                     let base_perms = "[\"create\", \"list\"]";
