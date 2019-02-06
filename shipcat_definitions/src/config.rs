@@ -78,6 +78,33 @@ pub struct Team {
     pub notifications: Option<SlackChannel>,
 }
 
+impl Team {
+    pub fn verify(&self) -> Result<()> {
+        for o in &self.owners {
+            o.verify()?; // not very strict
+            // verify optionals filled in for owners:
+            if o.github.is_none() {
+                bail!("Every owner must have a github id attached");
+            }
+        }
+        if self.support.is_none() {
+            bail!("Every team must have a default support channel declared");
+        }
+        if self.notifications.is_none() {
+            bail!("Every team must have a default notifications channel declared");
+        }
+        if let Some(va) = &self.vaultAdmins {
+            use regex::Regex;
+            let re = Regex::new(r"^[a-z\-]{1,30}$").unwrap();
+            if !re.is_match(&va) {
+                bail!("Valid github admin team names are lower case alpha with dashes only.");
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Location {
@@ -211,19 +238,7 @@ impl Config {
             used_kong_urls.push(r.kong.config_url.clone());
         }
         for t in &self.teams {
-            for o in &t.owners {
-                o.verify()?; // not very strict
-                // verify optionals filled in for owners:
-                if o.github.is_none() {
-                    bail!("Every owner must have a github id attached");
-                }
-            }
-            if t.support.is_none() {
-                bail!("Every team must have a default support channel declared");
-            }
-            if t.notifications.is_none() {
-                bail!("Every team must have a default notifications channel declared");
-            }
+            t.verify()?;
         }
         Config::verify_version(&self.version)?;
 
