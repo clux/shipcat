@@ -22,12 +22,12 @@ if ! git grep -c "${1}" > /dev/null; then
 fi
 
 SEDCLI="sed"
-if [ $(uname) == "Darwin" ]; then
+if [ "$(uname)" == "Darwin" ]; then
   SEDCLI="gsed"
-  if ! which $SEDCLI 2>&1 >/dev/null; then
-    echo "We rely on gnu-compatible sed, sorry mac users: `brew install gnu-sed`"
+  if ! hash "$SEDCLI" 2> /dev/null; then
+    echo "We rely on gnu-compatible sed, sorry mac users: brew install gnu-sed"
     exit 1
-  fi  
+  fi
 fi
 
 function do_replace() {
@@ -38,3 +38,7 @@ do_replace "${1}" "${2}"
 
 echo "Versions replaced. Please ensure the following diff is sane:"
 git diff
+
+echo "Building all apps to ensure lockfiles are included."
+cargo build -p raftcat
+cargo build -p shipcat
