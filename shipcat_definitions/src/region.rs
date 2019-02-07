@@ -1,3 +1,5 @@
+use crate::Team;
+use crate::Manifest;
 use crate::structs::kong::Kong;
 use std::collections::BTreeMap;
 use std::env;
@@ -66,6 +68,47 @@ pub struct VaultConfig {
     ///
     /// Typically, the name of the region to disambiguate.
     pub folder: String,
+}
+
+impl VaultConfig {
+    pub fn verify(&self, region: &str) -> Result<()> {
+        if self.url == "" {
+            bail!("Need to set vault url for {}", region);
+        }
+        if self.folder == "" {
+            bail!("Need to set the vault folder for {}", region);
+        }
+        if self.folder.contains("/") {
+            bail!("vault config folder '{}' (under {}) cannot contain slashes", self.folder, self.url);
+        }
+        Ok(())
+    }
+
+    /// Make vault a vault policy for a team based on team ownership
+    ///
+    /// Returns plaintext hcl
+    pub fn make_policy(&self, mfs: Vec<Manifest>, team: Team) -> Result<String> {
+        let mut output = String::new();
+        let default_sys_deny = "path \"sys/*\" {\n  policy = \"deny\"\n}\n";
+        let default_secret_list = "path \"secret/*\" {\n  capabilities = [\"list\"]\n}\n";
+        output += default_sys_deny;
+        output += default_secret_list;
+
+        // TODO: maybe account for self.folder here
+        for mf in mfs {
+            if let Some(md) = mf.metadata {
+                if md.team == team.name {
+                    // TODO: allow this team to manage this folder fully later!
+                    //full: "[\"create\", \"read\", \"update\", \"delete\", \"list\"]";
+                    // stick to base perms for now - rolling update may not coincide with code changes..
+                    let base_perms = "[\"create\", \"list\"]";
+                    // NB: extra star is the mandatory vault.folder (varies per environment)
+                    output += &format!("path \"secret/*/{}/*\" {{\n  capabilities = {}\n}}\n", mf.name, base_perms);
+                }
+            }
+        }
+        Ok(output)
+    }
 }
 
 //#[derive(Serialize, Deserialize, Clone, Default)]
@@ -298,7 +341,7 @@ impl Webhook {
                     whc.insert("SHIPCAT_AUDIT_REVISION".into(), revision);
                     whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), url);
                 }
-                
+
                 // shipcat evars
                 if let Ok(url) = env::var("SHIPCAT_AUDIT_CONTEXT_LINK") {
                     whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), url);
@@ -355,7 +398,7 @@ mod test_webhooks {
         env::set_var("SHIPCAT_AUDIT_CONTEXT_LINK", "burl2");
         env::set_var("SHIPCAT_AUDIT_REVISION", "gc2");
 
-        let cfg = wha.get_configuration().unwrap();    
+        let cfg = wha.get_configuration().unwrap();
 
         assert_eq!(cfg["SHIPCAT_AUDIT_CONTEXT_ID"], "cid1");
         assert_eq!(cfg["SHIPCAT_AUDIT_CONTEXT_LINK"], "burl2");
@@ -365,7 +408,7 @@ mod test_webhooks {
         env::remove_var("GIT_COMMIT");
         env::remove_var("SHIPCAT_AUDIT_REVISION");
 
-        let cfg = wha.get_configuration();    
+        let cfg = wha.get_configuration();
 
         assert!(cfg.is_err());
     }

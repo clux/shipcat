@@ -71,6 +71,37 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
     Ok(output)
 }
 
+/// Generate vault policies based on team owners of services
+///
+/// Cross refereneces config.teams with manifest.metadata.team
+/// The output is the same across all regions to avoid chicken-egg problems.
+/// Introducing services to dev first, where dev vault section is open solves this.
+///
+/// Usage:
+/// shipcat get vaultpolicy teamname | vault policy write github-team-name -
+/// vault write auth/github/map/teams/github-team-name value=github-team-name
+///
+/// Assumes you have setup github provider using right organisation.
+/// vault write auth/github/config organization={GithubOrganisation}
+pub fn vaultpolicy(conf: &Config, region: &Region, team_name: &str) -> Result<String> {
+    let team = if let Some(t) = conf.teams.iter().find(|t| t.name == team_name) {
+        t
+    } else {
+        bail!("Team '{}' does not exist in shipcat.conf", team_name);
+    };
+    if team.vaultAdmins.is_none() {
+        warn!("Team '{}' does not define a vaultAdmins team in shipcat.conf", team.name);
+    }
+    let mut svcs = vec![];
+    for svc in Manifest::all()? {
+        // Can rely on blank manifests in here because metadata is a global property:
+        svcs.push(Manifest::blank(&svc)?);
+    }
+    let output = region.vault.make_policy(svcs, team.clone())?;
+    println!("{}", output);
+    Ok(output)
+}
+
 // ----------------------------------------------------------------------------
 // Reducers for the Config
 

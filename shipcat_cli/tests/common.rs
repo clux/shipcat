@@ -213,3 +213,22 @@ fn templating_test() {
     assert!(cfgtpl.contains("CLIENT_ID"));
     assert!(cfgtpl.contains("CLIENT_ID=FAKEASKID"));
 }
+
+
+#[test]
+fn vault_policy_test() {
+    setup();
+    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let policy = shipcat::get::vaultpolicy(&conf, &reg, "devops").unwrap();
+    let expected_policy = r#"path "sys/*" {
+  policy = "deny"
+}
+path "secret/*" {
+  capabilities = ["list"]
+}
+path "secret/*/fake-ask/*" {
+  capabilities = ["create", "list"]
+}
+"#;
+    assert_eq!(policy, expected_policy);
+}

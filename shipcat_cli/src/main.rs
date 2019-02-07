@@ -170,7 +170,12 @@ fn main() {
               .subcommand(SubCommand::with_name("apistatus")
                 .help("Reduce encoded API info"))
               .subcommand(SubCommand::with_name("codeowners")
-                .help("Reduce code owners across services"))
+                .help("Generate CODEOWNERS syntax for manifests based on team ownership"))
+              .subcommand(SubCommand::with_name("vault-policy")
+                .arg(Arg::with_name("team")
+                  .required(true)
+                  .help("Team to generate the policy for"))
+                .help("Generate vault-policies syntax for a region based on team ownership"))
               .subcommand(SubCommand::with_name("clusterinfo")
                 .help("Reduce encoded cluster information"))
               .subcommand(SubCommand::with_name("vault-url")
@@ -211,6 +216,14 @@ fn main() {
                     .help("Number of worker threads used"))
                 .subcommand(SubCommand::with_name("reconcile")
                     .about("Reconcile shipcat custom resource definitions with local state")))
+            .subcommand(SubCommand::with_name("vault-policy")
+                .arg(Arg::with_name("num-jobs")
+                    .short("j")
+                    .long("num-jobs")
+                    .takes_value(true)
+                    .help("Number of worker threads used"))
+                .subcommand(SubCommand::with_name("reconcile")
+                    .about("Reconcile vault policies with manifest state")))
             .subcommand(SubCommand::with_name("helm")
                 .arg(Arg::with_name("num-jobs")
                     .short("j")
@@ -426,6 +439,10 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         }
         if let Some(_) = a.subcommand_matches("codeowners") {
             return shipcat::get::codeowners(&conf).map(void);
+        }
+        if let Some(b) = a.subcommand_matches("vault-policy") {
+            let team = b.value_of("team").unwrap(); // required param
+            return shipcat::get::vaultpolicy(&conf, &region, team).map(void);
         }
         if let Some(_) = a.subcommand_matches("apistatus") {
             return shipcat::get::apistatus(&conf, &region);
@@ -644,6 +661,13 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("reconcile") {
                 return shipcat::cluster::mass_crd(&conf, &region, jobs);
+            }
+        }
+        if let Some(b) = a.subcommand_matches("vault-policy") {
+            let (conf, region) = resolve_config(args, ConfigType::Base)?;
+            let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
+            if let Some(_) = b.subcommand_matches("reconcile") {
+                return shipcat::cluster::mass_vault(&conf, &region, jobs);
             }
         }
         if let Some(b) = a.subcommand_matches("helm") {

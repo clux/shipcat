@@ -1,4 +1,4 @@
-use super::{Config, Region};
+use shipcat_definitions::{Config, Region, Team};
 use super::helm::{self, UpgradeMode};
 use super::{Result, Manifest};
 use crate::webhooks;
@@ -50,7 +50,7 @@ fn crd_reconcile(svcs: Vec<String>, config: &Config, region: &Region, n_workers:
     use shipcat_definitions::gen_all_crds;
     for crdef in gen_all_crds() {
         kube::apply_crd(&region.name, crdef.clone(), &region.namespace)?;
-    }    
+    }
 
     // Make sure config can apply first
     let applycfg = if let Some(ref crs) = &region.customResources {
@@ -100,5 +100,118 @@ fn crd_reconcile(svcs: Vec<String>, config: &Config, region: &Region, n_workers:
 fn crd_reconcile_worker(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
     let mf = Manifest::base(svc, conf, reg)?;
     kube::apply_crd(svc, mf, &reg.namespace)?;
+    Ok(())
+}
+
+/// Apply all vault policies in a region
+///
+/// Generates and writes policies direct to vault using their github team name as auth mappers.
+/// Equivalent to:
+///
+/// ```pseudo
+/// for team in shipcat.conf.teams:
+///   shipcat get vaultpolicy {team.name} | vault policy write {team.admins} -
+///   vault write auth/github/map/teams/{team.admins} value={team.admins}
+/// ```
+///
+/// using vault setup for the vault specified in the `Region`.
+/// If one vault is reused for all regions, this can be done once.
+///
+/// Requires a `vault login` outside of this command as a user who
+/// is sufficiently elevated to write general policies.
+pub fn mass_vault(conf: &Config, reg: &Region, n_workers: usize) -> Result<()> {
+    let mut svcs = vec![];
+    for svc in Manifest::all()? {
+        // Can rely on blank manifests in here because metadata is a global property:
+        svcs.push(Manifest::blank(&svc)?);
+    }
+    vault_reconcile(svcs, &conf, reg, n_workers)
+}
+
+fn vault_reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
+    use threadpool::ThreadPool;
+    use std::sync::mpsc::channel;
+
+    let n_jobs = conf.teams.len();
+    let pool = ThreadPool::new(n_workers);
+    info!("Starting {} parallel vault jobs using {} workers", n_jobs, n_workers);
+
+    // then parallel apply the remaining ones
+    let (tx, rx) = channel();
+    for t in conf.teams.clone() {
+        let mfs = svcs.clone();
+        let reg = region.clone();
+        let tx = tx.clone(); // tx channel reused in each thread
+        pool.execute(move || {
+            debug!("Running vault reconcile for {}", t.name);
+            let res = vault_reconcile_worker(mfs, t, reg);
+            tx.send(res).expect("channel will be there waiting for the pool");
+        });
+    }
+    // wait for threads collect errors
+    let res = rx.iter().take(n_jobs).map(|r| {
+        match r {
+            Ok(_) => {},
+            Err(ref e) => warn!("error: {}", e),
+        }
+        r
+    }).filter_map(Result::err).collect::<Vec<_>>();
+    // propagate first non-ignorable error if exists
+    if let Some(e) = res.into_iter().next() {
+        // no errors ignoreable atm
+        return Err(e)
+    }
+    Ok(())
+}
+
+fn vault_reconcile_worker(svcs: Vec<Manifest>, team: Team, reg: Region) -> Result<()> {
+    use std::path::Path;
+    use std::fs::File;
+    use std::io::Write;
+    //let root = std::env::var("SHIPCAT_MANIFEST_DIR").expect("needs manifest directory set");
+    if let Some(admins) = team.clone().vaultAdmins {
+        // TODO: validate that the github team exists?
+        let policy = reg.vault.make_policy(svcs, team.clone())?;
+        debug!("Vault policy: {}", policy);
+        // Write policy to a file named "{admins}-policy.hcl"
+        let pth = Path::new(".").join(format!("{}-policy.hcl", admins));
+        info!("Writing vault policy for {} to {}", admins, pth.display());
+        let mut f = File::create(&pth)?;
+        writeln!(f, "{}", policy)?;
+        // Write a vault policy with the name equal to the admin team:
+        use std::process::Command;
+        // vault write policy < file
+        {
+            info!("Applying vault policy for {}", admins);
+            let write_args = vec![
+                "policy".into(),
+                "write".into(),
+                admins.clone(),
+                format!("{}-policy.hcl", admins),
+            ];
+            debug!("vault {}", write_args.join(" "));
+            let s = Command::new("vault").args(&write_args).status()?;
+            if !s.success() {
+                bail!("Subprocess failure from vault: {}", s.code().unwrap_or(1001))
+            }
+        }
+        // vault write auth -> team
+        {
+            info!("Associating vault policy for {} with github team: {}", team.name, admins);
+            let assoc_args = vec![
+                "write".into(),
+                format!("auth/github/map/teams/{}", admins),
+                format!("value={}", admins),
+            ];
+            debug!("vault {}", assoc_args.join(" "));
+            let s = Command::new("vault").args(&assoc_args).status()?;
+            if !s.success() {
+                bail!("Subprocess failure from vault: {}", s.code().unwrap_or(1001))
+            }
+        }
+    } else {
+        warn!("Team '{}' does not have a defined vaultAdmins team in shipcat.conf - ignoring", team.name);
+        return Ok(()) // nothing to do
+    };
     Ok(())
 }

@@ -58,15 +58,51 @@ pub struct Cluster {
 pub struct Team {
     /// Team name
     pub name: String,
+
     /// Code owners for this team
+    ///
+    /// Used to generate CODEOWNERS merge policies.
     #[serde(default)]
     pub owners: Vec<Contact>,
+
+    /// Admin team on github
+    ///
+    /// Used to generate vault policies
     #[serde(default)]
+    pub vaultAdmins: Option<String>,
+
     /// Default support channel - human interaction
     pub support: Option<SlackChannel>,
     /// Default notifications channel - automated messages
     #[serde(default)]
     pub notifications: Option<SlackChannel>,
+}
+
+impl Team {
+    pub fn verify(&self) -> Result<()> {
+        for o in &self.owners {
+            o.verify()?; // not very strict
+            // verify optionals filled in for owners:
+            if o.github.is_none() {
+                bail!("Every owner must have a github id attached");
+            }
+        }
+        if self.support.is_none() {
+            bail!("Every team must have a default support channel declared");
+        }
+        if self.notifications.is_none() {
+            bail!("Every team must have a default notifications channel declared");
+        }
+        if let Some(va) = &self.vaultAdmins {
+            use regex::Regex;
+            let re = Regex::new(r"^[a-z\-]{1,30}$").unwrap();
+            if !re.is_match(&va) {
+                bail!("Valid github admin team names are lower case alpha with dashes only.");
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -189,12 +225,7 @@ impl Config {
             if r.environment == "" {
                 bail!("Need to set `environment` in {}", r.name)
             }
-            if r.vault.url == "" {
-                bail!("Need to set vault url for {}", r.name);
-            }
-            if r.vault.folder == "" {
-                warn!("Need to set the vault folder {}", r.name);
-            }
+            r.vault.verify(&r.name)?;
             for v in r.base_urls.values() {
                 if v.ends_with('/') {
                     bail!("A base_url must not end with a slash");
@@ -207,19 +238,7 @@ impl Config {
             used_kong_urls.push(r.kong.config_url.clone());
         }
         for t in &self.teams {
-            for o in &t.owners {
-                o.verify()?; // not very strict
-                // verify optionals filled in for owners:
-                if o.github.is_none() {
-                    bail!("Every owner must have a github id attached");
-                }
-            }
-            if t.support.is_none() {
-                bail!("Every team must have a default support channel declared");
-            }
-            if t.notifications.is_none() {
-                bail!("Every team must have a default notifications channel declared");
-            }
+            t.verify()?;
         }
         Config::verify_version(&self.version)?;
 
