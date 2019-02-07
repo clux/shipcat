@@ -171,7 +171,7 @@ fn main() {
                 .help("Reduce encoded API info"))
               .subcommand(SubCommand::with_name("codeowners")
                 .help("Generate CODEOWNERS syntax for manifests based on team ownership"))
-              .subcommand(SubCommand::with_name("vaultpolicy")
+              .subcommand(SubCommand::with_name("vault-policy")
                 .arg(Arg::with_name("team")
                   .required(true)
                   .help("Team to generate the policy for"))
