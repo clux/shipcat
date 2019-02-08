@@ -101,6 +101,8 @@ pub struct Metadata {
     pub notifications: Option<SlackChannel>,
     /// Runbook name in repo
     pub runbook: Option<String>,
+    /// Description of the service
+    pub description: Option<String>,
     /// Canoncal documentation link
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docs: Option<String>,
