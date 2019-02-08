@@ -171,7 +171,7 @@ fn vault_reconcile_worker(svcs: Vec<Manifest>, team: Team, reg: Region) -> Resul
     //let root = std::env::var("SHIPCAT_MANIFEST_DIR").expect("needs manifest directory set");
     if let Some(admins) = team.clone().vaultAdmins {
         // TODO: validate that the github team exists?
-        let policy = reg.vault.make_policy(svcs, team.clone())?;
+        let policy = reg.vault.make_policy(svcs, team.clone(), reg.environment.clone())?;
         debug!("Vault policy: {}", policy);
         // Write policy to a file named "{admins}-policy.hcl"
         let pth = Path::new(".").join(format!("{}-policy.hcl", admins));
@@ -182,7 +182,7 @@ fn vault_reconcile_worker(svcs: Vec<Manifest>, team: Team, reg: Region) -> Resul
         use std::process::Command;
         // vault write policy < file
         {
-            info!("Applying vault policy for {}", admins);
+            info!("Applying vault policy for {} in {}", admins, reg.name);
             let write_args = vec![
                 "policy".into(),
                 "write".into(),
@@ -197,7 +197,7 @@ fn vault_reconcile_worker(svcs: Vec<Manifest>, team: Team, reg: Region) -> Resul
         }
         // vault write auth -> team
         {
-            info!("Associating vault policy for {} with github team: {}", team.name, admins);
+            info!("Associating vault policy for {} with github team {} in {}", team.name, admins, reg.name);
             let assoc_args = vec![
                 "write".into(),
                 format!("auth/github/map/teams/{}", admins),
@@ -210,7 +210,7 @@ fn vault_reconcile_worker(svcs: Vec<Manifest>, team: Team, reg: Region) -> Resul
             }
         }
     } else {
-        warn!("Team '{}' does not have a defined vaultAdmins team in shipcat.conf - ignoring", team.name);
+        debug!("Team '{}' does not have a defined vaultAdmins team in shipcat.conf - ignoring", team.name);
         return Ok(()) // nothing to do
     };
     Ok(())

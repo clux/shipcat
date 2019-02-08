@@ -39,7 +39,7 @@ impl StatuscakeTest {
         // Generate tags, both regional and environment
         let mut test_tags = format!("{},{}",
             region.name,
-            region.environment);
+            region.environment.to_string());
 
         // Process extra region-specific config
         // Set the Contact group if available

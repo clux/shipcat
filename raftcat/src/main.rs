@@ -83,7 +83,7 @@ impl AppState {
         let cname = env::var("KUBE_CLUSTER").ok();
         let (cluster, region) = self.config.resolve_cluster(&self.region, cname).unwrap();
         if let Some(s) = region.sentry {
-            match sentryapi::get_slugs(&s.url, &region.environment) {
+            match sentryapi::get_slugs(&s.url, &region.environment.to_string()) {
                 Ok(res) => {
                     self.sentries = res;
                     info!("Loaded {} sentry slugs", self.sentries.len());

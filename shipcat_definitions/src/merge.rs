@@ -36,7 +36,7 @@ impl Manifest {
         }
 
         // Inject the region's environment name and namespace
-        self.environment = reg.environment.clone();
+        self.environment = reg.environment.to_string();
         self.namespace = reg.namespace.clone();
         self.region = reg.name.clone();
 

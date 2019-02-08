@@ -87,23 +87,29 @@ impl VaultConfig {
     /// Make vault a vault policy for a team based on team ownership
     ///
     /// Returns plaintext hcl
-    pub fn make_policy(&self, mfs: Vec<Manifest>, team: Team) -> Result<String> {
+    pub fn make_policy(&self, mfs: Vec<Manifest>, team: Team, env: Environment) -> Result<String> {
         let mut output = String::new();
         let default_sys_deny = "path \"sys/*\" {\n  policy = \"deny\"\n}\n";
         let default_secret_list = "path \"secret/*\" {\n  capabilities = [\"list\"]\n}\n";
+        let default_policy_list = "path \"sys/policy\" {\n  capabilities = [\"list\", \"read\"]\n}\n";
+
         output += default_sys_deny;
         output += default_secret_list;
+        output += default_policy_list;
 
-        // TODO: maybe account for self.folder here
         for mf in mfs {
             if let Some(md) = mf.metadata {
                 if md.team == team.name {
-                    // TODO: allow this team to manage this folder fully later!
-                    //full: "[\"create\", \"read\", \"update\", \"delete\", \"list\"]";
-                    // stick to base perms for now - rolling update may not coincide with code changes..
-                    let base_perms = "[\"create\", \"list\"]";
-                    // NB: extra star is the mandatory vault.folder (varies per environment)
-                    output += &format!("path \"secret/*/{}/*\" {{\n  capabilities = {}\n}}\n", mf.name, base_perms);
+                    let perms = if env == Environment::Prod {
+                        "[\"create\", \"list\"]"
+                    } else {
+                        "[\"create\", \"read\", \"update\", \"delete\", \"list\"]"
+                    };
+                    output += &format!("path \"secret/{}/{}/*\" {{\n  capabilities = {}\n}}\n",
+                        self.folder,
+                        mf.name,
+                        perms
+                    );
                 }
             }
         }
@@ -416,6 +422,33 @@ mod test_webhooks {
 
 // ----------------------------------------------------------------------------------
 
+/// Environments are well defined strings
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Environment {
+    /// Production environment
+    ///
+    /// This environment has limited vault access.
+    Prod,
+
+    // Normal environment naes
+    Preprod,
+    Staging,
+    Dev,
+    Test,
+
+    // Misc environments
+    Example,
+}
+
+
+impl ToString for Environment {
+    fn to_string(&self) -> String {
+        // NB: this corresponds to serde serialization atm - used in a few places
+        format!("{:?}", self).to_lowercase()
+    }
+}
+
 /// A region is an abstract kube context
 ///
 /// Either it's a pure kubernetes context with a namespace and a cluster,
@@ -429,7 +462,7 @@ pub struct Region {
     /// Kubernetes namespace
     pub namespace: String,
     /// Environment (e.g. `dev` or `staging`)
-    pub environment: String,
+    pub environment: Environment,
     /// Versioning scheme
     pub versioningScheme: VersionScheme,
 

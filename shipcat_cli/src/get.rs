@@ -97,7 +97,7 @@ pub fn vaultpolicy(conf: &Config, region: &Region, team_name: &str) -> Result<St
         // Can rely on blank manifests in here because metadata is a global property:
         svcs.push(Manifest::blank(&svc)?);
     }
-    let output = region.vault.make_policy(svcs, team.clone())?;
+    let output = region.vault.make_policy(svcs, team.clone(), region.environment.clone())?;
     println!("{}", output);
     Ok(output)
 }
@@ -126,7 +126,7 @@ pub fn clusterinfo(conf: &Config, ctx: &str, cluster: Option<&str>) -> Result<Cl
     let ci = ClusterInfo {
         region: reg.name,
         namespace: reg.namespace,
-        environment: reg.environment,
+        environment: reg.environment.to_string(),
         apiserver: clust.api,
         cluster: clust.name,
         vault: reg.vault.url.clone(),

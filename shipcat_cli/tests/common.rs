@@ -39,7 +39,7 @@ pub fn setup() {
     });
 }
 
-use shipcat_definitions::{Config, Manifest}; // Product
+use shipcat_definitions::{Config, Manifest, Environment}; // Product
 use shipcat_definitions::ConfigType;
 
 #[test]
@@ -220,15 +220,29 @@ fn vault_policy_test() {
     setup();
     let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
     let policy = shipcat::get::vaultpolicy(&conf, &reg, "devops").unwrap();
-    let expected_policy = r#"path "sys/*" {
+
+    println!("got dev policy for devops as {}", policy);
+    let expected_deny = r#"path "sys/*" {
   policy = "deny"
-}
-path "secret/*" {
+}"#;
+    let expected_list = r#"path "secret/*" {
   capabilities = ["list"]
-}
-path "secret/*/fake-ask/*" {
+}"#;
+    let expected_access = r#"path "secret/dev-uk/fake-ask/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}"#;
+
+    assert!(policy.contains(expected_deny));
+    assert!(policy.contains(expected_list));
+    assert!(policy.contains(expected_access));
+
+    // prod should be stricter:
+    let mut fakereg = reg.clone();
+    fakereg.environment = Environment::Prod;
+    let strict_policy = shipcat::get::vaultpolicy(&conf, &fakereg, "devops").unwrap();
+
+    let expected_strict_access = r#"path "secret/dev-uk/fake-ask/*" {
   capabilities = ["create", "list"]
-}
-"#;
-    assert_eq!(policy, expected_policy);
+}"#;
+    assert!(strict_policy.contains(expected_strict_access));
 }

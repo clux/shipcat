@@ -222,9 +222,6 @@ impl Config {
             if r.namespace == "" {
                 bail!("Need to set `namespace` in {}", r.name);
             }
-            if r.environment == "" {
-                bail!("Need to set `environment` in {}", r.name)
-            }
             r.vault.verify(&r.name)?;
             for v in r.base_urls.values() {
                 if v.ends_with('/') {
