@@ -47,6 +47,11 @@ cronJobs:
   command: ["/run"]
   env:
     URL: "{{ base_urls.services }}/cronjob"
+jobs:
+- name: regular-job
+  command: ["/run"]
+  env:
+    URL: "{{ base_urls.services }}/job"
 regions:
 - dev-uk
 vault:

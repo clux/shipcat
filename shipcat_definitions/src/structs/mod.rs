@@ -86,6 +86,10 @@ pub use self::vault::VaultOpts;
 pub mod cronjob;
 pub use self::cronjob::CronJob;
 
+/// Jobs
+pub mod job;
+pub use self::job::Job;
+
 /// Sidecar
 pub mod sidecar;
 pub use self::sidecar::Sidecar;

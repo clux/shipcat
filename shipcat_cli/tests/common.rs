@@ -195,9 +195,15 @@ fn templating_test() {
     assert_eq!(w.env.plain["URL"], "https://woot.com/worker".to_string());
     assert_eq!(w.env.secrets, BTreeSet::new());
 
+    // verify cron job templating
     let c = &mf.cronJobs[0];
     assert_eq!(c.env.plain["URL"], "https://woot.com/cronjob".to_string());
     assert_eq!(c.env.secrets, BTreeSet::new());
+
+    // verify job templating
+    let j = &mf.jobs[0];
+    assert_eq!(j.env.plain["URL"], "https://woot.com/job".to_string());
+    assert_eq!(j.env.secrets, BTreeSet::new());
 
     // verify secrets
     let sec = mf.secrets;

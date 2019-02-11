@@ -16,7 +16,7 @@ use super::structs::{
     {Metadata, VaultOpts, Dependency},
     security::DataHandling,
     Probe,
-    {CronJob, Sidecar, EnvVars},
+    {CronJob, Job, Sidecar, EnvVars},
     {Gate, Kafka, Kong, Rbac},
     RollingUpdate,
     autoscaling::AutoScaling,
@@ -316,7 +316,6 @@ pub struct Manifest {
     ///
     /// This is normally the service your application listens on.
     /// Kong deals with mapping the port to a nicer one.
-    ///
     /// ```yaml
     /// httpPort: 8000
     /// ```
@@ -580,7 +579,7 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub persistentVolumes: Vec<PersistentVolume>,
 
-    /// Cronjobs images to run as kubernetes `CronJob` objects
+    /// Cronjob images to run as kubernetes `CronJob` objects
     ///
     /// Limited usefulness abstraction, that should be avoided.
     /// An abstraction on top of [kubernetes cron jobs](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/)
@@ -593,6 +592,21 @@ pub struct Manifest {
     /// ```
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cronJobs: Vec<CronJob>,
+
+    /// Job images to run as kubernetes `Job` objects
+    ///
+    /// An abstraction on top of [kubernetes jobs](https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/)
+    ///
+    /// NOTE: This experimental feature runs in parallel to deployments.
+    ///       There are no guarantees. Jobs will currently fail silently if they fail.
+    ///
+    /// ```yaml
+    /// jobs:
+    /// - name: ping-task
+    ///   command: ["./ping.sh"]
+    /// ```
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub jobs: Vec<Job>,
 
     /// Annotations to set on `Service` objects
     ///
@@ -938,6 +952,9 @@ impl Manifest {
         }
         for c in &mut self.cronJobs {
             envs.push(&mut c.env);
+        }
+        for j in &mut self.jobs {
+            envs.push(&mut j.env);
         }
         envs
     }

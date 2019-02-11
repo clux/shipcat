@@ -213,6 +213,9 @@ impl Manifest {
         if !mf.cronJobs.is_empty() {
             self.cronJobs = mf.cronJobs;
         }
+        if !mf.jobs.is_empty() {
+            self.jobs = mf.jobs;
+        }
         if !mf.dependencies.is_empty() {
             self.dependencies = mf.dependencies;
         }
