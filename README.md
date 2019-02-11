@@ -36,7 +36,7 @@ and `shipcat` creates a 2 replica [kubernetes deployment](https://kubernetes.io/
 Secrets are managed by [Vault](https://www.vaultproject.io/) and resolved by `shipcat` pre-merge, and pre-upgrade.
 
 ## Documentation
-Browse the API documentation, or the setup guides availble at:
+Browse the API documentation, or the setup guides available at:
 
 - [Introduction to shipcat](https://github.com/Babylonpartners/shipcat/blob/master/doc/intro.md)
 - [Shipcat Definitions](https://babylonpartners.github.io/shipcat/shipcat_definitions/index.html)
@@ -64,7 +64,7 @@ While shipcat mainly deals with kubernetes, there are extensive and optional int
 - [StatusCake](https://www.statuscake.com/)
 - [Slack](https://slack.com/)
 
-and some minor convencience integrations from common technologies like: [Grafana](https://grafana.com/), [CircleCI](https://circleci.com/), [Quay.io](https://quay.io/), [logz.io](https://logz.io/), [Sentry](https://sentry.io/), [New Relic](https://newrelic.com/)
+and some minor convenience integrations from common technologies like: [Grafana](https://grafana.com/), [CircleCI](https://circleci.com/), [Quay.io](https://quay.io/), [logz.io](https://logz.io/), [Sentry](https://sentry.io/), [New Relic](https://newrelic.com/)
 
 ## CLI installation
 
