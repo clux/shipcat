@@ -24,6 +24,9 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
     info!("Starting {} parallel helm jobs using {} workers", n_jobs, n_workers);
     webhooks::reconcile_event(UpgradeState::Pending, &region);
 
+    // get a list of services for find_redundant_services (done at end)
+    let expected : Vec<String> = svcs.iter().map(|mf| mf.name.clone()).collect();
+
     let (tx, rx) = channel();
     for mf in svcs {
         // satisfying thread safety
@@ -64,6 +67,9 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
         }
     }
     webhooks::reconcile_event(UpgradeState::Completed, &region);
+
+    // check for redundant services (informational only for now)
+    let _ = helpers::find_redundant_services(&region.namespace, &expected);
     Ok(())
 }
 

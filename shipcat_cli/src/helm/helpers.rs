@@ -82,6 +82,42 @@ pub fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
     Ok((out, err, s.status.success()))
 }
 
+use std::collections::HashSet;
+/// Find all services in a given namespace
+///
+/// Used to warn (for now) when services run that are not in Manifest::available()
+/// This is an experimental warning only function.
+/// It is possible that `helm ls -q` is still unreliable.
+pub fn find_redundant_services(ns: &str, svcs: &[String]) -> Result<Vec<String>> {
+    let requested: HashSet<_> = svcs.iter().cloned().collect();
+
+    let lsargs = vec![
+        format!("--tiller-namespace={}", ns),
+        "ls".into(),
+        "-q".into()
+    ];
+    debug!("helm {}", lsargs.join(" "));
+    let found : HashSet<_> = match hout(lsargs.clone()) {
+        Ok((vout, verr, true)) => {
+            if !verr.is_empty() {
+                warn!("helm {} stderr: {}",  lsargs.join(" "), verr);
+            }
+            // we should have a helm ls -q output:
+            vout.lines().into_iter().map(String::from).collect()
+        }
+        _ => {
+            bail!("No services found in {} tiller", ns)
+        }
+    };
+    let excess : HashSet<_> = found.difference(&requested).collect();
+    if !excess.is_empty() {
+        warn!("Found extraneous helm services: {:?}", excess);
+    } else {
+        debug!("No excess manifests found");
+    }
+    Ok(excess.into_iter().cloned().collect())
+}
+
 pub fn infer_fallback_version(service: &str, ns: &str) -> Result<String> {
     // fetch current version from helm
     let imgvec = vec![
