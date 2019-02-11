@@ -91,7 +91,7 @@ impl VaultConfig {
         let mut output = String::new();
         let default_sys_deny = "path \"sys/*\" {\n  policy = \"deny\"\n}\n";
         let default_secret_list = "path \"secret/*\" {\n  capabilities = [\"list\"]\n}\n";
-        let default_policy_list = "path \"sys/policy\" {\n  capabilities = [\"list\", \"read\"]\n}\n";
+        let default_policy_list = "path \"sys/policy/*\" {\n  capabilities = [\"list\", \"read\"]\n}\n";
 
         output += default_sys_deny;
         output += default_secret_list;
