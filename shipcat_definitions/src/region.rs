@@ -89,22 +89,27 @@ impl VaultConfig {
     /// Returns plaintext hcl
     pub fn make_policy(&self, mfs: Vec<Manifest>, team: Team, env: Environment) -> Result<String> {
         let mut output = String::new();
+
+        // Access to give to relevant data TODO: configurable
+        let perms = if env == Environment::Prod {
+            "[\"create\", \"list\"]"
+        } else {
+            "[\"create\", \"read\", \"update\", \"delete\", \"list\"]"
+        };
+
         let default_sys_deny = "path \"sys/*\" {\n  policy = \"deny\"\n}\n";
         let default_secret_list = "path \"secret/*\" {\n  capabilities = [\"list\"]\n}\n";
         let default_policy_list = "path \"sys/policy/*\" {\n  capabilities = [\"list\", \"read\"]\n}\n";
+        let kong_policy = format!("path \"secret/{}/kong/consumers/*\" {{\n  capabilities = {}\n}}\n", self.folder, perms);
 
         output += default_sys_deny;
         output += default_secret_list;
         output += default_policy_list;
+        output += &kong_policy;
 
         for mf in mfs {
             if let Some(md) = mf.metadata {
                 if md.team == team.name {
-                    let perms = if env == Environment::Prod {
-                        "[\"create\", \"list\"]"
-                    } else {
-                        "[\"create\", \"read\", \"update\", \"delete\", \"list\"]"
-                    };
                     output += &format!("path \"secret/{}/{}/*\" {{\n  capabilities = {}\n}}\n",
                         self.folder,
                         mf.name,

@@ -118,7 +118,7 @@ _shipcat()
                             region=${words[i]}
                         fi
                     done
-                    local -r svcs="$(shipcat list-services "$region")"
+                    local -r svcs="$(shipcat list-services -r "$region")"
                     COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 fi
                 ;;
@@ -133,7 +133,7 @@ _shipcat()
 
                 if [[ $prev = "helm" ]]; then
                     local -r region=$(kubectl config current-context)
-                    local -r svcs="$(shipcat list-services "$region")"
+                    local -r svcs="$(shipcat list-services -r "$region")"
                     COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 elif [ -n "${helm_sub}" ]; then
                     # TODO; helm sub command specific flags here
