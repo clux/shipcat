@@ -24,142 +24,146 @@
       <a class="support-link" title="Get help!" href="{{ support_link }}"><img src='/raftcat/static/images/slack.svg' /></a>
     </div>
   </header>
-  <div class="wrapper">
-    <section class="content">
-      <div class="columns">
-        <main class="main">
-          <section class="tabs">
-            <ul class="tabs__tabList">
-              <li class="tabList__tabItem">
-                <button class="tabItem__button" data-tab="quickLinks">Integrations</button>
-              </li>
-              <li class="tabList__tabItem">
-                <button class="tabItem__button" data-tab="environment">Environment</button>
-              </li>
-              {% if revdeps %}
+
+  <main class="main">
+    <div class="wrapper">
+      <section class="content">
+        <div class="columns">
+            <section class="tabs">
+              <ul class="tabs__tabList">
                 <li class="tabList__tabItem">
-                  <button class="tabItem__button" data-tab="usedBy">Dependencies</button>
+                  <button class="tabItem__button" data-tab="quickLinks">Integrations</button>
                 </li>
-              {% endif %}
-              <li class="tabList__tabItem">
-                <button class="tabItem__button" data-tab="manifest">Manifest</button>
-              </li>
-            </ul>
-            <div class="tabs__content">
-              <div id="manifest">
-                <pre><code class="yaml">{{ pretty_manifest }}</code></pre>
-              </div>
-
-              <div id="quickLinks">
-                <ul class="quick">
-                  {% if newrelic_link %}
-                  <li><a target="_blank"  href="{{ newrelic_link }}">
-                    <figure class='logo-link'>
-                      <img src='/raftcat/static/images/newrelic.png' />
-                      <figcaption>NewRelic</figcaption>
-                    </figure>
-                  </a></li>
-                  {% endif %}
-                  {% if grafana_link %}
-                  <li><a target="_blank"  href="{{ grafana_link }}">
-                    <figure class='logo-link'>
-                      <img src='/raftcat/static/images/grafana.png' />
-                      <figcaption>Grafana</figcaption>
-                    </figure>
-                  </a></li>
-                  {% endif %}
-                  {% if logzio_link %}
-                  <li><a target="_blank"  href="{{ logzio_link }}">
-                    <figure class='logo-link'>
-                      <img src='/raftcat/static/images/logz.io.png' />
-                      <figcaption>Logz.io</figcaption>
-                    </figure>
-                  </a></li>
-                  {% endif %}
-                  {% if sentry_link %}
-                  <li><a target="_blank"  href="{{ sentry_link }}">
-                    <figure class='logo-link'>
-                      <img src='/raftcat/static/images/sentry.png' />
-                      <figcaption>Sentry</figcaption>
-                    </figure>
-                  </a></li>
-                  {% endif %}
-                  <li><a target="_blank"  href="{{ vault_link }}">
-                    <figure class='logo-link'>
-                      <img src='/raftcat/static/images/vault.png' />
-                      <figcaption>Vault</figcaption>
-                    </figure>
-                  </a></li>
-                  <li><a target="_blank"  href="{{ circle_link }}">
-                    <figure class='logo-link'>
-                        <img src='/raftcat/static/images/circleci.png' />
-                        <figcaption>CircleCI</figcaption>
-                      </figure>
-                  </a></li>
-                  <li>
-                    <a target="_blank" href="{{ quay_link }}">
-                      <figure class='logo-link'>
-                        <img src='/raftcat/static/images/quay.png' />
-                        <figcaption>Quay.io</figcaption>
-                      </figure>
-                    </a>
+                <li class="tabList__tabItem">
+                  <button class="tabItem__button" data-tab="environment">Environment</button>
+                </li>
+                {% if revdeps %}
+                  <li class="tabList__tabItem">
+                    <button class="tabItem__button" data-tab="usedBy">Dependencies</button>
                   </li>
-                </ul>
-              </div>
+                {% endif %}
+                <li class="tabList__tabItem">
+                  <button class="tabItem__button" data-tab="manifest">Manifest</button>
+                </li>
+              </ul>
+              <div class="tabs__content">
+                <div id="manifest">
+                  <pre><code class="yaml">{{ pretty_manifest }}</code></pre>
+                </div>
 
-              <div id="environment">
-                <div style="overflow-x: scroll;">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Variable</th>
-                      <th>Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for key, value in mfenv.plain %}
+                <div id="quickLinks">
+                  <ul class="quick">
+                    {% if newrelic_link %}
+                    <li><a target="_blank"  href="{{ newrelic_link }}">
+                      <figure class='logo-link'>
+                        <img src='/raftcat/static/images/newrelic.png' />
+                        <figcaption>NewRelic</figcaption>
+                      </figure>
+                    </a></li>
+                    {% endif %}
+                    {% if grafana_link %}
+                    <li><a target="_blank"  href="{{ grafana_link }}">
+                      <figure class='logo-link'>
+                        <img src='/raftcat/static/images/grafana.png' />
+                        <figcaption>Grafana</figcaption>
+                      </figure>
+                    </a></li>
+                    {% endif %}
+                    {% if logzio_link %}
+                    <li><a target="_blank"  href="{{ logzio_link }}">
+                      <figure class='logo-link'>
+                        <img src='/raftcat/static/images/logz.io.png' />
+                        <figcaption>Logz.io</figcaption>
+                      </figure>
+                    </a></li>
+                    {% endif %}
+                    {% if sentry_link %}
+                    <li><a target="_blank"  href="{{ sentry_link }}">
+                      <figure class='logo-link'>
+                        <img src='/raftcat/static/images/sentry.png' />
+                        <figcaption>Sentry</figcaption>
+                      </figure>
+                    </a></li>
+                    {% endif %}
+                    <li><a target="_blank"  href="{{ vault_link }}">
+                      <figure class='logo-link'>
+                        <img src='/raftcat/static/images/vault.png' />
+                        <figcaption>Vault</figcaption>
+                      </figure>
+                    </a></li>
+                    <li><a target="_blank"  href="{{ circle_link }}">
+                      <figure class='logo-link'>
+                          <img src='/raftcat/static/images/circleci.png' />
+                          <figcaption>CircleCI</figcaption>
+                        </figure>
+                    </a></li>
+                    <li>
+                      <a target="_blank" href="{{ quay_link }}">
+                        <figure class='logo-link'>
+                          <img src='/raftcat/static/images/quay.png' />
+                          <figcaption>Quay.io</figcaption>
+                        </figure>
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+
+                <div id="environment">
+                  <div style="overflow-x: scroll;">
+                  <table>
+                    <thead>
                       <tr>
-                        <td>{{key}}</td>
-                        <td>
-                          {% if value == "IN_VAULT" %}
-                            <a href="{{ vault_link }}{{key}}">{{value}}</a>
-                            <!-- TODO: baseurls templating  -->
-                          {% else %}
-                            {{value}}
-                          {% endif %}
-                        </td>
+                        <th>Variable</th>
+                        <th>Value</th>
                       </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {% for key, value in mfenv.plain %}
+                        <tr>
+                          <td>{{key}}</td>
+                          <td>
+                            {% if value == "IN_VAULT" %}
+                              <a href="{{ vault_link }}{{key}}">{{value}}</a>
+                              <!-- TODO: baseurls templating  -->
+                            {% else %}
+                              {{value}}
+                            {% endif %}
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                  </div>
                 </div>
+
+                {% if revdeps %}
+                  <div id="usedBy">
+                  <h3>Services used by this service:</h3>
+                    <ul>
+                      {% for d in mfdeps %}
+                      <li><a href="/raftcat/services/{{ d.name }}">{{ d.name }}</a></li>
+                      {% endfor %}
+                    </ul>
+
+                  <h3>Services which use this service:</h3>
+                    <ul>
+                      {% for d in revdeps %}
+                      <li><a href="/raftcat/services/{{ d }}">{{ d }}</a></li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                {% endif %}
               </div>
+            </section>
+          </div>
+      </section>
+    </div>
+  </main>
 
-              {% if revdeps %}
-                <div id="usedBy">
-                <h3>Services used by this service:</h3>
-                  <ul>
-                    {% for d in mfdeps %}
-                    <li><a href="/raftcat/services/{{ d.name }}">{{ d.name }}</a></li>
-                    {% endfor %}
-                  </ul>
-
-                <h3>Services which use this service:</h3>
-                  <ul>
-                    {% for d in revdeps %}
-                    <li><a href="/raftcat/services/{{ d }}">{{ d }}</a></li>
-                    {% endfor %}
-                  </ul>
-                </div>
-              {% endif %}
-            </div>
-          </section>
-        </main>
-      </div>
-    </section>
-    <footer class="footer">
-      <a target="_blank" href="https://github.com/Babylonpartners/shipcat/tree/master/raftcat">Raftcat | source</a>
-    </footer>
-  </div>
+  <footer class="footer-custom">
+    <div class="wrapper">
+      <a target="_blank" href="https://github.com/Babylonpartners/shipcat/tree/master/raftcat">code</a>
+    </div>
+  </footer>
 </body>
 </html>

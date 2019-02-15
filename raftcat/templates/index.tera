@@ -9,6 +9,7 @@
 
   <link rel="stylesheet" href="/raftcat/static/normalize.css" />
   <link rel="stylesheet" href="/raftcat/static/raftcat.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.4/css/bulma.min.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/horsey/4.2.2/horsey.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/horsey/4.2.2/horsey.js"></script>
   <style>
@@ -23,49 +24,92 @@
   </style>
 </head>
 <body>
-  <div class="wrapper">
-    <header class="header">
-      <h3>raftcat</h3>
-    </header>
-    <section class="content">
-      <div class="columns">
-        <main class="main">
-          <form id="searchform">
-            <input type="text" name="name" id="searcher" autocomplete="off">
-            <input type="submit" value="Go">
-          </form>
-        </main>
-        <aside class="sidebar">
-        </aside>
-      </div>
-    </section>
-    <footer class="footer">
-      <a href="https://github.com/Babylonpartners/shipcat/tree/master/raftcat">code</a>
-    </footer>
-  </div>
-<script>
-var data = {{ manifests }};
-let checked = data.map(function(mf) {
-  return { "value": mf.name, "text": mf.name + " - " + mf.team, "team": mf.team };
-});
-console.log(checked);
-const searcher = document.querySelector('#searcher');
-horsey(searcher, {
-  source: [{ list: checked }],
-  getText: 'text',
-  getValue: 'value',
-  renderItem: function (li, suggestion) {
-    var small = '<i style="float:right">' + suggestion.team + '</i>';
-    li.innerHTML = suggestion.value + small;
-  },
-  highlighter: true
-});
-  var f = document.querySelector('#searchform');
-  f.addEventListener('submit', function (e) {
-    e.preventDefault();
-    console.log(searcher.value);
-    window.location = "/raftcat/services/" + searcher.value.split(" - ")[0];
+  <header class="header">
+    <div class="wrapper">
+      <h3 class="service-title"><span class="highlight">raft</span>cat</h3>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="wrapper">
+      <form class="form" id="searchform">
+        <!-- FILTER by team name -->
+        <label class="label">Filter by team</label>
+        <div class="field has-addons">
+          <div class="select">
+            <select id="filterbyteam"></select>
+          </div>
+        </div>
+
+        <!-- SEARCH by service name -->
+        <label class="label is-large">Search</label>
+        <div class="field has-addons">
+          <div class="control is-expanded">
+            <input class="input is-large" type="text" name="name" id="searcher" autocomplete="off">
+          </div>
+          <div class="control">
+            <button class="button is-info is-large" type="submit">
+              Go
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <footer class="footer-custom">
+    <div class="wrapper">
+      <a target="_blank" href="https://github.com/Babylonpartners/shipcat/tree/master/raftcat">code</a>
+    </div>
+  </footer>
+<script type="text/javascript">
+const data = {{ manifests }};
+const ALL_TEAMS_FILTER = 'All teams';
+let horseyInstance;
+
+const setSearch = d => {
+  const checked = d.map(mf => ({ "value": mf.name }));
+  const searcherEl = document.querySelector('#searcher');
+  if (horseyInstance) horseyInstance.destroy();
+  horseyInstance = horsey(searcherEl, {
+    source: [{ list: checked }],
+    getText: 'value',
+    getValue: 'value',
+    renderItem: function (li, suggestion) {
+      li.innerHTML = suggestion.value;
+    },
+    highlighter: true
   });
+}
+
+const initTeamFilter = d => {
+  const teamSelectEl = document.querySelector('#filterbyteam');
+  const uniqueTeams = d.reduce((acc, { team  }) => {
+    if (acc[team]) return acc;
+    return Object.assign(acc, { [team]: team })
+  }, {})
+  const uniqueTeamsArr = Object.keys(uniqueTeams).sort();
+  [ALL_TEAMS_FILTER, ...uniqueTeamsArr].forEach(team => {
+    const optEl = document.createElement('option');
+    optEl.value = team;
+    optEl.innerHTML = team;
+    teamSelectEl.appendChild(optEl);
+  })
+  teamSelectEl.addEventListener('change', e => {
+    const { value } = e.target;
+    if (value === ALL_TEAMS_FILTER) setSearch(data);
+    else setSearch(data.filter(({ team }) => team === value))
+  })
+}
+
+[setSearch, initTeamFilter].map(f => f(data))
+
+const formEl = document.querySelector('#searchform');
+formEl.addEventListener('submit', function (e) {
+  e.preventDefault();
+  console.log(searcher.value);
+  window.location = "/raftcat/services/" + searcher.value.split(" - ")[0];
+});
 </script>
 </body>
 </html>
