@@ -72,6 +72,7 @@ const setSearch = d => {
   const searcherEl = document.querySelector('#searcher');
   if (horseyInstance) horseyInstance.destroy();
   horseyInstance = horsey(searcherEl, {
+    blankSearch: true,
     source: [{ list: checked }],
     getText: 'value',
     getValue: 'value',
