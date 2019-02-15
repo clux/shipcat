@@ -10,43 +10,41 @@ use crate::states::{ManifestType};
 /// Private helpers for a filebacked Manifest Backend
 impl Manifest {
     /// Read a manifest file in an arbitrary path
-    fn read_from(pwd: &PathBuf) -> Result<Manifest> {
-        let mpath = pwd.join("shipcat.yml");
-        trace!("Using manifest in {}", mpath.display());
+    fn read_from(mpath: &PathBuf) -> Result<Self> {
+        trace!("Reading manifest in {}", mpath.display());
         if !mpath.exists() {
             bail!("Manifest file {} does not exist", mpath.display())
         }
         let mut f = File::open(&mpath)?;
         let mut data = String::new();
         f.read_to_string(&mut data)?;
+        if data.is_empty() {
+            bail!("Manifest file {} is empty", mpath.display());
+        }
         Ok(serde_yaml::from_str(&data)?)
     }
 
 
     /// Fill in env overrides and apply merge rules
     fn merge_and_fill_defaults(&mut self, conf: &Config, region: &Region) -> Result<()> {
-        // merge service specific env overrides if they exists
-        let envlocals = Path::new(".")
+        let dir = Path::new(".")
             .join("services")
-            .join(&self.name)
-            .join(format!("{}.yml", region.name));
-        if envlocals.is_file() {
-            debug!("Merging environment locals from {}", envlocals.display());
-            if !envlocals.exists() {
-                bail!("Defaults file {} does not exist", envlocals.display())
-            }
-            let mut f = File::open(&envlocals)?;
-            let mut data = String::new();
-            f.read_to_string(&mut data)?;
-            if data.is_empty() {
-                bail!("Environment override file {} is empty", envlocals.display());
-            }
-            // Because Manifest has most things implementing Default via serde
-            // we can put this straight into a Manifest struct
-            let other: Manifest = serde_yaml::from_str(&data)?;
+            .join(&self.name);
 
+        let path = dir.join(format!("{}.yml", region.environment.to_string()));
+        if path.is_file() {
+            debug!("Merging environment locals from {}", path.display());
+            let other = Manifest::read_from(&path)?;
             self.merge(other)?;
         }
+
+        let path = dir.join(format!("{}.yml", region.name));
+        if path.is_file() {
+            debug!("Merging region locals from {}", path.display());
+            let other = Manifest::read_from(&path)?;
+            self.merge(other)?;
+        }
+
         self.add_config_defaults(&conf)?;
         self.add_region_implicits(region)?;
         Ok(())
@@ -114,7 +112,7 @@ impl Manifest {
         if !pth.exists() {
             bail!("Service folder {} does not exist", pth.display())
         }
-        let mf = Manifest::read_from(&pth)?;
+        let mf = Manifest::read_from(&pth.join("shipcat.yml"))?;
         if mf.name != service {
             bail!("Service name must equal the folder name");
         }

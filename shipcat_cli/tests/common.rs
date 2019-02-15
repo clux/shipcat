@@ -178,6 +178,10 @@ fn templating_test() {
         btree_set!["CLIENT_SECRET".to_string(), "FAKE_SECRET".to_string()]
     );
 
+    // verify environment overrides
+    assert_eq!(env["EXTRA_URL"], "https://blah/extra-svc/".to_string());
+    assert_eq!(env["MODE"], "development".to_string());
+
     // verify sidecar templating
     let redis = &mf.sidecars[0];
     assert_eq!(redis.env.plain["STATIC_VALUE"], "static".to_string());
