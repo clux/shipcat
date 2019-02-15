@@ -198,11 +198,13 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         } else {
             (md.repo, "rolling".into())
         };
+
         let health = if let Some(h) = mf.health.clone() {
             h.uri
-        } else {
-            // mandatory to have one of these!
-            serde_json::to_string(&mf.readinessProbe.clone().unwrap())?
+        } else if let Some(h) = mf.readinessProbe.clone() {
+            serde_json::to_string(&h)?
+        } else { // can be here if no exposed port
+            "non-service".into()
         };
         let (support, supportlink) = (md.support.clone(), md.support.unwrap().link(&cfg.slack));
         // TODO: org in config

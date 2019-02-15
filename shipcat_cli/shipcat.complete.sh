@@ -54,7 +54,7 @@ _shipcat()
         case $special in
             gdpr|debug|port-forward)
                 local -r region="$(kubectl config current-context)"
-                local -r svcs="$(shipcat list-services "$region")"
+                local -r svcs="$(shipcat list-services -r "$region")"
                 COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 ;;
             get)
@@ -62,7 +62,7 @@ _shipcat()
                 ;;
             apply|template|values|status|crd)
                 local -r region="$(kubectl config current-context)"
-                local -r svcs="$(shipcat list-services "$region")"
+                local -r svcs="$(shipcat list-services -r "$region")"
                 COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
                 ;;
             cluster)
@@ -101,7 +101,11 @@ _shipcat()
                 ;;
             list-services|list-products)
                 local -r regions="$(shipcat list-regions)"
-                COMPREPLY=($(compgen -W "$regions" -- "$cur"))
+                if [[ $prev == @(-r|--region) ]]; then
+                    COMPREPLY=($(compgen -W "$region" -- "$cur"))
+                else
+                    COMPREPLY=($(compgen -W "-r --region" -- "$cur"))
+                fi
                 ;;
             validate|graph)
                 local -r regions="$(shipcat list-regions)"
