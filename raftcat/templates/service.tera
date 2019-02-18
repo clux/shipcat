@@ -37,13 +37,16 @@
                 <li class="tabList__tabItem">
                   <button class="tabItem__button" data-tab="environment">Environment</button>
                 </li>
-                {% if revdeps %}
+                {% if revdeps or mfdeps %}
                   <li class="tabList__tabItem">
                     <button class="tabItem__button" data-tab="usedBy">Dependencies</button>
                   </li>
                 {% endif %}
                 <li class="tabList__tabItem">
                   <button class="tabItem__button" data-tab="manifest">Manifest</button>
+                </li>
+                <li class="tabList__tabItem">
+                  <button class="tabItem__button" data-tab="math">Math</button>
                 </li>
               </ul>
               <div class="tabs__content">
@@ -124,9 +127,11 @@
                           <td>
                             {% if value == "IN_VAULT" %}
                               <a href="{{ vault_link }}{{key}}">{{value}}</a>
-                              <!-- TODO: baseurls templating  -->
+                            {% elif mfenvstub.plain[key] %}
+                            {# stubbed values more accurate - but not always there #}
+                              {{ mfenvstub.plain[key] }}
                             {% else %}
-                              {{value}}
+                              {{ value }}
                             {% endif %}
                           </td>
                         </tr>
@@ -136,7 +141,7 @@
                   </div>
                 </div>
 
-                {% if revdeps %}
+                {% if revdeps or mfdeps %}
                   <div id="usedBy">
                   <h3>Services used by this service:</h3>
                     <ul>
@@ -153,6 +158,33 @@
                     </ul>
                   </div>
                 {% endif %}
+
+                <div id="math">
+                {% if usage %}
+                <h3>Resource usage:</h3>
+                <pre><code class="json">{{ usage }}</code></pre>
+                <p>Base usage is sum of all requests and limits.</p>
+                <p>Extra is how far the base can be exceeded with autoscaling parameters</p>
+                <p>All values are in gigabytes (memory) and vCPUs (cpu)</p>
+
+                <h3>Daily cost estimate:</h3>
+                {% if cost.0 == cost.1 %}
+                <p><i>{{ cost.1 }}$</i></p>
+                {% else %}
+                <p><i>{{ cost.0 }} - {{ cost.1 }} $</i></p>
+                {% endif %}
+                <p>(Based on number of required worker nodes (<a href="https://aws.amazon.com/ec2/pricing/on-demand/">m5.2xlarge</a>) only - databases not accounted for)</p>
+                {% endif %}
+
+                <h3>Rollout cycles per upgrade:</h3>
+                <p><i>{{ rollouts }}</i></p>
+                {% if rollingUpdate %}
+                <p>Based on <code class="yaml">`rollingUpdate`</code> parameters:</p>
+                <pre><code class="yaml">{{ rollingUpdate }}</code></pre>
+                {% else %}
+                <p>Based on default <code class="yaml">`rollingUpdate`</code> parameters</p>
+                {% endif %}
+                <p>and minimum number of replicas.</p>
               </div>
             </section>
           </div>

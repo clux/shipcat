@@ -232,6 +232,7 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         ctx.insert("team", &team);
         ctx.insert("team_link", &teamlink);
         ctx.insert("mfenv", &mf.env);
+        ctx.insert("mfenvstub", &mfstub.env);
         ctx.insert("mfdeps", &mf.dependencies);
 
         // integration insert if found in the big query
@@ -249,6 +250,17 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         }
         if let Some(nr) = newrelic_link {
             ctx.insert("newrelic_link", &nr);
+        }
+
+        // stats
+        if let Ok(_usage) = mf.compute_resource_totals() {
+            let usagen = _usage.normalise();
+            ctx.insert("usage", &serde_json::to_string_pretty(&usagen)?);
+            ctx.insert("cost", &usagen.daily_cost());
+            ctx.insert("rollouts", &mf.estimate_rollout_iterations());
+        }
+        if let Some(ru) = mf.rollingUpdate {
+            ctx.insert("rollingUpdate", &serde_json::to_string_pretty(&ru)?);
         }
 
         ctx.insert("revdeps", &revdeps);
@@ -372,6 +384,7 @@ fn main() -> Result<()> {
             .resource("/raftcat/teams/{name}", |r| r.method(Method::GET).f(get_manifests_for_team))
             .resource("/raftcat/teams", |r| r.method(Method::GET).f(get_teams))
             .resource("/raftcat/health", |r| r.method(Method::GET).f(health))
+            .resource("health", |r| r.method(Method::GET).f(health)) // redundancy
             .resource("/raftcat/", |r| r.method(Method::GET).f(index))
         })
         .bind("0.0.0.0:8080").expect("Can not bind to 0.0.0.0:8080")

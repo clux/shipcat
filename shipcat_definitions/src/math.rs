@@ -13,6 +13,41 @@ pub struct ResourceTotals {
     pub extra: Resources<f64>,
 }
 
+impl ResourceTotals {
+    /// Round all numbers to gigs and full cores (for all teams)
+    pub fn normalise(mut self) -> Self {
+        self.base.round();
+        self.extra.round();
+        self
+    }
+
+    /// Compute daily cost lower + upper bounds based on instance cost
+    ///
+    /// Assumes the resource totals have been normalise first!
+    pub fn daily_cost(&self) -> (f64, f64) {
+        // instance cost is hourly cost for a resource.
+        // E.g. m5.2xlarge => $0.384 per Hour, but has 31GB ram, 8vCPU
+        let icost = 0.384*24.0;
+        let node_mem = 31.0;
+        let node_cpu = 8.0;
+
+        let memory_cost = (
+            (self.base.requests.memory*icost/node_mem).round(),
+            ((self.base.requests.memory + self.extra.requests.memory)*icost/node_mem).round()
+        );
+        let cpu_cost = (
+            (self.base.requests.cpu*icost/node_cpu).round(),
+            ((self.base.requests.cpu + self.extra.requests.cpu*icost)*icost/node_cpu).round()
+        );
+        // quick extimate at what would be more expensive
+        if cpu_cost.1 > memory_cost.1 {
+            cpu_cost
+        } else {
+            memory_cost
+        }
+    }
+}
+
 /// Calculations done based on values in manifests
 ///
 /// These generally assume that `verify` has passed on all manifests.
@@ -22,7 +57,7 @@ impl Manifest {
     /// Estimate how many iterations needed in a kube rolling upgrade
     ///
     /// Used to `estimate_wait_time` for a rollout.
-    fn estimate_rollout_iterations(&self) -> u32 {
+    pub fn estimate_rollout_iterations(&self) -> u32 {
         let rcount = if let Some(ref hpa) = self.autoScaling {
             hpa.minReplicas
         } else {
