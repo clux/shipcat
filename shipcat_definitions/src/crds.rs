@@ -163,6 +163,8 @@ pub enum CrdEventType {
     Added,
     Modified,
     Deleted,
+    // Too old resource versions can happen (Error)
+    // but then the CrdEvent<T> is wrong - T is an error object
 }
 
 /// CRD Event wrapper

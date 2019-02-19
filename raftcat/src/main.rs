@@ -325,6 +325,11 @@ impl StateSafe {
             template: Arc::new(Mutex::new(t)),
         })
     }
+    pub fn full_refresh(&self) -> Result<()> {
+        let res = kube::get_shipcat_manifests(&self.client)?;
+        self.safe.lock().unwrap().cache = res;
+        Ok(())
+    }
     pub fn watch_manifests(&self) -> Result<()> {
         let old = self.safe.lock().unwrap().cache.clone();
         let res = kube::watch_for_shipcat_manifest_updates(
@@ -364,7 +369,19 @@ fn main() -> Result<()> {
             thread::sleep(Duration::from_secs(10));
             match state2.watch_manifests() {
                 Ok(_) => debug!("State refreshed"),
-                Err(e) => error!("Failed to refresh {}", e),
+                Err(e) => {
+                    // if resourceVersions get desynced, this can happen
+                    error!("Failed to refresh {}", e);
+                    // try a full refresh in a bit
+                    thread::sleep(Duration::from_secs(10));
+                    match state2.full_refresh() {
+                        Ok(_) => info!("Full state refresh fallback succeeded"),
+                        Err(e) => {
+                            warn!("Failed to refesh cache on fallback: '{}' - rebooting", e);
+                            std::process::exit(1);
+                        }
+                    }
+                }
             }
         }
     });
