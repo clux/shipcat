@@ -24,8 +24,6 @@ use super::structs::{
     LifeCycle,
     Worker,
     Port,
-    rds::Rds,
-    elasticache::ElastiCache,
 };
 
 /// Main manifest, serializable from shipcat.yml or the shipcat CRD.
@@ -694,30 +692,6 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rbac: Vec<Rbac>,
 
-    /// Database provisioning sent to terraform
-    ///
-    /// Set the base parameters for an RDS instance.
-    ///
-    /// ```yaml
-    /// database:
-    ///   engine: postgres
-    ///   version: 9.6
-    ///   size: 20
-    ///   instanceClass: "db.m4.large"
-    /// ```
-    pub database: Option<Rds>,
-
-    /// Redis provisioning sent to terraform
-    ///
-    /// Set the base parameters for an ElastiCache instance
-    ///
-    /// ```yaml
-    /// redis:
-    ///   nodes: 2
-    ///   nodeType: cache.m4.large
-    /// ```
-    pub redis: Option<ElastiCache>,
-
     // ------------------------------------------------------------------------
     // Output variables
     //
@@ -919,12 +893,6 @@ impl Manifest {
 
         if !self.serviceAnnotations.is_empty() {
             warn!("serviceAnnotation is an experimental/temporary feature")
-        }
-        if let Some(db) = &self.database {
-            db.verify()?;
-        }
-        if let Some(redis) = &self.redis {
-            redis.verify()?;
         }
 
         Ok(())
