@@ -108,8 +108,8 @@ const initTeamFilter = d => {
 const formEl = document.querySelector('#searchform');
 formEl.addEventListener('submit', function (e) {
   e.preventDefault();
-  console.log(searcher.value);
-  window.location = "/raftcat/services/" + searcher.value.split(" - ")[0];
+  if (!searcher.value) return;
+  window.location = "/raftcat/services/" + searcher.value;
 });
 </script>
 </body>
