@@ -17,6 +17,7 @@ use std::{
     time::{Duration, Instant},
 };
 use chrono::Local;
+use prometheus::{Opts, Registry, Counter, TextEncoder, Encoder};
 
 pub use raftcat::*;
 
@@ -371,13 +372,13 @@ fn main() -> Result<()> {
                 Ok(_) => debug!("State refreshed"),
                 Err(e) => {
                     // if resourceVersions get desynced, this can happen
-                    error!("Failed to refresh {}", e);
+                    warn!("Failed to refresh {}", e);
                     // try a full refresh in a bit
                     thread::sleep(Duration::from_secs(10));
                     match state2.full_refresh() {
                         Ok(_) => info!("Full state refresh fallback succeeded"),
                         Err(e) => {
-                            warn!("Failed to refesh cache on fallback: '{}' - rebooting", e);
+                            error!("Failed to refesh cache on fallback: '{}' - rebooting", e);
                             std::process::exit(1);
                         }
                     }

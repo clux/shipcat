@@ -11,7 +11,7 @@ use super::Result;
 
 /// Kubernetes resource requests
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct ResourceRequest<T> {
     /// CPU request string
     pub cpu: T,
@@ -22,7 +22,7 @@ pub struct ResourceRequest<T> {
 
 /// Kubernetes resource limits
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct ResourceLimit<T> {
     /// CPU limit string
     pub cpu: T,
@@ -35,7 +35,7 @@ pub struct ResourceLimit<T> {
 ///
 /// This can be inlined straight into a container spec at the moment
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Resources<T> {
     /// Resource requests for k8s
     pub requests: ResourceRequest<T>,

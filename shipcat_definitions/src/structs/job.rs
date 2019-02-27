@@ -19,7 +19,7 @@ impl Default for RestartPolicy {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct JobVolumeClaim {
     /// The cron job name
     pub size: String,
@@ -27,7 +27,7 @@ pub struct JobVolumeClaim {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Job {
     /// The job name
     pub name: String,

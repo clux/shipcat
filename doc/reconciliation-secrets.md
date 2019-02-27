@@ -5,7 +5,6 @@ Reconciliation is currently performed in a tight loop around a manifest reposito
 export SLACK_SHIPCAT_CHANNEL="#platform-reconcile"
 export KUBE_REGION="platform-us"
 export KUBE_CLUSTER="platformus-green"
-export TILLER_NAMESPACE="apps"
 export SHIPCAT_VER="$(grep babylonhealth/kubecat .circleci/config.yml | cut -d":" -f3)"
 
 echo $KUBE_CERT | base64 -d > ca.crt

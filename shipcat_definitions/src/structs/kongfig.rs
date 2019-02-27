@@ -7,7 +7,7 @@ use serde::ser::{Serialize, Serializer, SerializeMap};
 /// Kongfig structs
 /// https://github.com/mybuilder/kongfig
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Api {
     pub name: String,
     pub plugins: Vec<ApiPlugin>,
@@ -15,7 +15,7 @@ pub struct Api {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct ApiAttributes {
     #[serde(serialize_with = "none_as_brackets")]
     pub hosts: Option<Vec<String>>,
@@ -36,7 +36,7 @@ pub struct ApiAttributes {
 
 /// Plugins and their configs
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct CorsPluginConfig {
     pub methods: Vec<String>,
     pub exposed_headers: Vec<String>,
@@ -73,7 +73,7 @@ where T: Serialize,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct HeadersAndJson {
     #[serde(serialize_with = "none_as_brackets")]
     pub headers: Option<Vec<String>>,
@@ -82,7 +82,7 @@ pub struct HeadersAndJson {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct ResponseTransformerPluginConfig {
     pub add: HeadersAndJson,
     pub append: HeadersAndJson,
@@ -109,7 +109,7 @@ impl ResponseTransformerPluginConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct TcpLogPluginConfig {
     pub host: String,
     pub port: u32,
@@ -129,7 +129,7 @@ impl TcpLogPluginConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Oauth2PluginConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anonymous_username: Option<String>,
@@ -166,7 +166,7 @@ impl Oauth2PluginConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Oauth2ExtensionPluginConfig {}
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -195,7 +195,7 @@ impl JwtPluginConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct JsonCookiesCsrfPluginConfig {
     pub csrf_field_name: String,
     pub cookie_name: String,
@@ -214,7 +214,7 @@ impl Default for JsonCookiesCsrfPluginConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct JsonCookiesToHeadersPluginConfig {
     pub field_name: String,
     pub cookie_name: String,
@@ -230,7 +230,7 @@ impl Default for JsonCookiesToHeadersPluginConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct BabylonAuthHeaderPluginConfig {
     pub auth_service: String,
     pub cache_timeout_sec: u32,
@@ -248,7 +248,7 @@ impl BabylonAuthHeaderPluginConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct CorrelationIdPluginConfig {
     pub echo_downstream: bool,
     pub header_name: String,
@@ -304,7 +304,7 @@ impl<T> PluginBase<T> {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct PluginAttributes<T> {
     pub enabled: bool,
     pub config: T,
@@ -460,7 +460,7 @@ pub fn kongfig_consumers(k: KongConfig) -> Vec<Consumer> {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Consumer {
     pub username: String,
     pub acls: Vec<String>,
@@ -476,7 +476,7 @@ pub enum ConsumerCredentials {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct OAuth2CredentialsAttributes {
     pub client_id: String,
     pub redirect_uri: Vec<String>,
@@ -485,7 +485,7 @@ pub struct OAuth2CredentialsAttributes {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct JwtCredentialsAttributes {
     pub algorithm: String,
     pub key: String,
@@ -494,13 +494,13 @@ pub struct JwtCredentialsAttributes {
 
 /// Not used yet
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Plugin {}
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Upstream {}
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Certificate {}

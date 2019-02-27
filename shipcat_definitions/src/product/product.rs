@@ -16,7 +16,7 @@ use super::structs::Contact;
 
 /// Product owner
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Owner {
     /// Contact details (flattened into Owner)
     #[serde(flatten)]
@@ -31,7 +31,7 @@ impl Owner {
 
 /// Service depended on by Product
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Service {
     /// Name of service relied upon (used to goto dependent manifest)
     pub name: String,
@@ -69,7 +69,7 @@ impl Service {
 
 /// Product manifest, serializable from product.yml
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Product {
     /// Name of the product
     #[serde(default)]

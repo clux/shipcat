@@ -53,13 +53,17 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
         let mf = Manifest::blank(&svc)?;
         if let Some(md) = mf.metadata {
             let mut ghids = vec![];
-            // unwraps guaranteed by validates on Manifest and Config
-            let owners = &conf.teams.iter().find(|t| t.name == md.team).unwrap().owners;
-            for o in owners.clone() {
-                ghids.push(format!("@{}", o.github.unwrap()));
-            }
-            if !owners.is_empty() {
-                output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
+            // teams guaranteed by validates on Manifest and Config
+            // TODO: not for external services! ^
+            if let Some(t) = &conf.teams.iter().find(|t| t.name == md.team) {
+                for o in t.owners.clone() {
+                    ghids.push(format!("@{}", o.github.unwrap()));
+                }
+                if !t.owners.is_empty() {
+                    output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
+                }
+            } else {
+                warn!("No team found for {} in shipcat.conf - ignoring {}", md.team, mf.name);
             }
         }
     }

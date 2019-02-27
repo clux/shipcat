@@ -5,7 +5,7 @@ use super::Result;
 /// Designed for services which requires escalated privileges
 /// Used to generate roles and role bindings in kubernetes
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct Rbac {
     /// API groups containing resources (defined below)
     pub apiGroups: Vec<AllowedApiGroups>,

@@ -7,7 +7,7 @@ use super::Result;
 ///
 /// Only one of these is supported.
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct ConfigMap {
     /// Container-local directory path where configs are available
     pub mount: String,
@@ -19,7 +19,7 @@ pub struct ConfigMap {
 ///
 /// Files that are mounted under the parent `mount` path.
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct ConfigMappedFile {
     /// Name of file to template (from service repo paths)
     pub name: String,
