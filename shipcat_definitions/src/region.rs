@@ -1,5 +1,3 @@
-use crate::Team;
-use crate::Manifest;
 use crate::structs::kong::Kong;
 use std::collections::BTreeMap;
 use std::env;
@@ -10,6 +8,8 @@ use url::Url;
 use uuid::Uuid;
 
 use super::Vault;
+#[allow(unused_imports)]
+use crate::{Team, Manifest};
 #[allow(unused_imports)]
 use super::{Result, Error, ErrorKind};
 use super::ConfigType;
@@ -87,37 +87,17 @@ impl VaultConfig {
     /// Make vault a vault policy for a team based on team ownership
     ///
     /// Returns plaintext hcl
+    #[cfg(feature = "filesystem")]
     pub fn make_policy(&self, mfs: Vec<Manifest>, team: Team, env: Environment) -> Result<String> {
-        let mut output = String::new();
-
-        // Access to give to relevant data TODO: configurable
-        let perms = if env == Environment::Prod {
-            "[\"create\", \"list\"]"
-        } else {
-            "[\"create\", \"read\", \"update\", \"delete\", \"list\"]"
-        };
-
-        let default_sys_deny = "path \"sys/*\" {\n  policy = \"deny\"\n}\n";
-        let default_secret_list = "path \"secret/*\" {\n  capabilities = [\"list\"]\n}\n";
-        let default_policy_list = "path \"sys/policy/*\" {\n  capabilities = [\"list\", \"read\"]\n}\n";
-        let kong_policy = format!("path \"secret/{}/kong/consumers/*\" {{\n  capabilities = {}\n}}\n", self.folder, perms);
-
-        output += default_sys_deny;
-        output += default_secret_list;
-        output += default_policy_list;
-        output += &kong_policy;
-
+        let mut owned_manifests = vec![];
         for mf in mfs {
             if let Some(md) = mf.metadata {
                 if md.team == team.name {
-                    output += &format!("path \"secret/{}/{}/*\" {{\n  capabilities = {}\n}}\n",
-                        self.folder,
-                        mf.name,
-                        perms
-                    );
+                    owned_manifests.push(mf.name);
                 }
             }
         }
+        let output = self.template(owned_manifests, env)?;
         Ok(output)
     }
 }

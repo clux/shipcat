@@ -1,0 +1,26 @@
+# Default deny all
+path "sys/*" {
+  policy = "deny"
+}
+
+# Allow listing everything
+path "secret/*" {
+  capabilities = ["list"]
+}
+
+# Allow reaing what you're allowed to do
+path "sys/policy/*" {
+  capabilities = ["list", "read"]
+}
+
+# Allow creating kong/listing kong consumers in non-prod
+path "secret/{ folder }/kong/consumers/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+
+# Secrets for services owned by the team - full access in non-prod
+{% for svc in team_owned_services %}
+path "secret/{{ folder }}/{{ svc }}/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+{% endfor %}

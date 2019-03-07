@@ -152,3 +152,45 @@ impl EnvVars {
         Ok(())
     }
 }
+
+
+/// Read an arbitrary template from manifests/{folder}/{name}.j2
+#[cfg(feature = "filesystem")]
+fn read_arbitrary_template_file(folder: &str, name: &str) -> Result<String> {
+    use std::fs::File;
+    use std::path::Path;
+    use std::io::prelude::*;
+
+    let pth = Path::new(".").join(folder).join(format!("{}.j2", name));
+    if !pth.exists() {
+        bail!("Template file in {} does not exist", pth.display());
+    }
+    // read the template - should work now
+    let mut f = File::open(&pth)?;
+    let mut data = String::new();
+    f.read_to_string(&mut data)?;
+    Ok(data)
+}
+
+// helpers for VaultConfig
+#[allow(unused_imports)]
+use super::{VaultConfig, Environment};
+impl VaultConfig {
+    // This function defines what variables are available within .j2 templates and evars
+    #[cfg(feature = "filesystem")]
+    pub fn template(&self, owned_mfs: Vec<String>, env: Environment) -> Result<String> {
+        let mut ctx = Context::new();
+        ctx.insert("folder", &self.folder);
+        ctx.insert("team_owned_services", &owned_mfs);
+
+        let tpl = if env == Environment::Prod {
+            read_arbitrary_template_file("vault", "team-policy-prod.hcl")?
+        } else {
+            read_arbitrary_template_file("vault", "team-policy.hcl")?
+        };
+        let res = render_file_data(tpl, &ctx).chain_err(|| {
+            ErrorKind::InvalidTemplate("vault-template".into())
+        })?;
+        Ok(res)
+    }
+}
