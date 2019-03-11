@@ -1,8 +1,8 @@
 FROM alpine:3.7
 
-ENV KUBEVER=1.10.6 \
-    HELMVER=2.10.0 \
-    HELMDIFFVER="2.9.0%2B1" \
+ENV KUBEVER=1.12.6 \
+    HELMVER=2.13.0 \
+    HELMDIFFVER="2.11.0%2B3" \
     KUBEVALVER=0.7.3 \
     VAULTVER=0.11.1 \
     HOME=/config \
@@ -42,9 +42,6 @@ RUN set -x && \
     helm init -c && \
     curl -sSL https://github.com/databus23/helm-diff/releases/download/v${HELMDIFFVER}/helm-diff-linux.tgz | tar xvz -C $(helm home)/plugins
 
-# Hack to have diff in the bin sub-directory
-RUN mkdir $(helm home)/plugins/diff/bin && \
-    cp $(helm home)/plugins/diff/diff $(helm home)/plugins/diff/bin/
 
 # Add core dependencies of validation
 RUN apk add --no-cache --virtual virtualbuild libffi-dev g++ python3-dev openssl-dev && \
