@@ -8,13 +8,13 @@ path "secret/*" {
   capabilities = ["list"]
 }
 
-# Allow reaing what you're allowed to do
+# Allow reading what you're allowed to do
 path "sys/policy/*" {
   capabilities = ["list", "read"]
 }
 
 # Allow creating kong/listing kong consumers in non-prod
-path "secret/{ folder }/kong/consumers/*" {
+path "secret/{{ folder }}/kong/consumers/*" {
   capabilities = ["create", "read", "update", "delete", "list"]
 }
 

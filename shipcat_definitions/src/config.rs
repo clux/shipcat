@@ -234,8 +234,15 @@ impl Config {
             }
             used_kong_urls.push(r.kong.config_url.clone());
         }
+        let mut vteams = vec![];
         for t in &self.teams {
             t.verify()?;
+            if let Some(vt) = &t.vaultAdmins {
+                if vteams.contains(&vt) {
+                    bail!("The vaultAdmins team {} can only be mapped to a single policy", vt);
+                }
+                vteams.push(&vt)
+            }
         }
         Config::verify_version(&self.version)?;
 
