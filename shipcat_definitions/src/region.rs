@@ -232,7 +232,7 @@ pub struct KongOauthConsumer {
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct KongJwtConsumer {
-    pub issuer: String,
+    pub kid: String,
     pub public_key: String,
 }
 

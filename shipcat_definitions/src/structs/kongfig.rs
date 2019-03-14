@@ -173,6 +173,7 @@ pub struct Oauth2ExtensionPluginConfig {}
 pub struct JwtPluginConfig {
     pub uri_param_names: Vec<String>,
     pub claims_to_verify: Vec<String>,
+    pub key_claim_name: String,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anonymous_username: Option<String>,
@@ -184,6 +185,7 @@ impl JwtPluginConfig {
         JwtPluginConfig {
             uri_param_names: vec![],
             claims_to_verify: vec!["exp".into()],
+            key_claim_name: "kid".into(),
 
             anonymous: match anonymous_consumer.clone() {
                 Some(_s) => None,
@@ -442,7 +444,7 @@ pub fn kongfig_consumers(k: KongConfig) -> Vec<Consumer> {
             username: k.to_string(),
             acls: vec![],
             credentials: vec![ConsumerCredentials::Jwt(JwtCredentialsAttributes {
-                key: v.issuer,
+                key: v.kid,
                 algorithm: "RS256".into(),
                 rsa_public_key: v.public_key,
             })]
