@@ -65,7 +65,7 @@ pub fn render_file_data(data: String, context: &Context) -> Result<String> {
     let mut xs = vec![];
     for l in result.lines() {
         // trim whitespace (mostly to satisfy linters)
-        xs.push(l.trim_right());
+        xs.push(l.trim_end());
     }
     Ok(xs.join("\n"))
 }
@@ -99,6 +99,7 @@ impl Manifest {
         ctx.insert("kafka", &self.kafka.clone());
         ctx.insert("base_urls", &reg.base_urls);
         ctx.insert("kong", &reg.kong);
+        ctx.insert("cluster", &reg.cluster.clone());
         Ok(ctx)
     }
 

@@ -81,8 +81,7 @@ impl AppState {
         Ok(data)
     }
     fn update_slow_cache(&mut self) -> Result<()> {
-        let cname = env::var("KUBE_CLUSTER").ok();
-        let (cluster, region) = self.config.resolve_cluster(&self.region, cname).unwrap();
+        let region = self.config.get_region(&self.region).unwrap();
         if let Some(s) = region.sentry {
             match sentryapi::get_slugs(&s.url, &region.environment.to_string()) {
                 Ok(res) => {
@@ -124,10 +123,9 @@ impl AppState {
         }
         Ok(res)
     }
-    pub fn get_cluster_region(&self) -> Result<(Cluster, Region)> {
-        let cname = env::var("KUBE_CLUSTER").ok();
-        let (cluster, region) = self.config.resolve_cluster(&self.region, cname).expect("could not resolve cluster");
-        Ok((cluster, region))
+    pub fn get_cluster_region(&self) -> Result<Region> {
+        let region = self.config.get_region(&self.region).expect(&format!("could not resolve cluster for {}", self.region));
+        Ok(region)
     }
     pub fn get_config(&self) -> Result<Config> {
         Ok(self.config.clone())
@@ -177,7 +175,7 @@ fn get_teams(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
 fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
     let cfg = req.state().safe.lock().unwrap().get_config()?;
-    let (cluster, region) = req.state().safe.lock().unwrap().get_cluster_region()?;
+    let region = req.state().safe.lock().unwrap().get_cluster_region()?;
 
     let revdeps = req.state().safe.lock().unwrap().get_reverse_deps(name).ok();
     let newrelic_link = req.state().safe.lock().unwrap().relics.get(name).map(String::to_owned);
@@ -240,7 +238,7 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         if let Some(lio_link) = region.logzio_url(&mf.name) {
             ctx.insert("logzio_link", &lio_link);
         }
-        if let Some(gf_link) = region.grafana_url(&mf.name, &cluster.name) {
+        if let Some(gf_link) = region.grafana_url(&mf.name) {
             ctx.insert("grafana_link", &gf_link);
         }
         ctx.insert("vault_link", &region.vault_url(&mf.name));

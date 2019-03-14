@@ -222,6 +222,12 @@ impl Config {
             if r.namespace == "" {
                 bail!("Need to set `namespace` in {}", r.name);
             }
+            if r.cluster == "" {
+                bail!("Need to set the serving `cluster` of {}", r.name);
+            }
+            if !self.clusters.keys().cloned().collect::<Vec<_>>().contains(&r.cluster) {
+                bail!("Region {} served by missing cluster '{}'", r.name, r.cluster);
+            }
             r.vault.verify(&r.name)?;
             for v in r.base_urls.values() {
                 if v.ends_with('/') {

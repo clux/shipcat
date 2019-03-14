@@ -448,6 +448,16 @@ pub struct Region {
     pub namespace: String,
     /// Environment (e.g. `dev` or `staging`)
     pub environment: Environment,
+    /// Primary cluster serving this region
+    ///
+    /// Shipcat does not use this for to decide where a region gets deployed,
+    /// but it is used to indicate where the canonical location of a cluster is.
+    ///
+    /// During blue/green cluster failovers the value of this string may not be accurate.
+    ///
+    /// Jobs that decide where to deploy a region to should use `get clusterinfo`
+    /// with explicit cluster names and regions.
+    pub cluster: String,
     /// Versioning scheme
     pub versioningScheme: VersionScheme,
 
@@ -531,13 +541,13 @@ impl Region {
             app = &app)
     }
 
-    pub fn grafana_url(&self, app: &str, cluster: &str) -> Option<String> {
+    pub fn grafana_url(&self, app: &str) -> Option<String> {
         self.grafana.clone().map(|gf| {
             format!("{grafana_url}/d/{dashboard_id}/kubernetes-services?var-cluster={cluster}&var-namespace={namespace}&var-deployment={app}",
               grafana_url = gf.url.trim_matches('/'),
               dashboard_id = gf.services_dashboard_id,
               app = app,
-              cluster = cluster,
+              cluster = &self.cluster,
               namespace = &self.namespace)
         })
     }
