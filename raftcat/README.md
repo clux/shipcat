@@ -31,9 +31,32 @@ Export the vault secrets and manifest evars (provided you have manifests):
 
 ```sh
 source <(shipcat values raftcat -s | yq '.secrets | keys[] as $k | "export \($k)=\(.[$k])"' -r)
-source <(shipcat values raftcat | yq '.env | keys[] as $k | "export \($k)=\(.[$k])"' -r)
-export REGION_NAME="$(kubectl config current-context)"
-export ENV_NAME="dev"
+source <(shipcat values raftcat | yq '.env.plain | keys[] as $k | "export \($k)=\(.[$k])"' -r)
+```
+
+## Integrations
+Secrets for integrations:
+
+```yaml
+SENTRY_DSN: a sentry dsn to report crashes of raftcat to (REQUIRED)
+SENTRY_TOKEN: an api/new-token with project:read from your sentry installation (optional)
+NEWRELIC_ACCOUNT_ID: a newrelic account to scan for service mappings (optional)
+NEWRELIC_API_KEY: an api key on newrelic that can query for applications (optional)
+```
+
+Config requirements for integrations:
+
+```yaml
+regions:
+  name: myregion
+  grafana:
+    url: https://dev-grafana.mydomain
+    services_dashboard_id: dashboardid
+  logzio:
+    url: https://app-eu.logz.io/#/dashboard/kibana/dashboard
+    account_id: 1337
+  sentry:
+    url: https://myregion-sentry.mydomain
 ```
 
 ## Cluster

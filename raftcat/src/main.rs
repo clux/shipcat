@@ -1,6 +1,6 @@
 #![allow(unused_imports, unused_variables)]
 
-use log::{info, warn, error, debug};
+use log::{info, warn, error, debug, trace};
 use serde_derive::Serialize;
 use tera::compile_templates;
 use failure::err_msg;
@@ -50,9 +50,11 @@ struct AppState {
 impl AppState {
     pub fn new(client: &APIClient) -> Result<Self> {
         info!("Loading state from CRDs");
-        let rname = env::var("REGION_NAME").expect("Need REGION_NAME evar (kube context)");
-        let state = AppState::init_cache(client)?;
-        let config = kube::get_shipcat_config(client, &rname)?.spec;
+        let rname = env::var("REGION_NAME").expect("Need REGION_NAME evar");
+        let ns = env::var("NAMESPACE").expect("Need NAMESPACE evar");
+        debug!("Initializing cache for {} in {}", rname, ns);
+        let state = AppState::init_cache(client, &ns)?;
+        let config = kube::get_shipcat_config(client, &ns, &rname)?.spec;
         let mut res = AppState {
             cache: state,
             config,
@@ -66,9 +68,9 @@ impl AppState {
     }
 
     // Helper for init
-    fn init_cache(client: &APIClient) -> Result<ManifestCache> {
+    fn init_cache(client: &APIClient, ns: &str) -> Result<ManifestCache> {
         info!("Initialising state from CRDs");
-        let mut data = kube::get_shipcat_manifests(client)?;
+        let mut data = kube::get_shipcat_manifests(client, ns)?;
         match version::get_all() {
             Ok(versions) => {
                 info!("Loaded {} versions", versions.len());
@@ -76,7 +78,7 @@ impl AppState {
                     mf.version = versions.get(k).map(String::clone);
                 }
             }
-            Err(e) => warn!("Unable to load versions. VERSION_URL set? {}", err_msg(e))
+            Err(e) => warn!("Unable to load versions: {}", err_msg(e))
         }
         Ok(data)
     }
@@ -88,7 +90,7 @@ impl AppState {
                     self.sentries = res;
                     info!("Loaded {} sentry slugs", self.sentries.len());
                 },
-                Err(e) => warn!("Unable to load sentry slugs. SENTRY evars set? {}", err_msg(e)),
+                Err(e) => warn!("Unable to load sentry slugs: {}", err_msg(e)),
             }
         } else {
             warn!("No sentry url configured for this region");
@@ -98,7 +100,7 @@ impl AppState {
                 self.relics = res;
                 info!("Loaded {} newrelic links", self.relics.len());
             },
-            Err(e) => warn!("Unable to load newrelic projects. NEWRELIC evars set? {}", err_msg(e)),
+            Err(e) => warn!("Unable to load newrelic projects. {}", err_msg(e)),
         }
         Ok(())
     }
@@ -313,26 +315,34 @@ struct StateSafe {
     pub safe: Arc<Mutex<AppState>>,
     pub client: APIClient,
     pub template: Arc<Mutex<tera::Tera>>,
+    namespace: String,
+    region: String,
 }
 impl StateSafe {
     pub fn new(client: APIClient) -> Result<Self> {
         let t = compile_templates!(concat!("raftcat", "/templates/*"));
         let state = AppState::new(&client)?;
+        let namespace = env::var("NAMESPACE").expect("Need NAMESPACE evar");
+        let region = env::var("REGION_NAME").expect("Need REGION_NAME evar");
         Ok(StateSafe {
             client,
+            namespace, region,
             safe: Arc::new(Mutex::new(state)),
             template: Arc::new(Mutex::new(t)),
         })
     }
     pub fn full_refresh(&self) -> Result<()> {
-        let res = kube::get_shipcat_manifests(&self.client)?;
+        let res = kube::get_shipcat_manifests(&self.client, &self.namespace)?;
+        let cfg = kube::get_shipcat_config(&self.client, &self.namespace, &self.region)?.spec;
         self.safe.lock().unwrap().cache = res;
+        self.safe.lock().unwrap().config = cfg;
         Ok(())
     }
     pub fn watch_manifests(&self) -> Result<()> {
         let old = self.safe.lock().unwrap().cache.clone();
         let res = kube::watch_for_shipcat_manifest_updates(
             &self.client,
+            &self.namespace,
             old
         )?;
         // lock to update cache
@@ -347,9 +357,16 @@ fn main() -> Result<()> {
     let _guard = sentry::init(dsn); // must keep _guard in scope
 
     env::set_var("RUST_LOG", "actix_web=info,raftcat=info,kubernetes=info");
-    //env::set_var("RUST_LOG", "actix_web=info,raftcat=debug");
-    //env::set_var("RUST_BACKTRACE", "full");
+    if let Ok(level) = env::var("LOG_LEVEL") {
+        if level.to_lowercase() == "debug" {
+            env::set_var("RUST_LOG", "actix_web=info,raftcat=debug");
+        }
+    }
+    //env::set_var("RUST_BACKTRACE", "full"); // <- don't! this spams logz.io, rely on sentry!
     env_logger::init();
+
+    // TODO: fix so that this path isn't checked at all
+    env::set_var("VAULT_TOKEN", "INVALID"); // needed because it happens super early..
 
     // Load the config: local kube config prioritised first for local development
     // NB: Only supports a config with client certs locally (e.g. kops setup)
@@ -367,7 +384,7 @@ fn main() -> Result<()> {
         loop {
             thread::sleep(Duration::from_secs(10));
             match state2.watch_manifests() {
-                Ok(_) => debug!("State refreshed"),
+                Ok(_) => trace!("State refreshed"),
                 Err(e) => {
                     // if resourceVersions get desynced, this can happen
                     warn!("Failed to refresh {}", e);
@@ -389,7 +406,11 @@ fn main() -> Result<()> {
     let sys = actix::System::new("raftcat");
     server::new(move || {
         App::with_state(state.clone())
-            .middleware(middleware::Logger::default().exclude("/raftcat/health"))
+            .middleware(middleware::Logger::default()
+                .exclude("/raftcat/health")
+                .exclude("/health")
+                .exclude("/raftcat/static/images")
+            )
             .middleware(sentry_actix::SentryMiddleware::new())
             .handler("/raftcat/static", actix_web::fs::StaticFiles::new("./raftcat/static").unwrap())
             .resource("/raftcat/config", |r| r.method(Method::GET).f(get_config))
@@ -400,7 +421,7 @@ fn main() -> Result<()> {
             .resource("/raftcat/teams/{name}", |r| r.method(Method::GET).f(get_manifests_for_team))
             .resource("/raftcat/teams", |r| r.method(Method::GET).f(get_teams))
             .resource("/raftcat/health", |r| r.method(Method::GET).f(health))
-            .resource("health", |r| r.method(Method::GET).f(health)) // redundancy
+            .resource("/health", |r| r.method(Method::GET).f(health)) // redundancy
             .resource("/raftcat/", |r| r.method(Method::GET).f(index))
         })
         .bind("0.0.0.0:8080").expect("Can not bind to 0.0.0.0:8080")

@@ -9,28 +9,51 @@ static SHIPCATMANIFESTS: &str = "shipcatmanifests";
 static SHIPCATCONFIGS: &str = "shipcatconfigs";
 //static LASTAPPLIED: &str = "kubectl.kubernetes.io/last-applied-configuration";
 
+struct ResourceGroup {
+    /// API Group
+    group: String,
+    /// API Resource
+    resource: String,
+    /// Namespace the resources resides
+    namespace: String,
+}
+impl ResourceGroup {
+    pub fn config(namespace: &str) -> Self {
+        ResourceGroup {
+            group: GROUPNAME.to_string(),
+            resource: SHIPCATCONFIGS.to_string(),
+            namespace: namespace.to_string()
+        }
+    }
+    pub fn manifest(namespace: &str) -> Self {
+        ResourceGroup {
+            group: GROUPNAME.to_string(),
+            resource: SHIPCATMANIFESTS.to_string(),
+            namespace: namespace.to_string()
+        }
+    }
+}
+
 // Request builders
-fn make_all_crd_entry_req(resource: &str, group: &str) -> Result<http::Request<Vec<u8>>> {
-    let ns = std::env::var("ENV_NAME").expect("Must have an env name evar");
+fn make_all_crd_entry_req(r: &ResourceGroup) -> Result<http::Request<Vec<u8>>> {
     let urlstr = format!("/apis/{group}/v1/namespaces/{ns}/{resource}?",
-        group = group, resource = resource, ns = ns);
+        group = r.group, resource = r.resource, ns = r.namespace);
     let urlstr = url::form_urlencoded::Serializer::new(urlstr).finish();
     let mut req = http::Request::get(urlstr);
     req.body(vec![]).map_err(Error::from)
 }
-fn make_crd_entry_req(resource: &str, group: &str, name: &str) -> Result<http::Request<Vec<u8>>> {
-    let ns = std::env::var("ENV_NAME").expect("Must have an env name evar");
+fn make_crd_entry_req(r: &ResourceGroup, name: &str) -> Result<http::Request<Vec<u8>>> {
     let urlstr = format!("/apis/{group}/v1/namespaces/{ns}/{resource}/{name}?",
-        group = group, resource = resource, name = name, ns = ns);
+        group = r.group, resource = r.resource, ns = r.namespace, name = name);
     let urlstr = url::form_urlencoded::Serializer::new(urlstr).finish();
     let mut req = http::Request::get(urlstr);
     req.body(vec![]).map_err(Error::from)
 }
-fn watch_crd_entry_after(resource: &str, group: &str, ver: &str) -> Result<http::Request<Vec<u8>>> {
-    //let urlstr = format!("/apis/{group}/v1/namespaces/dev/{resource}/{name}?",
-    //    group = group, resource = resource, name = name);
-    let urlstr = format!("/apis/{group}/v1/namespaces/dev/{resource}?",
-        group = group, resource = resource);
+fn watch_crd_entry_after(r: &ResourceGroup, ver: &str) -> Result<http::Request<Vec<u8>>> {
+    //let urlstr = format!("/apis/{group}/v1/namespaces/{ns}/{resource}/{name}?",
+    //    group = r.group, resource = r.resource, ns = r.namespace, name = name);
+    let urlstr = format!("/apis/{group}/v1/namespaces/{ns}/{resource}?",
+        group = r.group, resource = r.resource, ns = r.namespace);
     let mut qp = url::form_urlencoded::Serializer::new(urlstr);
 
     qp.append_pair("timeoutSeconds", "10");
@@ -43,8 +66,9 @@ fn watch_crd_entry_after(resource: &str, group: &str, ver: &str) -> Result<http:
 }
 
 
-pub fn watch_for_shipcat_manifest_updates(client: &APIClient, mut data: ManifestCache) -> Result<ManifestCache> {
-    let req = watch_crd_entry_after(SHIPCATMANIFESTS, GROUPNAME, &data.version)?;
+pub fn watch_for_shipcat_manifest_updates(client: &APIClient, ns: &str, mut data: ManifestCache) -> Result<ManifestCache> {
+    let rg = ResourceGroup::manifest(&ns);
+    let req = watch_crd_entry_after(&rg, &data.version)?;
     let res = client.request_events::<CrdEvent<Manifest>>(req)?;
     //let mut found = vec![];
     // TODO: catch gone error - and trigger a list
@@ -95,8 +119,9 @@ pub struct ManifestCache {
 }
 pub type ManifestMap = BTreeMap<String, Manifest>;
 
-pub fn get_shipcat_manifests(client: &APIClient) -> Result<ManifestCache> {
-    let req = make_all_crd_entry_req(SHIPCATMANIFESTS, GROUPNAME)?;
+pub fn get_shipcat_manifests(client: &APIClient, namespace: &str) -> Result<ManifestCache> {
+    let rg = ResourceGroup::manifest(namespace);
+    let req = make_all_crd_entry_req(&rg)?;
     let res = client.request::<CrdList<Manifest>>(req)?;
     let mut manifests = BTreeMap::new();
     let version = res.metadata.resourceVersion;
@@ -110,29 +135,11 @@ pub fn get_shipcat_manifests(client: &APIClient) -> Result<ManifestCache> {
     Ok(ManifestCache { manifests, version })
 }
 
-pub fn get_shipcat_config(client: &APIClient, name: &str) -> Result<Crd<Config>> {
-    let req = make_crd_entry_req(SHIPCATCONFIGS, GROUPNAME, name)?;
+pub fn get_shipcat_config(client: &APIClient, namespace: &str, name: &str) -> Result<Crd<Config>> {
+    let rg = ResourceGroup::config(&namespace);
+    let req = make_crd_entry_req(&rg, name)?;
     let res = client.request::<Crd<Config>>(req)?;
     debug!("got config with version {}", &res.spec.version);
     // TODO: merge with version found in rolling env?
     Ok(res)
 }
-
-/*this doesn't actually work...
-pub fn watch_shipcat_manifest(client: &APIClient, name: &str, rver: u32) -> Result<Crd<Manifest>> {
-    let req = watch_crd_entry_after(SHIPCATMANIFESTS, GROUPNAME, name, rver)
-        .expect("failed to define crd watch request");
-    let res = client.request::<Crd<_>>(req)?;
-    debug!("{}", &res.spec.name);
-    Ok(res)
-}*/
-
-// actually unused now because everything returns from cache
-/*pub fn get_shipcat_manifest(client: &APIClient, name: &str) -> Result<Crd<Manifest>> {
-    let req = make_crd_entry_req(SHIPCATMANIFESTS, GROUPNAME, name)?;
-    let res = client.request::<Crd<Manifest>>(req)?;
-    debug!("got {}", &res.spec.name);
-    // TODO: merge with version found in rolling env?
-    Ok(res)
-}
-*/

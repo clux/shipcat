@@ -18,9 +18,10 @@ pub mod version {
     pub fn get_all() -> Result<VersionMap> {
         let client = reqwest::Client::new();
         let vurl = Url::parse(&std::env::var("VERSION_URL")?)?;
+        debug!("Fetching {}", vurl);
         let mut res = client.get(vurl).send()?;
         if !res.status().is_success() {
-            bail!("Failed to fetch version");
+            bail!("Failed to fetch version: {}", res.status());
         }
         let text = res.text()?;
         debug!("Got version data: {}", text);
@@ -57,13 +58,14 @@ pub mod sentryapi {
                                    sentry_url = &sentry_url,
                                    env = &env);
 
+        debug!("Fetching {}", projects_url);
         let mut res = client
             .get(reqwest::Url::parse(&projects_url).unwrap())
             .header("Authorization", format!("Bearer {token}", token = token))
             .send()?;
 
         if !res.status().is_success() {
-            bail!("Failed to fetch projects in team {}", env);
+            bail!("Failed to fetch projects in {}: {}", env, res.status());
         }
         let text = res.text()?;
         debug!("Got slugs: {}", text);
@@ -108,7 +110,7 @@ pub mod newrelic {
             .send()?;
 
         if !res.status().is_success() {
-            bail!("Failed to fetch applications");
+            bail!("Failed to fetch applications: {}", res.status());
         }
         let text = res.text()?;
         debug!("Got NewRelic data: {}", text);
