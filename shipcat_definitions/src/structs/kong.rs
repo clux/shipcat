@@ -152,7 +152,7 @@ impl Kong {
         }
         // Generate upstream_url for an in-kubernetes service
         if self.upstream_url.is_empty() {
-          self.upstream_url = format!("http://{}.{}.svc.cluster.local", self.name, reg.namespace);
+            self.upstream_url = format!("http://{}.{}.svc.cluster.local", self.name, reg.namespace);
         }
 
         if tophosts.is_empty() {

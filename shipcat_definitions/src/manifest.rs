@@ -656,8 +656,8 @@ pub struct Manifest {
 
     /// Kafka config
     ///
-    /// A small convencience struct to indicate that the service uses `Kafka`.
-    /// The chart will inject a few environment variables and a kafka initContainer
+    /// A small convencience struct to indicate that the service uses `Kafka`,
+    /// and to define kafka-specific properties.
     /// if this is set to a `Some`.
     ///
     /// ```yaml

@@ -1,13 +1,28 @@
 use crate::region::{Region};
-
+use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Kafka {
     #[serde(default)]
     pub mountPodIP: bool,
+
     /// Brokers for the region
+    ///
+    /// ```yaml
+    /// brokers: kafka.babylontech.co.uk:92101,kafka.babylontech.co.uk:92102
     #[serde(default)]
     pub brokers: Vec<String>,
+
+    /// A mapping of kafka properties to environment variables.
+    ///
+    /// ```yaml
+    /// property_env_mapping:
+    ///   sasl.enabled.mechanisms: KAKFA_SASL_ENABLED_MECHANISMS
+    ///   sasl.jaas.config:        KAFKA_SASL_JAAS_CONFIG
+    ///   ssl.keystore.password:   KAFKA_SSL_KEYSTORE_PASSWORD
+    ///
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub propertyEnvMapping: Option<BTreeMap<String, String>>,
 }
 
 impl Kafka {
