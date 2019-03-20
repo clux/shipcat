@@ -566,7 +566,7 @@ impl Region {
 
     pub fn logzio_url(&self, app: &str) -> Option<String> {
         self.logzio.clone().map(|lio| {
-            format!("{logzio_url}/{app}-{env}?accountIds={account_id}",
+            format!("{logzio_url}/{app}-{env}?&switchToAccountId={account_id}",
               logzio_url = lio.url.trim_matches('/'),
               app = app,
               env = self.name,
