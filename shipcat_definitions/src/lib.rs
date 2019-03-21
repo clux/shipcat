@@ -84,7 +84,9 @@ pub use crate::config::{Config, Cluster, Team, ManifestDefaults};
 pub mod structs;
 
 pub mod manifest;
+pub mod simple;
 pub use crate::manifest::Manifest;
+pub use crate::simple::SimpleManifest;
 
 /// Crd wrappers
 mod crds;
@@ -97,9 +99,6 @@ pub use crate::states::{ConfigType};
 /// File backing
 #[cfg(feature = "filesystem")]
 mod filebacked;
-
-// Merge behaviour for manifests
-mod merge;
 
 /// Computational helpers
 pub mod math;
@@ -115,3 +114,5 @@ pub mod template;
 /// A Hashicorp Vault HTTP client using `reqwest`
 pub mod vault;
 pub use crate::vault::Vault;
+
+pub mod relaxed_string;

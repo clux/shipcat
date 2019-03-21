@@ -1,5 +1,6 @@
 use super::{Resources, Probe, Port, EnvVars};
 use super::autoscaling::AutoScaling;
+use crate::relaxed_string::{RelaxedString};
 
 use super::Result;
 
@@ -19,7 +20,7 @@ pub struct Worker {
     pub command: Vec<String>,
 
     /// Resource limits and requests
-    pub resources: Resources<String>,
+    pub resources: Resources<RelaxedString>,
     /// Replication limits
     pub replicaCount: u32,
 

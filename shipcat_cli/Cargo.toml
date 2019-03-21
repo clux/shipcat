@@ -11,7 +11,7 @@ authors = [
 name = "shipcat"
 description = "Deploy right meow."
 readme = "README.md"
-version = "0.93.0"
+version = "0.94.0"
 categories = ["command-line-utilities"]
 keywords = ["kubernetes", "helm", "deployment", "standardisation", "validation"]
 license-file = "LICENSE"
@@ -25,6 +25,7 @@ path = "src/main.rs"
 
 [dependencies]
 shipcat_definitions = { path = "../shipcat_definitions", features = ["filesystem"] }
+shipcat_filebacked = { path = "../shipcat_filebacked" }
 clap = "2.31.2"
 error-chain = "0.12.0"
 log = "0.4.5"

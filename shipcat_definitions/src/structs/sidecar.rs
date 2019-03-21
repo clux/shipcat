@@ -1,6 +1,7 @@
 use super::{Resources};
 use super::env::EnvVars;
 use super::{Result};
+use crate::relaxed_string::RelaxedString;
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields, rename_all = "lowercase")]
@@ -11,7 +12,7 @@ pub struct Sidecar {
   pub version: Option<String>,
 
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub resources: Option<Resources<String>>,
+  pub resources: Option<Resources<RelaxedString>>,
 
   #[serde(default)]
   pub env: EnvVars,

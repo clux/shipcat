@@ -25,31 +25,6 @@ fn as_secret(v: Value, _: HashMap<String, Value>) -> tera::Result<Value> {
     Ok(format!("SHIPCAT_SECRET::{}", s).into())
 }
 
-#[cfg(feature = "filesystem")]
-fn read_template_file(svc: &str, tmpl: &str) -> Result<String> {
-    use std::fs::File;
-    use std::path::Path;
-    use std::io::prelude::*;
-    // try to read file from ./services/{svc}/{tmpl} into `tpl` sting
-    let pth = Path::new(".").join("services").join(svc).join(tmpl);
-    let gpth = Path::new(".").join("templates").join(tmpl);
-    let found_pth = if pth.exists() {
-        debug!("Reading template in {}", pth.display());
-        pth
-    } else {
-        if !gpth.exists() {
-            bail!("Template {} does not exist in neither {} nor {}", tmpl, pth.display(), gpth.display());
-        }
-        debug!("Reading template in {}", gpth.display());
-        gpth
-    };
-    // read the template - should work now
-    let mut f = File::open(&found_pth)?;
-    let mut data = String::new();
-    f.read_to_string(&mut data)?;
-    Ok(data)
-}
-
 /// Render convenience function that also trims whitespace
 ///
 /// Takes a template to render either in the service folder or the templates folder.
@@ -103,17 +78,6 @@ impl Manifest {
         ctx.insert("namespace", &reg.namespace.clone());
         ctx.insert("region_name", &reg.name.clone());
         Ok(ctx)
-    }
-
-    /// Read templates from disk and put them into value for ConfigMappedFile
-    #[cfg(feature = "filesystem")]
-    pub fn read_configs_files(&mut self) -> Result<()> {
-        if let Some(ref mut cfg) = self.configs {
-            for f in &mut cfg.files {
-                f.value = Some(read_template_file(&self.name, &f.name)?);
-            }
-        }
-        Ok(())
     }
 
     /// Replace template in values with template result inplace

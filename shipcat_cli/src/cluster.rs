@@ -27,7 +27,7 @@ fn mass_helm(conf: &Config, region: &Region, umode: UpgradeMode, n_workers: usiz
     let mut svcs = vec![];
     for svc in Manifest::available(&region.name)? {
         debug!("Scanning service {:?}", svc);
-        svcs.push(Manifest::base(&svc, conf, region)?);
+        svcs.push(shipcat_filebacked::load_manifest(&svc, conf, region)?);
     }
     helm::parallel::reconcile(svcs, conf, region, umode, n_workers)
 }
@@ -98,7 +98,7 @@ fn crd_reconcile(svcs: Vec<String>, config: &Config, region: &Region, n_workers:
 }
 
 fn crd_reconcile_worker(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
-    let mf = Manifest::base(svc, conf, reg)?;
+    let mf = shipcat_filebacked::load_manifest(svc, conf, reg)?;
     kube::apply_crd(svc, mf, &reg.namespace)?;
     Ok(())
 }

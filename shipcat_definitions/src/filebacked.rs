@@ -3,9 +3,8 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-use super::{Config, Region, Manifest};
-use super::Result;
-use crate::states::{ManifestType};
+use super::{Manifest, Result};
+use super::states::ManifestType;
 
 /// Private helpers for a filebacked Manifest Backend
 impl Manifest {
@@ -21,33 +20,9 @@ impl Manifest {
         if data.is_empty() {
             bail!("Manifest file {} is empty", mpath.display());
         }
-        Ok(serde_yaml::from_str(&data)?)
-    }
-
-
-    /// Fill in env overrides and apply merge rules
-    fn merge_and_fill_defaults(&mut self, conf: &Config, region: &Region) -> Result<()> {
-        let dir = Path::new(".")
-            .join("services")
-            .join(&self.name);
-
-        let path = dir.join(format!("{}.yml", region.environment.to_string()));
-        if path.is_file() {
-            debug!("Merging environment locals from {}", path.display());
-            let other = Manifest::read_from(&path)?;
-            self.merge(other)?;
-        }
-
-        let path = dir.join(format!("{}.yml", region.name));
-        if path.is_file() {
-            debug!("Merging region locals from {}", path.display());
-            let other = Manifest::read_from(&path)?;
-            self.merge(other)?;
-        }
-
-        self.add_config_defaults(&conf)?;
-        self.add_region_implicits(region)?;
-        Ok(())
+        let mut mf: Manifest = serde_yaml::from_str(&data)?;
+        mf.kind = ManifestType::SingleFile;
+        Ok(mf)
     }
 }
 
@@ -86,19 +61,6 @@ impl Manifest {
         Ok(xs)
     }
 
-    /// Create an-all pieces manifest ready to be upgraded
-    ///
-    /// The CRD equivalent that has templates read from disk first.
-    pub fn base(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
-        let mut mf = Manifest::blank(service)?;
-        // fill defaults and merge regions before extracting secrets
-        mf.merge_and_fill_defaults(&conf, reg)?;
-        mf.read_configs_files()?;
-        mf.kind = ManifestType::Base;
-
-        Ok(mf)
-    }
-
     /// Return all services found in the manifests services folder
     pub fn all() -> Result<Vec<String>> {
         Ok(walk_services())
@@ -116,15 +78,6 @@ impl Manifest {
         if mf.name != service {
             bail!("Service name must equal the folder name");
         }
-        Ok(mf)
-    }
-
-    /// Create a simple manifest that has enough for most reducers
-    pub fn simple(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
-        let mut mf = Manifest::blank(service)?;
-        // fill defaults and merge regions before extracting secrets
-        mf.merge_and_fill_defaults(&conf, reg)?;
-        mf.kind = ManifestType::Simple;
         Ok(mf)
     }
 }

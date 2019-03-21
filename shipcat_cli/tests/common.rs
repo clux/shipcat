@@ -39,7 +39,7 @@ pub fn setup() {
     });
 }
 
-use shipcat_definitions::{Config, Manifest, Environment}; // Product
+use shipcat_definitions::{Config, Environment}; // Product
 use shipcat_definitions::ConfigType;
 
 #[test]
@@ -71,13 +71,13 @@ fn config_defaults_test() {
     // -- Slack channels --
 
     // fake-ask gets default for 'devops'
-    let mfdefault = Manifest::base("fake-ask", &conf, &reg).unwrap().complete(&reg).unwrap();
+    let mfdefault = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg).unwrap().complete(&reg).unwrap();
     let metadata = mfdefault.metadata.unwrap();
     assert_eq!(*metadata.support.unwrap(), "#devops-support");
     assert_eq!(*metadata.notifications.unwrap(), "#devops-notifications");
 
     // fake-storage overrides for 'someteam'
-    let mfoverride = Manifest::base("fake-storage", &conf, &reg).unwrap().complete(&reg).unwrap();
+    let mfoverride = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg).unwrap().complete(&reg).unwrap();
     let metadata = mfoverride.metadata.unwrap();
     assert_eq!(*metadata.support.unwrap(), "#dev-platform-override");
     assert_eq!(*metadata.notifications.unwrap(), "#dev-platform-notif-override");
@@ -143,7 +143,7 @@ fn get_codeowners() {
 fn manifest_test() {
     setup();
     let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
-    let mfread = Manifest::base("fake-storage", &conf, &reg);
+    let mfread = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg);
     assert!(mfread.is_ok());
     let mfbase = mfread.unwrap();
     let mfres = mfbase.complete(&reg);
@@ -164,7 +164,7 @@ fn manifest_test() {
 fn templating_test() {
     setup();
     let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
-    let mf = Manifest::base("fake-ask", &conf, &reg).unwrap().complete(&reg).unwrap();
+    let mf = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg).unwrap().complete(&reg).unwrap();
 
     // verify templating
     let env = mf.env.plain;
@@ -178,6 +178,8 @@ fn templating_test() {
         btree_set!["CLIENT_SECRET".to_string(), "FAKE_SECRET".to_string()]
     );
 
+    // verify environment defaults
+    assert_eq!(env["GLOBAL_EVAR"], "indeed".to_string());
     // verify environment overrides
     assert_eq!(env["EXTRA_URL"], "https://blah/extra-svc/".to_string());
     assert_eq!(env["MODE"], "development".to_string());

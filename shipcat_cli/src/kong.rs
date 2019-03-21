@@ -70,7 +70,7 @@ pub fn generate_kong_output(conf: &Config, region: &Region) -> Result<KongOutput
     // Generate list of APIs to feed to Kong
     for svc in Manifest::available(&region.name)? {
         debug!("Scanning service {:?}", svc);
-        let mf = Manifest::simple(&svc, &conf, region)?; // does not need secrets
+        let mf = shipcat_filebacked::load_manifest(&svc, &conf, region)?; // does not need secrets
         debug!("Found service {} in region {}", mf.name, region.name);
         if let Some(k) = mf.kong {
            apis.insert(svc, k);

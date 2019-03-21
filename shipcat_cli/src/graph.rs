@@ -80,7 +80,7 @@ fn recurse_manifest(idx: NodeIndex, mf: &Manifest, conf: &Config, reg: &Region, 
             continue;
         }
 
-        let depmf = Manifest::base(&dep.name, conf, reg)?;
+        let depmf = shipcat_filebacked::load_manifest(&dep.name, conf, reg)?;
 
         let depnode = ManifestNode::new(&depmf);
         let depidx = graph.add_node(depnode);
@@ -94,7 +94,7 @@ fn recurse_manifest(idx: NodeIndex, mf: &Manifest, conf: &Config, reg: &Region, 
 
 /// Generate dependency graph from an entry point via recursion
 pub fn generate(service: &str, conf: &Config, reg: &Region, dot: bool) -> Result<CatGraph> {
-    let base = Manifest::base(service, conf, reg)?;
+    let base = shipcat_filebacked::load_manifest(service, conf, reg)?;
 
     let mut graph : CatGraph = DiGraph::<_, _>::new();
     let node = ManifestNode::new(&base);
@@ -124,7 +124,7 @@ pub fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
     for svc in services {
         debug!("Scanning service {:?}", svc);
 
-        let mf = Manifest::base(&svc, conf, reg)?;
+        let mf = shipcat_filebacked::load_manifest(&svc, conf, reg)?;
         let node = ManifestNode::new(&mf);
         let idx = graph.add_node(node);
 
@@ -134,7 +134,7 @@ pub fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
                 id
             } else {
                 trace!("Found dependency new in graph: {}", dep.name);
-                let depmf = Manifest::base(&dep.name, conf, reg)?;
+                let depmf = shipcat_filebacked::load_manifest(&dep.name, conf, reg)?;
                 let depnode = ManifestNode::new(&depmf);
                 let depidx = graph.add_node(depnode);
                 depidx
@@ -157,7 +157,7 @@ pub fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
 pub fn reverse(service: &str, conf: &Config, reg: &Region) -> Result<Vec<String>> {
     let mut res = vec![];
     for svc in Manifest::available(&reg.name)? {
-        let mf = Manifest::base(&svc, conf, reg)?;
+        let mf = shipcat_filebacked::load_manifest(&svc, conf, reg)?;
         if mf.dependencies.into_iter().any(|d| d.name == service) {
             res.push(svc)
         }

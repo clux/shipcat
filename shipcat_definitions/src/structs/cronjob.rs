@@ -1,6 +1,7 @@
 use regex::Regex;
 
 use crate::structs::resources::Resources;
+use crate::relaxed_string::RelaxedString;
 use super::EnvVars;
 use super::Result;
 
@@ -34,7 +35,7 @@ pub struct CronJob {
 
     /// Resource limits and requests
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub resources: Option<Resources<String>>,
+    pub resources: Option<Resources<RelaxedString>>,
 
     /// Volume claim for this job if it needs local scratch space
     #[serde(default, skip_serializing_if = "Option::is_none")]

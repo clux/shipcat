@@ -1,0 +1,7 @@
+[package]
+name = "merge"
+version = "0.94.0"
+authors = ["Jay Anslow <jay@anslow.me.uk>"]
+edition = "2018"
+
+[dependencies]

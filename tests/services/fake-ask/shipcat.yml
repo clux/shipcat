@@ -58,7 +58,7 @@ vault:
   name: test-shipcat
 env:
   JAVA_OPTS: "-Xms256m -Xmx2048m"
-  ENDPOINTS_ENABLED: "true"
+  ENDPOINTS_ENABLED: true
   FAKE_SECRET: "IN_VAULT"
   CORE_URL: "{{ base_urls.services }}/somesvc"
   CLIENT_ID: "{{ kong.consumers['fake-ask'].oauth_client_id }}"

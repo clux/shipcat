@@ -1,4 +1,4 @@
-use super::{Result, Config, Manifest, Region};
+use super::{Result, Config, Region};
 
 /// Print the config
 ///
@@ -19,7 +19,7 @@ pub fn config_crd(conf: Config) -> Result<()> {
 }
 
 pub fn manifest_crd(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
-    let mf = Manifest::base(svc, conf, reg)?;
+    let mf = shipcat_filebacked::load_manifest(svc, conf, reg)?;
     let crd = Crd::from(mf);
     println!("{}", serde_yaml::to_string(&crd)?);
     Ok(())

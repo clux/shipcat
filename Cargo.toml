@@ -2,7 +2,10 @@
 default-members = ["shipcat_cli"]
 members = [
   "raftcat",
-  "shipcat_cli"
+  "shipcat_cli",
+  "merge",
+  "merge_derive",
+  "shipcat_filebacked",
 ]
 # Definitions has its own workspace atm.
 exclude = ["shipcat_definitions"]

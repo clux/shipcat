@@ -1,0 +1,13 @@
+[package]
+name = "merge_derive"
+version = "0.94.0"
+authors = ["Jay Anslow <jay@anslow.me.uk>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "0.15"
+quote = "0.6"
+proc-macro2 = "0.4.20"

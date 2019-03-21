@@ -1,0 +1,15 @@
+[package]
+name = "shipcat_filebacked"
+version = "0.94.0"
+authors = ["Jay Anslow <jay@anslow.me.uk>"]
+edition = "2018"
+
+[dependencies]
+shipcat_definitions = { path = "../shipcat_definitions", features = ["filesystem"] }
+merge = { path = "../merge" }
+merge_derive = { path = "../merge_derive" }
+serde = "1.0.89"
+serde_derive = "1.0.89"
+serde_yaml = "0.8.8"
+log = "0.4.5"
+error-chain = "0.12.0"

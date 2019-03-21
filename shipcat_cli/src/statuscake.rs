@@ -71,7 +71,7 @@ fn generate_statuscake_output(conf: &Config, region: &Region) -> Result<Vec<Stat
         // Generate list of APIs to feed to Statuscake
         for svc in Manifest::available(&region.name)? {
             debug!("Scanning service {:?}", svc);
-            let mf = Manifest::simple(&svc, &conf, region)?; // does not need secrets
+            let mf = shipcat_filebacked::load_metadata(&svc, &conf, region)?; // does not need secrets
             debug!("Found service {} in region {}", mf.name, region.name);
             if let Some(k) = mf.kong.clone() {
                 debug!("Service {:?} has a kong configuration, adding", svc);

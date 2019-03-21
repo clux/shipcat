@@ -520,9 +520,9 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let (conf, region) = resolve_config(a, ss)?;
 
         let mf = if a.is_present("secrets") {
-            Manifest::base(&svc, &conf, &region)?.complete(&region)?
+            shipcat_filebacked::load_manifest(&svc, &conf, &region)?.complete(&region)?
         } else {
-            Manifest::base(&svc, &conf, &region)?.stub(&region)?
+            shipcat_filebacked::load_manifest(&svc, &conf, &region)?.stub(&region)?
         };
         mf.print()?;
         return Ok(());
@@ -691,19 +691,19 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         } else {
             None
         };
-        let mf = Manifest::base(service, &conf, &region)?.stub(&region)?;
+        let mf = shipcat_filebacked::load_manifest(service, &conf, &region)?.stub(&region)?;
         return shipcat::kube::shell(&mf, pod, cmd);
     }
     else if let Some(a) = args.subcommand_matches("port-forward") {
         let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let service = a.value_of("service").unwrap();
-        let mf = Manifest::base(service, &conf, &region)?.stub(&region)?;
+        let mf = shipcat_filebacked::load_manifest(service, &conf, &region)?.stub(&region)?;
         return shipcat::kube::port_forward(&mf);
     }
     else if let Some(a) = args.subcommand_matches("debug") {
         let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let service = a.value_of("service").unwrap();
-        let mf = Manifest::base(service, &conf, &region)?.stub(&region)?;
+        let mf = shipcat_filebacked::load_manifest(service, &conf, &region)?.stub(&region)?;
         return shipcat::kube::debug(&mf);
     }
 
@@ -714,7 +714,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let link = a.value_of("url").map(String::from);
         let color = a.value_of("color").map(String::from);
         let metadata = if let Some(svc) = a.value_of("service") {
-            Manifest::base(svc, &conf, &region)?.metadata
+            shipcat_filebacked::load_manifest(svc, &conf, &region)?.metadata
         } else {
             None
         };

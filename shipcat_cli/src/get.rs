@@ -15,7 +15,7 @@ use super::{Result, Manifest};
 pub fn versions(conf: &Config, region: &Region) -> Result<BTreeMap<String, Version>> {
     let mut output = BTreeMap::new();
     for svc in Manifest::available(&region.name)? {
-        let mf = Manifest::simple(&svc, &conf, &region)?;
+        let mf = shipcat_filebacked::load_metadata(&svc, &conf, &region)?;
         if let Some(v) = mf.version {
             if let Ok(sv) = Version::parse(&v) {
                 output.insert(svc, sv);
@@ -33,7 +33,7 @@ pub fn images(conf: &Config, region: &Region) -> Result<BTreeMap<String, String>
     let mut output = BTreeMap::new();
     for svc in Manifest::available(&region.name)? {
         // NB: needs > raw version of manifests because we need image implicits..
-        let mf = Manifest::simple(&svc, &conf, &region)?;
+        let mf = shipcat_filebacked::load_metadata(&svc, &conf, &region)?;
         if let Some(i) = mf.image {
             output.insert(svc, i);
         }
@@ -182,7 +182,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
 
     // Get API Info from Manifests
     for svc in Manifest::available(&reg.name)? {
-        let mf = Manifest::simple(&svc, &conf, &reg)?;
+        let mf = shipcat_filebacked::load_manifest(&svc, &conf, &reg)?;
         if let Some(k) = mf.kong {
             let mut params = APIServiceParams {
                 uris: k.uris.unwrap_or("".into()),
@@ -272,7 +272,7 @@ fn resources_region(conf: &Config, region: &Region) -> Result<ResourceBreakdown>
     let mut extra : Resources<f64> = Default::default(); // autoscaling limits
 
     for svc in services {
-        let mf = Manifest::base(&svc, conf, region)?;
+        let mf = shipcat_filebacked::load_manifest(&svc, conf, region)?;
         if let Some(ref md) = mf.metadata {
             let ResourceTotals { base: sb, extra: se } = mf.compute_resource_totals()?;
             sum += sb.clone();

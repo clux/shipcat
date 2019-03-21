@@ -46,7 +46,7 @@ pub use self::env::EnvVars;
 
 // translations - these are typically inlined in templates as yaml
 /// Kubernetes resource structs
-mod resources;
+pub mod resources;
 pub use self::resources::Resources;
 pub use self::resources::parse_memory;
 /// Kubernetes volumes

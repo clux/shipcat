@@ -5,6 +5,7 @@ use regex::Regex;
 use crate::config::{Config};
 use crate::region::{VaultConfig, Region};
 use crate::states::ManifestType;
+use crate::relaxed_string::RelaxedString;
 use super::Result;
 
 // All structs come from the structs directory
@@ -222,7 +223,7 @@ pub struct Manifest {
     ///     memory: 300Mi
     /// ```
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub resources: Option<Resources<String>>,
+    pub resources: Option<Resources<RelaxedString>>,
 
     /// Kubernetes replication count
     ///

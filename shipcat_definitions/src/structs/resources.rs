@@ -1,5 +1,6 @@
 use std::ops::{Add, AddAssign, Mul};
 use super::Result;
+use crate::relaxed_string::{RelaxedString};
 
 // Kubernetes resouce structs
 //
@@ -43,16 +44,16 @@ pub struct Resources<T> {
     pub limits: ResourceLimit<T>,
 }
 
-impl Resources<String> {
+impl Resources<RelaxedString> {
     /// Convert shorthand strings to raw number of cores and Bytes of memory
     pub fn normalised(&self) -> Result<Resources<f64>> {
         let requests = ResourceRequest {
-            memory: parse_memory(&self.requests.memory)?,
-            cpu: parse_cpu(&self.requests.cpu)?,
+            memory: parse_memory(&self.requests.memory.to_string())?,
+            cpu: parse_cpu(&self.requests.cpu.to_string())?,
         };
         let limits = ResourceLimit {
-            memory: parse_memory(&self.limits.memory)?,
-            cpu: parse_cpu(&self.limits.cpu)?,
+            memory: parse_memory(&self.limits.memory.to_string())?,
+            cpu: parse_cpu(&self.limits.cpu.to_string())?,
         };
         Ok(Resources { requests, limits })
     }
@@ -116,7 +117,7 @@ impl Resources<f64> {
     }
 }
 
-impl Resources<String> {
+impl Resources<RelaxedString> {
     // TODO: look at config for limits?
     pub fn verify(&self) -> Result<()> {
         // (We can unwrap all the values as we assume implicit called!)

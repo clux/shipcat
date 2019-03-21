@@ -49,14 +49,6 @@ pub enum ManifestType {
     /// Thus files have to be read, and not templated for this, then shipped off to kube.
     Base,
 
-    /// A Simplified manifest
-    ///
-    /// Equivalent to a Base manifest but no configs read.
-    /// This is faster to retrieve from disk.
-    /// This type CANNOT be upgraded to Stubbed/Completed.
-    #[cfg(feature = "filesystem")]
-    Simple,
-
     /// A Manifest File
     ///
     /// This is an unmerged file, and should not be used for anything except merging.
@@ -68,10 +60,7 @@ pub enum ManifestType {
 ///
 /// This relies on serde default to populate on deserialize from disk/crd.
 impl Default for ManifestType {
-    #[cfg(not(feature = "filesystem"))]
     fn default() -> Self { ManifestType::Base }
-    #[cfg(feature = "filesystem")]
-    fn default() -> Self { ManifestType::SingleFile }
 }
 
 /// This library defines the way to upgrade a manifest from Base
@@ -121,7 +110,7 @@ pub enum ConfigType {
     Filtered,
 
     /// Region-independent, unresolved secrets
-    /// 
+    ///
     /// Just like Base - but for all regions
     UnionisedBase,
 
