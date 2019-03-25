@@ -108,6 +108,7 @@ jobs:
       - run: make tag-latest
       - run: make tag-semver
       - run: make raftcat
+      - run: make raftcat-semver
 
   mac_build:
     macos:

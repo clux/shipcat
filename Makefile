@@ -1,6 +1,7 @@
 NAME=kubecat
 VERSION=$(shell git rev-parse HEAD)
 SEMVER_VERSION=$(shell grep version shipcat_cli/Cargo.toml | awk -F"\"" '{print $$2}' | head -n 1)
+RAFTCAT_VERSION=$(shell grep version raftcat/Cargo.toml | awk -F"\"" '{print $$2}' | head -n 1)
 REPO=quay.io/babylonhealth
 
 compile:
@@ -103,5 +104,13 @@ raftcat-build:
 raftcat:
 	docker build -t $(REPO)/raftcat:$(VERSION) -f Dockerfile.raftcat .
 	docker push $(REPO)/raftcat:$(VERSION)
+
+raftcat-semver:
+	@if docker run -e DOCKER_REPO=babylonhealth/raftcat -e DOCKER_TAG=$(RAFTCAT_VERSION) quay.io/babylonhealth/tag-exists; \
+		then echo "Tag raftcat:$(RAFTCAT_VERSION) already exists - ignoring" && exit 0 ; \
+	else \
+		docker tag $(REPO)/raftcat:$(VERSION) $(REPO)/raftcat:$(RAFTCAT_VERSION); \
+		docker push $(REPO)/raftcat:$(RAFTCAT_VERSION); \
+	fi
 
 .PHONY: doc install build compile releases raftcat
