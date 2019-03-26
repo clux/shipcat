@@ -473,7 +473,7 @@ fn find_all_manifest_crds(ns: &str) -> Result<Vec<String>> {
 }
 
 use std::collections::HashSet;
-pub fn remove_redundant_manifests(ns: &str, svcs: &[String]) -> Result<Vec<String>> {
+pub fn remove_redundant_manifests(ns: &str, svcs: &Vec<String>) -> Result<Vec<String>> {
     let requested: HashSet<_> = svcs.iter().cloned().collect();
     let found: HashSet<_> = find_all_manifest_crds(ns)?.iter().cloned().collect();
     debug!("Found manifests: {:?}", found);

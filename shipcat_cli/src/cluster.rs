@@ -1,6 +1,7 @@
-use shipcat_definitions::{Config, Region, Team};
+use shipcat_definitions::{Config, Region, Team, BaseManifest};
+use shipcat_filebacked::{SimpleManifest};
 use super::helm::{self, UpgradeMode};
-use super::{Result, Manifest};
+use super::{Result};
 use crate::webhooks;
 
 /// Helm upgrade the region (reconcile)
@@ -25,9 +26,9 @@ pub fn helm_diff(conf: &Config, region: &Region, n_workers: usize) -> Result<()>
 // Find all active services in a region and helm::parallel::upgrade them
 fn mass_helm(conf: &Config, region: &Region, umode: UpgradeMode, n_workers: usize) -> Result<()> {
     let mut svcs = vec![];
-    for svc in Manifest::available(&region.name)? {
+    for svc in shipcat_filebacked::available(conf, region)? {
         debug!("Scanning service {:?}", svc);
-        svcs.push(shipcat_filebacked::load_manifest(&svc, conf, region)?);
+        svcs.push(shipcat_filebacked::load_manifest(&svc.base.name, conf, region)?);
     }
     helm::parallel::reconcile(svcs, conf, region, umode, n_workers)
 }
@@ -38,11 +39,11 @@ fn mass_helm(conf: &Config, region: &Region, umode: UpgradeMode, n_workers: usiz
 /// Temporary helper that shells out to kubectl apply in parallel.
 /// This will go away with catapult.
 pub fn mass_crd(conf: &Config, reg: &Region, n_workers: usize) -> Result<()> {
-    crd_reconcile(Manifest::available(&reg.name)?, conf, reg, n_workers)
+    crd_reconcile(shipcat_filebacked::available(conf, reg)?, conf, reg, n_workers)
 }
 
 use super::kube;
-fn crd_reconcile(svcs: Vec<String>, config: &Config, region: &Region, n_workers: usize) -> Result<()> {
+fn crd_reconcile(svcs: Vec<SimpleManifest>, config: &Config, region: &Region, n_workers: usize) -> Result<()> {
     use threadpool::ThreadPool;
     use std::sync::mpsc::channel;
 
@@ -62,7 +63,8 @@ fn crd_reconcile(svcs: Vec<String>, config: &Config, region: &Region, n_workers:
     kube::apply_crd(&region.name, applycfg, &region.namespace)?;
 
     // Single instruction kubectl delete shipcat manifests .... of excess ones
-    kube::remove_redundant_manifests(&region.namespace, &svcs)?;
+    let svc_names = svcs.iter().map(|x| x.base.name.to_string()).collect();
+    kube::remove_redundant_manifests(&region.namespace, &svc_names)?;
 
     let n_jobs = svcs.len();
     let pool = ThreadPool::new(n_workers);
@@ -76,8 +78,8 @@ fn crd_reconcile(svcs: Vec<String>, config: &Config, region: &Region, n_workers:
 
         let tx = tx.clone(); // tx channel reused in each thread
         pool.execute(move || {
-            debug!("Running CRD reconcile for {}", svc);
-            let res = crd_reconcile_worker(&svc, &conf, &reg);
+            debug!("Running CRD reconcile for {:?}", svc);
+            let res = crd_reconcile_worker(&svc.base.name, &conf, &reg);
             tx.send(res).expect("channel will be there waiting for the pool");
         });
     }
@@ -120,15 +122,11 @@ fn crd_reconcile_worker(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
 /// Requires a `vault login` outside of this command as a user who
 /// is sufficiently elevated to write general policies.
 pub fn mass_vault(conf: &Config, reg: &Region, n_workers: usize) -> Result<()> {
-    let mut svcs = vec![];
-    for svc in Manifest::all()? {
-        // Can rely on blank manifests in here because metadata is a global property:
-        svcs.push(Manifest::blank(&svc)?);
-    }
+    let svcs = shipcat_filebacked::all(conf)?;
     vault_reconcile(svcs, &conf, reg, n_workers)
 }
 
-fn vault_reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
+fn vault_reconcile(mfs: Vec<BaseManifest>, conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
     use threadpool::ThreadPool;
     use std::sync::mpsc::channel;
 
@@ -139,7 +137,7 @@ fn vault_reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, n_worker
     // then parallel apply the remaining ones
     let (tx, rx) = channel();
     for t in conf.teams.clone() {
-        let mfs = svcs.clone();
+        let mfs = mfs.clone();
         let reg = region.clone();
         let tx = tx.clone(); // tx channel reused in each thread
         pool.execute(move || {
@@ -164,7 +162,7 @@ fn vault_reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, n_worker
     Ok(())
 }
 
-fn vault_reconcile_worker(svcs: Vec<Manifest>, team: Team, reg: Region) -> Result<()> {
+fn vault_reconcile_worker(svcs: Vec<BaseManifest>, team: Team, reg: Region) -> Result<()> {
     use std::path::Path;
     use std::fs::File;
     use std::io::Write;

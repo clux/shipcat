@@ -48,12 +48,6 @@ pub enum ManifestType {
     /// It's important that the CRD equivalent abstracts away config files, but not secrets.
     /// Thus files have to be read, and not templated for this, then shipped off to kube.
     Base,
-
-    /// A Manifest File
-    ///
-    /// This is an unmerged file, and should not be used for anything except merging.
-    #[cfg(feature = "filesystem")]
-    SingleFile,
 }
 
 /// Default is the feature-specified base type to force constructors into chosing.

@@ -9,12 +9,14 @@ extern crate error_chain;
 
 // Structs
 mod manifest;
+mod simple;
+pub use crate::simple::{SimpleManifest};
 
 // Utilities
 mod load;
 
 use manifest::ManifestSource;
-use shipcat_definitions::{Config, Manifest, Region, SimpleManifest, Result};
+use shipcat_definitions::{Config, Manifest, Region, Result, BaseManifest};
 
 pub fn load_manifest(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
     ManifestSource::load_manifest(service, conf, reg)
@@ -22,4 +24,12 @@ pub fn load_manifest(service: &str, conf: &Config, reg: &Region) -> Result<Manif
 
 pub fn load_metadata(service: &str, conf: &Config, reg: &Region) -> Result<SimpleManifest> {
     ManifestSource::load_metadata(service, conf, reg)
+}
+
+pub fn all(conf: &Config) -> Result<Vec<BaseManifest>> {
+    ManifestSource::all(conf)
+}
+
+pub fn available(conf: &Config, reg: &Region) -> Result<Vec<SimpleManifest>> {
+    ManifestSource::available(conf, reg)
 }

@@ -1,5 +1,5 @@
 use shipcat_definitions::structs::Kong;
-use super::{Manifest, Result, Region, Config};
+use super::{Result, Region, Config};
 
 /// One Statuscake object
 #[derive(Serialize)]
@@ -69,19 +69,17 @@ fn generate_statuscake_output(conf: &Config, region: &Region) -> Result<Vec<Stat
     if let Some(external_svc) = region.base_urls.get("external_services") {
         debug!("Using base_url.external_services {:?}", external_svc);
         // Generate list of APIs to feed to Statuscake
-        for svc in Manifest::available(&region.name)? {
-            debug!("Scanning service {:?}", svc);
-            let mf = shipcat_filebacked::load_metadata(&svc, &conf, region)?; // does not need secrets
-            debug!("Found service {} in region {}", mf.name, region.name);
+        for mf in shipcat_filebacked::available(conf, region)? {
+            debug!("Found service {:?}", mf);
             if let Some(k) = mf.kong.clone() {
-                debug!("Service {:?} has a kong configuration, adding", svc);
+                debug!("{:?} has a kong configuration, adding", mf);
                 tests.push(StatuscakeTest::new(
                         region,
-                        svc,
+                        mf.base.name.to_string(),
                         external_svc.to_string(),
                         k));
             } else {
-                debug!("Service {:?} has no kong configuration, skipping", svc);
+                debug!("{:?} has no kong configuration, skipping", mf);
             }
         }
         // Extra APIs - let's not monitor them for now (too complex)

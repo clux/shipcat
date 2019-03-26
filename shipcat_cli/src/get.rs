@@ -2,8 +2,7 @@
 use std::collections::BTreeMap;
 use semver::Version;
 
-use super::{Config, Team, Region};
-use super::{Result, Manifest};
+use super::{Config, Team, Region, Result};
 
 
 // ----------------------------------------------------------------------------
@@ -14,11 +13,10 @@ use super::{Result, Manifest};
 /// Services without a hardcoded version are not returned.
 pub fn versions(conf: &Config, region: &Region) -> Result<BTreeMap<String, Version>> {
     let mut output = BTreeMap::new();
-    for svc in Manifest::available(&region.name)? {
-        let mf = shipcat_filebacked::load_metadata(&svc, &conf, &region)?;
+    for mf in shipcat_filebacked::available(conf, region)? {
         if let Some(v) = mf.version {
             if let Ok(sv) = Version::parse(&v) {
-                output.insert(svc, sv);
+                output.insert(mf.base.name, sv);
             }
         }
     }
@@ -31,11 +29,9 @@ pub fn versions(conf: &Config, region: &Region) -> Result<BTreeMap<String, Versi
 /// Services without a hardcoded image will assume the shipcat.conf specific default
 pub fn images(conf: &Config, region: &Region) -> Result<BTreeMap<String, String>> {
     let mut output = BTreeMap::new();
-    for svc in Manifest::available(&region.name)? {
-        // NB: needs > raw version of manifests because we need image implicits..
-        let mf = shipcat_filebacked::load_metadata(&svc, &conf, &region)?;
+    for mf in shipcat_filebacked::available(conf, region)? {
         if let Some(i) = mf.image {
-            output.insert(svc, i);
+            output.insert(mf.base.name, i);
         }
     }
     println!("{}", serde_json::to_string_pretty(&output)?);
@@ -48,23 +44,20 @@ pub fn images(conf: &Config, region: &Region) -> Result<BTreeMap<String, String>
 /// Each returned string is Github CODEOWNER syntax
 pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
     let mut output = vec![];
-    for svc in Manifest::all()? {
-        // Can rely on blank here because metadata is a global property
-        let mf = Manifest::blank(&svc)?;
-        if let Some(md) = mf.metadata {
-            let mut ghids = vec![];
-            // teams guaranteed by validates on Manifest and Config
-            // TODO: not for external services! ^
-            if let Some(t) = &conf.teams.iter().find(|t| t.name == md.team) {
-                for o in t.owners.clone() {
-                    ghids.push(format!("@{}", o.github.unwrap()));
-                }
-                if !t.owners.is_empty() {
-                    output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
-                }
-            } else {
-                warn!("No team found for {} in shipcat.conf - ignoring {}", md.team, mf.name);
+    for mf in shipcat_filebacked::all(conf)? {
+        let md = mf.metadata;
+        let mut ghids = vec![];
+        // teams guaranteed by validates on Manifest and Config
+        // TODO: not for external services! ^
+        if let Some(t) = &conf.teams.iter().find(|t| t.name == md.team) {
+            for o in t.owners.clone() {
+                ghids.push(format!("@{}", o.github.unwrap()));
             }
+            if !t.owners.is_empty() {
+                output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
+            }
+        } else {
+            warn!("No team found for {} in shipcat.conf - ignoring {}", md.team, mf.name);
         }
     }
     println!("{}", output.join("\n"));
@@ -92,12 +85,8 @@ pub fn vaultpolicy(conf: &Config, region: &Region, team_name: &str) -> Result<St
     if team.vaultAdmins.is_none() {
         warn!("Team '{}' does not define a vaultAdmins team in shipcat.conf", team.name);
     }
-    let mut svcs = vec![];
-    for svc in Manifest::all()? {
-        // Can rely on blank manifests in here because metadata is a global property:
-        svcs.push(Manifest::blank(&svc)?);
-    }
-    let output = region.vault.make_policy(svcs, team.clone(), region.environment.clone())?;
+    let mfs = shipcat_filebacked::all(conf)?;
+    let output = region.vault.make_policy(mfs, team.clone(), region.environment.clone())?;
     println!("{}", output);
     Ok(output)
 }
@@ -181,8 +170,8 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
     };
 
     // Get API Info from Manifests
-    for svc in Manifest::available(&reg.name)? {
-        let mf = shipcat_filebacked::load_manifest(&svc, &conf, &reg)?;
+    for svc in shipcat_filebacked::available(conf, reg)? {
+        let mf = shipcat_filebacked::load_manifest(&svc.base.name, &conf, &reg)?;
         if let Some(k) = mf.kong {
             let mut params = APIServiceParams {
                 uris: k.uris.unwrap_or("".into()),
@@ -201,7 +190,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
                 params.publiclyAccessible = g.public;
                 params.websockets = g.websockets;
             }
-            services.insert(svc, params);
+            services.insert(svc.base.name, params);
         }
     }
 
@@ -265,14 +254,13 @@ impl ResourceBreakdown {
 
 /// Compute resource usage for all available manifests in a region.
 fn resources_region(conf: &Config, region: &Region) -> Result<ResourceBreakdown> {
-    let services = Manifest::available(&region.name)?;
     let mut bd = ResourceBreakdown::new(conf.teams.clone()); // zero for all the things
 
     let mut sum : Resources<f64> = Default::default();
     let mut extra : Resources<f64> = Default::default(); // autoscaling limits
 
-    for svc in services {
-        let mf = shipcat_filebacked::load_manifest(&svc, conf, region)?;
+    for svc in shipcat_filebacked::available(conf, region)? {
+        let mf = shipcat_filebacked::load_manifest(&svc.base.name, conf, region)?;
         if let Some(ref md) = mf.metadata {
             let ResourceTotals { base: sb, extra: se } = mf.compute_resource_totals()?;
             sum += sb.clone();

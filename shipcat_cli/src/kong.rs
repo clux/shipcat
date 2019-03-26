@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 use std::collections::BTreeMap;
 
-use super::{Manifest, Result, Region, Config, KongConfig};
+use super::{Result, Region, Config, KongConfig};
 use super::structs::Kong;
 use super::structs::kongfig::{kongfig_apis, kongfig_consumers};
 use super::structs::kongfig::{Api, Consumer, Plugin, Upstream, Certificate};
@@ -68,12 +68,10 @@ pub fn generate_kong_output(conf: &Config, region: &Region) -> Result<KongOutput
     let mut apis = BTreeMap::new();
 
     // Generate list of APIs to feed to Kong
-    for svc in Manifest::available(&region.name)? {
-        debug!("Scanning service {:?}", svc);
-        let mf = shipcat_filebacked::load_manifest(&svc, &conf, region)?; // does not need secrets
-        debug!("Found service {} in region {}", mf.name, region.name);
+    for mf in shipcat_filebacked::available(conf, region)? {
+        debug!("Scanning service {:?}", mf);
         if let Some(k) = mf.kong {
-           apis.insert(svc, k);
+           apis.insert(mf.base.name, k);
         }
     }
 

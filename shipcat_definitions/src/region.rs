@@ -7,12 +7,7 @@ use semver::Version;
 use url::Url;
 use uuid::Uuid;
 
-use super::Vault;
-#[allow(unused_imports)]
-use crate::{Team, Manifest};
-#[allow(unused_imports)]
-use super::{Result, Error, ErrorKind};
-use super::ConfigType;
+use super::{Vault, Result, BaseManifest, ConfigType, Team};
 
 /// Versioning Scheme used in region
 ///
@@ -88,13 +83,11 @@ impl VaultConfig {
     ///
     /// Returns plaintext hcl
     #[cfg(feature = "filesystem")]
-    pub fn make_policy(&self, mfs: Vec<Manifest>, team: Team, env: Environment) -> Result<String> {
+    pub fn make_policy(&self, mfs: Vec<BaseManifest>, team: Team, env: Environment) -> Result<String> {
         let mut owned_manifests = vec![];
         for mf in mfs {
-            if let Some(md) = mf.metadata {
-                if md.team == team.name {
-                    owned_manifests.push(mf.name);
-                }
+            if mf.metadata.team == team.name {
+                owned_manifests.push(mf.name);
             }
         }
         let output = self.template(owned_manifests, env)?;

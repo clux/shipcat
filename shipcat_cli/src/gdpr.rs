@@ -1,4 +1,4 @@
-use super::{Manifest, Config, Region};
+use super::{Config, Region};
 use std::collections::BTreeMap;
 
 use super::structs::security::DataHandling;
@@ -27,12 +27,12 @@ pub fn show(svc: Option<String>, conf: &Config, region: &Region) -> Result<()> {
     } else {
         let mut mappings = BTreeMap::new();
         let mut services = vec![];
-        for s in Manifest::available(&region.name)? {
-            let mf = shipcat_filebacked::load_manifest(&s, conf, region)?;
+        for s in shipcat_filebacked::available(conf, region)? {
+            let mf = shipcat_filebacked::load_manifest(&s.base.name, conf, region)?;
             if let Some(dh) = mf.dataHandling {
-                mappings.insert(s.clone(), dh);
+                mappings.insert(s.base.name.clone(), dh);
             }
-            services.push(s);
+            services.push(s.base.name);
         }
         let data = GdprOutput { mappings, services };
         serde_yaml::to_string(&data)?

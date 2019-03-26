@@ -7,17 +7,19 @@ use shipcat_definitions::structs::{
     Kafka, Kong, LifeCycle, Metadata, PersistentVolume, Port, Probe, Rbac, Resources,
     RollingUpdate, Sidecar, VaultOpts, VolumeMount, Worker,
 };
-use shipcat_definitions::{Config, Manifest, SimpleManifest, Region, Result};
+use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result};
 use shipcat_definitions::relaxed_string::{RelaxedString};
+
+use super::{SimpleManifest};
 
 /// Main manifest, deserialized from `shipcat.yml`.
 #[derive(Deserialize, Default, Clone)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ManifestSource {
     pub name: Option<String>,
-    pub external: Option<bool>,
-    pub disabled: Option<bool>,
-    pub regions: Option<Vec<String>>,
+    pub external: bool,
+    pub disabled: bool,
+    pub regions: Vec<String>,
     pub metadata: Option<Metadata>,
 
     #[serde(flatten)]
@@ -85,24 +87,25 @@ pub struct ManifestDefaults {
 impl ManifestSource {
     /// Build a Manifest from a ManifestSource, validating and mutating properties.
     pub fn build(self, conf: &Config, reg: &Region) -> Result<Manifest> {
-        let simple = self.build_simple(reg)?;
-        let metadata = self.build_metadata(conf)?;
+        let simple = self.build_simple(conf, reg)?;
+        let name = simple.base.name;
         let data_handling = self.build_data_handling();
-        let kafka = self.build_kafka(&simple.name, reg);
-        let configs = self.build_configs(&simple.name)?;
-
+        let kafka = self.build_kafka(&name, reg);
+        let configs = self.build_configs(&name)?;
 
         let overrides = self.overrides;
         let defaults = overrides.defaults;
         Ok(Manifest {
-            name: simple.name,
+            name,
             publiclyAccessible: overrides.publicly_accessible.unwrap_or_default(),
             // TODO: Skip most validation if true
-            external: self.external.unwrap_or_default(),
-            disabled: self.disabled.unwrap_or_default(),
+            external: simple.external,
+            // TODO: Replace with simple.enabled
+            disabled: self.disabled,
             // TODO: Must be non-empty
-            regions: self.regions.unwrap_or_default(),
-            metadata: metadata,
+            regions: simple.base.regions,
+            // TODO: Make metadata non-optional
+            metadata: Some(simple.base.metadata),
             chart: defaults.chart,
             // TODO: Make imageSize non-optional
             imageSize: overrides.image_size.or(Some(512)),
@@ -161,16 +164,34 @@ impl ManifestSource {
         })
     }
 
-    pub fn build_simple(&self, region: &Region) -> Result<SimpleManifest> {
-        let name = self.build_name()?;
-        let image = self.build_image(&name)?;
-        let kong = self.build_kong(&name, region);
+    pub fn build_simple(&self, conf: &Config, region: &Region) -> Result<SimpleManifest> {
+        let base = self.build_base(conf)?;
+
         Ok(SimpleManifest {
-            name,
+            region: region.name.to_string(),
+
+            enabled: !self.disabled && base.regions.contains(&region.name),
+            external: self.external,
+
             // TODO: Make image non-optional
-            image: Some(image),
+            image: Some(self.build_image(&base.name)?),
+
             version: self.overrides.version.clone(),
-            kong,
+            kong: self.build_kong(&base.name, region),
+
+            base,
+        })
+    }
+
+    pub fn build_base(&self, conf: &Config) -> Result<BaseManifest> {
+        let name = self.build_name()?;
+        let metadata = self.build_metadata(&name, conf)?;
+        let regions = self.regions.clone();
+
+        Ok(BaseManifest {
+            name,
+            regions,
+            metadata,
         })
     }
 
@@ -194,9 +215,9 @@ impl ManifestSource {
     }
 
     // TODO: Extract MetadataSource
-    fn build_metadata(&self, conf: &Config) -> Result<Option<Metadata>> {
+    fn build_metadata(&self, name: &String, conf: &Config) -> Result<Metadata> {
         if self.metadata.is_none() {
-            return Ok(None);
+            bail!("Missing metadata for {}", name);
         }
         let mut md = self.metadata.clone().unwrap();
 
@@ -211,7 +232,7 @@ impl ManifestSource {
         if md.notifications.is_none() {
             md.notifications = team.notifications.clone();
         }
-        Ok(Some(md.clone()))
+        Ok(md.clone())
     }
 
     // TODO: Extract DataHandlingSource

@@ -1,0 +1,7 @@
+name: out-of-region
+metadata:
+  team: someteam
+  contacts: []
+  repo: https://github.com/Babylonpartners/shipcat
+regions:
+- dev-ops

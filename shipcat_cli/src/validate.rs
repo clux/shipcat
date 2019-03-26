@@ -1,4 +1,4 @@
-use super::{Config, Manifest, Region};
+use super::{Config, Region};
 use super::Result;
 
 /// Validate the manifest of a service in the services directory
@@ -31,9 +31,9 @@ pub fn secret_presence(conf: &Config, regions: Vec<String>) -> Result<()> {
         info!("validating secrets in {}", r);
         let reg = conf.get_region(&r)?; // verifies region or region alias exists
         reg.verify_secrets_exist()?; // verify secrets for the region
-        for svc in Manifest::available(&reg.name)? {
-            let mf = shipcat_filebacked::load_manifest(&svc, conf, &reg)?;
-            debug!("validating secrets for {} in {}", svc, r);
+        for svc in shipcat_filebacked::available(conf, &reg)? {
+            let mf = shipcat_filebacked::load_manifest(&svc.base.name, conf, &reg)?;
+            debug!("validating secrets for {} in {}", &svc.base.name, r);
             mf.verify_secrets_exist(&reg.vault)?;
         }
     }

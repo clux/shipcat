@@ -1,0 +1,8 @@
+name: external
+metadata:
+  team: someteam
+  contacts: []
+  repo: https://github.com/Babylonpartners/shipcat
+external: true
+regions:
+- dev-uk

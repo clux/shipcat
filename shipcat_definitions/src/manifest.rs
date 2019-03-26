@@ -28,8 +28,8 @@ use super::structs::{
 };
 
 /// Main manifest, serializable from shipcat.yml or the shipcat CRD.
-#[derive(Serialize, Deserialize, Clone, Default)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[derive(Serialize, Clone, Default)]
+#[cfg_attr(feature = "crd", derive(Deserialize))]
 pub struct Manifest {
     // ------------------------------------------------------------------------
     // Non-mergeable global properties

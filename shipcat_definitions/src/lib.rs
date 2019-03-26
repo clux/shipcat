@@ -84,9 +84,10 @@ pub use crate::config::{Config, Cluster, Team, ManifestDefaults};
 pub mod structs;
 
 pub mod manifest;
-pub mod simple;
 pub use crate::manifest::Manifest;
-pub use crate::simple::SimpleManifest;
+
+pub mod base;
+pub use crate::base::BaseManifest;
 
 /// Crd wrappers
 mod crds;
@@ -95,10 +96,6 @@ pub use crate::crds::{Crd, CrdList, CrdEvent, CrdEventType, gen_all_crds};
 /// Internal classifications and states
 mod states;
 pub use crate::states::{ConfigType};
-
-/// File backing
-#[cfg(feature = "filesystem")]
-mod filebacked;
 
 /// Computational helpers
 pub mod math;

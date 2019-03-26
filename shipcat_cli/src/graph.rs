@@ -120,11 +120,10 @@ pub fn generate(service: &str, conf: &Config, reg: &Region, dot: bool) -> Result
 /// But it would require: TODO: optionally filter edges around node(s)
 pub fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
     let mut graph : CatGraph = DiGraph::<_, _>::new();
-    let services = Manifest::available(&reg.name)?;
-    for svc in services {
+    for svc in shipcat_filebacked::available(conf, reg)? {
         debug!("Scanning service {:?}", svc);
 
-        let mf = shipcat_filebacked::load_manifest(&svc, conf, reg)?;
+        let mf = shipcat_filebacked::load_manifest(&svc.base.name, conf, reg)?;
         let node = ManifestNode::new(&mf);
         let idx = graph.add_node(node);
 
@@ -156,10 +155,10 @@ pub fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
 /// Generate first level reverse dependencies for a service
 pub fn reverse(service: &str, conf: &Config, reg: &Region) -> Result<Vec<String>> {
     let mut res = vec![];
-    for svc in Manifest::available(&reg.name)? {
-        let mf = shipcat_filebacked::load_manifest(&svc, conf, reg)?;
+    for svc in shipcat_filebacked::available(conf, reg)? {
+        let mf = shipcat_filebacked::load_manifest(&svc.base.name, conf, reg)?;
         if mf.dependencies.into_iter().any(|d| d.name == service) {
-            res.push(svc)
+            res.push(svc.base.name)
         }
     }
     let out = serde_yaml::to_string(&res)?;

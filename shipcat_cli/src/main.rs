@@ -388,8 +388,8 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         return shipcat::list::locations(&rawconf);
     }
     else if let Some(a) = args.subcommand_matches("list-services") {
-        let (_ , region) = resolve_config(a, ConfigType::Base)?;
-        return shipcat::list::services(&region);
+        let (conf , region) = resolve_config(a, ConfigType::Base)?;
+        return shipcat::list::services(&conf, &region);
     }
     //if let Some(a) = args.subcommand_matches("list-products") {
     //    let l = a.value_of("location").unwrap().into();

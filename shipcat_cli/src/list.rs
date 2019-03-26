@@ -1,5 +1,5 @@
 /// This file contains all the hidden `shipcat list-*` subcommands
-use super::{Result, Region, Manifest, Config}; //Product
+use super::{Result, Region, Config}; //Product
 
 /// Print the supported regions
 pub fn regions(conf: &Config) -> Result<()> {
@@ -36,10 +36,10 @@ pub fn locations(conf: &Config) -> Result<()> {
 
 /// Print supported services in a region
 /// TODO: this one needs to do the guess outside in main!
-pub fn services(region: &Region) -> Result<()> {
-    let services = Manifest::available(&region.name)?;
+pub fn services(conf: &Config, region: &Region) -> Result<()> {
+    let services = shipcat_filebacked::available(conf, region)?;
     for svc in services {
-        println!("{}", svc);
+        println!("{}", &svc.base.name);
     }
     Ok(())
 }
