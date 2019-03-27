@@ -7,6 +7,7 @@ use semver::Version;
 use url::Url;
 use uuid::Uuid;
 
+#[allow(unused_imports)]
 use super::{Vault, Result, BaseManifest, ConfigType, Team};
 
 /// Versioning Scheme used in region

@@ -29,10 +29,8 @@ pub enum UpgradeMode {
     UpgradeInstall,
     /// Upgrade or install, but always wait (reconcile)
     UpgradeInstallWait,
-
-    // new modes
-    /// Upgrade and Wait, or Install and don't wait (on first install)
-    Apply,
+    /// Upgrade or install, but dont wait (apply with --no-wait)
+    UpgradeInstallNoWait,
 }
 impl Default for UpgradeMode {
     fn default() -> Self {
@@ -50,7 +48,7 @@ impl fmt::Display for UpgradeMode {
             &UpgradeMode::UpgradeInstall => write!(f, "install"),
             &UpgradeMode::UpgradeWaitMaybeRollback => write!(f, "upgrade"),
             &UpgradeMode::UpgradeInstallWait => write!(f, "reconcile"),
-            &UpgradeMode::Apply => write!(f, "apply"),
+            &UpgradeMode::UpgradeInstallNoWait => write!(f, "reconciled (fire and forget)"),
         }
     }
 }
@@ -65,7 +63,7 @@ impl UpgradeMode {
             &UpgradeMode::UpgradeInstall => "installed",
             &UpgradeMode::UpgradeWaitMaybeRollback => "upgraded",
             &UpgradeMode::UpgradeInstallWait => "reconciled",
-            &UpgradeMode::Apply => "applied",
+            &UpgradeMode::UpgradeInstallNoWait => "reconciled (fire and forget)",
         }.into()
     }
 }
@@ -217,10 +215,10 @@ pub fn upgrade(data: &UpgradeData) -> Result<()> {
 
     // TODO: dedupe
     match data.mode {
-        UpgradeMode::UpgradeWaitMaybeRollback | UpgradeMode::UpgradeWait | UpgradeMode::UpgradeNoWait => {
-            upgradevec.extend_from_slice(&[
-            ]);
-        },
+        UpgradeMode::UpgradeWaitMaybeRollback |
+        UpgradeMode::UpgradeWait |
+        UpgradeMode::UpgradeNoWait |
+        UpgradeMode::UpgradeInstallNoWait => {},
         UpgradeMode::UpgradeRecreateWait => {
             upgradevec.extend_from_slice(&[
                 "--recreate-pods".into(),
@@ -491,7 +489,7 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Con
             },
             Ok(_) => {
                 // after helm upgrade / kubectl apply, check rollout status in a loop:
-                if udata.mode == UpgradeMode::UpgradeNoWait || kube::await_rollout_status(&mf)? {
+                if udata.mode == UpgradeMode::UpgradeNoWait || udata.mode == UpgradeMode::UpgradeInstallNoWait || kube::await_rollout_status(&mf)? {
                     info!("successfully rolled out {}", &udata.name);
                     webhooks::upgrade_event(UpgradeState::Completed, &udata, &region);
                 }

@@ -284,6 +284,9 @@ fn main() {
                 .short("t")
                 .takes_value(true)
                 .help("Image version to deploy"))
+              .arg(Arg::with_name("no-wait")
+                    .long("no-wait")
+                    .help("Do not wait for service timeout"))
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service to upgrad"))
@@ -573,7 +576,11 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let svc = a.value_of("service").map(String::from).unwrap();
         // this absolutely needs secrets..
         let (conf, region) = resolve_config(a, ConfigType::Filtered)?;
-        let umode = shipcat::helm::UpgradeMode::UpgradeInstall;
+        let umode = if a.is_present("no-wait") {
+            shipcat::helm::UpgradeMode::UpgradeInstallNoWait
+        } else {
+            shipcat::helm::UpgradeMode::UpgradeInstall
+        };
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
         assert!(conf.has_secrets()); // sanity on cluster disruptive commands
         return shipcat::helm::direct::upgrade_wrapper(&svc,

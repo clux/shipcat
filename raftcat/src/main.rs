@@ -2,22 +2,9 @@
 
 use log::{info, warn, error, debug, trace};
 use serde_derive::Serialize;
-use tera::compile_templates;
-use failure::err_msg;
 
-use kubernetes::{
-    client::APIClient,
-    config,
-};
-
-use std::{
-    collections::BTreeMap,
-    env,
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
+use std::env;
 use chrono::Local;
-use prometheus::{Opts, Registry, Counter, TextEncoder, Encoder};
 
 pub use raftcat::*;
 
@@ -37,156 +24,57 @@ use actix_web::{
     http::{header, Method, StatusCode},
 };
 
-/// State shared between http requests
-#[derive(Clone)]
-struct AppState {
-    pub cache: ManifestCache,
-    pub config: Config,
-    pub relics: RelicMap,
-    pub sentries: SentryMap,
-    region: String,
-    last_update: Instant,
-}
-impl AppState {
-    pub fn new(client: &APIClient) -> Result<Self> {
-        info!("Loading state from CRDs");
-        let rname = env::var("REGION_NAME").expect("Need REGION_NAME evar");
-        let ns = env::var("NAMESPACE").expect("Need NAMESPACE evar");
-        debug!("Initializing cache for {} in {}", rname, ns);
-        let state = AppState::init_cache(client, &ns)?;
-        let config = kube::get_shipcat_config(client, &ns, &rname)?.spec;
-        let mut res = AppState {
-            cache: state,
-            config,
-            region: rname,
-            relics: BTreeMap::new(),
-            sentries: BTreeMap::new(),
-            last_update: Instant::now(),
-        };
-        res.update_slow_cache()?;
-        Ok(res)
-    }
-
-    // Helper for init
-    fn init_cache(client: &APIClient, ns: &str) -> Result<ManifestCache> {
-        info!("Initialising state from CRDs");
-        let mut data = kube::get_shipcat_manifests(client, ns)?;
-        match version::get_all() {
-            Ok(versions) => {
-                info!("Loaded {} versions", versions.len());
-                for (k, mf) in &mut data.manifests {
-                    mf.version = versions.get(k).map(String::clone);
-                }
-            }
-            Err(e) => warn!("Unable to load versions: {}", err_msg(e))
-        }
-        Ok(data)
-    }
-    fn update_slow_cache(&mut self) -> Result<()> {
-        let region = self.config.get_region(&self.region).unwrap();
-        if let Some(s) = region.sentry {
-            match sentryapi::get_slugs(&s.url, &region.environment.to_string()) {
-                Ok(res) => {
-                    self.sentries = res;
-                    info!("Loaded {} sentry slugs", self.sentries.len());
-                },
-                Err(e) => warn!("Unable to load sentry slugs: {}", err_msg(e)),
-            }
-        } else {
-            warn!("No sentry url configured for this region");
-        }
-        match newrelic::get_links(&region.name) {
-            Ok(res) => {
-                self.relics = res;
-                info!("Loaded {} newrelic links", self.relics.len());
-            },
-            Err(e) => warn!("Unable to load newrelic projects. {}", err_msg(e)),
-        }
-        Ok(())
-    }
-    pub fn get_manifest(&mut self, key: &str) -> Result<Option<Manifest>> {
-        if let Some(mf) = self.cache.manifests.get(key) {
-            return Ok(Some(mf.clone()));
-        }
-        Ok(None)
-    }
-    pub fn get_manifests_for(&self, team: &str) -> Result<Vec<String>> {
-        let mfs = self.cache.manifests.iter()
-            .filter(|(_k, mf)| mf.metadata.clone().unwrap().team == team)
-            .map(|(_k, mf)| mf.name.clone()).collect();
-        Ok(mfs)
-    }
-    pub fn get_reverse_deps(&self, service: &str) -> Result<Vec<String>> {
-        let mut res = vec![];
-        for (svc, mf) in &self.cache.manifests {
-            if mf.dependencies.iter().any(|d| d.name == service) {
-                res.push(svc.clone())
-            }
-        }
-        Ok(res)
-    }
-    pub fn get_cluster_region(&self) -> Result<Region> {
-        let region = self.config.get_region(&self.region).expect(&format!("could not resolve cluster for {}", self.region));
-        Ok(region)
-    }
-    pub fn get_config(&self) -> Result<Config> {
-        Ok(self.config.clone())
-    }
-    pub fn get_manifests(&mut self) -> Result<ManifestMap> {
-        Ok(self.cache.manifests.clone())
-    }
-}
 
 // Route entrypoints
-fn get_single_manifest(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
+fn get_single_manifest(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
-    if let Some(mf) = req.state().safe.lock().unwrap().get_manifest(name)? {
+    if let Some(mf) = req.state().get_manifest(name)? {
         Ok(HttpResponse::Ok().json(mf))
     } else {
         Ok(HttpResponse::NotFound().finish())
     }
 }
-fn get_all_manifests(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
-    let mfs = req.state().safe.lock().unwrap().get_manifests()?;
+fn get_all_manifests(req: &HttpRequest<State>) -> Result<HttpResponse> {
+    let mfs = req.state().get_manifests()?;
     Ok(HttpResponse::Ok().json(mfs))
 }
-fn get_resource_usage(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
+fn get_resource_usage(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
-    if let Some(mf) = req.state().safe.lock().unwrap().get_manifest(name)? {
+    if let Some(mf) = req.state().get_manifest(name)? {
         let totals = mf.compute_resource_totals().unwrap(); // TODO: use 'failure' in shipcat_definitions
         Ok(HttpResponse::Ok().json(totals))
     } else {
         Ok(HttpResponse::NotFound().finish())
     }
 }
-fn get_manifests_for_team(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
+fn get_manifests_for_team(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
-    let cfg = req.state().safe.lock().unwrap().get_config()?;
+    let cfg = req.state().get_config()?;
     if let Some(t) = find_team(&cfg, name) {
-        let mfs = req.state().safe.lock().unwrap().get_manifests_for(&t.name)?.clone();
+        let mfs = req.state().get_manifests_for(&t.name)?.clone();
         Ok(HttpResponse::Ok().json(mfs))
     } else {
         Ok(HttpResponse::NotFound().finish())
     }
 }
-fn get_teams(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
-    let cfg = req.state().safe.lock().unwrap().get_config()?;
+fn get_teams(req: &HttpRequest<State>) -> Result<HttpResponse> {
+    let cfg = req.state().get_config()?;
     Ok(HttpResponse::Ok().json(cfg.teams.clone()))
 }
 
-fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
+fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
-    let cfg = req.state().safe.lock().unwrap().get_config()?;
-    let region = req.state().safe.lock().unwrap().get_cluster_region()?;
+    let cfg = req.state().get_config()?;
+    let region = req.state().get_region()?;
 
-    let revdeps = req.state().safe.lock().unwrap().get_reverse_deps(name).ok();
-    let newrelic_link = req.state().safe.lock().unwrap().relics.get(name).map(String::to_owned);
-    let sentry_slug = req.state().safe.lock().unwrap().sentries.get(name).map(String::to_owned);
+    let revdeps = req.state().get_reverse_deps(name).ok();
+    let newrelic_link = req.state().get_newrelic_link(name);
+    let sentry_slug = req.state().get_sentry_slug(name);
 
-    if let Some(mf) = req.state().safe.lock().unwrap().get_manifest(name)?.clone() {
+    if let Some(mf) = req.state().get_manifest(name)?.clone() {
         let pretty = serde_yaml::to_string(&mf)?;
         let mfstub = mf.clone().stub(&region).unwrap();
-        let pretty_stub = serde_yaml::to_string(&mfstub)?;
+
 
         let md = mf.metadata.clone().unwrap();
         let (vlink, version) = if let Some(ver) = mf.version.clone() {
@@ -212,13 +100,11 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         let circlelink = format!("https://circleci.com/gh/Babylonpartners/{}", mf.name);
         let quaylink = format!("https://{}/?tab=tags", mf.image.clone().unwrap());
 
-        let env_vars = mf.env.clone();
-        let deps = mf.dependencies.clone();
-
         let (team, teamlink) = (md.team.clone(), format!("/raftcat/teams/{}", team_slug(&md.team)));
         // TODO: runbook
 
         let mut ctx = tera::Context::new();
+        ctx.insert("raftcat", env!("CARGO_PKG_VERSION"));
         ctx.insert("manifest", &mf);
         ctx.insert("pretty_manifest", &pretty);
         ctx.insert("pretty_manifest_stub", &pretty);
@@ -270,20 +156,19 @@ fn get_service(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         let time = date.format("%Y-%m-%d %H:%M:%S").to_string();
 
         ctx.insert("time", &time);
-        let t = req.state().template.lock().unwrap();
-        let s = t.render("service.tera", &ctx).unwrap(); // TODO: map error
+        let s = req.state().render_template("service.tera", ctx);
         Ok(HttpResponse::Ok().content_type("text/html").body(s))
     } else {
         Ok(HttpResponse::NotFound().finish())
     }
 }
 
-fn health(_: &HttpRequest<StateSafe>) -> HttpResponse {
+fn health(_: &HttpRequest<State>) -> HttpResponse {
     HttpResponse::Ok().json("healthy")
 }
 
-fn get_config(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
-    let cfg = req.state().safe.lock().unwrap().get_config()?;
+fn get_config(req: &HttpRequest<State>) -> Result<HttpResponse> {
+    let cfg = req.state().get_config()?;
     Ok(HttpResponse::Ok().json(cfg))
 }
 
@@ -293,9 +178,9 @@ struct SimpleManifest {
     team: String,
 }
 
-fn index(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
+fn index(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let mut ctx = tera::Context::new();
-    let mfs = req.state().safe.lock().unwrap().get_manifests()?;
+    let mfs = req.state().get_manifests()?;
     let data = mfs.into_iter().map(|(k, m)| {
         SimpleManifest {
             name: k,
@@ -303,53 +188,12 @@ fn index(req: &HttpRequest<StateSafe>) -> Result<HttpResponse> {
         }
     }).collect::<Vec<_>>();
     let data = serde_json::to_string(&data)?;
+    ctx.insert("raftcat", env!("CARGO_PKG_VERSION"));
     ctx.insert("manifests", &data);
-    let t = req.state().template.lock().unwrap();
-    let s = t.render("index.tera", &ctx).unwrap(); // TODO: map error
+    let s = req.state().render_template("index.tera", ctx);
     Ok(HttpResponse::Ok().content_type("text/html").body(s))
 }
 
-
-#[derive(Clone)]
-struct StateSafe {
-    pub safe: Arc<Mutex<AppState>>,
-    pub client: APIClient,
-    pub template: Arc<Mutex<tera::Tera>>,
-    namespace: String,
-    region: String,
-}
-impl StateSafe {
-    pub fn new(client: APIClient) -> Result<Self> {
-        let t = compile_templates!(concat!("raftcat", "/templates/*"));
-        let state = AppState::new(&client)?;
-        let namespace = env::var("NAMESPACE").expect("Need NAMESPACE evar");
-        let region = env::var("REGION_NAME").expect("Need REGION_NAME evar");
-        Ok(StateSafe {
-            client,
-            namespace, region,
-            safe: Arc::new(Mutex::new(state)),
-            template: Arc::new(Mutex::new(t)),
-        })
-    }
-    pub fn full_refresh(&self) -> Result<()> {
-        let res = kube::get_shipcat_manifests(&self.client, &self.namespace)?;
-        let cfg = kube::get_shipcat_config(&self.client, &self.namespace, &self.region)?.spec;
-        self.safe.lock().unwrap().cache = res;
-        self.safe.lock().unwrap().config = cfg;
-        Ok(())
-    }
-    pub fn watch_manifests(&self) -> Result<()> {
-        let old = self.safe.lock().unwrap().cache.clone();
-        let res = kube::watch_for_shipcat_manifest_updates(
-            &self.client,
-            &self.namespace,
-            old
-        )?;
-        // lock to update cache
-        self.safe.lock().unwrap().cache = res;
-        Ok(())
-    }
-}
 
 fn main() -> Result<()> {
     sentry::integrations::panic::register_panic_handler();
@@ -371,41 +215,15 @@ fn main() -> Result<()> {
     // Load the config: local kube config prioritised first for local development
     // NB: Only supports a config with client certs locally (e.g. kops setup)
     let cfg = match env::var("HOME").expect("have HOME dir").as_ref() {
-        "/root" => config::incluster_config(),
-        _ => config::load_kube_config(),
+        "/root" => kubernetes::config::incluster_config(),
+        _ => kubernetes::config::load_kube_config(),
     }.expect("Failed to load kube config");
-
-    let client = APIClient::new(cfg);
-    let state = StateSafe::new(client)?;
-    let state2 = state.clone();
-    // continuously poll for updates
-    use std::thread;
-    thread::spawn(move || {
-        loop {
-            thread::sleep(Duration::from_secs(10));
-            match state2.watch_manifests() {
-                Ok(_) => trace!("State refreshed"),
-                Err(e) => {
-                    // if resourceVersions get desynced, this can happen
-                    warn!("Failed to refresh {}", e);
-                    // try a full refresh in a bit
-                    thread::sleep(Duration::from_secs(10));
-                    match state2.full_refresh() {
-                        Ok(_) => info!("Full state refresh fallback succeeded"),
-                        Err(e) => {
-                            error!("Failed to refesh cache on fallback: '{}' - rebooting", e);
-                            std::process::exit(1);
-                        }
-                    }
-                }
-            }
-        }
-    });
+    let shared_state = state::init(cfg).unwrap(); // crash if init fails
 
     info!("Creating http server");
     let sys = actix::System::new("raftcat");
     server::new(move || {
-        App::with_state(state.clone())
+        App::with_state(shared_state.clone())
             .middleware(middleware::Logger::default()
                 .exclude("/raftcat/health")
                 .exclude("/health")

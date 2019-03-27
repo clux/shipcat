@@ -55,7 +55,7 @@ macro_rules! visit_tostring {
 impl<'de> Visitor<'de> for RelaxedStringVisitor {
     type Value = RelaxedString;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("a string, number, boolean or null")
     }
 

@@ -13,10 +13,9 @@ pub use shipcat_definitions::{Manifest, Config, Cluster, Region, Team};
 pub mod kube;
 pub use crate::kube::{ManifestMap, ManifestCache};
 
+/// Integrations with external solutions like sentry/newrelic etc
+pub mod integrations;
 
-mod integrations;
-pub use crate::integrations::{
-  sentryapi::{self, SentryMap},
-  newrelic::{self, RelicMap},
-  version::{self, VersionMap},
-};
+/// State machinery for actix
+pub mod state;
+pub use state::State;

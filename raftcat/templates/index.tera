@@ -59,7 +59,7 @@
 
   <footer class="footer-custom">
     <div class="wrapper">
-      <a target="_blank" href="https://github.com/Babylonpartners/shipcat/tree/master/raftcat">code</a>
+      <a target="_blank" href="https://github.com/Babylonpartners/shipcat/tree/master/raftcat">raftcat {{ raftcat }}</a>
     </div>
   </footer>
 <script type="text/javascript">
