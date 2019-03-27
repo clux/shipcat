@@ -217,14 +217,14 @@ pub fn upgrade(data: &UpgradeData) -> Result<()> {
     match data.mode {
         UpgradeMode::UpgradeWaitMaybeRollback |
         UpgradeMode::UpgradeWait |
-        UpgradeMode::UpgradeNoWait |
-        UpgradeMode::UpgradeInstallNoWait => {},
+        UpgradeMode::UpgradeNoWait => {},
         UpgradeMode::UpgradeRecreateWait => {
             upgradevec.extend_from_slice(&[
                 "--recreate-pods".into(),
             ]);
         },
-        UpgradeMode::UpgradeInstall => {
+        UpgradeMode::UpgradeInstall |
+        UpgradeMode::UpgradeInstallNoWait => {
             upgradevec.extend_from_slice(&[
                 "--install".into(),
             ]);
