@@ -87,3 +87,7 @@ metadata:
   team: someteam
   support: "#dev-platform-override"
   notifications: "#dev-platform-notif-override"
+kong:
+  uris: '/fake-storage'
+  authorization:
+    enabled: true

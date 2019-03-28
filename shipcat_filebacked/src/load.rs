@@ -9,6 +9,7 @@ use walkdir::WalkDir;
 
 use crate::manifest::{ManifestDefaults, ManifestOverrides, ManifestSource};
 use super::{SimpleManifest, BaseManifest};
+use super::authorization::{AuthorizationSource};
 
 impl ManifestSource {
     pub fn load_manifest(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
@@ -103,28 +104,32 @@ impl ManifestSource {
 }
 
 impl ManifestDefaults {
-    fn from_global(conf: &Config) -> Result<Self> {
-        Ok(Self {
-            chart: Option::Some(conf.defaults.chart.clone()),
-            image_prefix: Option::Some(conf.defaults.imagePrefix.clone()),
-            replica_count: Option::Some(conf.defaults.replicaCount),
 
-            // TODO: Allow global env vars
-            env: Default::default(),
-        })
+    fn from_global(conf: &Config) -> Result<Self> {
+        let mut defs = Self::default();
+        defs.chart = Option::Some(conf.defaults.chart.clone());
+        defs.image_prefix = Option::Some(conf.defaults.imagePrefix.clone());
+        defs.replica_count = Option::Some(conf.defaults.replicaCount.clone());
+
+        Ok(defs)
     }
 
     fn from_region(reg: &Region) -> Result<Self> {
-        Ok(Self {
-            env: reg.env.iter()
+        let mut defs = Self::default();
+        defs.env = reg.env.iter()
                 .map(|(k, v)| (k.to_string(), v.into()))
-                .collect(),
-
-            // TODO: Allow more regional defaults
-            chart: None,
-            image_prefix: None,
-            replica_count: None,
-        })
+                .collect();
+        if let Some(authz) = reg.defaults.kong.authorization.clone() {
+            defs.kong.authorization = AuthorizationSource {
+                enabled: None,
+                allow_anonymous: Some(authz.allow_anonymous),
+                allowed_audiences: Some(authz.allowed_audiences),
+                allow_cookies: Some(authz.allow_cookies),
+                remove_invalid_tokens: Some(authz.remove_invalid_tokens),
+                required_scopes: Some(authz.required_scopes),
+            };
+        }
+        Ok(defs)
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "shipcat_filebacked"
-version = "0.94.0"
+version = "0.95.0"
 authors = ["Jay Anslow <jay@anslow.me.uk>"]
 edition = "2018"
 

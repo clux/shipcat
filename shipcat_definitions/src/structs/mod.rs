@@ -19,6 +19,9 @@ pub use self::worker::Worker;
 pub mod kong;
 pub use self::kong::{Kong, Cors, BabylonAuthHeader, Authentication};
 
+pub mod authorization;
+pub use self::authorization::{Authorization};
+
 /// Gate configs
 pub mod gate;
 pub use self::gate::{Gate};

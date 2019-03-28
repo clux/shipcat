@@ -26,11 +26,11 @@ pub struct KongfigOutput {
 }
 
 impl KongfigOutput {
-    pub fn new(data: KongOutput) -> Self {
+    pub fn new(data: KongOutput, region: &Region) -> Self {
         KongfigOutput {
             host: data.kong.clone().config_url,
             headers: vec![],
-            apis: kongfig_apis(data.apis, data.kong.clone()),
+            apis: kongfig_apis(data.apis, data.kong.clone(), region),
             consumers: kongfig_consumers(data.kong.clone()),
             plugins: vec![],
             upstreams: vec![],
@@ -99,7 +99,7 @@ pub fn output(conf: &Config, region: &Region, mode: KongOutputMode) -> Result<()
             serde_yaml::to_string(&res)?
         },
         KongOutputMode::Kongfig => {
-            let res = KongfigOutput::new(data);
+            let res = KongfigOutput::new(data, region);
             serde_yaml::to_string(&res)?
         }
     };

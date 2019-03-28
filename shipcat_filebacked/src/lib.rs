@@ -8,9 +8,11 @@ extern crate log;
 extern crate error_chain;
 
 // Structs
+mod authorization;
 mod manifest;
 mod simple;
 pub use crate::simple::{SimpleManifest};
+mod kong;
 
 // Utilities
 mod load;

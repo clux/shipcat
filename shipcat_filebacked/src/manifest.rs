@@ -4,16 +4,17 @@ use std::collections::BTreeMap;
 use shipcat_definitions::structs::{
     autoscaling::AutoScaling, security::DataHandling, tolerations::Tolerations, volume::Volume,
     ConfigMap, CronJob, Dependency, EnvVars, Gate, HealthCheck, HostAlias, InitContainer, Job,
-    Kafka, Kong, LifeCycle, Metadata, PersistentVolume, Port, Probe, Rbac, Resources,
+    Kafka, LifeCycle, Metadata, PersistentVolume, Port, Probe, Rbac, Resources,
     RollingUpdate, Sidecar, VaultOpts, VolumeMount, Worker,
 };
 use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result};
 use shipcat_definitions::relaxed_string::{RelaxedString};
 
 use super::{SimpleManifest};
+use super::kong::{KongSource};
 
 /// Main manifest, deserialized from `shipcat.yml`.
-#[derive(Deserialize, Default, Clone)]
+#[derive(Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ManifestSource {
     pub name: Option<String>,
@@ -63,7 +64,6 @@ pub struct ManifestOverrides {
     pub jobs: Option<Vec<Job>>,
     pub service_annotations: BTreeMap<String, String>,
     pub labels: BTreeMap<String, RelaxedString>,
-    pub kong: Option<Kong>,
     pub gate: Option<Gate>,
     pub hosts: Option<Vec<String>>,
     pub kafka: Option<Kafka>,
@@ -82,19 +82,21 @@ pub struct ManifestDefaults {
     pub chart: Option<String>,
     pub replica_count: Option<u32>,
     pub env: BTreeMap<String, RelaxedString>,
+    pub kong: KongSource,
 }
 
 impl ManifestSource {
     /// Build a Manifest from a ManifestSource, validating and mutating properties.
-    pub fn build(self, conf: &Config, reg: &Region) -> Result<Manifest> {
-        let simple = self.build_simple(conf, reg)?;
+    pub fn build(self, conf: &Config, region: &Region) -> Result<Manifest> {
+        let simple = self.build_simple(conf, region)?;
         let name = simple.base.name;
         let data_handling = self.build_data_handling();
-        let kafka = self.build_kafka(&name, reg);
+        let kafka = self.build_kafka(&name, region);
         let configs = self.build_configs(&name)?;
 
         let overrides = self.overrides;
         let defaults = overrides.defaults;
+
         Ok(Manifest {
             name,
             publiclyAccessible: overrides.publicly_accessible.unwrap_or_default(),
@@ -156,9 +158,9 @@ impl ManifestSource {
             sourceRanges: overrides.source_ranges.unwrap_or_default(),
             rbac: overrides.rbac.unwrap_or_default(),
 
-            region: reg.name.clone(),
-            environment: reg.environment.to_string(),
-            namespace: reg.namespace.clone(),
+            region: region.name.clone(),
+            environment: region.environment.to_string(),
+            namespace: region.namespace.clone(),
             secrets: Default::default(),
             kind: Default::default(),
         })
@@ -166,6 +168,9 @@ impl ManifestSource {
 
     pub fn build_simple(&self, conf: &Config, region: &Region) -> Result<SimpleManifest> {
         let base = self.build_base(conf)?;
+
+        let overrides = self.overrides.clone();
+        let defaults = overrides.defaults;
 
         Ok(SimpleManifest {
             region: region.name.to_string(),
@@ -176,8 +181,11 @@ impl ManifestSource {
             // TODO: Make image non-optional
             image: Some(self.build_image(&base.name)?),
 
-            version: self.overrides.version.clone(),
-            kong: self.build_kong(&base.name, region),
+            version: overrides.version,
+            kong: {
+                let hosts = overrides.hosts;
+                defaults.kong.build(&base.name, region, hosts)?
+            },
 
             base,
         })
@@ -250,16 +258,6 @@ impl ManifestSource {
         original.clone().map(|mut kf| {
             kf.implicits(service, reg.clone());
             kf
-        })
-    }
-
-    // TODO: Extract Kong
-    fn build_kong(&self, service: &String, reg: &Region) -> Option<Kong> {
-        let original = &self.overrides.kong;
-        original.clone().map(|mut kong| {
-            let hosts = self.overrides.hosts.clone().unwrap_or_default();
-            kong.implicits(service.clone(), reg.clone(), hosts);
-            kong
         })
     }
 
@@ -337,6 +335,7 @@ mod tests {
                 env.insert("b".into(), "default-b".into());
                 env
             },
+            kong: Default::default(),
         };
         let b = ManifestDefaults {
             image_prefix: Option::Some("beta".into()),
@@ -348,6 +347,7 @@ mod tests {
                 env.insert("c".into(), "override-c".into());
                 env
             },
+            kong: Default::default(),
         };
         let merged = a.merge(b);
         assert_eq!(merged.image_prefix, Option::Some("beta".into()));

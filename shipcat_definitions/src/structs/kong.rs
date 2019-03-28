@@ -1,4 +1,4 @@
-use super::{Result, Region};
+use super::{Result, Authorization};
 use std::ops::Not;
 use std::collections::BTreeMap;
 
@@ -22,10 +22,6 @@ pub struct Kong {
     #[serde(default)]
     pub upstream_url: String,
 
-    /// Whether the oauth2 plugin will be applied or not to this api
-    #[serde(default, skip_serializing)]
-    pub unauthenticated: bool,
-
     /// Whether or not to apply the ip whitelisting (?)
     #[serde(default, skip_serializing_if = "Not::not")]
     pub internal: bool,
@@ -42,6 +38,9 @@ pub struct Kong {
     #[serde(default, skip_serializing_if = "Not::not")]
     pub cookie_auth_csrf: bool,
 
+    /// Authorization for API
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorization: Option<Authorization>,
 
     /// Simple path based routing
     ///
@@ -143,39 +142,6 @@ pub struct Kong {
     pub add_headers: Option<BTreeMap<String, String>>,
 }
 
-
-impl Kong {
-    pub fn implicits(&mut self, svc: String, reg: Region, tophosts: Vec<String>) {
-        self.name = svc;
-        if self.unauthenticated {
-            self.auth = Authentication::None;
-        }
-        // Generate upstream_url for an in-kubernetes service
-        if self.upstream_url.is_empty() {
-            self.upstream_url = format!("http://{}.{}.svc.cluster.local", self.name, reg.namespace);
-        }
-
-        if tophosts.is_empty() {
-            // If the `host` field is defined, generate a `hosts` field based on the environment
-            if let Some(h) = self.host.clone() {
-                self.hosts = Some(format!("{}{}", h, reg.kong.base_url));
-            }
-        } else {
-            self.hosts = Some(tophosts.join(","));
-        }
-    }
-
-    /// Merge in fields from an override, if they're set
-    pub fn merge(&mut self, other: Kong) {
-        if let Some(cors) = other.cors {
-            self.cors = Some(cors.clone());
-        }
-        if ! other.additional_internal_ips.is_empty() {
-            self.additional_internal_ips = other.additional_internal_ips.clone();
-        }
-    }
-}
-
 fn preserve_host_default() -> bool { true }
 
 /// Cors plugin data
@@ -230,7 +196,7 @@ impl Kong {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum Authentication {
     None,

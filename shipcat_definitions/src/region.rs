@@ -10,6 +10,8 @@ use uuid::Uuid;
 #[allow(unused_imports)]
 use super::{Vault, Result, BaseManifest, ConfigType, Team};
 
+use super::structs::{Authorization};
+
 /// Versioning Scheme used in region
 ///
 /// This is valdiated strictly using `shipcat validate` when versions are found in manifests.
@@ -291,6 +293,22 @@ impl KongConfig {
     }
 }
 
+/// Defaults for services in this region
+// TODO: This should be ManifestDefaults from shipcat_filebacked
+#[derive(Deserialize, Clone, Default)]
+#[serde(default)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+pub struct DefaultConfig {
+    pub kong: DefaultKongConfig,
+}
+
+#[derive(Deserialize, Clone, Default)]
+#[serde(default)]
+#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+pub struct DefaultKongConfig {
+    pub authorization: Option<Authorization>,
+}
+
 impl Webhook {
     fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
         match self {
@@ -492,7 +510,10 @@ pub struct Region {
     /// All webhooks
     pub webhooks: Option<Vec<Webhook>>,
     /// CRD tuning
-    pub customResources: Option<CRSettings>
+    pub customResources: Option<CRSettings>,
+    /// Default values for services
+    #[serde(skip_serializing, default)]
+    pub defaults: DefaultConfig,
 }
 
 impl Region {

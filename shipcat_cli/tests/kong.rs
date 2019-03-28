@@ -31,7 +31,7 @@ fn kong_test() {
     setup();
     let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
     let kongrs = generate_kong_output(&conf, &reg).unwrap();
-    let output = KongfigOutput::new(kongrs);
+    let mut output = KongfigOutput::new(kongrs, &reg);
 
     assert_eq!(output.host, "admin.dev.something.domain.com");
 
@@ -59,28 +59,68 @@ fn kong_test() {
     assert!(output.consumers[2].credentials.is_empty());
 
 
-    assert_eq!(output.apis.len(), 1);
-    let api = &output.apis[0];
+    assert_eq!(output.apis.len(), 2);
+
+    // fake-ask API
+    let mut api = output.apis.remove(0);
     assert_eq!(api.name, "fake-ask");
     assert_eq!(api.attributes.uris, Some(vec!["/ai-auth".to_string()]));
     assert_eq!(api.attributes.strip_uri, false);
     assert_eq!(api.attributes.upstream_url, "http://fake-ask.dev.svc.cluster.local");
-    assert_eq!(api.plugins.len(), 4);
 
-    // api plugins
-    let attr = plugin_attributes!("CorrelationId", &api.plugins[0], ApiPlugin::CorrelationId);
+    let attr = plugin_attributes!("CorrelationId", api.plugins.remove(0), ApiPlugin::CorrelationId);
     assert_eq!(attr.enabled, true);
     assert_eq!(attr.config.header_name, "babylon-request-id");
 
-    let attr = plugin_attributes!("TcpLog", &api.plugins[1], ApiPlugin::TcpLog);
+    let attr = plugin_attributes!("TcpLog", api.plugins.remove(0), ApiPlugin::TcpLog);
     assert_eq!(attr.enabled, true);
 
-    let attr = plugin_attributes!("Oauth2", &api.plugins[2], ApiPlugin::Oauth2);
+    let attr = plugin_attributes!("Oauth2", api.plugins.remove(0), ApiPlugin::Oauth2);
     assert_eq!(attr.enabled, true);
     assert_eq!(attr.config.global_credentials, true);
     assert_eq!(attr.config.provision_key, "key");
     assert_eq!(attr.config.anonymous, Some("".to_string()));
     assert_eq!(attr.config.token_expiration, 1800);
 
-    assert_plugin_removed!("Jwt", &api.plugins[3], ApiPlugin::Jwt);
+    assert_plugin_removed!("Jwt", api.plugins.remove(0), ApiPlugin::Jwt);
+    assert_plugin_removed!("JwtValidator", api.plugins.remove(0), ApiPlugin::JwtValidator);
+
+    assert!(api.plugins.is_empty());
+
+    // fake-storage API
+    let mut api = output.apis.remove(0);
+    assert_eq!(api.name, "fake-storage");
+    assert_eq!(api.attributes.uris, Some(vec!["/fake-storage".to_string()]));
+    assert_eq!(api.attributes.strip_uri, false);
+    assert_eq!(api.attributes.upstream_url, "http://fake-storage.dev.svc.cluster.local");
+    assert_eq!(api.plugins.len(), 8);
+
+    let attr = plugin_attributes!("CorrelationId", api.plugins.remove(0), ApiPlugin::CorrelationId);
+    assert_eq!(attr.enabled, true);
+    assert_eq!(attr.config.header_name, "babylon-request-id");
+
+    let attr = plugin_attributes!("TcpLog", api.plugins.remove(0), ApiPlugin::TcpLog);
+    assert_eq!(attr.enabled, true);
+
+    assert_plugin_removed!("Oauth2", api.plugins.remove(0), ApiPlugin::Oauth2);
+    assert_plugin_removed!("Oauth2Extension", api.plugins.remove(0), ApiPlugin::Oauth2Extension);
+
+    let attr = plugin_attributes!("Jwt", api.plugins.remove(0), ApiPlugin::Jwt);
+    assert_eq!(attr.enabled, true);
+    assert_eq!(attr.config.uri_param_names, Vec::<String>::new());
+    assert_eq!(attr.config.claims_to_verify, vec!["exp"]);
+    assert_eq!(attr.config.key_claim_name, "kid");
+    assert_eq!(attr.config.anonymous, Some("".to_string()));
+
+    let attr = plugin_attributes!("JwtValidator", api.plugins.remove(0), ApiPlugin::JwtValidator);
+    assert_eq!(attr.enabled, true);
+    assert_eq!(attr.config.allowed_audiences, vec!["https://babylonhealth.com"]);
+    assert_eq!(attr.config.expected_region, "dev-uk");
+    assert_eq!(attr.config.expected_scope, "internal");
+    assert_eq!(attr.config.remove_invalid_tokens, true);
+
+    assert_plugin_removed!("JsonCookiesToHeaders", api.plugins.remove(0), ApiPlugin::JsonCookiesToHeaders);
+    assert_plugin_removed!("JsonCookiesCsrf", api.plugins.remove(0), ApiPlugin::JsonCookiesCsrf);
+
+    assert!(api.plugins.is_empty());
 }

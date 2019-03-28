@@ -1,6 +1,7 @@
 //use super::traits::Verify;
 use crate::structs::{Kong, Cors, BabylonAuthHeader, Authentication};
 use crate::region::{KongConfig};
+use crate::{Region};
 use std::collections::BTreeMap;
 use serde::ser::{Serialize, Serializer, SerializeMap};
 
@@ -196,6 +197,14 @@ impl JwtPluginConfig {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct JwtValidatorPluginConfig {
+    pub allowed_audiences: Vec<String>,
+    pub expected_region: String,
+    pub expected_scope: String,
+    pub remove_invalid_tokens: bool,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct JsonCookiesCsrfPluginConfig {
@@ -274,6 +283,7 @@ pub enum ApiPlugin {
     Oauth2(PluginBase<Oauth2PluginConfig>),
     Oauth2Extension(PluginBase<Oauth2ExtensionPluginConfig>),
     Jwt(PluginBase<JwtPluginConfig>),
+    JwtValidator(PluginBase<JwtValidatorPluginConfig>),
     Cors(PluginBase<CorsPluginConfig>),
     CorrelationId(PluginBase<CorrelationIdPluginConfig>),
     BabylonAuthHeader(PluginBase<BabylonAuthHeaderPluginConfig>),
@@ -328,7 +338,7 @@ fn splitter(value: String) -> Vec<String> {
         .collect()
 }
 
-pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig) -> Vec<Api> {
+pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &Region) -> Vec<Api> {
     let mut apis = Vec::new();
     for (k, v) in from.clone() {
         let mut plugins = Vec::new();
@@ -345,29 +355,51 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig) -> Vec<Api
             )));
         }
 
-        // OAuth2 plugins
-        let plugin = match v.auth {
-            Authentication::OAuth2 => PluginBase::new(Oauth2PluginConfig::new(
-                config.kong_token_expiration,
-                &config.oauth_provision_key,
-                v.oauth2_anonymous.clone())),
-            _ => PluginBase::removed(),
-        };
-        plugins.push(ApiPlugin::Oauth2(plugin));
+        if let Some(a) = v.authorization {
+            plugins.push(ApiPlugin::Oauth2(PluginBase::removed()));
+            plugins.push(ApiPlugin::Oauth2Extension(PluginBase::removed()));
+            plugins.push(ApiPlugin::Jwt(PluginBase::new(JwtPluginConfig::new(if a.allow_anonymous {
+                Some("anonymous".to_string())
+            } else {
+                None
+            }))));
+            plugins.push(ApiPlugin::JwtValidator(PluginBase::new(JwtValidatorPluginConfig {
+                allowed_audiences: a.allowed_audiences,
+                expected_scope: a.required_scopes.get(0).map_or("".to_string(), |s| s.to_string()),
+                remove_invalid_tokens: a.remove_invalid_tokens,
+                expected_region: region.name.clone(),
+            })));
+            if a.allow_cookies {
+                plugins.push(ApiPlugin::JsonCookiesToHeaders(PluginBase::default()));
+                plugins.push(ApiPlugin::JsonCookiesCsrf(PluginBase::default()));
+            } else {
+                plugins.push(ApiPlugin::JsonCookiesToHeaders(PluginBase::removed()));
+                plugins.push(ApiPlugin::JsonCookiesCsrf(PluginBase::removed()));
+            }
+        } else {
+            // OAuth2 plugins
+            plugins.push(ApiPlugin::Oauth2(match v.auth {
+                Authentication::OAuth2 => PluginBase::new(Oauth2PluginConfig::new(
+                    config.kong_token_expiration,
+                    &config.oauth_provision_key,
+                    v.oauth2_anonymous.clone())),
+                _ => PluginBase::removed(),
+            }));
 
-        // JWT plugin
-        let plugin = match v.auth {
-            Authentication::Jwt => PluginBase::new(JwtPluginConfig::new(
-                v.oauth2_anonymous.clone(),
-            )),
-            _ => PluginBase::removed(),
-        };
-        plugins.push(ApiPlugin::Jwt(plugin));
+            // JWT plugin
+            plugins.push(ApiPlugin::Jwt(match v.auth {
+                Authentication::Jwt => PluginBase::new(JwtPluginConfig::new(
+                    v.oauth2_anonymous.clone(),
+                )),
+                _ => PluginBase::removed(),
+            }));
+            plugins.push(ApiPlugin::JwtValidator(PluginBase::removed()));
 
-        // OAuth2 extension plugin
-        // TODO: Remove plugin if not Some(false)/None
-        if let Some(true) = v.oauth2_extension_plugin {
-            plugins.push(ApiPlugin::Oauth2Extension(PluginBase::default()));
+            // OAuth2 extension plugin
+            // TODO: Remove plugin if not Some(false)/None
+            if let Some(true) = v.oauth2_extension_plugin {
+                plugins.push(ApiPlugin::Oauth2Extension(PluginBase::default()));
+            }
         }
 
         // Babylon Auth Header plugin
