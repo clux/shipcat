@@ -16,11 +16,11 @@ _shipcat()
 
     local -r subcommands="help validate shell port-forward get graph helm cluster gdpr
                           kong debug product list-regions list-services list-products
-                          apply template values status config crd"
+                          apply template values status config crd diff"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|port-forward|debug|get|config|product|status|statuscake|shell|graph|cluster|helm|gdpr|kong|list-services|list-products|apply|template|values|status|crd) ]]; then
+        if [[ ${words[i]} == @(help|validate|port-forward|diff|debug|get|config|product|status|statuscake|shell|graph|cluster|helm|gdpr|kong|list-services|list-products|apply|template|values|status|crd) ]]; then
             has_sub=1
         fi
     done
@@ -39,7 +39,7 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(list-services|list-products|validate|config|shell|product|port-forward|debug|graph|get|cluster|helm|gdpr|apply|template|values|status|crd) ]]; then
+        if [[ ${words[i]} == @(list-services|list-products|validate|config|shell|product|port-forward|diff|debug|graph|get|cluster|helm|gdpr|apply|template|values|status|crd) ]]; then
             special=${words[i]}
             break
         fi
@@ -64,6 +64,11 @@ _shipcat()
                 local -r region="$(kubectl config current-context)"
                 local -r svcs="$(shipcat list-services -r "$region")"
                 COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
+                ;;
+            diff)
+                local -r region="$(kubectl config current-context)"
+                local -r svcs="$(shipcat list-services -r "$region")"
+                COMPREPLY=($(compgen -W "$svcs --git --secrets -s --crd" -- "$cur"))
                 ;;
             cluster)
                 local clustr_sub i

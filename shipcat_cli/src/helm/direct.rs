@@ -460,7 +460,7 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Con
     }
     // assume it exists if we're not doing installs
     // (this is fine atm because upgrade_wrapper is the CLI entrypoint)
-    let exists = mode != UpgradeMode::UpgradeInstall;
+    let exists = mode != UpgradeMode::UpgradeInstall && mode != UpgradeMode::UpgradeInstallNoWait;
     // Other modes can infer in a pinch
 
     // ..but if they already exist on kube, don't block on that..

@@ -1,4 +1,6 @@
 use super::{Result, Manifest};
+use shipcat_definitions::Crd;
+use serde::Serialize;
 use regex::Regex;
 use serde_yaml;
 use chrono::{Utc, DateTime};
@@ -421,8 +423,6 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
 }
 
 
-use shipcat_definitions::Crd;
-use serde::Serialize;
 /// Apply the CRD for any struct that can be turned into a CRD
 ///
 /// CRDs itself, Manifest and Config typically.
@@ -470,6 +470,28 @@ fn find_all_manifest_crds(ns: &str) -> Result<Vec<String>> {
         return Ok(vec![])
     }
     Ok(out.split(' ').map(String::from).collect())
+}
+
+use std::path::PathBuf;
+// Kubectl diff experiment (ignores secrets)
+pub fn diff(pth: PathBuf, ns: &str) -> Result<(String, bool)> {
+    let args = vec![
+        "diff".into(),
+        format!("-n={}", ns),
+        format!("-f={}", pth.display())
+    ];
+    // need the error code here so re-implent - and discard stderr
+    use std::process::Command;
+    debug!("kubectl {}", args.join(" "));
+
+    let s = Command::new("kubectl").args(&args).output()?;
+    let out : String = String::from_utf8_lossy(&s.stdout).into();
+    let err : String = String::from_utf8_lossy(&s.stderr).into();
+    trace!("out: {}, err: {}", out, err);
+    if err.contains("the dryRun alpha feature is disabled") {
+        bail!("kubectl diff is not supported in your cluster: {}", err.trim());
+    }
+    Ok((out, s.status.success()))
 }
 
 use std::collections::HashSet;

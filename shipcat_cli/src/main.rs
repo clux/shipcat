@@ -292,6 +292,25 @@ fn main() {
                 .help("Service to upgrad"))
             .about("Apply a service's configuration in kubernetes (through helm)"))
 
+        .subcommand(SubCommand::with_name("diff")
+              .arg(Arg::with_name("git")
+                .long("git")
+                .global(true)
+                .help("Comparing with master using a temporary git stash and git checkout"))
+              .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service to be diffed"))
+              .arg(Arg::with_name("crd")
+                .long("crd")
+                .help("Compare the shipcatmanifest crd output instead of the full kube yaml"))
+              .arg(Arg::with_name("secrets")
+                .long("secrets")
+                .short("s")
+                .help("Fetch secrets before comparing")
+                .conflicts_with("git")
+                .conflicts_with("crd"))
+            .about("Diff a service's yaml output against master or kubernetes"))
+
         // config
         .subcommand(SubCommand::with_name("config")
             .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -345,6 +364,9 @@ fn run(args: &ArgMatches) -> Result<()> {
         .verbosity(args.occurrences_of("verbose") + 1)
         .module_path(true) // may need cargo clean's if it fails..
         .line_numbers(args.is_present("debug"))
+        .output(&log::Level::Info, loggerv::Output::Stderr)
+        .output(&log::Level::Debug, loggerv::Output::Stderr)
+        .output(&log::Level::Trace, loggerv::Output::Stderr)
         .init()
         .unwrap();
     shipcat::init()?;
@@ -545,6 +567,30 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
         let (conf, region) = resolve_config(a, ConfigType::Base)?;
         return shipcat::show::manifest_crd(&svc, &conf, &region);
+    }
+
+    else if let Some(a) = args.subcommand_matches("diff") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+        let has_diff = if a.is_present("crd") {
+            let (conf, region) = resolve_config(a, ConfigType::Base)?;
+            // NB: no secrets in CRD
+            if a.is_present("git") {
+                shipcat::diff::values_vs_git(&svc, &conf, &region)?
+            } else {
+                shipcat::diff::values_vs_kubectl(&svc, &conf, &region)?
+            }
+        } else {
+            let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
+            let (conf, region) = resolve_config(a, ss)?;
+            let mock = !a.is_present("secrets");
+            if a.is_present("git") {
+                shipcat::diff::template_vs_git(&svc, &conf, &region)?
+            } else {
+                // the only mode that can support secrets!
+                shipcat::diff::template_vs_kubectl(&svc, &conf, &region, mock)?
+            }
+        };
+        process::exit(if has_diff { 0 } else { 1 }); // emulate diff return codes
     }
 
 

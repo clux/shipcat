@@ -111,6 +111,9 @@ pub mod graph;
 /// Various simple reducers
 pub mod get;
 
+/// Diffing module for values
+pub mod diff;
+
 /// Webhook mux/demux
 pub mod webhooks;
 
