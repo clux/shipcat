@@ -155,7 +155,7 @@ struct APIServiceParams {
 struct EnvironmentInfo {
     name: String,
     services_suffix: String,
-    base_url: String,
+    base_urls: BTreeMap<String, String>,
     ip_whitelist: Vec<String>,
 }
 pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
@@ -165,7 +165,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
     let environment = EnvironmentInfo {
         name: reg.name.clone(),
         services_suffix: reg.kong.base_url.clone(),
-        base_url: reg.base_urls.get("services").unwrap_or(&"".to_owned()).to_string(),
+        base_urls: reg.base_urls.clone(),
         ip_whitelist: reg.ip_whitelist.clone(),
     };
 
