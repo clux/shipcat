@@ -9,6 +9,7 @@ use super::Result;
 /// vault locations serverside (which require vault credentials).
 pub fn manifest(services: Vec<String>, conf: &Config, reg: &Region, secrets: bool) -> Result<()> {
     conf.verify()?; // this should work even with a limited config!
+    conf.verify_version_pin(&reg.environment)?;
     for svc in services {
         info!("validating {} for {}", svc, reg.name);
         let mf = if secrets {

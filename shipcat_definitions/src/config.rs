@@ -13,7 +13,7 @@ use crate::structs::SlackChannel;
 use super::{Result, Error};
 use super::structs::{Contact};
 use crate::states::ConfigType;
-use crate::region::Region;
+use crate::region::{Region, Environment};
 
 // ----------------------------------------------------------------------------------
 
@@ -171,8 +171,14 @@ pub struct Config {
     /// Team definitions
     pub teams: Vec<Team>,
 
-    /// Shipcat version pin
-    pub version: Version,
+    /// Deprecated shipcat version pin
+    ///
+    /// TODO: make this an output property once it's not serialized
+    #[serde(default)]
+    version: String,
+
+    /// Shipcat version pins
+    pub versions: BTreeMap<Environment, Version>,
 
     // Internal state of the config
     #[serde(default, skip_serializing, skip_deserializing)]
@@ -250,9 +256,22 @@ impl Config {
                 vteams.push(&vt)
             }
         }
-        Config::verify_version(&self.version)?;
-
+        if let Some(lowest) = self.versions.values().min() {
+            // Verify we at least have something >= lowest req. version pin
+            Config::verify_version(&lowest)?;
+        } else {
+            bail!("Need to have at least one version pin in shipcat.conf")
+        }
         Ok(())
+    }
+    #[cfg(feature = "filesystem")]
+    pub fn verify_version_pin(&self, env: &Environment) -> Result<()> {
+        let pin = self.versions.get(&env).unwrap_or_else(|| {
+            debug!("No version pin for environment {:?} - assuming maximum", env);
+            // max exists by verify in general ^
+            self.versions.values().max().expect("max version pin exists in shipcat.conf")
+        });
+        Config::verify_version(&pin)
     }
 
     fn verify_version(ver: &Version) -> Result<()> {
@@ -414,23 +433,25 @@ impl Config {
                 // failed to parse the config common causes:
 
                 // 1. version change caused their config to be out of date
-                use regex::Regex;
-                // manually check version against running
-                let ver_re = Regex::new(r"^version:\s*(?P<version>.+)$").unwrap();
-                for l in data.lines() {
-                    if let Some(caps) = ver_re.captures(l) {
-                        debug!("got version from raw data: {:?}", caps);
-                        // take precedence over config parse error if we can get a version in config
-                        if let Ok(expected) = Version::parse(&caps["version"]) {
-                            let res2 = Config::verify_version(&expected);
-                            if let Err(e2) = res2 {
-                                return Err(Error::from(e).chain_err(|| e2));
-                            }
-                        }
+                // try to parse it as simplified yaml (need at least that to pass)
+                #[derive(Deserialize)]
+                struct VersionConfig {
+                    versions: BTreeMap<Environment, Version>,
+                }
+                let vc : VersionConfig = serde_yaml::from_str(&data)?;
+                debug!("Got version requirements: {:?}", vc.versions);
+                // verify that we at least have the lowest version
+                if let Some(lowest) = vc.versions.values().min() {
+                    let res2 = Config::verify_version(&lowest);
+                    if let Err(e2) = res2 {
+                        return Err(Error::from(e).chain_err(|| e2));
                     }
                 }
+                else {
+                    bail!("Failed to understand version pin in shipcat.conf - needs at least one pin");
+                }
+
                 // 2. manifests out of date, but shipcat up to date (can happen with brew)
-                // TODO: git check in SHIPCAT_MANIFEST_DIR ?
                 warn!("Invalid shipcat.conf - either genuine error, or your manifests dir is out of date locally");
 
                 // 3. genuine mistake in shipcat.conf additions/removals

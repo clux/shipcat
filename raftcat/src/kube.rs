@@ -139,7 +139,7 @@ pub fn get_shipcat_config(client: &APIClient, namespace: &str, name: &str) -> Re
     let rg = ResourceGroup::config(&namespace);
     let req = make_crd_entry_req(&rg, name)?;
     let res = client.request::<Crd<Config>>(req)?;
-    debug!("got config with version {}", &res.spec.version);
+    debug!("got config with versions {:?}", &res.spec.versions);
     // TODO: merge with version found in rolling env?
     Ok(res)
 }
