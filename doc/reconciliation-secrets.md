@@ -2,10 +2,10 @@
 Reconciliation is currently performed in a tight loop around a manifest repository. Here is a sample setup for the `platformus-green` cluster defined in [clusters.md](./clusters.md)
 
 ```bash
-export SLACK_SHIPCAT_CHANNEL="#platform-reconcile"
-export KUBE_REGION="platform-us"
-export KUBE_CLUSTER="platformus-green"
-export SHIPCAT_VER="$(grep babylonhealth/kubecat .circleci/config.yml | cut -d":" -f3)"
+export SLACK_SHIPCAT_CHANNEL="#us-notifications"
+export KUBE_REGION="dev-us"
+export KUBE_CLUSTER="devus-green"
+export SHIPCAT_VER="$(yq ".versions.dev" -r < shipcat.conf)"
 
 echo $KUBE_CERT | base64 -d > ca.crt
 sudo docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD quay.io
