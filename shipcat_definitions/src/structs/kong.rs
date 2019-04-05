@@ -1,6 +1,8 @@
-use super::{Result, Authorization};
 use std::ops::Not;
 use std::collections::BTreeMap;
+
+use crate::deserializers::{comma_separated_string};
+use super::{Authorization};
 
 /// Kong setup for a service
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -51,17 +53,8 @@ pub struct Kong {
     /// A comma-separated list of domain names that point to your API.
     ///
     /// For example: example.com. At least one of hosts, uris, or methods should be specified
-    ///
-    /// This is the full value sent to kong.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hosts: Option<String>,
-
-    /// Convenience way to specify a single host rather than using hosts above
-    ///
-    /// Will create a single hosts output prefixed with the kong base url.
-    /// Mutually exclusive with `hosts`.
-    #[serde(default, skip_serializing)]
-    pub host: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty", deserialize_with = "comma_separated_string")]
+    pub hosts: Vec<String>,
 
     /// Authentication type
     #[serde(default)]
@@ -138,8 +131,8 @@ pub struct Kong {
     ///   X-Frame-Options: SAMEORIGIN
     ///   X-XSS-Protection: 1; mode=block
     /// ```
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub add_headers: Option<BTreeMap<String, String>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub add_headers: BTreeMap<String, String>,
 }
 
 fn preserve_host_default() -> bool { true }
@@ -166,34 +159,6 @@ pub struct BabylonAuthHeader {
     pub cache_timeout_sec: u32,
     pub enabled: bool,
     pub http_timeout_msec: u32,
-}
-
-impl Kong {
-    pub fn verify(&self) -> Result<()> {
-        if self.uris.is_none() && self.host.is_none() {
-            bail!("One of `uris` or `host` needs to be defined for Kong");
-        }
-        if self.uris.is_some() && self.host.is_some() {
-            bail!("Only one of `uris` or `host` needs to be defined for Kong");
-        }
-        match self.auth {
-            Authentication::OAuth2 => {},
-            Authentication::Jwt => {
-                if let Some(true) = self.oauth2_extension_plugin {
-                    bail!("`oauth2_extension_plugin` not supported when Kong `auth` is `jwt`");
-                }
-            }
-            Authentication::None => {
-                if let Some(_) = self.oauth2_anonymous {
-                    bail!("`oauth2_anonymous` not supported when Kong `auth` is `none`");
-                }
-                if let Some(true) = self.oauth2_extension_plugin {
-                    bail!("`oauth2_extension_plugin` not supported when Kong `auth` is `none`");
-                }
-            }
-        }
-        Ok(())
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]

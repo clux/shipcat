@@ -18,8 +18,7 @@ pub struct Api {
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct ApiAttributes {
-    #[serde(serialize_with = "none_as_brackets")]
-    pub hosts: Option<Vec<String>>,
+    pub hosts: Vec<String>,
     #[serde(serialize_with = "none_as_brackets")]
     pub uris: Option<Vec<String>>,
     #[serde(serialize_with = "none_as_brackets")]
@@ -422,9 +421,9 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
         }
 
         // If enabled: ResponseTransformer to add headers
-        if let Some(add_headers) = v.add_headers {
+        if !v.add_headers.is_empty() {
             plugins.push(ApiPlugin::ResponseTransformer(PluginBase::new(
-                ResponseTransformerPluginConfig::new(add_headers),
+                ResponseTransformerPluginConfig::new(v.add_headers),
             )));
         }
 
@@ -442,7 +441,7 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
             name: k.to_string(),
             plugins: plugins,
             attributes: ApiAttributes {
-                hosts: v.hosts.map(splitter),
+                hosts: v.hosts,
                 uris: v.uris.map(|s| vec![s]),
                 preserve_host: true,
                 strip_uri: v.strip_uri,

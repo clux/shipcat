@@ -233,6 +233,8 @@ mod tests {
     }
 
     #[test]
+    // CircleCI's Vault token can't list secrets
+    #[ignore]
     fn list_dev_secrets() {
         let client = Vault::from_evars().unwrap();
         let mut secrets = client.list("dev-uk/test-shipcat").unwrap();

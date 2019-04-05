@@ -85,6 +85,9 @@ jobs:
           keys:
           - target-test-{{ .Environment.CACHE_VERSION }}
       # `shipcat` and `raftcat` can't be compiled at the same time (due to filebacked feature in shipcat_definitions)
+      - run:
+          working_directory: shipcat_definitions
+          command: cargo test --all --features=filesystem -- --nocapture
       - run: cargo test --all --exclude=raftcat -- --nocapture
       - run: cargo doc --no-deps --lib --all --exclude=raftcat
       - save_cache:

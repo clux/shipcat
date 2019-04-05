@@ -8,7 +8,7 @@ use shipcat_definitions::structs::{
     RollingUpdate, Sidecar, VaultOpts, VolumeMount, Worker,
 };
 use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result};
-use shipcat_definitions::relaxed_string::{RelaxedString};
+use shipcat_definitions::deserializers::{RelaxedString};
 
 use super::{SimpleManifest};
 use super::kong::{KongSource};

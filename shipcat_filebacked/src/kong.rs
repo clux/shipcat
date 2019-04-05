@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 
 use shipcat_definitions::structs::{Authentication, Authorization, BabylonAuthHeader, Cors, Kong};
 use shipcat_definitions::{Region, Result};
+use shipcat_definitions::deserializers::{CommaSeparatedString};
 
 use super::authorization::AuthorizationSource;
 
@@ -12,7 +13,8 @@ use super::authorization::AuthorizationSource;
 pub struct KongSource {
     pub upstream_url: Option<String>,
     pub uris: Option<String>,
-    pub hosts: Option<String>,
+    // TODO: Breaking change to Option<Vec<String>>
+    pub hosts: Option<CommaSeparatedString>,
     pub host: Option<String>,
     pub strip_uri: Option<bool>,
     pub preserve_host: Option<bool>,
@@ -42,12 +44,13 @@ pub struct KongSource {
 impl KongSource {
     /// Build a Kong from a KongSource, validating and mutating properties.
     pub fn build(self, service: &String, region: &Region, hosts: Option<Vec<String>>) -> Result<Option<Kong>> {
-        if self.host.is_none() && self.uris.is_none() && self.hosts.is_none() {
+        let hosts = self.build_hosts(region, hosts.unwrap_or_default())?;
+
+        if hosts.is_empty() && self.uris.is_none() {
             return Ok(None);
         }
 
         let upstream_url = self.build_upstream_url(service, region);
-        let hosts = self.build_hosts(region, hosts.unwrap_or_default());
         let (auth, authorization) = self.build_auth()?;
 
         if self.name.is_some() {
@@ -75,10 +78,7 @@ impl KongSource {
             internal: self.internal.unwrap_or_default(),
             publiclyAccessible: self.publicly_accessible.unwrap_or_default(),
             uris: self.uris,
-            // TODO: Use a Vec<String>,
             hosts,
-            // TODO: Use hosts instead
-            host: self.host,
             authorization,
             strip_uri: self.strip_uri.unwrap_or_default(),
             preserve_host: self.preserve_host.unwrap_or(true),
@@ -88,12 +88,7 @@ impl KongSource {
             upstream_connect_timeout: self.upstream_connect_timeout,
             upstream_send_timeout: self.upstream_send_timeout,
             upstream_read_timeout: self.upstream_read_timeout,
-            // TODO: Make Kong#add_headers non-Option
-            add_headers: if self.add_headers.is_empty() {
-                None
-            } else {
-                Some(self.add_headers)
-            },
+            add_headers: self.add_headers,
             // Legacy authorization
             auth,
             cookie_auth: self.cookie_auth.unwrap_or_default(),
@@ -137,16 +132,13 @@ impl KongSource {
         }
     }
 
-    fn build_hosts(&self, region: &Region, tophosts: Vec<String>) -> Option<String> {
-        if tophosts.is_empty() {
-            // If the `host` field is defined, generate a `hosts` field based on the environment
-            if let Some(h) = self.host.clone() {
-                Some(format!("{}{}", h, region.kong.base_url))
-            } else {
-                self.hosts.clone()
-            }
-        } else {
-            Some(tophosts.join(","))
+    fn build_hosts(&self, region: &Region, tophosts: Vec<String>) -> Result<Vec<String>> {
+        let hosts: Vec<String> = self.hosts.clone().unwrap_or_default().into();
+        match (tophosts.as_slice(), &self.host, hosts.as_slice()) {
+            (_, None, []) => Ok(tophosts),
+            ([], None, _) => Ok(hosts),
+            ([], Some(host), []) => Ok(vec![format!("{}{}", host, region.kong.base_url)]),
+            (_, _, _) => bail!("hosts, kong.hosts and kong.host are mutually exclusive"),
         }
     }
 }

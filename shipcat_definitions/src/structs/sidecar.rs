@@ -1,7 +1,7 @@
 use super::{Resources};
 use super::env::EnvVars;
 use super::{Result};
-use crate::relaxed_string::RelaxedString;
+use crate::deserializers::RelaxedString;
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields, rename_all = "lowercase")]

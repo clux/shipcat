@@ -112,4 +112,4 @@ pub mod template;
 pub mod vault;
 pub use crate::vault::Vault;
 
-pub mod relaxed_string;
+pub mod deserializers;

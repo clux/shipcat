@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign, Mul};
 use super::Result;
-use crate::relaxed_string::{RelaxedString};
+use crate::deserializers::{RelaxedString};
 
 // Kubernetes resouce structs
 //

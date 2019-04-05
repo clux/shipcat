@@ -20,13 +20,8 @@ impl StatuscakeTest {
         let website_name = format!("{} {} healthcheck", region.name, name);
 
         // Generate the URL to test
-        let website_url = if let Some(hosts) = kong.hosts {
-            Some(format!("https://{}/health",
-                    hosts
-                    .split(',')
-                    .collect::<Vec<&str>>()
-                    .first()
-                    .unwrap()))
+        let website_url = if let Some(host) = kong.hosts.first() {
+            Some(format!("https://{}/health", host))
         } else if let Some(uris) = kong.uris {
             Some(format!("{}/status/{}/health",
                     external_svc,

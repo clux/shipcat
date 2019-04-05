@@ -1,7 +1,7 @@
 use regex::Regex;
 
 use crate::structs::resources::Resources;
-use crate::relaxed_string::RelaxedString;
+use crate::deserializers::RelaxedString;
 use super::EnvVars;
 use super::Result;
 

@@ -37,7 +37,7 @@ use std::mem;
 #[serde(default)]
 pub struct EnvVars {
     /// Plain text (non-secret) environment variables
-    #[cfg_attr(feature = "filebacked", serde(skip_serializing_if = "BTreeMap::is_empty", deserialize_with = "relaxed_string::deserialize"))]
+    #[cfg_attr(feature = "filebacked", serde(skip_serializing_if = "BTreeMap::is_empty", deserialize_with = "deserializers::deserialize"))]
     #[cfg_attr(not(feature = "filebacked"), serde(skip_serializing_if = "BTreeMap::is_empty"))]
     pub plain: BTreeMap<String, String>,
 

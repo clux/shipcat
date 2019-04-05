@@ -1,6 +1,6 @@
 use super::{Resources, Probe, Port, EnvVars};
 use super::autoscaling::AutoScaling;
-use crate::relaxed_string::{RelaxedString};
+use crate::deserializers::{RelaxedString};
 
 use super::Result;
 

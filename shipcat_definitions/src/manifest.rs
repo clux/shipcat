@@ -5,7 +5,7 @@ use regex::Regex;
 use crate::config::{Config};
 use crate::region::{VaultConfig, Region};
 use crate::states::ManifestType;
-use crate::relaxed_string::RelaxedString;
+use crate::deserializers::RelaxedString;
 use super::Result;
 
 // All structs come from the structs directory

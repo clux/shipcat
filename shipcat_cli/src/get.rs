@@ -175,7 +175,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
         if let Some(k) = mf.kong {
             let mut params = APIServiceParams {
                 uris: k.uris.unwrap_or("".into()),
-                hosts: k.hosts.unwrap_or("".into()),
+                hosts: k.hosts.join(","),
                 internal: k.internal,
                 publiclyAccessible: mf.publiclyAccessible,
                 websockets: false,
@@ -198,7 +198,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
     for (name, api) in reg.kong.extra_apis.clone() {
         services.insert(name, APIServiceParams {
             uris: api.uris.unwrap_or("".into()),
-            hosts: api.hosts.unwrap_or("".into()),
+            hosts: api.hosts.join(","),
             internal: api.internal,
             publiclyAccessible: api.publiclyAccessible,
             // TODO [DIP-499]: `extra_apis` do not support `gate` confs
