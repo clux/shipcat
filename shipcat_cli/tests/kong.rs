@@ -117,7 +117,7 @@ fn kong_test() {
     assert_eq!(attr.config.allowed_audiences, vec!["https://babylonhealth.com"]);
     assert_eq!(attr.config.expected_region, "dev-uk");
     assert_eq!(attr.config.expected_scope, "internal");
-    assert_eq!(attr.config.remove_invalid_tokens, true);
+    assert_eq!(attr.config.allow_invalid_tokens, false);
 
     assert_plugin_removed!("JsonCookiesToHeaders", api.plugins.remove(0), ApiPlugin::JsonCookiesToHeaders);
     assert_plugin_removed!("JsonCookiesCsrf", api.plugins.remove(0), ApiPlugin::JsonCookiesCsrf);

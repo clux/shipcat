@@ -125,7 +125,7 @@ impl ManifestDefaults {
                 allow_anonymous: Some(authz.allow_anonymous),
                 allowed_audiences: Some(authz.allowed_audiences),
                 allow_cookies: Some(authz.allow_cookies),
-                remove_invalid_tokens: Some(authz.remove_invalid_tokens),
+                allow_invalid_tokens: Some(authz.allow_invalid_tokens),
                 required_scopes: Some(authz.required_scopes),
             };
         }

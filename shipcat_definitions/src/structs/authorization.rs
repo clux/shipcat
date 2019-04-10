@@ -6,14 +6,14 @@ pub struct Authorization {
 
     /// Are anonymous requests allowed to reach the service?
     ///
-    /// If true, requests with no `Authorization` header (or an invalid/expired JWT) will be proxied to the service (but will receive an `Anonymous: true` header)
+    /// If true, requests with no `Authorization` header (or an invalid/expired JWT, if allow_invalid_tokens is true) will be proxied to the service (but will receive an `X-Anonymous-Consumer: true` header)
     /// If false, they will be rejected (with a 401 response)
     pub allow_anonymous: bool,
 
-    /// Should invalid/expired tokens be stripped from the upstream request?
+    /// Are requests with invalid/expired tokens allowed to reach the service?
     ///
-    /// If true, invalid `Authorization` headers will be removed from the request.
-    pub remove_invalid_tokens: bool,
+    /// If true, Kong will allow requests with invalid `Authorization` headers.
+    pub allow_invalid_tokens: bool,
 
     /// What JWT scopes are required for the service?
     ///

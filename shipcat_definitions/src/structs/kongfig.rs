@@ -201,7 +201,7 @@ pub struct JwtValidatorPluginConfig {
     pub allowed_audiences: Vec<String>,
     pub expected_region: String,
     pub expected_scope: String,
-    pub remove_invalid_tokens: bool,
+    pub allow_invalid_tokens: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -365,7 +365,7 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
             plugins.push(ApiPlugin::JwtValidator(PluginBase::new(JwtValidatorPluginConfig {
                 allowed_audiences: a.allowed_audiences,
                 expected_scope: a.required_scopes.get(0).map_or("".to_string(), |s| s.to_string()),
-                remove_invalid_tokens: a.remove_invalid_tokens,
+                allow_invalid_tokens: a.allow_invalid_tokens,
                 expected_region: region.name.clone(),
             })));
             if a.allow_cookies {
