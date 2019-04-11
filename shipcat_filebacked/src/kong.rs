@@ -134,7 +134,8 @@ impl KongSource {
 
     fn build_hosts(&self, region: &Region, tophosts: Vec<String>) -> Result<Vec<String>> {
         let hosts: Vec<String> = self.hosts.clone().unwrap_or_default().into();
-        match (tophosts.as_slice(), &self.host, hosts.as_slice()) {
+        let host = self.host.clone().filter(|x| !x.is_empty());
+        match (tophosts.as_slice(), host, hosts.as_slice()) {
             (_, None, []) => Ok(tophosts),
             ([], None, _) => Ok(hosts),
             ([], Some(host), []) => Ok(vec![format!("{}{}", host, region.kong.base_url)]),
