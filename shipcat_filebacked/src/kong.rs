@@ -53,10 +53,6 @@ impl KongSource {
         let upstream_url = self.build_upstream_url(service, region);
         let (auth, authorization) = self.build_auth()?;
 
-        if self.name.is_some() {
-            warn!("kong.name is ignored");
-        }
-
         if authorization.is_some() {
             if self.cookie_auth.is_some() {
                 bail!("cookie_auth and authorization properties are mutually exclusive")

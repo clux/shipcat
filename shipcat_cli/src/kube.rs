@@ -457,11 +457,11 @@ pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> 
     if !status {
         bail!("subprocess failure from kubectl: {:?}", applyargs);
     }
-    let changed = if out.contains(&format!("{} configured", name)) {
+    let changed = if out.contains("configured") {
         true
-    } else if out.contains(&format!("{} created", name)) {
+    } else if out.contains("created") {
         true
-    } else if out.contains(&format!("{} unchanged", name)) {
+    } else if out.contains("unchanged") {
         false
     } else {
         bail!("unrecognized apply result: {}", out)
