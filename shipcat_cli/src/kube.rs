@@ -14,7 +14,7 @@ fn kexec(args: Vec<String>) -> Result<()> {
     }
     Ok(())
 }
-fn kout(args: Vec<String>) -> Result<String> {
+fn kout(args: Vec<String>) -> Result<(String, bool)> {
     use std::process::Command;
     debug!("kubectl {}", args.join(" "));
     let s = Command::new("kubectl").args(&args).output()?;
@@ -26,16 +26,16 @@ fn kout(args: Vec<String>) -> Result<String> {
     // kubectl keeps returning opening and closing apostrophes - strip them:
     if out.len() > 2 && out.starts_with('\'') {
         let res = out.split('\'').collect::<Vec<_>>()[1];
-        return Ok(res.trim().into());
+        return Ok((res.trim().into(), s.status.success()));
     }
-    Ok(out)
+    Ok((out, s.status.success()))
 }
 
 /// CLI way to resolve kube context
 ///
 /// Should only be used from main.
 pub fn current_context() -> Result<String> {
-    let mut res = kout(vec!["config".into(), "current-context".into()]).map_err(|e| {
+    let (mut res, _) = kout(vec!["config".into(), "current-context".into()]).map_err(|e| {
         error!("Failed to Get kubectl config current-context. Is kubectl installed?");
         e
     })?;
@@ -58,7 +58,7 @@ fn rollout_status(mf: &Manifest) -> Result<bool> {
         format!("-n={}", mf.namespace),
         "--watch=false".into(), // always just print current status
     ];
-    let rollres = kout(statusvec)?;
+    let (rollres, _) = kout(statusvec)?;
     debug!("{}", rollres);
     if rollres.contains("successfully rolled out") {
         Ok(true)
@@ -109,7 +109,7 @@ fn get_pods(mf: &Manifest) -> Result<String> {
         "jsonpath='{.items[*].metadata.name}'".into(),
     ];
     // TODO: filter out ones not running conditionally - exec wont work with this
-    let podsres = kout(podargs)?;
+    let (podsres, _) = kout(podargs)?;
     debug!("Active pods: {:?}", podsres);
     Ok(podsres)
 }
@@ -123,7 +123,7 @@ fn get_broken_pods(mf: &Manifest) -> Result<(String, Vec<String>)> {
         format!("-n={}", mf.namespace),
         "--no-headers".into(),
     ];
-    let podres = kout(podargs)?;
+    let (podres, _) = kout(podargs)?;
     let mut bpods = vec![];
     let status_re = Regex::new(r" (?P<ready>\d+)/(?P<total>\d+) ").unwrap();
     for l in podres.lines() {
@@ -167,7 +167,7 @@ pub fn debug(mf: &Manifest) -> Result<()> {
             "--tail=30".into(),
         ];
         match kout(logvec) {
-            Ok(l) => {
+            Ok((l,_)) => {
                 if l == "" {
                     warn!("No logs for pod {} found", pod);
                 } else {
@@ -191,7 +191,7 @@ pub fn debug(mf: &Manifest) -> Result<()> {
         ];
 
         match kout(descvec) {
-            Ok(mut o) => {
+            Ok((mut o, _)) => {
                 if let Some(idx) = o.find("Events:\n") {
                     println!("{}", o.split_off(idx))
                 }
@@ -275,7 +275,7 @@ fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
     ];
     // Finding the affected replicasets:
     let rs_re = Regex::new(r"(Old|New)ReplicaSets?:\s+(?P<rs>\S+)\s+\((?P<running>\d+)/(?P<total>\d+)").unwrap();
-    let deployres = kout(descvec)?;
+    let (deployres, _) = kout(descvec)?;
     let mut sets = vec![];
     for l in deployres.lines() {
         if let Some(caps) = rs_re.captures(l) {
@@ -297,7 +297,7 @@ fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
             format!("-n={}", mf.namespace),
             "-oyaml".into(),
         ];
-        let getres = kout(getvec)?;
+        let (getres, _) = kout(getvec)?;
         let rv : ReplicaSetVal = serde_yaml::from_str(&getres)?;
         let ri = rv.status;
         let res = ReplicaSet {
@@ -426,7 +426,8 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
 /// Apply the CRD for any struct that can be turned into a CRD
 ///
 /// CRDs itself, Manifest and Config typically.
-pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> Result<()> {
+/// Returns whether or not the CRD was configured
+pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> Result<bool> {
     use std::path::Path;
     use std::fs::{self, File};
     use std::io::Write;
@@ -451,9 +452,22 @@ pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> 
         crdfile.clone(),
     ];
     debug!("applying {} : {:?}", name, applyargs);
-    kexec(applyargs)?;
+    let (out, status) = kout(applyargs.clone())?;
+    debug!("{}", out); // always print kube output from this
+    if !status {
+        bail!("subprocess failure from kubectl: {:?}", applyargs);
+    }
+    let changed = if out.contains(&format!("{} configured", name)) {
+        true
+    } else if out.contains(&format!("{} created", name)) {
+        true
+    } else if out.contains(&format!("{} unchanged", name)) {
+        false
+    } else {
+        bail!("unrecognized apply result: {}", out)
+    };
     let _ = fs::remove_file(&crdfile); // try to remove temporary file
-    Ok(())
+    Ok(changed)
 }
 /// Find all ManifestCrds in a given namespace
 ///
@@ -465,7 +479,7 @@ fn find_all_manifest_crds(ns: &str) -> Result<Vec<String>> {
         "shipcatmanifests".into(),
         "-ojsonpath='{.items[*].metadata.name}'".into(),
     ];
-    let out = kout(getargs)?;
+    let (out, _) = kout(getargs)?;
     if out == "''" { // stupid kubectl
         return Ok(vec![])
     }

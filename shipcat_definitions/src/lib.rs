@@ -74,7 +74,14 @@ error_chain! {
 
 /// Config with regional data
 pub mod region;
-pub use crate::region::{Region, VaultConfig, VersionScheme, KongConfig, Environment};
+pub use crate::region::{
+    Region,
+    VaultConfig,
+    VersionScheme,
+    KongConfig,
+    Environment,
+    ReconciliationMode,
+};
 /// Master config with cross-region data
 pub mod config;
 pub use crate::config::{Config, Cluster, Team, ManifestDefaults};

@@ -1,4 +1,4 @@
-use shipcat_definitions::{Config, Region, Team, BaseManifest};
+use shipcat_definitions::{Config, Region, Team, BaseManifest, ReconciliationMode};
 use shipcat_filebacked::{SimpleManifest};
 use super::helm::{self, UpgradeMode};
 use super::{Result};
@@ -101,7 +101,27 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>, config: &Config, region: &Region, n_
 
 fn crd_reconcile_worker(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
     let mf = shipcat_filebacked::load_manifest(svc, conf, reg)?;
-    kube::apply_crd(svc, mf, &reg.namespace)?;
+    if kube::apply_crd(svc, mf.clone(), &reg.namespace)? {
+        // 1. CRD was configured or created - upgrade the rest:
+        if reg.reconciliationMode == ReconciliationMode::CrdBorrowed {
+            // tiller owned upgrade
+            let umode = UpgradeMode::UpgradeInstallWait;
+            helm::parallel::reconcile_worker(mf, umode, conf.clone(), reg.clone())?;
+        } else if reg.reconciliationMode == ReconciliationMode::CrdOwned {
+            // shipcat owned upgrade
+            unimplemented!();
+        }
+    } else if std::env::var("SHIPCAT_MASS_RECONCILE").is_ok() {
+        // 2. CRD was unchanged
+        if reg.reconciliationMode == ReconciliationMode::CrdOwned {
+            // shipcat owned upgrade
+            unimplemented!()
+        } else {
+            // tiller owned upgrade
+            let umode = UpgradeMode::UpgradeInstallWait;
+            helm::parallel::reconcile_worker(mf, umode, conf.clone(), reg.clone())?;
+        }
+    }
     Ok(())
 }
 

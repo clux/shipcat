@@ -456,6 +456,35 @@ impl ToString for Environment {
     }
 }
 
+// ----------------------------------------------------------------------------------
+
+/// Environments are well defined strings
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub enum ReconciliationMode {
+    /// Tiller owned, apply every time
+    ///
+    /// If anything's different in diff (even secrets), then helm apply.
+    MassHelm,
+
+    /// Tiller owned, CRD based decision
+    ///
+    /// If CRD was configured, then helm apply.
+    CrdBorrowed,
+
+    /// Shipcat owned, CRD based decision
+    ///
+    /// If CRD was configured, kube apply chart with owner references
+    CrdOwned,
+}
+
+impl Default for ReconciliationMode {
+    fn default() -> Self {
+        ReconciliationMode::MassHelm
+    }
+}
+
+// ----------------------------------------------------------------------------------
+
 /// A region is an abstract kube context
 ///
 /// Either it's a pure kubernetes context with a namespace and a cluster,
@@ -470,6 +499,12 @@ pub struct Region {
     pub namespace: String,
     /// Environment (e.g. `dev` or `staging`)
     pub environment: Environment,
+    /// Reconciliation mode
+    ///
+    /// This affects how `cluster crd reconcile` behaves in the region.
+    #[serde(default)]
+    pub reconciliationMode: ReconciliationMode,
+
     /// Primary cluster serving this region
     ///
     /// Shipcat does not use this for to decide where a region gets deployed,

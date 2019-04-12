@@ -78,7 +78,7 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
 ///
 /// This logs errors and upgrade successes individually.
 /// NB: This can reconcile lock-step upgraded services at the moment.
-fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, region: Region) -> Result<Option<UpgradeData>> {
+pub fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, region: Region) -> Result<Option<UpgradeData>> {
     mf = mf.complete(&region)?;
     let svc = mf.name.clone();
 
