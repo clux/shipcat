@@ -453,7 +453,7 @@ pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> 
     ];
     debug!("applying {} : {:?}", name, applyargs);
     let (out, status) = kout(applyargs.clone())?;
-    debug!("{}", out); // always print kube output from this
+    print!("{}", out); // always print kube output from this
     if !status {
         bail!("subprocess failure from kubectl: {:?}", applyargs);
     }
