@@ -307,6 +307,8 @@ pub struct DefaultConfig {
 #[cfg_attr(filesystem, serde(deny_unknown_fields))]
 pub struct DefaultKongConfig {
     pub authorization: Option<Authorization>,
+    // HACK: Authorization doesn't have an enabled property, so this allows authorization to be enabled/disabled on a per region basis until we can use AuthorizationSource.
+    pub authorizationEnabled: bool,
 }
 
 impl Webhook {

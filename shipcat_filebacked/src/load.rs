@@ -129,6 +129,7 @@ impl ManifestDefaults {
                 required_scopes: Some(authz.required_scopes),
             };
         }
+        defs.kong.authorization.enabled = Some(reg.defaults.kong.authorizationEnabled);
         Ok(defs)
     }
 }
