@@ -115,7 +115,7 @@ jobs:
 
   mac_build:
     macos:
-      xcode: "9.0"
+      xcode: "10.2.0"
     working_directory: /Users/distiller/project
     parallelism: 2
     steps:
