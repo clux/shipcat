@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use semver::Version;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 
 #[allow(unused_imports)]
@@ -170,6 +170,9 @@ pub struct Config {
 
     /// Team definitions
     pub teams: Vec<Team>,
+
+    #[serde(default)]
+    pub allowedCustomMetadata: BTreeSet<String>,
 
     /// Deprecated shipcat version pin
     ///

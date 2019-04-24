@@ -1,4 +1,5 @@
 use regex::Regex;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ops::{Deref, DerefMut};
 
 use super::Result;
@@ -78,7 +79,6 @@ impl DerefMut for SlackChannel {
 /// Metadata for a service
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(test, derive(Default))]
-#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Metadata {
     /// Git repository
     pub repo: String,
@@ -107,6 +107,10 @@ pub struct Metadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docs: Option<String>,
     // TODO: generate swagger docs url from region and service name
+
+    /// Custom metadata, keys defined in shipcat.conf
+    #[serde(flatten)]
+    pub custom: BTreeMap<String, String>,
 }
 fn default_format_string() -> String { "{{ version }}".into() }
 
@@ -124,7 +128,7 @@ impl Metadata {
 }
 
 impl Metadata {
-    pub fn verify(&self, teams: &[Team]) -> Result<()> {
+    pub fn verify(&self, teams: &[Team], allowedCustomMetadata: &BTreeSet<String>) -> Result<()> {
         let ts = teams.to_vec().into_iter().map(|t| t.name).collect::<Vec<_>>();
         if !ts.contains(&self.team) {
             bail!("Illegal team name {} not found in the config", self.team);
@@ -149,6 +153,11 @@ impl Metadata {
         if let Some(runbook) = &self.runbook {
             if !runbook.ends_with(".md") && !runbook.ends_with(".rt") {
                 bail!("Runbook must be in markdown or restructured text in the service repo");
+            }
+        }
+        for k in self.custom.keys() {
+            if !allowedCustomMetadata.contains(k) {
+                bail!("{} is not an allowed metadata property", k);
             }
         }
         Ok(())

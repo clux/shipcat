@@ -778,7 +778,7 @@ impl Manifest {
         } // TODO: mandatory for later environments!
 
         if let Some(ref md) = self.metadata {
-            md.verify(&conf.teams)?;
+            md.verify(&conf.teams, &conf.allowedCustomMetadata)?;
         } else {
             bail!("Missing metadata for {}", self.name);
         }

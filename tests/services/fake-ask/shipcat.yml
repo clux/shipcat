@@ -20,6 +20,7 @@ metadata:
     slack: "@U82SKDQD9"
   repo: https://github.com/Babylonpartners/shipcat
   gitTagTemplate: "prefix-{{ version }}-suffix"
+  extraDocumentation: http://example.com
 sidecars:
 - name: redis
   env:
