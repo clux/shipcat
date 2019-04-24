@@ -27,7 +27,7 @@ pub fn manifest(services: Vec<String>, conf: &Config, reg: &Region, secrets: boo
 ///
 /// This is one of very few functions not validating a single kube context,
 /// so it does special validation of all the regions.
-pub fn secret_presence(conf: &Config, regions: Vec<String>) -> Result<()> {
+pub fn secret_presence_full(conf: &Config, regions: Vec<String>) -> Result<()> {
     for r in regions {
         info!("validating secrets in {}", r);
         let reg = conf.get_region(&r)?; // verifies region or region alias exists
@@ -41,6 +41,26 @@ pub fn secret_presence(conf: &Config, regions: Vec<String>) -> Result<()> {
     Ok(())
 }
 
+/// Validate secrets exists in all regions, but only for services touched in git
+pub fn secret_presence_git(conf: &Config, regions: Vec<String>) -> Result<()> {
+    for r in regions {
+        info!("validating secrets in {}", r);
+        let reg = conf.get_region(&r)?; // verifies region or region alias exists
+        reg.verify_secrets_exist()?; // verify secrets for the region
+
+        for svc in git_diff_changes()? {
+            let mf = shipcat_filebacked::load_manifest(&svc, conf, &reg)?;
+            if !mf.regions.contains(&r) {
+                debug!("ignoring {} for {} (not deployed there)", svc, r);
+                continue;
+            }
+            debug!("validating secrets for {} in {}", &svc, r);
+            mf.verify_secrets_exist(&reg.vault)?;
+        }
+    }
+    Ok(())
+}
+
 /// A config verifier
 ///
 /// This works with Base configs and File configs
@@ -48,4 +68,36 @@ pub fn secret_presence(conf: &Config, regions: Vec<String>) -> Result<()> {
 pub fn config(conf: Config) -> Result<()> {
     conf.verify()?;
     Ok(())
+}
+
+
+// Dumb git diff helper that matches normal service files:
+//
+// Effectively checks:
+// git diff --name-only master | grep ./services/{svc}/*
+fn git_diff_changes() -> Result<Vec<String>> {
+    use std::process::Command;
+    use regex::Regex;
+    let args = ["diff", "--name-only", "origin/master"];
+    debug!("git {}", args.join(" "));
+    let s = Command::new("git").args(&args).output()?;
+    if !s.status.success() {
+        bail!("Subprocess failure from git: {}", s.status.code().unwrap_or(1001))
+    }
+    let out : String = String::from_utf8_lossy(&s.stdout).into();
+    let err : String = String::from_utf8_lossy(&s.stderr).into();
+    if !err.is_empty() {
+        warn!("{} stderr: {}", args.join(" "), err);
+    }
+    debug!("{}", out);
+    let svc_re = Regex::new(r"^services/(?P<svc>[0-9a-z\-]{1,50})/").unwrap();
+    let mut res = vec![];
+    for l in out.lines() {
+        if let Some(caps) = svc_re.captures(l) {
+            if let Some(svc) = caps.name("svc") {
+                res.push(svc.as_str().to_string());
+            }
+        }
+    }
+    Ok(res)
 }
