@@ -705,21 +705,21 @@ pub struct Manifest {
     ///
     /// Exposed from shipcat, but not overrideable.
     #[serde(default)]
-    #[cfg_attr(filesystem, serde(skip_deserializing))]
+    #[cfg_attr(feature = "filesystem", serde(skip_deserializing))]
     pub region: String,
 
     /// Environment injected into the helm chart
     ///
     /// Exposed from shipcat, but not overrideable.
     #[serde(default)]
-    #[cfg_attr(filesystem, serde(skip_deserializing))]
+    #[cfg_attr(feature = "filesystem", serde(skip_deserializing))]
     pub environment: String,
 
     /// Namespace injected in helm chart
     ///
     /// Exposed from shipcat, but not overrideable.
     #[serde(default)]
-    #[cfg_attr(filesystem, serde(skip_deserializing))]
+    #[cfg_attr(feature = "filesystem", serde(skip_deserializing))]
     pub namespace: String,
 
     /// Raw secrets from environment variables.

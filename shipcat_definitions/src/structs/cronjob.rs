@@ -6,7 +6,7 @@ use super::EnvVars;
 use super::Result;
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct CronJobVolumeClaim {
     /// The cron job name
     pub size: String,
@@ -14,7 +14,7 @@ pub struct CronJobVolumeClaim {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct CronJob {
     /// The cron job name
     pub name: String,

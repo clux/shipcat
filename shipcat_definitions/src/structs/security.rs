@@ -5,7 +5,7 @@ use super::Result;
 ///
 /// See https://engineering.ops.babylontech.co.uk/docs/principles-security/
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct DataHandling {
     /// Where and how data is stored
     #[serde(default)]
@@ -25,7 +25,7 @@ impl DataHandling {
 
 /// Data storage information and encryption information
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct DataStore {
     /// Storage type (one of "MySQL", "DynamoDB", "S3", "File", "Kafka")
     pub backend: String,
@@ -137,7 +137,7 @@ impl DataFieldType {
 
 /// Data storage information and encryption information
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct DataField {
     /// Canonical name of the data field
     pub name: DataFieldType,
@@ -159,7 +159,7 @@ pub struct DataField {
 
 /// Data storage information and encryption information
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct DataProcess {
     /// Canonical field name
     pub field: DataFieldType,

@@ -19,7 +19,7 @@ use crate::region::{Region, Environment};
 
 
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct ManifestDefaults {
     /// Image prefix string
     pub imagePrefix: String,
@@ -44,7 +44,7 @@ impl Default for ManifestDefaults {
 
 /// Kubernetes cluster information
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Cluster {
     /// Name of the cluster
     pub name: String,
@@ -106,7 +106,7 @@ impl Team {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Location {
     /// Location name
     pub name: String,
@@ -119,7 +119,7 @@ pub struct Location {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct GithubParameters {
     /// Location name
     pub organisation: String,
@@ -127,7 +127,7 @@ pub struct GithubParameters {
 
 
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct SlackParameters {
     /// Location name
     pub team: String,
@@ -139,7 +139,7 @@ pub struct SlackParameters {
 
 /// Main manifest, serializable from shipcat.yml
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Config {
     /// Global defaults for the manifests
     #[serde(default)]

@@ -78,7 +78,7 @@ impl DerefMut for SlackChannel {
 /// Metadata for a service
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(test, derive(Default))]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Metadata {
     /// Git repository
     pub repo: String,

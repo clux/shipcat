@@ -10,7 +10,7 @@ use super::Result;
 /// Essentially a side-car like object that can scale resources separately to the main pods.
 /// Useful for services that have one single side service that polls or does some work.
 #[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(filesystem, serde(deny_unknown_fields))]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Worker {
     /// Name of the worker
     pub name: String,
