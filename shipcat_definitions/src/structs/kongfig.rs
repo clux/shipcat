@@ -18,6 +18,7 @@ pub struct Api {
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct ApiAttributes {
+    #[serde(serialize_with = "empty_as_brackets")]
     pub hosts: Vec<String>,
     #[serde(serialize_with = "none_as_brackets")]
     pub uris: Option<Vec<String>>,
@@ -69,6 +70,19 @@ where T: Serialize,
     match t {
         Some(ref value) => s.serialize_some(value),
         None            => s.serialize_map(Some(0))?.end(),
+    }
+}
+
+/// Serialise empty as brackets.
+/// Kong represents an empty list as {}, so Kongfig expects the same to correctly diff the state to work out required changes.
+fn empty_as_brackets<S, T>(t: &Vec<T>, s: S) -> Result<S::Ok, S::Error>
+where T: Serialize,
+      S: Serializer
+{
+    if t.is_empty() {
+        s.serialize_map(Some(0))?.end()
+    } else {
+        s.serialize_some(t)
     }
 }
 
