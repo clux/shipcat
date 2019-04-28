@@ -135,6 +135,9 @@ fn main() {
                 .short("s")
                 .long("secrets")
                 .help("Verifies secrets exist everywhere"))
+            .arg(Arg::with_name("skip-version-check")
+                .long("skip-version-check")
+                .help("Skip checking if the current region is supported by this Shipcat version"))
               .about("Validate the shipcat manifest"))
 
         .subcommand(SubCommand::with_name("secret")
@@ -543,6 +546,9 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         // this only needs a kube context if you don't specify it
         let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
         let (conf, region) = resolve_config(a, ss)?;
+        if !a.is_present("skip-version-check") {
+            conf.verify_version_pin(&region.environment)?;
+        }
         return shipcat::validate::manifest(services, &conf, &region, a.is_present("secrets"));
     }
     else if let Some(a) = args.subcommand_matches("values") {
