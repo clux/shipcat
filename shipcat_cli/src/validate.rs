@@ -48,13 +48,14 @@ pub fn secret_presence_git(conf: &Config, regions: Vec<String>) -> Result<()> {
         reg.verify_secrets_exist()?; // verify secrets for the region
 
         for svc in git_diff_changes()? {
-            let mf = shipcat_filebacked::load_manifest(&svc, conf, &reg)?;
-            if !mf.regions.contains(&r) {
-                debug!("ignoring {} for {} (not deployed there)", svc, r);
-                continue;
+            if let Ok(mf) = shipcat_filebacked::load_manifest(&svc, conf, &reg) {
+                if !mf.regions.contains(&r) {
+                    debug!("ignoring {} for {} (not deployed there)", svc, r);
+                    continue;
+                }
+                debug!("validating secrets for {} in {}", &svc, r);
+                mf.verify_secrets_exist(&reg.vault)?;
             }
-            debug!("validating secrets for {} in {}", &svc, r);
-            mf.verify_secrets_exist(&reg.vault)?;
         }
     }
     Ok(())
