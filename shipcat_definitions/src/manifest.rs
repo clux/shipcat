@@ -205,7 +205,7 @@ pub struct Manifest {
     /// ```yaml
     /// language: python
     /// ```
-    #[serde(skip_serializing)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
 
 
