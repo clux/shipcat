@@ -185,9 +185,17 @@ pub struct Oauth2ExtensionPluginConfig {}
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct JwtPluginConfig {
-    pub uri_param_names: Vec<String>,
-    pub claims_to_verify: Vec<String>,
     pub key_claim_name: String,
+    #[serde(serialize_with = "empty_as_brackets")]
+    pub claims_to_verify: Vec<String>,
+
+    pub secret_is_base64: bool,
+    pub run_on_preflight: bool,
+
+    #[serde(serialize_with = "empty_as_brackets")]
+    pub uri_param_names: Vec<String>,
+    #[serde(serialize_with = "empty_as_brackets")]
+    pub cookie_names: Vec<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anonymous_username: Option<String>,
@@ -198,6 +206,8 @@ impl JwtPluginConfig {
     fn new(anonymous_consumer: Option<String>) -> Self {
         JwtPluginConfig {
             uri_param_names: vec![],
+            cookie_names: vec![],
+
             claims_to_verify: vec!["exp".into()],
             key_claim_name: "kid".into(),
 
@@ -206,6 +216,8 @@ impl JwtPluginConfig {
                 None     => Some("".into()),
             },
             anonymous_username: anonymous_consumer.map(|_| "anonymous".into()),
+            secret_is_base64: false,
+            run_on_preflight: true,
         }
     }
 }
