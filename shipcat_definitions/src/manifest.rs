@@ -985,6 +985,7 @@ impl Manifest {
     }
 
     pub fn verify_secrets_exist(&self, vc: &VaultConfig) -> Result<()> {
+        use std::collections::HashSet;
         // what are we requesting
         // TODO: Use envvars directly
         let keys = self
@@ -994,31 +995,36 @@ impl Manifest {
             .into_iter()
             .filter(|(_, v)| v == "IN_VAULT")
             .map(|(k, _)| k)
-            .collect::<Vec<_>>();
+            .collect::<HashSet<_>>();
         let files = self.secretFiles.clone().into_iter()
             .filter(|(_,v)| v == "IN_VAULT")
             .map(|(k, _)| k)
-            .collect::<Vec<_>>();
+            .collect::<HashSet<_>>();
         if keys.is_empty() && files.is_empty() {
             return Ok(()); // no point trying to cross reference
         }
 
         // what we have
-        let v = Vault::regional(vc)?; // only listing anyway
+        let v = Vault::regional(vc)?;
         let secpth = self.get_vault_path(vc);
-        let found = v.list(&secpth)?; // can fail if folder is empty
+
+        // list secrets; fail immediately if folder is empty
+        let found = match v.list(&secpth) {
+            Ok(lst) => lst.into_iter().collect::<HashSet<_>>(),
+            Err(e) => {
+                bail!("Missing secret folder for {} in {}. Should contain {:?} and {:?}",
+                    self.name, secpth, keys, files)
+            },
+        };
         debug!("Found secrets {:?} for {}", found, self.name);
 
-        // compare
-        for k in keys {
-            if !found.contains(&k) {
-                bail!("Secret {} not found in vault {} for {}", k, secpth, self.name);
-            }
-        }
-        for k in files {
-            if !found.contains(&k) {
-                bail!("Secret file {} not found in vault {} for {}", k, secpth, self.name);
-            }
+        // compare sets
+        let missing_evars = keys.difference(&found).collect::<HashSet<_>>();
+        let missing_files = files.difference(&found).collect::<HashSet<_>>();
+        let missing = missing_evars.union(&missing_files).collect::<Vec<_>>();
+        if !missing.is_empty() {
+            bail!("Missing secrets: {:?} not found in vault {} for {}",
+                missing, secpth, self.name);
         }
         Ok(())
     }

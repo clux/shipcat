@@ -24,9 +24,6 @@ httpPort: 8000
 regions:
 - minikube
 metadata:
-  contacts:
-  - name: "Eirik"
-    slack: "@clux"
   team: Doves
   repo: https://github.com/clux/webapp-rs
 ```

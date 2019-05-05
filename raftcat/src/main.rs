@@ -70,6 +70,7 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let revdeps = req.state().get_reverse_deps(name).ok();
     let newrelic_link = req.state().get_newrelic_link(name);
     let sentry_slug = req.state().get_sentry_slug(name);
+    let ver_fallback = req.state().get_version(name);
 
     if let Some(mf) = req.state().get_manifest(name)?.clone() {
         let pretty = serde_yaml::to_string(&mf)?;
@@ -77,7 +78,7 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
 
 
         let md = mf.metadata.clone().unwrap();
-        let (vlink, version) = if let Some(ver) = mf.version.clone() {
+        let (vlink, version) = if let Some(ver) = mf.version.clone().or(ver_fallback) {
             if semver::Version::parse(&ver).is_ok() {
                 let tag = md.version_template(&ver).unwrap_or(ver.to_string());
                 (format!("{}/releases/tag/{}", md.repo, tag), tag)
@@ -200,10 +201,10 @@ fn main() -> Result<()> {
     let dsn = env::var("SENTRY_DSN").expect("Sentry DSN required");
     let _guard = sentry::init(dsn); // must keep _guard in scope
 
-    env::set_var("RUST_LOG", "actix_web=info,raftcat=info,kubernetes=info");
+    env::set_var("RUST_LOG", "actix_web=info,raftcat=info,kube=info");
     if let Ok(level) = env::var("LOG_LEVEL") {
         if level.to_lowercase() == "debug" {
-            env::set_var("RUST_LOG", "actix_web=info,raftcat=debug");
+            env::set_var("RUST_LOG", "actix_web=info,raftcat=debug,kube=debug");
         }
     }
     //env::set_var("RUST_BACKTRACE", "full"); // <- don't! this spams logz.io, rely on sentry!
@@ -215,8 +216,8 @@ fn main() -> Result<()> {
     // Load the config: local kube config prioritised first for local development
     // NB: Only supports a config with client certs locally (e.g. kops setup)
     let cfg = match env::var("HOME").expect("have HOME dir").as_ref() {
-        "/root" => kubernetes::config::incluster_config(),
-        _ => kubernetes::config::load_kube_config(),
+        "/root" => kube::config::incluster_config(),
+        _ => kube::config::load_kube_config(),
     }.expect("Failed to load kube config");
     let shared_state = state::init(cfg).unwrap(); // crash if init fails
 
@@ -228,7 +229,7 @@ fn main() -> Result<()> {
                 .exclude("/raftcat/health")
                 .exclude("/health")
                 .exclude("/favicon.ico")
-                .exclude("/raftcat/static/images/*.png")
+                .exclude("/raftcat/static/*")
             )
             .middleware(sentry_actix::SentryMiddleware::new())
             .handler("/raftcat/static", actix_web::fs::StaticFiles::new("./raftcat/static").unwrap())

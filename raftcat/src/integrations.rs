@@ -15,16 +15,16 @@ pub mod version {
     pub type VersionMap = BTreeMap<String, String>;
 
     // The actual HTTP GET logic
-    pub fn get_all() -> Result<VersionMap> {
+    pub fn get_all(version_url: &str) -> Result<VersionMap> {
         let client = reqwest::Client::new();
-        let vurl = Url::parse(&std::env::var("VERSION_URL")?)?;
-        debug!("Fetching {}", vurl);
+        let vurl = Url::parse(version_url)?;
+        trace!("Fetching {}", vurl);
         let mut res = client.get(vurl).send()?;
         if !res.status().is_success() {
             bail!("Failed to fetch version: {}", res.status());
         }
         let text = res.text()?;
-        debug!("Got version data: {}", text);
+        trace!("Got version data: {}", text);
         let data : Vec<Entry> = serde_json::from_str(&text)?;
         let res = data.into_iter()
             .fold(BTreeMap::new(), |mut acc, e| {

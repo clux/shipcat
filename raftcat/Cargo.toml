@@ -13,11 +13,11 @@ path = "src/main.rs"
 name = "raftcat"
 path = "src/lib.rs"
 
-
 [dependencies]
 shipcat_definitions = { path = "../shipcat_definitions", features = ["crd"] }
-kubernetes = { git = "https://github.com/clux/kubernetes-rust", rev = "8cb42b0eadf230ef519335fc071f74f187a11fae" }
-#kubernetes = { path = "../../kubernetes-rust" }
+#kube = "0.2.0"
+#kube = { path = "../../kube-rs" }
+kube = { git = "https://github.com/clux/kube-rs", rev = "14a851d115ed8ea8ddeeb46398450d25862e3c11" }
 serde_json = "1.0.32"
 serde_yaml = "0.8.5"
 serde = "1.0.80"

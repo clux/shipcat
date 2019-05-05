@@ -270,6 +270,8 @@ impl Config {
     #[cfg(feature = "filesystem")]
     pub fn verify_version_pin(&self, env: &Environment) -> Result<()> {
         let pin = self.versions.get(&env).unwrap_or_else(|| {
+            // TODO: this fails in unpinned envs..
+            // maybe we need a default?
             debug!("No version pin for environment {:?} - assuming maximum", env);
             // max exists by verify in general ^
             self.versions.values().max().expect("max version pin exists in shipcat.conf")

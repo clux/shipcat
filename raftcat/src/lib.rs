@@ -9,10 +9,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 pub use shipcat_definitions::{Manifest, Config, Cluster, Region, Team};
 
-/// A small CLI kubernetes interface
-pub mod kube;
-pub use crate::kube::{ManifestMap, ManifestCache};
-
 /// Integrations with external solutions like sentry/newrelic etc
 pub mod integrations;
 
