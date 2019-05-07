@@ -298,6 +298,12 @@ fn main() {
                 .help("Service to upgrad"))
             .about("Apply a service's configuration in kubernetes (through helm)"))
 
+        .subcommand(SubCommand::with_name("env")
+              .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service to generate an environment for"))
+              .about("Show env vars in a format that can be sourced in a shell"))
+
         .subcommand(SubCommand::with_name("diff")
               .arg(Arg::with_name("git")
                 .long("git")
@@ -580,6 +586,12 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
         let (conf, region) = resolve_config(a, ConfigType::Base)?;
         return shipcat::show::manifest_crd(&svc, &conf, &region);
+    }
+
+    else if let Some(a) = args.subcommand_matches("env") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+        let (conf, region) = resolve_config(a, ConfigType::Filtered)?;
+        return shipcat::env::print_bash(&svc, &conf, &region);
     }
 
     else if let Some(a) = args.subcommand_matches("diff") {

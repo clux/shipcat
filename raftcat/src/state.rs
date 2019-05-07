@@ -1,4 +1,3 @@
-use log::{info, warn, error, debug, trace};
 use failure::err_msg;
 use tera::compile_templates;
 use kube::{

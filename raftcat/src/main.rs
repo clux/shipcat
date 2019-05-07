@@ -1,6 +1,8 @@
 #![allow(unused_imports, unused_variables)]
 
-use log::{info, warn, error, debug, trace};
+#[macro_use]
+extern crate log;
+
 use serde_derive::Serialize;
 
 use std::env;

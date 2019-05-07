@@ -114,6 +114,9 @@ pub mod get;
 /// Diffing module for values
 pub mod diff;
 
+/// Env module for sourcing secrets
+pub mod env;
+
 /// Webhook mux/demux
 pub mod webhooks;
 

@@ -76,7 +76,6 @@ impl Manifest {
         ctx.insert("kong", &reg.kong);
         ctx.insert("cluster", &reg.cluster.clone());
         ctx.insert("namespace", &reg.namespace.clone());
-        ctx.insert("region_name", &reg.name.clone());
         Ok(ctx)
     }
 
