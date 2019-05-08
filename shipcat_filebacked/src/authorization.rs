@@ -3,6 +3,7 @@ use merge::Merge;
 use shipcat_definitions::structs::Authorization;
 
 use super::Result;
+use super::util::{Build};
 
 #[derive(Deserialize, Default, Merge, Clone)]
 pub struct AuthorizationSource {
@@ -15,8 +16,8 @@ pub struct AuthorizationSource {
     pub allow_cookies: Option<bool>,
 }
 
-impl AuthorizationSource {
-    pub fn build(self) -> Result<Option<Authorization>> {
+impl Build<Option<Authorization>, ()> for AuthorizationSource {
+    fn build(self, _params: &()) -> Result<Option<Authorization>> {
         if !self.enabled.unwrap_or_default() {
             return Ok(None);
         }

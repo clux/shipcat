@@ -6,6 +6,7 @@ use shipcat_definitions::{Region, Result};
 use shipcat_definitions::deserializers::{CommaSeparatedString};
 
 use super::authorization::AuthorizationSource;
+use super::util::{Build};
 
 /// Main manifest, deserialized from `shipcat.yml`.
 #[derive(Deserialize, Default, Merge, Clone)]
@@ -41,16 +42,23 @@ pub struct KongSource {
     pub name: Option<String>,
 }
 
-impl KongSource {
+pub struct KongBuildParams {
+    pub service: String,
+    pub region: Region,
+    pub hosts: Option<Vec<String>>,
+}
+
+impl Build<Option<Kong>, KongBuildParams> for KongSource {
     /// Build a Kong from a KongSource, validating and mutating properties.
-    pub fn build(self, service: &String, region: &Region, hosts: Option<Vec<String>>) -> Result<Option<Kong>> {
-        let hosts = self.build_hosts(region, hosts.unwrap_or_default())?;
+    fn build(self, params: &KongBuildParams) -> Result<Option<Kong>> {
+        let KongBuildParams { region, service, hosts } = params;
+        let hosts = self.build_hosts(&region.kong.base_url, hosts.clone().unwrap_or_default())?;
 
         if hosts.is_empty() && self.uris.is_none() {
             return Ok(None);
         }
 
-        let upstream_url = self.build_upstream_url(service, region);
+        let upstream_url = self.build_upstream_url(&service, &region.namespace);
         let (auth, authorization) = self.build_auth()?;
 
         if authorization.is_some() {
@@ -93,17 +101,19 @@ impl KongSource {
             oauth2_extension_plugin: self.oauth2_extension_plugin,
         }))
     }
+}
 
-    fn build_upstream_url(&self, service: &String, region: &Region) -> String {
+impl KongSource {
+    fn build_upstream_url(&self, service: &String, namespace: &String) -> String {
         if let Some(upstream_url) = &self.upstream_url {
             upstream_url.to_string()
         } else {
-            format!("http://{}.{}.svc.cluster.local", service, region.namespace)
+            format!("http://{}.{}.svc.cluster.local", service, namespace)
         }
     }
 
     fn build_auth(&self) -> Result<(Authentication, Option<Authorization>)> {
-        let authorization = self.authorization.clone().build()?;
+        let authorization = self.authorization.clone().build(&())?;
         match (
             &self.auth,
             self.unauthenticated.unwrap_or(false),
@@ -128,13 +138,13 @@ impl KongSource {
         }
     }
 
-    fn build_hosts(&self, region: &Region, tophosts: Vec<String>) -> Result<Vec<String>> {
+    fn build_hosts(&self, base_url: &String, tophosts: Vec<String>) -> Result<Vec<String>> {
         let hosts: Vec<String> = self.hosts.clone().unwrap_or_default().into();
         let host = self.host.clone().filter(|x| !x.is_empty());
         match (tophosts.as_slice(), host, hosts.as_slice()) {
             (_, None, []) => Ok(tophosts),
             ([], None, _) => Ok(hosts),
-            ([], Some(host), []) => Ok(vec![format!("{}{}", host, region.kong.base_url)]),
+            ([], Some(host), []) => Ok(vec![format!("{}{}", host, base_url)]),
             (_, _, _) => bail!("hosts, kong.hosts and kong.host are mutually exclusive"),
         }
     }

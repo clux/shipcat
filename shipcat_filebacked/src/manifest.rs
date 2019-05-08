@@ -3,15 +3,17 @@ use std::collections::BTreeMap;
 
 use shipcat_definitions::structs::{
     autoscaling::AutoScaling, security::DataHandling, tolerations::Tolerations, volume::Volume,
-    ConfigMap, CronJob, Dependency, EnvVars, Gate, HealthCheck, HostAlias, InitContainer, Job,
-    Kafka, LifeCycle, Metadata, PersistentVolume, Port, Probe, Rbac, Resources,
-    RollingUpdate, Sidecar, VaultOpts, VolumeMount, Worker,
+    ConfigMap, Dependency, Gate, HealthCheck, HostAlias,
+    Kafka, LifeCycle, Metadata, PersistentVolume, Port, Probe, Rbac,
+    RollingUpdate, VaultOpts, VolumeMount,
 };
 use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result};
 use shipcat_definitions::deserializers::{RelaxedString};
 
 use super::{SimpleManifest};
-use super::kong::{KongSource};
+use super::container::{ContainerBuildParams, CronJobSource, JobSource, SidecarSource, InitContainerSource, EnvVarsSource, WorkerSource, ResourceRequirementsSource, ImageNameSource, ImageTagSource};
+use super::kong::{KongSource, KongBuildParams};
+use super::util::{Build, Require};
 
 /// Main manifest, deserialized from `shipcat.yml`.
 #[derive(Deserialize, Default)]
@@ -32,13 +34,13 @@ pub struct ManifestSource {
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct ManifestOverrides {
     pub publicly_accessible: Option<bool>,
-    pub image: Option<String>,
+    pub image: Option<ImageNameSource>,
     pub image_size: Option<u32>,
-    pub version: Option<String>,
+    pub version: Option<ImageTagSource>,
     pub command: Option<Vec<String>>,
     pub data_handling: Option<DataHandling>,
     pub language: Option<String>,
-    pub resources: Option<Resources<RelaxedString>>,
+    pub resources: Option<ResourceRequirementsSource>,
     pub secret_files: BTreeMap<String, String>,
     pub configs: Option<ConfigMap>,
     pub vault: Option<VaultOpts>,
@@ -47,8 +49,8 @@ pub struct ManifestOverrides {
     pub external_port: Option<u32>,
     pub health: Option<HealthCheck>,
     pub dependencies: Option<Vec<Dependency>>,
-    pub workers: Option<Vec<Worker>>,
-    pub sidecars: Option<Vec<Sidecar>>,
+    pub workers: Option<Vec<WorkerSource>>,
+    pub sidecars: Option<Vec<SidecarSource>>,
     pub readiness_probe: Option<Probe>,
     pub liveness_probe: Option<Probe>,
     pub lifecycle: Option<LifeCycle>,
@@ -56,12 +58,12 @@ pub struct ManifestOverrides {
     pub auto_scaling: Option<AutoScaling>,
     pub tolerations: Option<Vec<Tolerations>>,
     pub host_aliases: Option<Vec<HostAlias>>,
-    pub init_containers: Option<Vec<InitContainer>>,
+    pub init_containers: Option<Vec<InitContainerSource>>,
     pub volumes: Option<Vec<Volume>>,
     pub volume_mounts: Option<Vec<VolumeMount>>,
     pub persistent_volumes: Option<Vec<PersistentVolume>>,
-    pub cron_jobs: Option<Vec<CronJob>>,
-    pub jobs: Option<Vec<Job>>,
+    pub cron_jobs: Option<Vec<CronJobSource>>,
+    pub jobs: Option<Vec<JobSource>>,
     pub service_annotations: BTreeMap<String, String>,
     pub labels: BTreeMap<String, RelaxedString>,
     pub gate: Option<Gate>,
@@ -81,13 +83,13 @@ pub struct ManifestDefaults {
     pub image_prefix: Option<String>,
     pub chart: Option<String>,
     pub replica_count: Option<u32>,
-    pub env: BTreeMap<String, RelaxedString>,
+    pub env: EnvVarsSource,
     pub kong: KongSource,
 }
 
-impl ManifestSource {
+impl Build<Manifest, (Config, Region)> for ManifestSource {
     /// Build a Manifest from a ManifestSource, validating and mutating properties.
-    pub fn build(self, conf: &Config, region: &Region) -> Result<Manifest> {
+    fn build(self, (conf, region): &(Config, Region)) -> Result<Manifest> {
         let simple = self.build_simple(conf, region)?;
         let name = simple.base.name;
         let data_handling = self.build_data_handling();
@@ -96,6 +98,10 @@ impl ManifestSource {
 
         let overrides = self.overrides;
         let defaults = overrides.defaults;
+
+        let container_build_params = ContainerBuildParams {
+            main_envs: defaults.env.clone(),
+        };
 
         Ok(Manifest {
             name,
@@ -116,14 +122,9 @@ impl ManifestSource {
             command: overrides.command.unwrap_or_default(),
             dataHandling: data_handling,
             language: overrides.language,
-            resources: overrides.resources,
+            resources: overrides.resources.build(&())?,
             replicaCount: defaults.replica_count,
-            env: EnvVars {
-                plain: defaults.env.iter()
-                    .map(|(k, v)| (k.to_string(), v.to_string()))
-                    .collect(),
-                secrets: Default::default(),
-            },
+            env: defaults.env.build(&())?,
             secretFiles: overrides.secret_files,
             configs: configs,
             vault: overrides.vault,
@@ -132,8 +133,8 @@ impl ManifestSource {
             externalPort: overrides.external_port,
             health: overrides.health,
             dependencies: overrides.dependencies.unwrap_or_default(),
-            workers: overrides.workers.unwrap_or_default(),
-            sidecars: overrides.sidecars.unwrap_or_default(),
+            workers: overrides.workers.unwrap_or_default().build(&container_build_params)?,
+            sidecars: overrides.sidecars.unwrap_or_default().build(&container_build_params)?,
             readinessProbe: overrides.readiness_probe,
             livenessProbe: overrides.liveness_probe,
             lifecycle: overrides.lifecycle,
@@ -141,15 +142,15 @@ impl ManifestSource {
             autoScaling: overrides.auto_scaling,
             tolerations: overrides.tolerations.unwrap_or_default(),
             hostAliases: overrides.host_aliases.unwrap_or_default(),
-            initContainers: overrides.init_containers.unwrap_or_default(),
+            initContainers: overrides.init_containers.unwrap_or_default().build(&container_build_params)?,
             volumes: overrides.volumes.unwrap_or_default(),
             volumeMounts: overrides.volume_mounts.unwrap_or_default(),
             persistentVolumes: overrides.persistent_volumes.unwrap_or_default(),
-            cronJobs: overrides.cron_jobs.unwrap_or_default(),
-            jobs: overrides.jobs.unwrap_or_default(),
+            cronJobs: overrides.cron_jobs.unwrap_or_default().build(&container_build_params)?,
+            jobs: overrides.jobs.unwrap_or_default().build(&container_build_params)?,
             serviceAnnotations: overrides.service_annotations,
-            labels: overrides.labels.iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
+            labels: overrides.labels.into_iter()
+                .map(|(k, v)| (k, v.to_string()))
                 .collect(),
             kong: simple.kong,
             gate: overrides.gate,
@@ -165,7 +166,9 @@ impl ManifestSource {
             kind: Default::default(),
         })
     }
+}
 
+impl ManifestSource {
     pub fn build_simple(&self, conf: &Config, region: &Region) -> Result<SimpleManifest> {
         let base = self.build_base(conf)?;
 
@@ -181,10 +184,13 @@ impl ManifestSource {
             // TODO: Make image non-optional
             image: Some(self.build_image(&base.name)?),
 
-            version: overrides.version,
+            version: overrides.version.build(&())?,
             kong: {
-                let hosts = overrides.hosts;
-                defaults.kong.build(&base.name, region, hosts)?
+                defaults.kong.build(&KongBuildParams {
+                    service: base.name.to_string(),
+                    region: region.clone(),
+                    hosts: overrides.hosts,
+                })?
             },
 
             base,
@@ -192,8 +198,9 @@ impl ManifestSource {
     }
 
     pub fn build_base(&self, conf: &Config) -> Result<BaseManifest> {
-        let name = self.build_name()?;
-        let metadata = self.build_metadata(&name, conf)?;
+        // TODO: Remove and use folder name
+        let name = self.name.clone().require("name")?;
+        let metadata = self.build_metadata(conf)?;
         let regions = self.regions.clone();
 
         Ok(BaseManifest {
@@ -203,18 +210,9 @@ impl ManifestSource {
         })
     }
 
-    fn build_name(&self) -> Result<String> {
-        // TODO: Remove and use folder name
-        if let Some(name) = &self.name {
-            Ok(name.clone())
-        } else {
-            bail!("name is required")
-        }
-    }
-
     fn build_image(&self, service: &String) -> Result<String> {
         if let Some(image) = &self.overrides.image {
-            Ok(image.to_string())
+            image.clone().build(&())
         } else if let Some(prefix) = &self.overrides.defaults.image_prefix {
             Ok(format!("{}/{}", prefix, service))
         } else {
@@ -223,11 +221,8 @@ impl ManifestSource {
     }
 
     // TODO: Extract MetadataSource
-    fn build_metadata(&self, name: &String, conf: &Config) -> Result<Metadata> {
-        if self.metadata.is_none() {
-            bail!("Missing metadata for {}", name);
-        }
-        let mut md = self.metadata.clone().unwrap();
+    fn build_metadata(&self, conf: &Config) -> Result<Metadata> {
+        let mut md = self.metadata.clone().require("metadata")?;
 
         let team = if let Some(t) = conf.teams.iter().find(|t| t.name == md.team) {
             t
@@ -331,9 +326,9 @@ mod tests {
             replica_count: Option::Some(1),
             env: {
                 let mut env = BTreeMap::new();
-                env.insert("a".into(), "default-a".into());
-                env.insert("b".into(), "default-b".into());
-                env
+                env.insert("a", "default-a");
+                env.insert("b", "default-b");
+                env.into()
             },
             kong: Default::default(),
         };
@@ -343,9 +338,9 @@ mod tests {
             replica_count: None,
             env: {
                 let mut env = BTreeMap::new();
-                env.insert("b".into(), "override-b".into());
-                env.insert("c".into(), "override-c".into());
-                env
+                env.insert("b", "override-b");
+                env.insert("c", "override-c");
+                env.into()
             },
             kong: Default::default(),
         };
@@ -355,9 +350,9 @@ mod tests {
         assert_eq!(merged.replica_count, Option::Some(1));
 
         let mut expected_env = BTreeMap::new();
-        expected_env.insert("a".into(), "default-a".into());
-        expected_env.insert("b".into(), "override-b".into());
-        expected_env.insert("c".into(), "override-c".into());
-        assert_eq!(merged.env, expected_env);
+        expected_env.insert("a", "default-a");
+        expected_env.insert("b", "override-b");
+        expected_env.insert("c", "override-c");
+        assert_eq!(merged.env, expected_env.into());
     }
 }

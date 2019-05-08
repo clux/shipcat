@@ -126,7 +126,9 @@ impl Manifest {
             bail!("{} does not have replicaCount", self.name);
         }
         for w in &self.workers {
-            base = base + (w.resources.normalised()? * w.replicaCount);
+            if let Some(resources) = &w.container.resources {
+                base += resources.normalised()? * w.replicaCount;
+            }
             // TODO: account for autoscaling in workers when it's there
 
             // NB: workers get the same sidecars!

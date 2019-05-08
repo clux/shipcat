@@ -88,7 +88,7 @@ impl Volume {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub struct VolumeMount {
     pub name: String,
     pub mountPath: String,

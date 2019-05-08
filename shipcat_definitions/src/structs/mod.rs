@@ -58,9 +58,6 @@ pub use self::volume::{Volume, VolumeMount};
 /// Kubernetes host aliases
 mod hostalias;
 pub use self::hostalias::HostAlias;
-/// Kubernetes init containers
-mod initcontainer;
-pub use self::initcontainer::InitContainer;
 /// Kubernetes health check probes
 mod probes;
 pub use self::probes::Probe;
@@ -93,9 +90,9 @@ pub use self::cronjob::CronJob;
 pub mod job;
 pub use self::job::Job;
 
-/// Sidecar
-pub mod sidecar;
-pub use self::sidecar::Sidecar;
+// Kubernetes Containers
+pub mod container;
+pub use self::container::Container;
 
 pub mod port;
 pub use self::port::Port;

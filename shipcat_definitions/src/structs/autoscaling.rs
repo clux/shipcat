@@ -4,7 +4,7 @@
 use super::{Result};
 
 /// Configuration parameters for HorizontalPodAutoScaler
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AutoScaling {
     pub minReplicas: u32,
     pub maxReplicas: u32,
@@ -17,7 +17,7 @@ pub struct AutoScaling {
 ///
 /// The content name (for adjacency) is dynamic - so need wrapper structs..
 /// The name of the wrapper is tagged correctly via serde under a `type` key
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type")]
 pub enum ScalingMetric {
     Resource(ScalingMetricResourceWrapper),
@@ -26,13 +26,13 @@ pub enum ScalingMetric {
 }
 
 // dumb adjacency wrappers to get the adjacency content
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ScalingMetricResourceWrapper { resource: ScalingMetricResource }
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ScalingMetricPodWrapper { pods: ScalingMetricPod }
 
 /// Native resource scaling via kube
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ScalingMetricResource {
     name: ScalingMetricResourceType,
     /// The target value of the average of the resource metric across relevant pods,
@@ -44,7 +44,7 @@ pub struct ScalingMetricResource {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     targetAverageValue: Option<String>,
 }
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ScalingMetricResourceType {
     #[serde(rename = "cpu")]
     CPU,
@@ -53,7 +53,7 @@ pub enum ScalingMetricResourceType {
 }
 
 /// Scaling Metrics from prometheus
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ScalingMetricPod {
     /// Promethus metric name
     pub metricName: String,

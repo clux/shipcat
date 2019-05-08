@@ -74,3 +74,10 @@ dependencies:
   intent: "testing graph module"
 kong:
   uris: /ai-auth
+initContainers:
+- name: initialize
+  image: foo
+  version: 1.2.3
+  env:
+    FAKE_SECRET: "IN_VAULT"
+    CORE_URL: "{{ base_urls.services }}/somesvc"

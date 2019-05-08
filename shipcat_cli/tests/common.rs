@@ -168,9 +168,9 @@ fn templating_test() {
 
     // verify templating
     let env = mf.env.plain;
-    assert_eq!(env["CORE_URL"], "https://woot.com/somesvc".to_string());
+    assert_eq!(&env["CORE_URL"], "https://woot.com/somesvc");
     // check values from Config - one plain, one as_secret
-    assert_eq!(env["CLIENT_ID"], "FAKEASKID".to_string());
+    assert_eq!(&env["CLIENT_ID"], "FAKEASKID");
     assert!(env.get("CLIENT_SECRET").is_none()); // moved to secret
 
     assert_eq!(
@@ -179,14 +179,14 @@ fn templating_test() {
     );
 
     // verify environment defaults
-    assert_eq!(env["GLOBAL_EVAR"], "indeed".to_string());
+    assert_eq!(&env["GLOBAL_EVAR"], "indeed");
     // verify environment overrides
-    assert_eq!(env["EXTRA_URL"], "https://blah/extra-svc/".to_string());
-    assert_eq!(env["MODE"], "development".to_string());
+    assert_eq!(&env["EXTRA_URL"], "https://blah/extra-svc/");
+    assert_eq!(&env["MODE"], "development");
 
     // verify sidecar templating
     let redis = &mf.sidecars[0];
-    assert_eq!(redis.env.plain["STATIC_VALUE"], "static".to_string());
+    assert_eq!(&redis.env.plain["STATIC_VALUE"], "static");
     assert_eq!(
         redis.env.plain["CORE_URL"],
         "https://woot.com/somesvc".to_string()
@@ -198,24 +198,24 @@ fn templating_test() {
 
     // verify worker templating
     let w = &mf.workers[0];
-    assert_eq!(w.env.plain["URL"], "https://woot.com/worker".to_string());
-    assert_eq!(w.env.secrets, BTreeSet::new());
+    assert_eq!(&w.container.env.plain["URL"], "https://woot.com/worker");
+    assert_eq!(w.container.env.secrets, BTreeSet::new());
 
     // verify cron job templating
     let c = &mf.cronJobs[0];
-    assert_eq!(c.env.plain["URL"], "https://woot.com/cronjob".to_string());
-    assert_eq!(c.env.secrets, BTreeSet::new());
+    assert_eq!(&c.container.env.plain["URL"], "https://woot.com/cronjob");
+    assert_eq!(c.container.env.secrets, BTreeSet::new());
 
     // verify job templating
     let j = &mf.jobs[0];
-    assert_eq!(j.env.plain["URL"], "https://woot.com/job".to_string());
-    assert_eq!(j.env.secrets, BTreeSet::new());
+    assert_eq!(&j.container.env.plain["URL"], "https://woot.com/job");
+    assert_eq!(j.container.env.secrets, BTreeSet::new());
 
     // verify secrets
     let sec = mf.secrets;
-    assert_eq!(sec["CLIENT_SECRET"], "FAKEASKSECRET".to_string()); // via reg.kong consumers
-    assert_eq!(sec["FAKE_SECRET"], "hello".to_string()); // NB: ACTUALLY IN_VAULT
-    assert_eq!(sec["FAKE_NUMBER"], "-2".to_string()); // NB: ACTUALLY IN_VAULT
+    assert_eq!(&sec["CLIENT_SECRET"], "FAKEASKSECRET"); // via reg.kong consumers
+    assert_eq!(&sec["FAKE_SECRET"], "hello"); // NB: ACTUALLY IN_VAULT
+    assert_eq!(&sec["FAKE_NUMBER"], "-2"); // NB: ACTUALLY IN_VAULT
 
     let configs = mf.configs.clone().unwrap();
     let configini = configs.files[0].clone();

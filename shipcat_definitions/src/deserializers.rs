@@ -16,6 +16,12 @@ impl ToString for RelaxedString {
     }
 }
 
+impl From<String> for RelaxedString {
+    fn from(v: String) -> Self {
+        Self(v.to_string())
+    }
+}
+
 impl From<&String> for RelaxedString {
     fn from(v: &String) -> Self {
         Self(v.to_string())

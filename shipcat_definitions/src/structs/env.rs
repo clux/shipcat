@@ -32,7 +32,7 @@ use std::mem;
 /// region, and replace them internally.
 ///
 /// The `as_secret` destinction only serves to put `AUTH_SECRET` into `Manifest::secrets`.
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Clone, Default, Debug)]
 #[cfg_attr(feature = "crd", derive(Deserialize))]
 #[serde(default)]
 pub struct EnvVars {
@@ -48,8 +48,14 @@ pub struct EnvVars {
     pub secrets: BTreeSet<String>,
 }
 
-
 impl EnvVars {
+    pub fn new(env: BTreeMap<String, String>) -> Self {
+        EnvVars {
+            plain: env,
+            secrets: Default::default(),
+        }
+    }
+
     fn is_vault_secret(value: &String) -> bool {
         value == "IN_VAULT"
     }

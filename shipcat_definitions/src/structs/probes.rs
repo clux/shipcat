@@ -1,7 +1,7 @@
 use super::Result;
 
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct HttpGet {
     /// Uri path to GET (i.e. / or /health)
@@ -15,7 +15,7 @@ pub struct HttpGet {
 }
 fn http_get_default_port() -> String { "http".into() }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct HttpHeader {
     pub name: String,
@@ -23,7 +23,7 @@ pub struct HttpHeader {
 }
 
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Exec {
     /// Command to execute in the container
@@ -31,14 +31,14 @@ pub struct Exec {
 }
 
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct TcpSocket {
     pub port: String,
 }
 
 /// Liveness or readiness Probe
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Probe {
     /// Http Get probe

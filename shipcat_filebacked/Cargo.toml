@@ -8,6 +8,7 @@ edition = "2018"
 shipcat_definitions = { path = "../shipcat_definitions", features = ["filesystem"] }
 merge = { path = "../merge" }
 merge_derive = { path = "../merge_derive" }
+regex = "1.0.5"
 serde = "1.0.89"
 serde_derive = "1.0.89"
 serde_yaml = "0.8.8"

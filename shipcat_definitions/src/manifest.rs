@@ -5,19 +5,18 @@ use regex::Regex;
 use crate::config::{Config};
 use crate::region::{VaultConfig, Region};
 use crate::states::ManifestType;
-use crate::deserializers::RelaxedString;
 use super::Result;
 
 // All structs come from the structs directory
 use super::structs::{
     {HealthCheck, ConfigMap},
-    {InitContainer, Resources, HostAlias},
+    Container, Resources, HostAlias,
     volume::{Volume, VolumeMount},
     PersistentVolume,
     {Metadata, VaultOpts, Dependency},
     security::DataHandling,
     Probe,
-    {CronJob, Job, Sidecar, EnvVars},
+    CronJob, Job, EnvVars,
     {Gate, Kafka, Kong, Rbac},
     RollingUpdate,
     autoscaling::AutoScaling,
@@ -223,7 +222,7 @@ pub struct Manifest {
     ///     memory: 300Mi
     /// ```
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub resources: Option<Resources<RelaxedString>>,
+    pub resources: Option<Resources<String>>,
 
     /// Kubernetes replication count
     ///
@@ -415,7 +414,7 @@ pub struct Manifest {
     /// - name: redis
     /// ```
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub sidecars: Vec<Sidecar>,
+    pub sidecars: Vec<Container>,
 
     /// `readinessProbe` for kubernetes
     ///
@@ -529,7 +528,7 @@ pub struct Manifest {
     ///   command: ['sh', '-c', 'until nc -z dev-cassandra 9042; do sleep 2; done;']
     /// ```
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub initContainers: Vec<InitContainer>,
+    pub initContainers: Vec<Container>,
 
     /// Volumes that can be mounted in every kubernetes `Pod`
     ///
@@ -820,18 +819,6 @@ impl Manifest {
         for tl in &self.tolerations {
             tl.verify()?;
         }
-        for ic in &self.initContainers {
-            ic.verify()?;
-        }
-        for wrk in &self.workers {
-            wrk.verify()?;
-        }
-        for s in &self.sidecars {
-            s.verify()?;
-        }
-        for c in &self.cronJobs {
-            c.verify()?;
-        }
         for p in &self.ports {
             p.verify()?;
         }
@@ -917,13 +904,16 @@ impl Manifest {
             envs.push(&mut s.env);
         }
         for w in &mut self.workers {
-            envs.push(&mut w.env);
+            envs.push(&mut w.container.env);
         }
         for c in &mut self.cronJobs {
-            envs.push(&mut c.env);
+            envs.push(&mut c.container.env);
         }
         for j in &mut self.jobs {
-            envs.push(&mut j.env);
+            envs.push(&mut j.container.env);
+        }
+        for i in &mut self.initContainers {
+            envs.push(&mut i.env);
         }
         envs
     }

@@ -1,6 +1,5 @@
 use std::ops::{Add, AddAssign, Mul};
 use super::Result;
-use crate::deserializers::{RelaxedString};
 
 // Kubernetes resouce structs
 //
@@ -10,8 +9,8 @@ use crate::deserializers::{RelaxedString};
 // This allows extra computation, and certain versions will have some extra traits
 // implemented to be a bit more useful, as well as some to convert between them.
 
-/// Kubernetes resource requests
-#[derive(Serialize, Deserialize, Clone)]
+/// Kubernetes resource requests or limit
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct ResourceRequest<T> {
     /// CPU request string
@@ -21,37 +20,26 @@ pub struct ResourceRequest<T> {
     // TODO: ephemeral-storage + extended-resources
 }
 
-/// Kubernetes resource limits
-#[derive(Serialize, Deserialize, Clone)]
-#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
-pub struct ResourceLimit<T> {
-    /// CPU limit string
-    pub cpu: T,
-    /// Memory limit string
-    pub memory: T,
-    // TODO: ephemeral-storage + extended-resources
-}
-
 /// Kubernetes resources
 ///
 /// This can be inlined straight into a container spec at the moment
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Resources<T> {
     /// Resource requests for k8s
     pub requests: ResourceRequest<T>,
     /// Resource limits for k8s
-    pub limits: ResourceLimit<T>,
+    pub limits: ResourceRequest<T>,
 }
 
-impl Resources<RelaxedString> {
+impl<T: ToString> Resources<T> {
     /// Convert shorthand strings to raw number of cores and Bytes of memory
     pub fn normalised(&self) -> Result<Resources<f64>> {
         let requests = ResourceRequest {
             memory: parse_memory(&self.requests.memory.to_string())?,
             cpu: parse_cpu(&self.requests.cpu.to_string())?,
         };
-        let limits = ResourceLimit {
+        let limits = ResourceRequest {
             memory: parse_memory(&self.limits.memory.to_string())?,
             cpu: parse_cpu(&self.limits.cpu.to_string())?,
         };
@@ -68,7 +56,7 @@ impl Add for Resources<f64> {
             memory: self.requests.memory + rhs.requests.memory,
             cpu: self.requests.cpu + rhs.requests.cpu,
         };
-        let limits = ResourceLimit {
+        let limits = ResourceRequest {
             memory: self.limits.memory + rhs.limits.memory,
             cpu: self.limits.cpu + rhs.limits.cpu,
         };
@@ -89,7 +77,7 @@ impl Mul<u32> for Resources<f64> {
             memory: self.requests.memory * (scalar as f64),
             cpu: self.requests.cpu * (scalar as f64),
         };
-        let limits = ResourceLimit {
+        let limits = ResourceRequest {
             memory: self.limits.memory * (scalar as f64),
             cpu: self.limits.cpu * (scalar as f64),
         };
@@ -102,7 +90,7 @@ impl Mul<u32> for Resources<f64> {
 impl Default for Resources<f64> {
     fn default() -> Self {
         let requests = ResourceRequest { cpu: 0.0, memory: 0.0 };
-        let limits = ResourceLimit { memory: 0.0, cpu: 0.0 };
+        let limits = ResourceRequest { memory: 0.0, cpu: 0.0 };
         Resources { requests, limits }
     }
 }
@@ -117,7 +105,7 @@ impl Resources<f64> {
     }
 }
 
-impl Resources<RelaxedString> {
+impl Resources<String> {
     // TODO: look at config for limits?
     pub fn verify(&self) -> Result<()> {
         // (We can unwrap all the values as we assume implicit called!)
