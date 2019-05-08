@@ -1,4 +1,4 @@
-use super::{Resources, EnvVars, Probe, Port, VolumeMount};
+use super::{ResourceRequirements, EnvVars, Probe, Port, VolumeMount};
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]
@@ -15,7 +15,7 @@ pub struct Container {
 
     /// Resource Requirements
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub resources: Option<Resources<String>>,
+    pub resources: Option<ResourceRequirements<String>>,
 
     /// Command override
     #[serde(skip_serializing_if = "Vec::is_empty")]

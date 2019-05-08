@@ -10,7 +10,7 @@ use super::Result;
 // All structs come from the structs directory
 use super::structs::{
     {HealthCheck, ConfigMap},
-    Container, Resources, HostAlias,
+    Container, ResourceRequirements, HostAlias,
     volume::{Volume, VolumeMount},
     PersistentVolume,
     {Metadata, VaultOpts, Dependency},
@@ -222,7 +222,7 @@ pub struct Manifest {
     ///     memory: 300Mi
     /// ```
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub resources: Option<Resources<String>>,
+    pub resources: Option<ResourceRequirements<String>>,
 
     /// Kubernetes replication count
     ///

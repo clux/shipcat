@@ -12,7 +12,7 @@ use super::Result;
 /// Kubernetes resource requests or limit
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
-pub struct ResourceRequest<T> {
+pub struct Resources<T> {
     /// CPU request string
     pub cpu: T,
     /// Memory request string
@@ -25,77 +25,77 @@ pub struct ResourceRequest<T> {
 /// This can be inlined straight into a container spec at the moment
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
-pub struct Resources<T> {
+pub struct ResourceRequirements<T> {
     /// Resource requests for k8s
-    pub requests: ResourceRequest<T>,
+    pub requests: Resources<T>,
     /// Resource limits for k8s
-    pub limits: ResourceRequest<T>,
+    pub limits: Resources<T>,
 }
 
-impl<T: ToString> Resources<T> {
+impl ResourceRequirements<String> {
     /// Convert shorthand strings to raw number of cores and Bytes of memory
-    pub fn normalised(&self) -> Result<Resources<f64>> {
-        let requests = ResourceRequest {
+    pub fn normalised(&self) -> Result<ResourceRequirements<f64>> {
+        let requests = Resources {
             memory: parse_memory(&self.requests.memory.to_string())?,
             cpu: parse_cpu(&self.requests.cpu.to_string())?,
         };
-        let limits = ResourceRequest {
+        let limits = Resources {
             memory: parse_memory(&self.limits.memory.to_string())?,
             cpu: parse_cpu(&self.limits.cpu.to_string())?,
         };
-        Ok(Resources { requests, limits })
+        Ok(ResourceRequirements { requests, limits })
     }
 }
 
 // For aggregation of resource use, implement addition on normalised versions
-impl Add for Resources<f64> {
-    type Output = Resources<f64>;
+impl Add for ResourceRequirements<f64> {
+    type Output = ResourceRequirements<f64>;
 
-    fn add(self, rhs: Resources<f64>) -> Resources<f64> {
-        let requests = ResourceRequest {
+    fn add(self, rhs: ResourceRequirements<f64>) -> ResourceRequirements<f64> {
+        let requests = Resources {
             memory: self.requests.memory + rhs.requests.memory,
             cpu: self.requests.cpu + rhs.requests.cpu,
         };
-        let limits = ResourceRequest {
+        let limits = Resources {
             memory: self.limits.memory + rhs.limits.memory,
             cpu: self.limits.cpu + rhs.limits.cpu,
         };
-        Resources { requests, limits }
+        ResourceRequirements { requests, limits }
     }
 }
-impl AddAssign for Resources<f64> {
-    fn add_assign(&mut self, rhs: Resources<f64>) {
+impl AddAssign for ResourceRequirements<f64> {
+    fn add_assign(&mut self, rhs: ResourceRequirements<f64>) {
         *self = self.clone() + rhs;
     }
 }
 
-impl Mul<u32> for Resources<f64> {
-    type Output = Resources<f64>;
+impl Mul<u32> for ResourceRequirements<f64> {
+    type Output = ResourceRequirements<f64>;
 
-    fn mul(self, scalar: u32) -> Resources<f64> {
-        let requests = ResourceRequest {
+    fn mul(self, scalar: u32) -> ResourceRequirements<f64> {
+        let requests = Resources {
             memory: self.requests.memory * (scalar as f64),
             cpu: self.requests.cpu * (scalar as f64),
         };
-        let limits = ResourceRequest {
+        let limits = Resources {
             memory: self.limits.memory * (scalar as f64),
             cpu: self.limits.cpu * (scalar as f64),
         };
-        Resources { requests, limits }
+        ResourceRequirements { requests, limits }
     }
 }
 
 /// Zero numericals used in computation.
 /// Techncially this should be the std::num::Zero trait but it's unstable atm
-impl Default for Resources<f64> {
+impl Default for ResourceRequirements<f64> {
     fn default() -> Self {
-        let requests = ResourceRequest { cpu: 0.0, memory: 0.0 };
-        let limits = ResourceRequest { memory: 0.0, cpu: 0.0 };
-        Resources { requests, limits }
+        let requests = Resources { cpu: 0.0, memory: 0.0 };
+        let limits = Resources { memory: 0.0, cpu: 0.0 };
+        ResourceRequirements { requests, limits }
     }
 }
 
-impl Resources<f64> {
+impl ResourceRequirements<f64> {
     /// Convert to gigabytes and round to two decimals
     pub fn round(&mut self) {
         self.limits.memory = (self.limits.memory * 100.0 / (1024.0 * 1024.0 * 1024.0)).round()/100.0;
@@ -105,7 +105,7 @@ impl Resources<f64> {
     }
 }
 
-impl Resources<String> {
+impl ResourceRequirements<String> {
     // TODO: look at config for limits?
     pub fn verify(&self) -> Result<()> {
         // (We can unwrap all the values as we assume implicit called!)

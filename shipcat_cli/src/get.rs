@@ -218,7 +218,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
 // ----------------------------------------------------------------------------
 
 
-use super::structs::Resources;
+use super::structs::ResourceRequirements;
 use shipcat_definitions::math::ResourceTotals;
 
 /// Complete breakdown of resource usage in total, and split by team.
@@ -260,8 +260,8 @@ impl ResourceBreakdown {
 fn resources_region(conf: &Config, region: &Region) -> Result<ResourceBreakdown> {
     let mut bd = ResourceBreakdown::new(conf.teams.clone()); // zero for all the things
 
-    let mut sum : Resources<f64> = Default::default();
-    let mut extra : Resources<f64> = Default::default(); // autoscaling limits
+    let mut sum : ResourceRequirements<f64> = Default::default();
+    let mut extra : ResourceRequirements<f64> = Default::default(); // autoscaling limits
 
     for svc in shipcat_filebacked::available(conf, region)? {
         let mf = shipcat_filebacked::load_manifest(&svc.base.name, conf, region)?;
@@ -289,7 +289,7 @@ pub fn resources(conf: &Config, region: &Region) -> Result<()> {
     Ok(())
 }
 
-/// Resources for all regions
+/// ResourceRequirements for all regions
 pub fn totalresources(conf: &Config) -> Result<()> {
     let mut bd = ResourceBreakdown::new(conf.teams.clone()); // zero for all the things
     for r in conf.list_regions() {

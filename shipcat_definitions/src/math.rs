@@ -1,4 +1,4 @@
-use super::structs::Resources;
+use super::structs::ResourceRequirements;
 use super::structs::rollingupdate::{RollingUpdate};
 use super::{Result, Manifest};
 
@@ -8,9 +8,9 @@ use super::{Result, Manifest};
 #[derive(Serialize, Default)]
 pub struct ResourceTotals {
     /// Sum of basic resource structs (ignoring autoscaling limits)
-    pub base: Resources<f64>,
+    pub base: ResourceRequirements<f64>,
     /// Autoscaling Ceilings on top of required
-    pub extra: Resources<f64>,
+    pub extra: ResourceRequirements<f64>,
 }
 
 impl ResourceTotals {
@@ -102,11 +102,11 @@ impl Manifest {
 
     /// Compute the total resource usage of a service
     ///
-    /// This relies on the `Mul` and `Add` implementations of `Resources<f64>`,
-    /// which allows us to do `+` and `*` on a normalised Resources struct.
+    /// This relies on the `Mul` and `Add` implementations of `ResourceRequirements<f64>`,
+    /// which allows us to do `+` and `*` on a normalised ResourceRequirements struct.
     pub fn compute_resource_totals(&self) -> Result<ResourceTotals> {
-        let mut base : Resources<f64> = Resources::default();
-        let mut extra : Resources<f64> = Resources::default(); // autoscaling limits
+        let mut base : ResourceRequirements<f64> = ResourceRequirements::default();
+        let mut extra : ResourceRequirements<f64> = ResourceRequirements::default(); // autoscaling limits
         let res = self.resources.clone().unwrap().normalised()?; // exists by verify
         if let Some(ref ascale) = self.autoScaling {
             base = base + (res.clone() * ascale.minReplicas);

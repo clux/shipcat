@@ -1,5 +1,5 @@
 use shipcat_definitions::{Result};
-use shipcat_definitions::structs::resources::{Resources, ResourceRequest};
+use shipcat_definitions::structs::resources::{ResourceRequirements, Resources};
 use shipcat_definitions::deserializers::{RelaxedString};
 
 use crate::util::{Build, Require};
@@ -11,9 +11,9 @@ pub struct ResourceRequirementsSource {
     pub limits: ResourcesSource,
 }
 
-impl Build<Resources<String>, ()> for ResourceRequirementsSource {
-    fn build(self, params: &()) -> Result<Resources<String>> {
-        let resources = Resources {
+impl Build<ResourceRequirements<String>, ()> for ResourceRequirementsSource {
+    fn build(self, params: &()) -> Result<ResourceRequirements<String>> {
+        let resources = ResourceRequirements {
             requests: self.requests.build(params)?,
             limits: self.limits.build(params)?,
         };
@@ -29,10 +29,10 @@ pub struct ResourcesSource {
     pub memory: Option<RelaxedString>,
 }
 
-impl Build<ResourceRequest<String>, ()> for ResourcesSource {
-    fn build(self, _: &()) -> Result<ResourceRequest<String>> {
+impl Build<Resources<String>, ()> for ResourcesSource {
+    fn build(self, _: &()) -> Result<Resources<String>> {
 
-        Ok(ResourceRequest {
+        Ok(Resources {
             cpu: self.cpu.require("cpu")?.to_string(),
             memory: self.memory.require("cpu")?.to_string(),
         })
