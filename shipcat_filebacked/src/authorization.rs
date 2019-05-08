@@ -7,7 +7,6 @@ use super::util::{Build};
 
 #[derive(Deserialize, Default, Merge, Clone)]
 pub struct AuthorizationSource {
-    pub enabled: Option<bool>,
     pub allowed_audiences: Option<Vec<String>>,
     pub allow_anonymous: Option<bool>,
     pub allow_invalid_tokens: Option<bool>,
@@ -16,11 +15,8 @@ pub struct AuthorizationSource {
     pub allow_cookies: Option<bool>,
 }
 
-impl Build<Option<Authorization>, ()> for AuthorizationSource {
-    fn build(self, _params: &()) -> Result<Option<Authorization>> {
-        if !self.enabled.unwrap_or_default() {
-            return Ok(None);
-        }
+impl Build<Authorization, ()> for AuthorizationSource {
+    fn build(self, _params: &()) -> Result<Authorization> {
         let allowed_audiences = self.allowed_audiences.unwrap_or_default();
         if allowed_audiences.is_empty() {
             bail!("allowed_audiences must contain at least one audience");
@@ -30,12 +26,12 @@ impl Build<Option<Authorization>, ()> for AuthorizationSource {
         if allow_invalid_tokens && !allow_anonymous {
             bail!("allow_invalid_tokens requires allow_anonymous");
         }
-        Ok(Some(Authorization {
+        Ok(Authorization {
             allowed_audiences,
             allow_anonymous,
             allow_invalid_tokens,
             required_scopes: self.required_scopes.unwrap_or_default(),
             allow_cookies: self.allow_cookies.unwrap_or_default(),
-        }))
+        })
     }
 }

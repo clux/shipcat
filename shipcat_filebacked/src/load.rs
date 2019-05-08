@@ -10,7 +10,7 @@ use walkdir::WalkDir;
 use crate::manifest::{ManifestDefaults, ManifestOverrides, ManifestSource};
 use super::{SimpleManifest, BaseManifest};
 use super::authorization::{AuthorizationSource};
-use super::util::{Build};
+use super::util::{Build, Enabled};
 
 impl ManifestSource {
     pub fn load_manifest(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
@@ -119,16 +119,17 @@ impl ManifestDefaults {
         let mut defs = Self::default();
         defs.env = reg.env.clone().into();
         if let Some(authz) = reg.defaults.kong.authorization.clone() {
-            defs.kong.authorization = AuthorizationSource {
-                enabled: None,
-                allow_anonymous: Some(authz.allow_anonymous),
-                allowed_audiences: Some(authz.allowed_audiences),
-                allow_cookies: Some(authz.allow_cookies),
-                allow_invalid_tokens: Some(authz.allow_invalid_tokens),
-                required_scopes: Some(authz.required_scopes),
+            defs.kong.item.authorization = Enabled {
+                enabled: Some(reg.defaults.kong.authorizationEnabled),
+                item: AuthorizationSource {
+                    allow_anonymous: Some(authz.allow_anonymous),
+                    allowed_audiences: Some(authz.allowed_audiences),
+                    allow_cookies: Some(authz.allow_cookies),
+                    allow_invalid_tokens: Some(authz.allow_invalid_tokens),
+                    required_scopes: Some(authz.required_scopes),
+                },
             };
         }
-        defs.kong.authorization.enabled = Some(reg.defaults.kong.authorizationEnabled);
         Ok(defs)
     }
 }

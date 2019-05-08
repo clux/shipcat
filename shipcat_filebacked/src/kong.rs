@@ -6,7 +6,7 @@ use shipcat_definitions::{Region, Result};
 use shipcat_definitions::deserializers::{CommaSeparatedString};
 
 use super::authorization::AuthorizationSource;
-use super::util::{Build};
+use super::util::{Build, Enabled};
 
 /// Main manifest, deserialized from `shipcat.yml`.
 #[derive(Deserialize, Default, Merge, Clone)]
@@ -32,7 +32,7 @@ pub struct KongSource {
     pub babylon_auth_header: Option<BabylonAuthHeader>,
     pub oauth2_anonymous: Option<String>,
     pub oauth2_extension_plugin: Option<bool>,
-    pub authorization: AuthorizationSource,
+    pub authorization: Enabled<AuthorizationSource>,
 
     pub upstream_connect_timeout: Option<u32>,
     pub upstream_send_timeout: Option<u32>,
@@ -59,7 +59,7 @@ impl Build<Option<Kong>, KongBuildParams> for KongSource {
         }
 
         let upstream_url = self.build_upstream_url(&service, &region.namespace);
-        let (auth, authorization) = self.build_auth()?;
+        let (auth, authorization) = KongSource::build_auth(self.auth, self.unauthenticated, self.authorization)?;
 
         if authorization.is_some() {
             if self.cookie_auth.is_some() {
@@ -112,12 +112,11 @@ impl KongSource {
         }
     }
 
-    fn build_auth(&self) -> Result<(Authentication, Option<Authorization>)> {
-        let authorization = self.authorization.clone().build(&())?;
+    fn build_auth(auth: Option<Authentication>, unauthenticated: Option<bool>, authz: Enabled<AuthorizationSource>) -> Result<(Authentication, Option<Authorization>)> {
         match (
-            &self.auth,
-            self.unauthenticated.unwrap_or(false),
-            authorization,
+            auth,
+            unauthenticated.unwrap_or(false),
+            authz.build(&())?,
         ) {
             // unauthenticated is true
             (None, true, None) => Ok((Authentication::None, None)),

@@ -13,7 +13,7 @@ use shipcat_definitions::deserializers::{RelaxedString};
 use super::{SimpleManifest};
 use super::container::{ContainerBuildParams, CronJobSource, JobSource, SidecarSource, InitContainerSource, EnvVarsSource, WorkerSource, ResourceRequirementsSource, ImageNameSource, ImageTagSource};
 use super::kong::{KongSource, KongBuildParams};
-use super::util::{Build, Require};
+use super::util::{Build, Enabled, Require};
 
 /// Main manifest, deserialized from `shipcat.yml`.
 #[derive(Deserialize, Default)]
@@ -84,7 +84,7 @@ pub struct ManifestDefaults {
     pub chart: Option<String>,
     pub replica_count: Option<u32>,
     pub env: EnvVarsSource,
-    pub kong: KongSource,
+    pub kong: Enabled<KongSource>,
 }
 
 impl Build<Manifest, (Config, Region)> for ManifestSource {
@@ -185,13 +185,11 @@ impl ManifestSource {
             image: Some(self.build_image(&base.name)?),
 
             version: overrides.version.build(&())?,
-            kong: {
-                defaults.kong.build(&KongBuildParams {
-                    service: base.name.to_string(),
-                    region: region.clone(),
-                    hosts: overrides.hosts,
-                })?
-            },
+            kong: defaults.kong.build(&KongBuildParams {
+                service: base.name.to_string(),
+                region: region.clone(),
+                hosts: overrides.hosts,
+            })?.unwrap_or(None),
 
             base,
         })
