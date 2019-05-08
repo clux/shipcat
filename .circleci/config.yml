@@ -28,6 +28,7 @@ workflows:
               only:
                 - master
       - github_release:
+          context: babylon
           requires:
             - musl_build
             - mac_build
@@ -156,4 +157,9 @@ jobs:
           at: .
       - run: go get github.com/tcnksm/ghr
       - run: make releases
-      - run: ghr -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME -replace $(git describe --abbrev=0 --tags) releases/
+      - run: ghr \
+          -u $CIRCLE_PROJECT_USERNAME \
+          -r $CIRCLE_PROJECT_REPONAME \
+          --token "$GITHUB_RELEASE_TOKEN" \
+          -replace $(git describe --abbrev=0 --tags) \
+          releases/

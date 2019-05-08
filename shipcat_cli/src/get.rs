@@ -38,18 +38,22 @@ pub fn images(conf: &Config, region: &Region) -> Result<BTreeMap<String, String>
     Ok(output)
 }
 
-/// Generate codeowner strings for each service based based on team owners
+/// Generate codeowner strings for each service based based on team owners + admins
 ///
 /// Cross references config.teams with manifest.metadata.team
 /// Each returned string is Github CODEOWNER syntax
 pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
     let mut output = vec![];
+    let org = &conf.github.organisation;
     for mf in shipcat_filebacked::all(conf)? {
         let md = mf.metadata;
         let mut ghids = vec![];
         // teams guaranteed by validates on Manifest and Config
-        // TODO: not for external services! ^
         if let Some(t) = &conf.teams.iter().find(|t| t.name == md.team) {
+            if let Some(gha) = &t.githubAdmins {
+                ghids.push(format!("@{}/{}", org, gha));
+            }
+            // TODO: take this out now that we have teams?
             for o in t.owners.clone() {
                 ghids.push(format!("@{}", o.github.unwrap()));
             }
@@ -64,7 +68,7 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
     Ok(output)
 }
 
-/// Generate vault policies based on team owners of services
+/// Generate vault policies based on team admins of services
 ///
 /// Cross refereneces config.teams with manifest.metadata.team
 /// The output is the same across all regions to avoid chicken-egg problems.
@@ -82,8 +86,8 @@ pub fn vaultpolicy(conf: &Config, region: &Region, team_name: &str) -> Result<St
     } else {
         bail!("Team '{}' does not exist in shipcat.conf", team_name);
     };
-    if team.vaultAdmins.is_none() {
-        warn!("Team '{}' does not define a vaultAdmins team in shipcat.conf", team.name);
+    if team.githubAdmins.is_none() {
+        warn!("Team '{}' does not define a githubAdmins team in shipcat.conf", team.name);
     }
     let mfs = shipcat_filebacked::all(conf)?;
     let output = region.vault.make_policy(mfs, team.clone(), region.environment.clone())?;

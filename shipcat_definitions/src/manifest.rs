@@ -1000,7 +1000,8 @@ impl Manifest {
             .filter(|(_,v)| v == "IN_VAULT")
             .map(|(k, _)| k)
             .collect::<HashSet<_>>();
-        if keys.is_empty() && files.is_empty() {
+        let expected = keys.union(&files).cloned().collect::<HashSet<_>>();
+        if expected.is_empty() {
             return Ok(()); // no point trying to cross reference
         }
 
@@ -1011,20 +1012,17 @@ impl Manifest {
         // list secrets; fail immediately if folder is empty
         let found = match v.list(&secpth) {
             Ok(lst) => lst.into_iter().collect::<HashSet<_>>(),
-            Err(e) => {
-                bail!("Missing secret folder for {} in {}. Should contain {:?} and {:?}",
-                    self.name, secpth, keys, files)
-            },
+            Err(e) =>
+                bail!("Missing secret folder {} expected to contain {:?}: {}",
+                    secpth, expected, e),
         };
         debug!("Found secrets {:?} for {}", found, self.name);
 
         // compare sets
-        let missing_evars = keys.difference(&found).collect::<HashSet<_>>();
-        let missing_files = files.difference(&found).collect::<HashSet<_>>();
-        let missing = missing_evars.union(&missing_files).collect::<Vec<_>>();
+        let missing = expected.difference(&found).collect::<Vec<_>>();
         if !missing.is_empty() {
-            bail!("Missing secrets: {:?} not found in vault {} for {}",
-                missing, secpth, self.name);
+            bail!("Missing secrets: {:?} not found in vault {}",
+                missing, secpth);
         }
         Ok(())
     }

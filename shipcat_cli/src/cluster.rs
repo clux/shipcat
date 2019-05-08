@@ -187,7 +187,7 @@ fn vault_reconcile_worker(svcs: Vec<BaseManifest>, team: Team, reg: Region) -> R
     use std::fs::File;
     use std::io::Write;
     //let root = std::env::var("SHIPCAT_MANIFEST_DIR").expect("needs manifest directory set");
-    if let Some(admins) = team.clone().vaultAdmins {
+    if let Some(admins) = team.clone().githubAdmins {
         // TODO: validate that the github team exists?
         let policy = reg.vault.make_policy(svcs, team.clone(), reg.environment.clone())?;
         debug!("Vault policy: {}", policy);
@@ -228,7 +228,7 @@ fn vault_reconcile_worker(svcs: Vec<BaseManifest>, team: Team, reg: Region) -> R
             }
         }
     } else {
-        debug!("Team '{}' does not have a defined vaultAdmins team in shipcat.conf - ignoring", team.name);
+        debug!("Team '{}' does not have a defined githubAdmins team in shipcat.conf - ignoring", team.name);
         return Ok(()) // nothing to do
     };
     Ok(())

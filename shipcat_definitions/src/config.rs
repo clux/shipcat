@@ -55,6 +55,7 @@ pub struct Cluster {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Team {
     /// Team name
     pub name: String,
@@ -65,17 +66,20 @@ pub struct Team {
     #[serde(default)]
     pub owners: Vec<Contact>,
 
-    /// Admin team on github
+    /// Admin team on github for policies
     ///
-    /// Used to generate vault policies
-    #[serde(default)]
-    pub vaultAdmins: Option<String>,
+    /// Used for vault policies, codeowners
+    pub githubAdmins: Option<String>,
 
     /// Default support channel - human interaction
     pub support: Option<SlackChannel>,
     /// Default notifications channel - automated messages
     #[serde(default)]
     pub notifications: Option<SlackChannel>,
+
+    /// Extra property for external visualization
+    #[serde(default)]
+    color: Option<String>,
 }
 
 impl Team {
@@ -93,7 +97,7 @@ impl Team {
         if self.notifications.is_none() {
             bail!("Every team must have a default notifications channel declared");
         }
-        if let Some(va) = &self.vaultAdmins {
+        if let Some(va) = &self.githubAdmins {
             use regex::Regex;
             let re = Regex::new(r"^[a-z\-]{1,30}$").unwrap();
             if !re.is_match(&va) {
@@ -252,9 +256,9 @@ impl Config {
         let mut vteams = vec![];
         for t in &self.teams {
             t.verify()?;
-            if let Some(vt) = &t.vaultAdmins {
+            if let Some(vt) = &t.githubAdmins {
                 if vteams.contains(&vt) {
-                    bail!("The vaultAdmins team {} can only be mapped to a single policy", vt);
+                    bail!("The github admins team {} can only be mapped to a single policy", vt);
                 }
                 vteams.push(&vt)
             }
