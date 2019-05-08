@@ -1,8 +1,7 @@
 use shipcat_definitions::{Result};
 use shipcat_definitions::structs::resources::{ResourceRequirements, Resources};
-use shipcat_definitions::deserializers::{RelaxedString};
 
-use crate::util::{Build, Require};
+use crate::util::{Build, RelaxedString, Require};
 
 #[derive(Deserialize, Clone, Default)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
@@ -30,11 +29,11 @@ pub struct ResourcesSource {
 }
 
 impl Build<Resources<String>, ()> for ResourcesSource {
-    fn build(self, _: &()) -> Result<Resources<String>> {
+    fn build(self, params: &()) -> Result<Resources<String>> {
 
         Ok(Resources {
-            cpu: self.cpu.require("cpu")?.to_string(),
-            memory: self.memory.require("cpu")?.to_string(),
+            cpu: self.cpu.require("cpu")?.build(params)?,
+            memory: self.memory.require("cpu")?.build(params)?,
         })
     }
 }

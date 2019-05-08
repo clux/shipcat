@@ -3,19 +3,16 @@ use std::collections::BTreeMap;
 
 use shipcat_definitions::Result;
 use shipcat_definitions::structs::EnvVars;
-use shipcat_definitions::deserializers::{RelaxedString};
 
-use crate::util::{Build};
+use crate::util::{Build, RelaxedString};
 
 #[derive(Deserialize, Clone, Default, Debug, PartialEq)]
 pub struct EnvVarsSource(BTreeMap<String, RelaxedString>);
 
 impl Build<EnvVars, ()> for EnvVarsSource {
-    fn build(self, _: &()) -> Result<EnvVars> {
+    fn build(self, params: &()) -> Result<EnvVars> {
         let Self(plain) = self;
-        let env = EnvVars::new(plain.into_iter()
-                .map(|(k, v)| (k, v.to_string()))
-                .collect());
+        let env = EnvVars::new(plain.build(params)?);
         // TODO: Inline
         env.verify()?;
         Ok(env)

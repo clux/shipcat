@@ -8,12 +8,11 @@ use shipcat_definitions::structs::{
     RollingUpdate, VaultOpts, VolumeMount,
 };
 use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result};
-use shipcat_definitions::deserializers::{RelaxedString};
 
 use super::{SimpleManifest};
 use super::container::{ContainerBuildParams, CronJobSource, JobSource, SidecarSource, InitContainerSource, EnvVarsSource, WorkerSource, ResourceRequirementsSource, ImageNameSource, ImageTagSource};
 use super::kong::{KongSource, KongBuildParams};
-use super::util::{Build, Enabled, Require};
+use super::util::{Build, Enabled, RelaxedString, Require};
 
 /// Main manifest, deserialized from `shipcat.yml`.
 #[derive(Deserialize, Default)]
@@ -149,9 +148,7 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             cronJobs: overrides.cron_jobs.unwrap_or_default().build(&container_build_params)?,
             jobs: overrides.jobs.unwrap_or_default().build(&container_build_params)?,
             serviceAnnotations: overrides.service_annotations,
-            labels: overrides.labels.into_iter()
-                .map(|(k, v)| (k, v.to_string()))
-                .collect(),
+            labels: overrides.labels.build(&())?,
             kong: simple.kong,
             gate: overrides.gate,
             hosts: overrides.hosts.unwrap_or_default(),
