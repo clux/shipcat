@@ -47,10 +47,10 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-          - cargo.registry-musl-{{ .Environment.CACHE_VERSION }}
+            - cargo.registry-musl-{{ .Environment.CACHE_VERSION }}
       - restore_cache:
           keys:
-          - target-musl-{{ .Environment.CACHE_VERSION }}
+            - target-musl-{{ .Environment.CACHE_VERSION }}
       - run: cargo build --release -p shipcat
       - run: cargo build --release -p raftcat
       - save_cache:
@@ -81,10 +81,10 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-          - cargo.registry-test-{{ .Environment.CACHE_VERSION }}
+            - cargo.registry-test-{{ .Environment.CACHE_VERSION }}
       - restore_cache:
           keys:
-          - target-test-{{ .Environment.CACHE_VERSION }}
+            - target-test-{{ .Environment.CACHE_VERSION }}
       # `shipcat` and `raftcat` can't be compiled at the same time (due to filebacked feature in shipcat_definitions)
       - run:
           working_directory: shipcat_definitions
@@ -157,9 +157,12 @@ jobs:
           at: .
       - run: go get github.com/tcnksm/ghr
       - run: make releases
-      - run: ghr \
-          -u $CIRCLE_PROJECT_USERNAME \
-          -r $CIRCLE_PROJECT_REPONAME \
-          --token "$GITHUB_RELEASE_TOKEN" \
-          -replace $(git describe --abbrev=0 --tags) \
-          releases/
+      - run:
+          name: Create GitHub Release
+          command: |
+            ghr \
+              -u $CIRCLE_PROJECT_USERNAME \
+              -r $CIRCLE_PROJECT_REPONAME \
+              --token "$GITHUB_RELEASE_TOKEN" \
+              -replace $(git describe --abbrev=0 --tags) \
+              releases/
