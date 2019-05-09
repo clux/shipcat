@@ -120,7 +120,7 @@ impl ManifestDefaults {
         defs.env = reg.env.clone().into();
         if let Some(authz) = reg.defaults.kong.authorization.clone() {
             defs.kong.item.authorization = Enabled {
-                enabled: Some(reg.defaults.kong.authorizationEnabled),
+                enabled: None,
                 item: AuthorizationSource {
                     allow_anonymous: Some(authz.allow_anonymous),
                     allowed_audiences: Some(authz.allowed_audiences),
@@ -130,6 +130,7 @@ impl ManifestDefaults {
                 },
             };
         }
+        defs.kong.item.authorization.enabled = Some(reg.defaults.kong.authorizationEnabled);
         Ok(defs)
     }
 }
