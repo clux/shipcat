@@ -628,10 +628,8 @@ impl Region {
     }
 
     pub fn raftcat_url(&self) -> Option<String> {
-        if let Some(ext) = self.base_urls.get("external_services") {
-            Some(format!("{services}/raftcat/", services = ext))
-        } else {
-            None
-        }
+        self.base_urls.get("external_services").map(|base| {
+            format!("{base}/raftcat/", base = base)
+        })
     }
 }

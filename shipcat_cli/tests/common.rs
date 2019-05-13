@@ -135,8 +135,8 @@ fn get_codeowners() {
     let conf = Config::read().unwrap();
     let cos = get::codeowners(&conf).unwrap();
 
-    assert_eq!(cos.len(), 1); // services without owners get no listing
-    assert_eq!(cos[0], "services/fake-ask/* @clux");
+    assert_eq!(cos.len(), 1); // serivces with team admins get a listing
+    assert_eq!(cos[0], "services/fake-ask/* @babylonpartners/devops");
 }
 
 #[test]

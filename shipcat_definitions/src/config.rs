@@ -369,11 +369,9 @@ impl Config {
             Some(ctx)
         }
         // otherwise search for an alias
-        else if let Some(alias) = self.contextAliases.get(&ctx) {
-            // NB: alias is guaranteed to have a corresponding region by verify
-            Some(alias.to_string())
-        } else {
-            None
+        else {
+            // NB: existing alias is guaranteed to have a corresponding region by verify
+            self.contextAliases.get(&ctx).map(|a| a.to_string())
         }
     }
 
@@ -392,7 +390,7 @@ impl Config {
         bail!("You need to define your kube context '{}' in shipcat.conf regions first", ctx)
     }
 
-    /// Raftcat exposer
+    /// Raftcat exposer - might be unnecessary if we can make regions pub(in crate::raftcat)
     #[cfg(feature = "crd")]
     pub fn get_regions(&self) -> Vec<Region> {
         self.regions.clone()

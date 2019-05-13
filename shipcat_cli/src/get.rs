@@ -51,13 +51,13 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
         // teams guaranteed by validates on Manifest and Config
         if let Some(t) = &conf.teams.iter().find(|t| t.name == md.team) {
             if let Some(gha) = &t.githubAdmins {
-                ghids.push(format!("@{}/{}", org, gha));
+                ghids.push(format!("@{}/{}", org.to_lowercase(), gha));
             }
             // TODO: take this out now that we have teams?
             for o in t.owners.clone() {
                 ghids.push(format!("@{}", o.github.unwrap()));
             }
-            if !t.owners.is_empty() {
+            if !ghids.is_empty() {
                 output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
             }
         } else {
