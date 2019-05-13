@@ -391,6 +391,12 @@ impl Config {
         }
         bail!("You need to define your kube context '{}' in shipcat.conf regions first", ctx)
     }
+
+    /// Raftcat exposer
+    #[cfg(feature = "crd")]
+    pub fn get_regions(&self) -> Vec<Region> {
+        self.regions.clone()
+    }
 }
 
 /// Filesystem accessors for Config

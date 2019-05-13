@@ -232,8 +232,6 @@ fn main() {
                     .long("num-jobs")
                     .takes_value(true)
                     .help("Number of worker threads used"))
-                .subcommand(SubCommand::with_name("reconcile")
-                    .about("Reconcile kubernetes region configs with local state"))
                 .subcommand(SubCommand::with_name("diff")
                     .about("Diff kubernetes region configs with local state"))))
         // all the listers (hidden from cli output)
@@ -746,9 +744,6 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("diff") {
                 return shipcat::cluster::helm_diff(&conf, &region, jobs);
-            }
-            else if let Some(_) = b.subcommand_matches("reconcile") {
-                return shipcat::cluster::helm_reconcile(&conf, &region, jobs);
             }
         }
     }

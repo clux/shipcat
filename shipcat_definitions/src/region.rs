@@ -463,11 +463,6 @@ impl ToString for Environment {
 /// Environments are well defined strings
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum ReconciliationMode {
-    /// Tiller owned, apply every time
-    ///
-    /// If anything's different in diff (even secrets), then helm apply.
-    MassHelm,
-
     /// Tiller owned, CRD based decision
     ///
     /// If CRD was configured, then helm apply.
@@ -481,7 +476,7 @@ pub enum ReconciliationMode {
 
 impl Default for ReconciliationMode {
     fn default() -> Self {
-        ReconciliationMode::MassHelm
+        ReconciliationMode::CrdBorrowed
     }
 }
 
@@ -630,5 +625,13 @@ impl Region {
               env = self.name,
               account_id = lio.account_id)
         })
+    }
+
+    pub fn raftcat_url(&self) -> Option<String> {
+        if let Some(ext) = self.base_urls.get("external_services") {
+            Some(format!("{services}/raftcat/", services = ext))
+        } else {
+            None
+        }
     }
 }

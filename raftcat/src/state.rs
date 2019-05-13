@@ -3,7 +3,7 @@ use tera::compile_templates;
 use kube::{
     client::APIClient,
     config::Configuration,
-    api::{Reflector, ResourceMap, ApiResource},
+    api::{Reflector, ApiResource, Void},
 };
 
 use std::{
@@ -27,14 +27,15 @@ use crate::integrations::{
 /// Only this file should have a write handler to this struct.
 #[derive(Clone)]
 pub struct State {
-    manifests: Reflector<Manifest>,
-    configs: Reflector<Config>,
+    manifests: Reflector<Manifest, Void>,
+    configs: Reflector<Config, Void>,
     relics: RelicMap,
     sentries: SentryMap,
     versions: Arc<RwLock<VersionMap>>,
     /// Templates via tera which do not implement clone
     template: Arc<RwLock<tera::Tera>>,
     region: String,
+    config_name: String,
 }
 
 /// Note that these functions unwrap a lot and expect errors to just be caught by sentry.
@@ -47,25 +48,32 @@ pub struct State {
 impl State {
     pub fn new(client: APIClient) -> Result<Self> {
         info!("Loading state from CRDs");
-        let rname = env::var("REGION_NAME").expect("Need REGION_NAME evar");
+        let region = env::var("REGION_NAME").expect("Need REGION_NAME evar");
         let ns = env::var("NAMESPACE").expect("Need NAMESPACE evar");
         let t = compile_templates!(concat!("raftcat", "/templates/*"));
-        debug!("Initializing cache for {} in {}", rname, ns);
+        debug!("Initializing cache for {} in {}", region, ns);
         let mfresource = ApiResource {
             group: "babylontech.co.uk".into(),
             resource: "shipcatmanifests".into(),
-            namespace: ns.clone(),
+            namespace: Some(ns.clone()),
+            ..Default::default()
         };
         let cfgresource = ApiResource {
             group: "babylontech.co.uk".into(),
             resource: "shipcatconfigs".into(),
-            namespace: ns.clone(),
+            namespace: Some(ns.clone()),
+            ..Default::default()
         };
-        //let state = DataState::init_cache(client, &ns)?;
+        let manifests = Reflector::new(client.clone(), mfresource)?;
+        let configs = Reflector::new(client.clone(), cfgresource)?;
+        // Use federated config if available:
+        let config_name = if configs.read()?.get("unionised").is_some() {
+            "unionised".into()
+        } else {
+            region.clone()
+        };
         let mut res = State {
-            manifests: Reflector::new(client.clone(), mfresource)?,
-            configs: Reflector::new(client.clone(), cfgresource)?,
-            region: rname,
+            manifests, configs, region, config_name,
             relics: BTreeMap::new(),
             sentries: BTreeMap::new(),
             versions: Arc::new(RwLock::new(BTreeMap::new())),
@@ -80,13 +88,17 @@ impl State {
         t.render(tpl, &ctx).unwrap()
     }
     // Getters for main
-    pub fn get_manifests(&self) -> Result<ResourceMap<Manifest>> {
-        self.manifests.read()
+    pub fn get_manifests(&self) -> Result<BTreeMap<String, Manifest>> {
+        let xs = self.manifests.read()?.into_iter().fold(BTreeMap::new(), |mut acc, (k, crd)| {
+            acc.insert(k, crd.spec); // don't expose crd metadata + status
+            acc
+        });
+        Ok(xs)
     }
     pub fn get_config(&self) -> Result<Config> {
         let cfgs = self.configs.read()?;
-        if let Some(cfg) = cfgs.get(&self.region) {
-            Ok(cfg.clone())
+        if let Some(cfg) = cfgs.get(&self.config_name) {
+            Ok(cfg.spec.clone())
         } else {
             bail!("Failed to find config for {}", self.region);
         }
@@ -99,21 +111,21 @@ impl State {
         }
     }
     pub fn get_manifest(&self, key: &str) -> Result<Option<Manifest>> {
-        if let Some(mf) = self.manifests.read()?.get(key) {
-            return Ok(Some(mf.clone()));
+        if let Some(crd) = self.manifests.read()?.get(key) {
+            return Ok(Some(crd.spec.clone()));
         }
         Ok(None)
     }
     pub fn get_manifests_for(&self, team: &str) -> Result<Vec<String>> {
-        let mfs = self.manifests.read()?.iter()
-            .filter(|(_k, mf)| mf.metadata.clone().unwrap().team == team)
-            .map(|(_k, mf)| mf.name.clone()).collect();
+        let mfs = self.manifests.read()?.into_iter()
+            .filter(|(_, crd)| crd.spec.metadata.clone().unwrap().team == team)
+            .map(|(k, _)| k.clone()).collect();
         Ok(mfs)
     }
     pub fn get_reverse_deps(&self, service: &str) -> Result<Vec<String>> {
         let mut res = vec![];
-        for (svc, mf) in &self.manifests.read()? {
-            if mf.dependencies.iter().any(|d| d.name == service) {
+        for (svc, crd) in &self.manifests.read()? {
+            if crd.spec.dependencies.iter().any(|d| d.name == service) {
                 res.push(svc.clone())
             }
         }
@@ -174,14 +186,11 @@ pub fn init(cfg: Configuration) -> Result<State> {
         loop {
             std::thread::sleep(Duration::from_secs(30));
             // update state here - can cause a few more waits in edge cases
-            match state_clone.poll() {
-                Ok(_) => trace!("State refreshed"), // normal case
-                Err(e) => {
-                    // Can't recover: boot as much as kubernetes' backoff allows
-                    error!("Failed to refesh cache '{}' - rebooting", e);
-                    std::process::exit(1); // boot might fix it if network is failing
-                }
-            }
+            state_clone.poll().map_err(|e| {
+                // Can't recover: boot as much as kubernetes' backoff allows
+                error!("Failed to refesh cache '{}' - rebooting", e);
+                std::process::exit(1); // boot might fix it if network is failing
+            }).unwrap();
         }
     });
     Ok(state)

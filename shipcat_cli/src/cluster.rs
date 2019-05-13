@@ -4,17 +4,6 @@ use super::helm::{self, UpgradeMode};
 use super::{Result};
 use crate::webhooks;
 
-/// Helm upgrade the region (reconcile)
-///
-/// Upgrades multiple services at a time using rolling upgrade in a threadpool.
-/// Ignores upgrade failures.
-pub fn helm_reconcile(conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
-    if let Err(e) = webhooks::ensure_requirements(&region) {
-        warn!("Could not ensure webhook requirements: {}", e);
-    }
-    mass_helm(conf, region, UpgradeMode::UpgradeInstallWait, n_workers)
-}
-
 /// Helm diff the region
 ///
 /// Returns the diffs only from all services across a region.

@@ -180,19 +180,33 @@ struct SimpleManifest {
     name: String,
     team: String,
 }
+#[derive(Serialize)]
+struct SimpleRegion {
+    name: String,
+    url: String,
+}
 
 fn index(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let mut ctx = tera::Context::new();
-    let mfs = req.state().get_manifests()?;
-    let data = mfs.into_iter().map(|(k, m)| {
+
+    let data = req.state().get_manifests()?.into_iter().map(|(k, m)| {
         SimpleManifest {
             name: k,
             team: m.metadata.unwrap().team.to_lowercase(),
         }
     }).collect::<Vec<_>>();
     let data = serde_json::to_string(&data)?;
-    ctx.insert("raftcat", env!("CARGO_PKG_VERSION"));
     ctx.insert("manifests", &data);
+
+    let regions = req.state().get_config()?.get_regions().into_iter().filter_map(|r| {
+        r.raftcat_url().map(|url| SimpleRegion { name: r.name, url })
+    }).collect::<Vec<_>>();
+    if regions.len() > 1 {
+        let regions = serde_json::to_string(&regions)?;
+        ctx.insert("regions", &regions);
+    }
+
+    ctx.insert("raftcat", env!("CARGO_PKG_VERSION"));
     let s = req.state().render_template("index.tera", ctx);
     Ok(HttpResponse::Ok().content_type("text/html").body(s))
 }
@@ -231,7 +245,7 @@ fn main() -> Result<()> {
                 .exclude("/raftcat/health")
                 .exclude("/health")
                 .exclude("/favicon.ico")
-                .exclude("/raftcat/static/*")
+                .exclude("/raftcat/static/*.png")
             )
             .middleware(sentry_actix::SentryMiddleware::new())
             .handler("/raftcat/static", actix_web::fs::StaticFiles::new("./raftcat/static").unwrap())

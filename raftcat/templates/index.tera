@@ -26,13 +26,24 @@
 <body>
   <header class="header">
     <div class="wrapper">
-      <h3 class="service-title"><span class="highlight">raft</span>cat</h3>
+      <h3 class="service-title"><span class="highlight">raft</span>cat
+        {% if regions %}
+        <span class="field has-addons" style="float:right">
+          <span class="select">
+            <select id="filterbyregion">
+              <option value="">Switch region</option>
+            </select>
+          </span>
+        </span>
+        {% endif %}
+      </h3>
     </div>
   </header>
 
   <main class="main">
     <div class="wrapper">
       <form class="form" id="searchform">
+
         <!-- FILTER by team name -->
         <label class="label">Filter by team</label>
         <div class="field has-addons">
@@ -63,7 +74,7 @@
     </div>
   </footer>
 <script type="text/javascript">
-const data = {{ manifests }};
+const manifests = {{ manifests }};
 const ALL_TEAMS_FILTER = 'All teams';
 let horseyInstance;
 
@@ -98,12 +109,12 @@ const initTeamFilter = d => {
   })
   teamSelectEl.addEventListener('change', e => {
     const { value } = e.target;
-    if (value === ALL_TEAMS_FILTER) setSearch(data);
-    else setSearch(data.filter(({ team }) => team === value))
+    if (value === ALL_TEAMS_FILTER) setSearch(manifests);
+    else setSearch(manifests.filter(({ team }) => team === value))
   })
 }
 
-[setSearch, initTeamFilter].map(f => f(data))
+[setSearch, initTeamFilter].map(f => f(manifests))
 
 const formEl = document.querySelector('#searchform');
 formEl.addEventListener('submit', function (e) {
@@ -111,6 +122,25 @@ formEl.addEventListener('submit', function (e) {
   if (!searcher.value) return;
   window.location = "/raftcat/services/" + searcher.value;
 });
+
+{% if regions %}
+const regions = {{ regions }};
+const initRegionFilter = r => {
+  const regionSelectEl = document.querySelector('#filterbyregion');
+  r.forEach(region => {
+    const optEl = document.createElement('option');
+    optEl.value = region.url;
+    optEl.innerHTML = region.name;
+    regionSelectEl.appendChild(optEl);
+  })
+  regionSelectEl.addEventListener('change', e => {
+    const { value } = e.target;
+    window.location.href = value;
+  })
+}
+initRegionFilter(regions);
+{% endif %}
+
 </script>
 </body>
 </html>

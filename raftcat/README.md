@@ -12,8 +12,8 @@ A small web api for shipcat manifests reading the current state of shipcat crds 
 
 ### JSON
 
-- GET `/raftcat/manifests` -> all raw crd specs in a list
-- GET `/raftcat/manifests/{service}` -> raw spec json from crd
+- GET `/raftcat/manifests` -> manifest specs in a map of service -> manifest
+- GET `/raftcat/manifests/{service}` -> manifest spec from a single crd
 - GET `/raftcat/manifests/{service}/resources` -> resource computation for the service
 - GET `/raftcat/config` -> region minified config from crd spec
 - GET `/raftcat/teams/{name}` -> services belonging to a team
@@ -27,11 +27,10 @@ cargo run -p raftcat
 ```
 
 From the shipcat root directory.
-Export the vault secrets and manifest evars (provided you have manifests):
+Export the vault secrets and manifest evars (provided you have raftcat in your manifests):
 
 ```sh
-source <(shipcat values raftcat -s | yq '.secrets | keys[] as $k | "export \($k)=\(.[$k])"' -r)
-source <(shipcat values raftcat | yq '.env.plain | keys[] as $k | "export \($k)=\(.[$k])"' -r)
+source <(shipcat env raftcat)
 ```
 
 ## Integrations
