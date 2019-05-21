@@ -13,6 +13,13 @@ pub struct Kafka {
     #[serde(default)]
     pub brokers: Vec<String>,
 
+    /// Zookeeper ensemble for the region
+    ///
+    /// ```yaml
+    /// zk: zk.babylontech.co.uk:21811,zk.babylontech.co.uk:21812
+    #[serde(default)]
+    pub zk: Vec<String>,
+
     /// A mapping of kafka properties to environment variables.
     ///
     /// ```yaml
@@ -29,6 +36,9 @@ impl Kafka {
     pub fn implicits(&mut self, _svc: &str, reg: Region) {
         for v in reg.kafka.brokers {
             self.brokers.push(v);
+        }
+        for v in reg.kafka.zk {
+            self.zk.push(v);
         }
     }
 }

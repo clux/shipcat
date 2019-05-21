@@ -116,6 +116,12 @@ pub struct KafkaConfig {
     /// These are injected in to the manifest.kafka struct if it's set.
     pub brokers: Vec<String>,
 
+    /// Zookeeper urls in "hostname:port" format.
+    ///
+    /// These are injected in to the manifest.kafka struct if it's set.
+    #[serde(default)]
+    pub zk: Vec<String>,
+
     /// A mapping of kafka properties to environment variables (optional)
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub propertyEnvMapping: BTreeMap<String, String>,
