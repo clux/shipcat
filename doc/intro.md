@@ -32,7 +32,7 @@ A **completed** shipcat manifest, is the manifest that is loaded from a service 
 To see the end result of these merges, you can run `shipcat values storage-provider` to get the completed manifest with all values for a `storage-provider` service.
 
 ## YAML Abstractions
-To avoid having all the developers know the complexity of kubernetes and others, the values available in a manifest are [whitelisted by types encoded in shipcat](https://github.com/Babylonpartners/shipcat/tree/master/src/structs), and checked by struct validators therein.
+To avoid having all the developers know the complexity of kubernetes and others, the values available in a manifest are [whitelisted by types encoded in shipcat](https://github.com/Babylonpartners/shipcat/tree/master/shipcat_definitions/src/structs), and checked by struct validators therein.
 
 Some manifest values are abstractions on top of kubernetes (like `configs` on top of `ConfigMap`, while others are straight kubernetes yaml (such as `autoScaling` which is a literal `HorizontalPodAutoscaler` config).
 
