@@ -4,7 +4,8 @@ use shipcat_definitions::{Result};
 use shipcat_definitions::structs::Job;
 use shipcat_definitions::structs::job::{JobVolumeClaim, RestartPolicy};
 
-use crate::util::Build;
+use crate::util::{Build, RelaxedString};
+use std::collections::BTreeMap;
 
 use super::container::{ContainerSource, ContainerBuildParams};
 
@@ -14,6 +15,7 @@ pub struct JobSource {
     pub volume_claim: Option<JobVolumeClaim>,
     pub timeout: Option<u32>,
     pub restart_policy: Option<RestartPolicy>,
+    pub pod_annotations: BTreeMap<String, RelaxedString>,
 
     #[serde(flatten)]
     pub container: ContainerSource,
@@ -32,6 +34,7 @@ impl Build<Job, ContainerBuildParams> for JobSource {
             volumeClaim: self.volume_claim,
             timeout: self.timeout,
             restartPolicy: self.restart_policy.unwrap_or_default(),
+            podAnnotations: self.pod_annotations.build(&())?,
         })
     }
 }

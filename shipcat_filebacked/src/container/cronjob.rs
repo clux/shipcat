@@ -4,7 +4,8 @@ use shipcat_definitions::Result;
 use shipcat_definitions::structs::CronJob;
 use shipcat_definitions::structs::job::{JobVolumeClaim};
 
-use crate::util::{Build, Require};
+use crate::util::{Build, Require, RelaxedString};
+use std::collections::BTreeMap;
 
 use super::container::{ContainerSource, ContainerBuildParams};
 
@@ -14,6 +15,7 @@ pub struct CronJobSource {
     pub schedule: Option<String>,
     pub volume_claim: Option<JobVolumeClaim>,
     pub timeout: Option<u32>,
+    pub pod_annotations: BTreeMap<String, RelaxedString>,
 
     #[serde(flatten)]
     pub container: ContainerSource,
@@ -32,6 +34,7 @@ impl Build<CronJob, ContainerBuildParams> for CronJobSource {
             schedule: self.schedule.require("schedule")?,
             volumeClaim: self.volume_claim,
             timeout: self.timeout,
+            podAnnotations: self.pod_annotations.build(&())?,
         })
     }
 }

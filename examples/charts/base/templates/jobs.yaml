@@ -16,6 +16,11 @@ metadata:
     heritage: {{ $.Release.Service }}
 spec:
   template:
+{{- if $v.podAnnotations }}
+    metadata:
+      annotations:
+{{ toYaml $v.podAnnotations | indent 8 }}
+{{- end }}
     spec:
       serviceAccountName: {{ $.Values.name }}
       #imagePullSecrets:

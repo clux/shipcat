@@ -1,5 +1,6 @@
 use super::Container;
 use super::job::JobVolumeClaim;
+use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct CronJob {
@@ -18,4 +19,15 @@ pub struct CronJob {
     /// u32 is enough; it'd fit a timeout 136 years in the future
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeout: Option<u32>,
+
+    /// Metadata Annotations for pod spec templates in cron jobs
+    ///
+    /// https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+    ///
+    /// ```yaml
+    /// podAnnotations:
+    ///   iam.amazonaws.com/role: role-arn
+    /// ```
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub podAnnotations: BTreeMap<String, String>,
 }

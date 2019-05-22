@@ -1,4 +1,5 @@
 use super::{Container};
+use std::collections::BTreeMap;
 use super::autoscaling::AutoScaling;
 
 /// Worker for a service
@@ -23,4 +24,15 @@ pub struct Worker {
     /// Common properties for all types of container
     #[serde(flatten)]
     pub container: Container,
+
+    /// Metadata Annotations for pod spec templates in worker deployments
+    ///
+    /// https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+    ///
+    /// ```yaml
+    /// podAnnotations:
+    ///   iam.amazonaws.com/role: role-arn
+    /// ```
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub podAnnotations: BTreeMap<String, String>,
 }

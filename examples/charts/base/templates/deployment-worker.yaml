@@ -35,6 +35,9 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
         checksum/secrets: {{ include (print $.Template.BasePath "/secrets.yaml") $ | sha256sum }}
+{{- if $w.podAnnotations }}
+{{ toYaml $w.podAnnotations | indent 8 }}
+{{- end }}
     spec:
       serviceAccountName: {{ $.Values.name }}
       #imagePullSecrets:

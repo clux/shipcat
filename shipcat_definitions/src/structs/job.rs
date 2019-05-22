@@ -1,4 +1,5 @@
 use super::Container;
+use std::collections::BTreeMap;
 
 /// Restart policy
 ///
@@ -39,4 +40,15 @@ pub struct Job {
     pub restartPolicy: RestartPolicy,
 
     pub volumeClaim: Option<JobVolumeClaim>,
+
+    /// Metadata Annotations for pod spec templates in jobs
+    ///
+    /// https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+    ///
+    /// ```yaml
+    /// podAnnotations:
+    ///   iam.amazonaws.com/role: role-arn
+    /// ```
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub podAnnotations: BTreeMap<String, String>,
 }

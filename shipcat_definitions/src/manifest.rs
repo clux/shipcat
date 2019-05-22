@@ -622,6 +622,17 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub serviceAnnotations: BTreeMap<String, String>,
 
+    /// Metadata Annotations for pod spec templates in deployments, jobs, and cron jobs
+    ///
+    /// https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+    ///
+    /// ```yaml
+    /// podAnnotations:
+    ///   iam.amazonaws.com/role: role-arn
+    /// ```
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub podAnnotations: BTreeMap<String, String>,
+
     /// Labels for every kubernetes object
     ///
     /// Injected in all top-level kubernetes object as a prometheus convenience.

@@ -4,7 +4,8 @@ use shipcat_definitions::Result;
 use shipcat_definitions::structs::Worker;
 use shipcat_definitions::structs::autoscaling::AutoScaling;
 
-use crate::util::{Build, Require};
+use crate::util::{Build, Require, RelaxedString};
+use std::collections::BTreeMap;
 use super::container::{ContainerSource, ContainerBuildParams};
 
 #[derive(Deserialize, Merge, Clone, Default)]
@@ -13,6 +14,7 @@ pub struct WorkerSource {
     pub replica_count: Option<u32>,
     pub auto_scaling: Option<AutoScaling>,
     pub http_port: Option<u32>,
+    pub pod_annotations: BTreeMap<String, RelaxedString>,
 
     #[serde(flatten)]
     pub container: ContainerSource,
@@ -28,6 +30,7 @@ impl Build<Worker, ContainerBuildParams> for WorkerSource {
             replicaCount: self.replica_count.require("replicaCount")?,
             autoScaling: self.auto_scaling,
             httpPort: self.http_port,
+            podAnnotations: self.pod_annotations.build(&())?,
         })
     }
 }
