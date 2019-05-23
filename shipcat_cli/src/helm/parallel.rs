@@ -78,7 +78,7 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
 ///
 /// This logs errors and upgrade successes individually.
 /// NB: This can reconcile lock-step upgraded services at the moment.
-pub fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, region: Region) -> Result<Option<UpgradeData>> {
+pub fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, conf: Config, region: Region) -> Result<Option<UpgradeData>> {
     mf = mf.complete(&region)?;
     let svc = mf.name.clone();
 
@@ -115,7 +115,7 @@ pub fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, regi
 
     let upgrade_opt = UpgradeData::new(&mf, &hfile, mode, exists)?;
     if let Some(ref udata) = upgrade_opt {
-        webhooks::upgrade_event(UpgradeState::Pending, &udata, &region);
+        webhooks::upgrade_event(UpgradeState::Pending, &udata, &region, &conf);
 
         // upgrade in given mode, potentially rolling back a failure
         match direct::upgrade(&udata) {
@@ -130,11 +130,11 @@ pub fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, regi
                 if kube::await_rollout_status(&mf)? {
                     info!("successfully rolled out {}", &udata.name);
                     // notify about the result directly as they happen
-                    webhooks::upgrade_event(UpgradeState::Completed, &udata, &region);
+                    webhooks::upgrade_event(UpgradeState::Completed, &udata, &region, &conf);
                 } else {
                     error!("Rollout of {} timed out", mf.name);
                     kube::debug(&mf)?;
-                    webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
+                    webhooks::upgrade_event(UpgradeState::Failed, &udata, &region, &conf);
                     // need set this as a reconcile level error
                     return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), mf.estimate_wait_time()).into());
                 }

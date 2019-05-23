@@ -2,10 +2,13 @@ use slack_hook::{Slack, PayloadBuilder, SlackLink, SlackText, SlackUserLink, Att
 use slack_hook::SlackTextContent::{self, Text, Link, User};
 use std::env;
 use semver::Version;
+use if_chain::{if_chain};
 
 use super::helm::helpers;
-use super::structs::Metadata;
-use super::{Result, ErrorKind, ResultExt};
+use super::structs::{Contact, Metadata};
+use super::{Config, Result, ErrorKind, ResultExt};
+use shipcat_definitions::config::NotificationMode;
+use shipcat_definitions::region::{Environment};
 
 /// Slack message options we support
 ///
@@ -55,20 +58,20 @@ pub fn have_credentials() -> Result<()> {
     Ok(())
 }
 
-pub fn send(msg: Message) -> Result<()> {
+pub fn send(msg: Message, conf: &Config, env: &Environment) -> Result<()> {
     let hook_chan : String = env_channel()?;
-    send_internal(msg.clone(), hook_chan)?;
+    send_internal(msg.clone(), hook_chan, &conf, &env)?;
     if let Some(md) = &msg.metadata {
         if let Some(chan) = &md.notifications {
             let c = chan.clone();
-            send_internal(msg, c.to_string())?;
+            send_internal(msg, c.to_string(), &conf, &env)?;
         }
     }
     Ok(())
 }
 
 /// Send a `Message` to a configured slack destination
-fn send_internal(msg: Message, chan: String) -> Result<()> {
+fn send_internal(msg: Message, chan: String, conf: &Config, env: &Environment) -> Result<()> {
     let hook_url : &str = &env_hook_url()?;
     let hook_user : String = env_username();
 
@@ -137,13 +140,29 @@ fn send_internal(msg: Message, chan: String) -> Result<()> {
         texts.push(infer_ci_links());
     }
 
+    let notificationMode: &NotificationMode = if_chain!{
+        if let Some(ref md) = msg.metadata;
+        if let Some(team) = conf.teams.iter().find(|t| t.name == md.team );
+        if let Some(slackSettings) = team.slackSettings.get(&env);
+        then {
+            slackSettings
+        } else {
+            &NotificationMode::NotifyMaintainers
+        }
+    };
+
     // Auto cc users
     if let Some(ref md) = msg.metadata {
         if !msg.quiet {
-            texts.push(Text("<- ".to_string().into()));
-            texts.extend(infer_slack_notifies(md));
+            match notificationMode {
+                NotificationMode::NotifyMaintainers => {
+                    texts.push(Text("<- ".to_string().into()));
+                    texts.extend(contacts_to_text_content(&md.contacts));
+                }
+                _ => {},
+            }
         }
-    }
+    };
 
     // Pass the texts array to slack_hook
     a = a.text(texts.as_slice());
@@ -158,7 +177,9 @@ fn send_internal(msg: Message, chan: String) -> Result<()> {
     p = p.attachments(ax);
 
     // Send everything. Phew.
-    slack.send(&p.build()?).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
+    if notificationMode != &NotificationMode::Silent {
+        slack.send(&p.build()?).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
+    }
 
     Ok(())
 }
@@ -194,8 +215,8 @@ fn create_github_compare_url(md: &Metadata, vers: (&str, &str)) -> SlackTextCont
     Link(SlackLink::new(&url, &short_ver(vers.1)))
 }
 
-fn infer_slack_notifies(md: &Metadata) -> Vec<SlackTextContent> {
-    md.contacts.iter().map(|cc| { User(SlackUserLink::new(&cc.slack)) }).collect()
+fn contacts_to_text_content(contacts: &Vec<Contact>) -> Vec<SlackTextContent> {
+    contacts.iter().map(|cc| { User(SlackUserLink::new(&cc.slack)) }).collect()
 }
 
 /// Infer originator of a message

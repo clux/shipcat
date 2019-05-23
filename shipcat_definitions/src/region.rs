@@ -440,7 +440,7 @@ pub enum Environment {
     /// This environment has limited vault access.
     Prod,
 
-    // Normal environment naes
+    // Normal environment names
     Preprod,
     Staging,
     Dev,

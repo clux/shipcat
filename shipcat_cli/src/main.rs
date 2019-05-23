@@ -792,7 +792,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             None
         };
         let msg = shipcat::slack::Message { text, link, color, metadata, ..Default::default() };
-        return shipcat::slack::send(msg);
+        return shipcat::slack::send(msg, &conf, &region.environment);
     }
     else if let Some(a) = args.subcommand_matches("gdpr") {
         let (conf, region) = resolve_config(args, ConfigType::Base)?;

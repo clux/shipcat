@@ -75,7 +75,7 @@ impl UpgradeMode {
 /// If this is not the case you might have degraded service (fewer replicas).
 ///
 /// TODO: deprecate
-pub fn rollback(reg: &Region, ud: &UpgradeData, mf: &Manifest) -> Result<()> {
+pub fn rollback(reg: &Region, ud: &UpgradeData, mf: &Manifest, conf: &Config) -> Result<()> {
     assert!(ud.namespace.len() > 0);
     let rollbackvec = vec![
         format!("--tiller-namespace={}", ud.namespace),
@@ -85,16 +85,16 @@ pub fn rollback(reg: &Region, ud: &UpgradeData, mf: &Manifest) -> Result<()> {
     ];
     info!("helm {}", rollbackvec.join(" "));
 
-    webhooks::upgrade_rollback_event(UpgradeState::RollingBack, &ud, &reg);
+    webhooks::upgrade_rollback_event(UpgradeState::RollingBack, &ud, &reg, &conf);
     match hexec(rollbackvec) {
         Err(e) => {
             error!("{}", e);
-            webhooks::upgrade_rollback_event(UpgradeState::RollbackFailed, &ud, &reg);
+            webhooks::upgrade_rollback_event(UpgradeState::RollbackFailed, &ud, &reg, &conf);
             Err(e)
         },
         Ok(_) => {
             let res = kube::await_rollout_status(&mf);
-            webhooks::upgrade_rollback_event(UpgradeState::RolledBack, &ud, &reg);
+            webhooks::upgrade_rollback_event(UpgradeState::RolledBack, &ud, &reg, &conf);
             res?; // propagate errors from rollback check if any
             Ok(())
         }
@@ -105,7 +105,7 @@ pub fn rollback(reg: &Region, ud: &UpgradeData, mf: &Manifest) -> Result<()> {
 pub fn rollback_wrapper(svc: &str, conf: &Config, region: &Region) -> Result<()> {
     let base = shipcat_filebacked::load_manifest(svc, &conf, region)?;
     let ud = UpgradeData::from_rollback(&base);
-    rollback(&region, &ud, &base)
+    rollback(&region, &ud, &base, &conf)
 }
 
 // All data needed for an upgrade
@@ -412,7 +412,7 @@ pub fn status(svc: &str, conf: &Config, region: &Region) -> Result<()> {
 
 /// Handle error for a single upgrade
 /// TODO: deprecate (see #183)
-pub fn handle_upgrade_rollbacks(reg: &Region, u: &UpgradeData, mf: &Manifest) -> Result<()> {
+pub fn handle_upgrade_rollbacks(reg: &Region, u: &UpgradeData, mf: &Manifest, conf: &Config) -> Result<()> {
     match u.mode {
         UpgradeMode::UpgradeRecreateWait |
         UpgradeMode::UpgradeInstall |
@@ -420,7 +420,7 @@ pub fn handle_upgrade_rollbacks(reg: &Region, u: &UpgradeData, mf: &Manifest) ->
         _ => {}
     }
     if u.mode == UpgradeMode::UpgradeWaitMaybeRollback {
-        rollback(&reg, &u, mf)?;
+        rollback(&reg, &u, mf, &conf)?;
     }
     Ok(())
 }
@@ -477,29 +477,29 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Con
     // Sanity step that gives canonical upgrade data
     let upgrade_opt = UpgradeData::new(&mf, &hfile, mode, exists)?;
     if let Some(ref udata) = upgrade_opt {
-        webhooks::upgrade_event(UpgradeState::Pending, &udata, &region);
+        webhooks::upgrade_event(UpgradeState::Pending, &udata, &region, &conf);
         match upgrade(&udata) {
             Err(e) => {
                 // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
                 error!("{} from {}", e, udata.name);
                 // upgrade failed immediately - couldn't create resources
-                webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
-                handle_upgrade_rollbacks(&region, &udata, &mf)?; // for now leave it in..
+                webhooks::upgrade_event(UpgradeState::Failed, &udata, &region, &conf);
+                handle_upgrade_rollbacks(&region, &udata, &mf, &conf)?; // for now leave it in..
                 return Err(e);
             },
             Ok(_) => {
                 // after helm upgrade / kubectl apply, check rollout status in a loop:
                 if udata.mode == UpgradeMode::UpgradeNoWait || udata.mode == UpgradeMode::UpgradeInstallNoWait || kube::await_rollout_status(&mf)? {
                     info!("successfully rolled out {}", &udata.name);
-                    webhooks::upgrade_event(UpgradeState::Completed, &udata, &region);
+                    webhooks::upgrade_event(UpgradeState::Completed, &udata, &region, &conf);
                 }
                 else {
                     let _ = kube::debug_rollout_status(&mf);
                     let _ = kube::debug(&mf);
                     warn!("failed to roll out {}", &udata.name);
-                    webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
+                    webhooks::upgrade_event(UpgradeState::Failed, &udata, &region, &conf);
                     // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
-                    handle_upgrade_rollbacks(&region, &udata, &mf)?; // for now leave it in..
+                    handle_upgrade_rollbacks(&region, &udata, &mf, &conf)?; // for now leave it in..
                     return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), mf.estimate_wait_time()).into());
                 }
             }
