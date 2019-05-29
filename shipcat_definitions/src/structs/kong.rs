@@ -133,6 +133,9 @@ pub struct Kong {
     /// ```
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub add_headers: BTreeMap<String, String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upstream_service: Option<String>,
 }
 
 fn preserve_host_default() -> bool { true }

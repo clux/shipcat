@@ -14,7 +14,7 @@ pub struct KongOutput {
 }
 
 /// KongOutput for Kongfig
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 pub struct KongfigOutput {
     pub host: String,
     pub headers: Vec<String>,

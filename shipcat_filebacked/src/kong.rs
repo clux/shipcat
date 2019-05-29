@@ -79,6 +79,7 @@ impl Build<Option<Kong>, KongBuildParams> for KongSource {
         Ok(Some(Kong {
             name: service.to_string(),
             upstream_url: upstream_url,
+            upstream_service: Some(service.to_string()),
             internal: self.internal.unwrap_or_default(),
             publiclyAccessible: self.publicly_accessible.unwrap_or_default(),
             uris: self.uris,
