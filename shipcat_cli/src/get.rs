@@ -1,6 +1,7 @@
 /// This file contains the `shipcat get` subcommand
 use std::collections::BTreeMap;
 use semver::Version;
+use shipcat_definitions::Environment;
 
 use super::{Config, Team, Region, Result};
 
@@ -144,7 +145,7 @@ pub fn vault_url(region: &Region) -> Result<String> {
 
 #[derive(Serialize)]
 struct APIStatusOutput {
-    environment: EnvironmentInfo,
+    region: RegionInfo,
     services: BTreeMap<String, APIServiceParams>,
 }
 #[derive(Serialize)]
@@ -156,9 +157,9 @@ struct APIServiceParams {
     websockets: bool,
 }
 #[derive(Serialize)]
-struct EnvironmentInfo {
+struct RegionInfo {
     name: String,
-    services_suffix: String,
+    environment: Environment,
     base_urls: BTreeMap<String, String>,
     ip_whitelist: Vec<String>,
 }
@@ -166,9 +167,9 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
     let mut services = BTreeMap::new();
 
     // Get Environment Config
-    let environment = EnvironmentInfo {
+    let region = RegionInfo {
         name: reg.name.clone(),
-        services_suffix: reg.kong.base_url.clone(),
+        environment: reg.environment.clone(),
         base_urls: reg.base_urls.clone(),
         ip_whitelist: reg.ip_whitelist.clone(),
     };
@@ -210,7 +211,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
         });
     }
 
-    let output = APIStatusOutput{environment, services};
+    let output = APIStatusOutput{region, services};
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }

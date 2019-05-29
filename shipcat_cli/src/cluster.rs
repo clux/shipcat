@@ -2,7 +2,6 @@ use shipcat_definitions::{Config, Region, Team, BaseManifest, ReconciliationMode
 use shipcat_filebacked::{SimpleManifest};
 use super::helm::{self, UpgradeMode};
 use super::{Result};
-use crate::webhooks;
 
 /// Helm diff the region
 ///
