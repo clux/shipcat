@@ -5,7 +5,6 @@
 
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate log;
-#[macro_use] extern crate maplit;
 
 /// The backing for manifests must come from the filesystem or the CRD
 /// This assert enforce that users of this library choses a feature.

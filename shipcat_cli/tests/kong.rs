@@ -2,7 +2,7 @@ mod common;
 use crate::common::setup;
 
 use shipcat::kong::{KongfigOutput, generate_kong_output};
-use shipcat_definitions::structs::kongfig::{ConsumerCredentials, PluginBase, ApiPlugin, HeadersQueryBody};
+use shipcat_definitions::structs::kongfig::{ConsumerCredentials, PluginBase, ApiPlugin};
 use shipcat_definitions::Config;
 use shipcat_definitions::ConfigType;
 
@@ -85,8 +85,6 @@ fn kong_test() {
     assert_plugin_removed!("Jwt", api.plugins.remove(0), ApiPlugin::Jwt);
     assert_plugin_removed!("JwtValidator", api.plugins.remove(0), ApiPlugin::JwtValidator);
 
-    assert_upstream_header_transform(api.plugins.remove(0), "fake-ask");
-
     assert!(api.plugins.is_empty());
 
     // fake-storage API
@@ -95,6 +93,7 @@ fn kong_test() {
     assert_eq!(api.attributes.uris, Some(vec!["/fake-storage".to_string()]));
     assert_eq!(api.attributes.strip_uri, false);
     assert_eq!(api.attributes.upstream_url, "http://fake-storage.dev.svc.cluster.local");
+    assert_eq!(api.plugins.len(), 8);
 
     let attr = plugin_attributes!("CorrelationId", api.plugins.remove(0), ApiPlugin::CorrelationId);
     assert_eq!(attr.enabled, true);
@@ -123,22 +122,5 @@ fn kong_test() {
     assert_plugin_removed!("JsonCookiesToHeaders", api.plugins.remove(0), ApiPlugin::JsonCookiesToHeaders);
     assert_plugin_removed!("JsonCookiesCsrf", api.plugins.remove(0), ApiPlugin::JsonCookiesCsrf);
 
-    assert_upstream_header_transform(api.plugins.remove(0), "fake-storage");
-
     assert!(api.plugins.is_empty());
-}
-
-#[cfg(test)]
-fn assert_upstream_header_transform(plugin: ApiPlugin, service: &str) {
-    let attr = plugin_attributes!("RequestTransformer", plugin, ApiPlugin::RequestTransformer);
-    assert_eq!(attr.enabled, true);
-    assert_eq!(attr.config.http_method, None);
-    assert_eq!(attr.config.remove, HeadersQueryBody::default());
-    assert_eq!(attr.config.append, HeadersQueryBody::default());
-    assert_eq!(attr.config.rename, HeadersQueryBody::default());
-
-    let mut expected_headers = HeadersQueryBody::default();
-    expected_headers.headers = Some(vec!(format!("Upstream-Service: {}", service)));
-    assert_eq!(&attr.config.add, &expected_headers);
-    assert_eq!(&attr.config.replace, &expected_headers);
 }

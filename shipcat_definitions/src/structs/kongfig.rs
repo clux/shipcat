@@ -7,14 +7,16 @@ use serde::ser::{Serialize, Serializer, SerializeMap};
 
 /// Kongfig structs
 /// https://github.com/mybuilder/kongfig
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Api {
     pub name: String,
     pub plugins: Vec<ApiPlugin>,
     pub attributes: ApiAttributes,
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct ApiAttributes {
     #[serde(serialize_with = "empty_as_brackets")]
     pub hosts: Vec<String>,
@@ -34,7 +36,8 @@ pub struct ApiAttributes {
 }
 
 /// Plugins and their configs
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct CorsPluginConfig {
     pub methods: Vec<String>,
     pub exposed_headers: Vec<String>,
@@ -83,7 +86,8 @@ where T: Serialize,
     }
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct HeadersAndJson {
     #[serde(serialize_with = "none_as_brackets")]
     pub headers: Option<Vec<String>>,
@@ -91,7 +95,8 @@ pub struct HeadersAndJson {
     pub json: Option<Vec<String>>,
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct ResponseTransformerPluginConfig {
     pub add: HeadersAndJson,
     pub append: HeadersAndJson,
@@ -117,41 +122,8 @@ impl ResponseTransformerPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone, Default)]
-pub struct RequestTransformerPluginConfig {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub http_method: Option<String>,
-    pub remove: HeadersQueryBody,
-    pub replace: HeadersQueryBody,
-    pub add: HeadersQueryBody,
-    pub append: HeadersQueryBody,
-    pub rename: HeadersQueryBody,
-}
-
-#[derive(Serialize, Clone, Default, Debug, PartialEq)]
-pub struct HeadersQueryBody {
-    #[serde(serialize_with = "none_as_brackets")]
-    pub querystring: Option<Vec<String>>,
-    #[serde(serialize_with = "none_as_brackets")]
-    pub headers: Option<Vec<String>>,
-    #[serde(serialize_with = "none_as_brackets")]
-    pub body: Option<Vec<String>>,
-}
-
-impl RequestTransformerPluginConfig {
-    fn new(headers: BTreeMap<String, String>) -> Self {
-        let mut headers_strs = Vec::new();
-        for (k, v) in headers {
-            headers_strs.push(format!("{}: {}", k, v));
-        }
-        let mut xs = Self::default();
-        xs.add.headers = Some(headers_strs.clone());
-        xs.replace.headers = Some(headers_strs);
-        xs
-    }
-}
-
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct TcpLogPluginConfig {
     pub host: String,
     pub port: u32,
@@ -170,7 +142,8 @@ impl TcpLogPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Oauth2PluginConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anonymous_username: Option<String>,
@@ -206,10 +179,11 @@ impl Oauth2PluginConfig {
     }
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Oauth2ExtensionPluginConfig {}
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct JwtPluginConfig {
     pub key_claim_name: String,
     #[serde(serialize_with = "empty_as_brackets")]
@@ -248,7 +222,7 @@ impl JwtPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct JwtValidatorPluginConfig {
     pub allowed_audiences: Vec<String>,
     pub expected_region: String,
@@ -256,7 +230,8 @@ pub struct JwtValidatorPluginConfig {
     pub allow_invalid_tokens: bool,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct JsonCookiesCsrfPluginConfig {
     pub csrf_field_name: String,
     pub cookie_name: String,
@@ -274,7 +249,8 @@ impl Default for JsonCookiesCsrfPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct JsonCookiesToHeadersPluginConfig {
     pub field_name: String,
     pub cookie_name: String,
@@ -289,7 +265,8 @@ impl Default for JsonCookiesToHeadersPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct BabylonAuthHeaderPluginConfig {
     pub auth_service: String,
     pub cache_timeout_sec: u32,
@@ -306,7 +283,8 @@ impl BabylonAuthHeaderPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct CorrelationIdPluginConfig {
     pub echo_downstream: bool,
     pub header_name: String,
@@ -323,7 +301,7 @@ impl Default for CorrelationIdPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "name", rename_all = "kebab-case")]
 pub enum ApiPlugin {
     TcpLog(PluginBase<TcpLogPluginConfig>),
@@ -337,10 +315,9 @@ pub enum ApiPlugin {
     JsonCookiesToHeaders(PluginBase<JsonCookiesToHeadersPluginConfig>),
     JsonCookiesCsrf(PluginBase<JsonCookiesCsrfPluginConfig>),
     ResponseTransformer(PluginBase<ResponseTransformerPluginConfig>),
-    RequestTransformer(PluginBase<RequestTransformerPluginConfig>),
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "ensure", content = "attributes", rename_all = "lowercase")]
 pub enum PluginBase<T> {
     Present(PluginAttributes<T>),
@@ -363,7 +340,8 @@ impl<T> PluginBase<T> {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct PluginAttributes<T> {
     pub enabled: bool,
     pub config: T,
@@ -475,14 +453,6 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
             )));
         }
 
-        if let Some(upstream_service) = v.upstream_service {
-            plugins.push(ApiPlugin::RequestTransformer(PluginBase::new(
-                RequestTransformerPluginConfig::new(btreemap!{
-                    "Upstream-Service".into() => upstream_service,
-                })
-            )))
-        }
-
         // If enabled: JsonCookies and JsonCookiesCsrf
         if v.cookie_auth {
             plugins.push(ApiPlugin::JsonCookiesToHeaders(PluginBase::default()));
@@ -548,14 +518,15 @@ pub fn kongfig_consumers(k: KongConfig) -> Vec<Consumer> {
     consumers
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Consumer {
     pub username: String,
     pub acls: Vec<String>,
     pub credentials: Vec<ConsumerCredentials>,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "name", content = "attributes", rename_all="kebab-case")]
 pub enum ConsumerCredentials {
     #[serde(rename = "oauth2")]
@@ -563,7 +534,8 @@ pub enum ConsumerCredentials {
     Jwt(JwtCredentialsAttributes),
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct OAuth2CredentialsAttributes {
     pub client_id: String,
     pub redirect_uri: Vec<String>,
@@ -571,7 +543,8 @@ pub struct OAuth2CredentialsAttributes {
     pub client_secret: String,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct JwtCredentialsAttributes {
     pub algorithm: String,
     pub key: String,
@@ -579,11 +552,14 @@ pub struct JwtCredentialsAttributes {
 }
 
 /// Not used yet
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Plugin {}
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Upstream {}
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Certificate {}
