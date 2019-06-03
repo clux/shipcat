@@ -76,16 +76,23 @@ impl Build<Option<Kong>, KongBuildParams> for KongSource {
             }
         }
 
+        let preserve_host = self.preserve_host.unwrap_or(true);
+
         Ok(Some(Kong {
             name: service.to_string(),
             upstream_url: upstream_url,
+            upstream_service: if preserve_host {
+                Some(service.to_string())
+            } else {
+                None
+            },
             internal: self.internal.unwrap_or_default(),
             publiclyAccessible: self.publicly_accessible.unwrap_or_default(),
             uris: self.uris,
             hosts,
             authorization,
             strip_uri: self.strip_uri.unwrap_or_default(),
-            preserve_host: self.preserve_host.unwrap_or(true),
+            preserve_host,
             cors: self.cors,
             additional_internal_ips: self.additional_internal_ips.unwrap_or_default(),
             babylon_auth_header: self.babylon_auth_header,
