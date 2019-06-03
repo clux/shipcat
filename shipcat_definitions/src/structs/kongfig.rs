@@ -469,7 +469,7 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
             attributes: ApiAttributes {
                 hosts: v.hosts,
                 uris: v.uris.map(|s| vec![s]),
-                preserve_host: true,
+                preserve_host: v.preserve_host,
                 strip_uri: v.strip_uri,
                 upstream_connect_timeout: v.upstream_connect_timeout.unwrap_or(30000),
                 upstream_read_timeout: v.upstream_read_timeout.unwrap_or(30000),
