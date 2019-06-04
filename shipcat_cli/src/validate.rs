@@ -47,7 +47,17 @@ pub fn secret_presence_git(conf: &Config, regions: Vec<String>) -> Result<()> {
         let reg = conf.get_region(&r)?; // verifies region or region alias exists
         reg.verify_secrets_exist()?; // verify secrets for the region
 
-        for svc in git_diff_changes()? {
+        // Try to find services changed by git:
+        let svcs = match git_diff_changes() {
+            Ok(svcs) => svcs,
+            // if that for some reason fails, then do all services for that region
+            Err(e) => {
+                warn!("Error from git: {}", e);
+                warn!("Falling back to a full validate");
+                shipcat_filebacked::available(conf, &reg)?.into_iter().map(|s| s.base.name).collect()
+            },
+        };
+        for svc in svcs {
             if let Ok(mf) = shipcat_filebacked::load_manifest(&svc, conf, &reg) {
                 if !mf.regions.contains(&r) {
                     debug!("ignoring {} for {} (not deployed there)", svc, r);
@@ -57,6 +67,7 @@ pub fn secret_presence_git(conf: &Config, regions: Vec<String>) -> Result<()> {
                 mf.verify_secrets_exist(&reg.vault)?;
             }
         }
+
     }
     Ok(())
 }
