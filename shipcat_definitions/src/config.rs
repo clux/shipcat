@@ -56,6 +56,9 @@ pub struct Cluster {
     pub name: String,
     /// Url to the Kubernetes api server
     pub api: String,
+    /// Teleport url to use with tsh login
+    #[serde(default)]
+    pub teleport: Option<String>,
     /// What regions this cluster control (perhaps not exclusively)
     pub regions: Vec<String>,
 }
