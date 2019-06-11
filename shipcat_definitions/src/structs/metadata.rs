@@ -108,7 +108,7 @@ pub struct Metadata {
     pub docs: Option<String>,
     // TODO: generate swagger docs url from region and service name
 
-    /// Custom metadata, keys defined in shipcat.conf
+    /// Custom metadata, keys defined in the Config
     #[serde(flatten)]
     pub custom: BTreeMap<String, String>,
 }

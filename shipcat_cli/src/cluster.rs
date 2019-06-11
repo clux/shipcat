@@ -119,7 +119,7 @@ fn crd_reconcile_worker(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
 /// Equivalent to:
 ///
 /// ```pseudo
-/// for team in shipcat.conf.teams:
+/// for team in config.teams:
 ///   shipcat get vaultpolicy {team.name} | vault policy write {team.admins} -
 ///   vault write auth/github/map/teams/{team.admins} value={team.admins}
 /// ```

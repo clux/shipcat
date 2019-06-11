@@ -1,6 +1,6 @@
 # Introduction
 
-shipcat is an automation tool that works with `shipcat.yml` manifest files. These files are our simplified automation interface to [Kubernetes](https://kubernetes.io/), [Helm](https://docs.helm.sh/), [Vault](https://www.vaultproject.io/), [kong](https://konghq.com/), [Prometheus](https://prometheus.io/), and more.
+shipcat is an automation tool that works with `manifest.yml` manifest files. These files are our simplified automation interface to [Kubernetes](https://kubernetes.io/), [Helm](https://docs.helm.sh/), [Vault](https://www.vaultproject.io/), [kong](https://konghq.com/), [Prometheus](https://prometheus.io/), and more.
 
 The `shipcat` binary is meant to work on a `manifests` repo from CI runners, or from users themselves.
 
@@ -15,17 +15,17 @@ Here's the expected general layout for `manifests`:
 │   ├── storage-provider
 │   │   ├── dev-uk.yml
 │       ├── staging.yml
-│   │   └── shipcat.yml
+│   │   └── manifest.yml
 │   └── smart-queries
 │       ├── dev-uk.yml
 │       ├── staging.yml
-│       └── shipcat.yml
+│       └── manifest.yml
 └── templates
     ├── newrelic-java.yml.j2
     └── newrelic-python.ini.j2
 ```
 
-Every service has a `shipcat.yml` with their base values, and optional override files for regions and environments (here `dev-uk.yml` and `staging.yml`). See [Manifest Merging](./merging.md) for information about how manifests are merged.
+Every service has a `manifest.yml` with their base values, and optional override files for regions and environments (here `dev-uk.yml` and `staging.yml`). See [Manifest Merging](./merging.md) for information about how manifests are merged.
 
 A **completed** shipcat manifest, is the manifest that is loaded from a service folder, extended from region overrides, and further extended by the config.
 

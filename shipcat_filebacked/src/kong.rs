@@ -8,7 +8,6 @@ use shipcat_definitions::deserializers::{CommaSeparatedString};
 use super::authorization::AuthorizationSource;
 use super::util::{Build, Enabled};
 
-/// Main manifest, deserialized from `shipcat.yml`.
 #[derive(Deserialize, Default, Merge, Clone)]
 #[serde(default, deny_unknown_fields)]
 pub struct KongSource {

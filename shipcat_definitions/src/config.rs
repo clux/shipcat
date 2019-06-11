@@ -154,7 +154,7 @@ pub struct SlackParameters {
 // ----------------------------------------------------------------------------------
 
 
-/// Main manifest, serializable from shipcat.yml
+/// Main manifest, serializable from shipcat.conf
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Config {
@@ -480,7 +480,7 @@ impl Config {
                 // 2. manifests out of date, but shipcat up to date (can happen with brew)
                 warn!("Invalid shipcat.conf - either genuine error, or your manifests dir is out of date locally");
 
-                // 3. genuine mistake in shipcat.conf additions/removals
+                // 3. genuine mistake in config additions/removals
                 return Err(e.into()) // propagate normal error
             }
             Ok(d) => Ok(d)

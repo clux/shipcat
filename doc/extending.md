@@ -1,5 +1,5 @@
 # Extending Shipcat
-Our `shipcat` CLI aims to provide a declarative interface to complex services via the `shipcat.yml` manifest files. We have created this format to enforce a standard way to define what a babylon microservice is.
+Our `shipcat` CLI aims to provide a declarative interface to complex services via the `manifest.yml` files. We have created this format to enforce a standard way to define what a babylon microservice is.
 
 The [shipcat manifests guide](https://engineering.ops.babylontech.co.uk/docs/cicd-shipcat-manifests/) has an introduction, and explanations of the data currently supported.
 
@@ -126,11 +126,10 @@ pub mod graph;
 Create `graph.rs` with your generation logic. Typically this involves using a specific manifest by service name (via either `Manifest::base(svcname)` or `Manifest::completed`). You can loop over all the available manifests using the `available` helper from `Manifest`:
 
 ```rust
-pub fn generate(conf: &Config, region: &Region) -> Result<MyReturnType>
-    let services = Manifest::available(&region.name)?;
-    for svc in services {
+pub fn generate(conf: &Config, region: &Region) -> Result<MyReturnType> {
+    for svc in shipcat_filebacked::available(conf, reg)? {
         // read the manifest for the service:
-        let mf = Manifest::base(&svc, conf, region)?;
+        let mf = shipcat_filebacked::load_manifest(&svc.base.name, conf, reg)?;
         // TODO: do something with the manifests
     }
     unimplemented!()

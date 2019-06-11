@@ -49,7 +49,7 @@ Browse the API documentation, or the setup guides available at:
 ## Components
 Shipcat is made up of three main components:
 
-- [shipcat_definitions](https://babylonpartners.github.io/shipcat/shipcat_definitions/index.html) - allowed syntax in our kube clusters - shipcat.yml + shipcat.conf
+- [shipcat_definitions](https://babylonpartners.github.io/shipcat/shipcat_definitions/index.html) - allowed syntax in our kube clusters - `manifest.yml` + `shipcat.conf`
 - [shipcat](https://github.com/Babylonpartners/shipcat/tree/master/shipcat_cli) - the pipeline cli and validator useable by developers and CI
 - [raftcat](https://github.com/Babylonpartners/shipcat/tree/master/raftcat) - an experimental kubernetes operator that reads CRD manifests
 
@@ -72,7 +72,7 @@ and some minor convenience integrations from common technologies like: [Grafana]
 See the [building guide](https://github.com/Babylonpartners/shipcat/blob/master/doc/building.md), for setting up auto-complete, and being able to use from outside a manifests repo.
 
 ## CLI Usage
-Define your `shipcat.yml` file in a [manifests repo](https://github.com/Babylonpartners/shipcat/blob/master/examples), make sure `shipcat validate` passes.
+Define your `manifest.yml` file in a [manifests repo](https://github.com/Babylonpartners/shipcat/blob/master/examples), make sure `shipcat validate` passes.
 
 You either need to have a `~/.kube/config` whose `current-context` is set to the shipcat region you wish to validate, or pass the shipcat region in explicitly with `-r region`.
 

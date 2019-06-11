@@ -17,24 +17,24 @@ clusters:
 contextAliases:
   platformus-green: platform-us
 regions:
-  platform-us:
-    environment: platform
-    namespace: apps
-    versioningScheme: Semver
-    vault: ...
-    kong: ...
-  dev-uk:
-    namespace: dev
-    environment: dev
-    versioningScheme: GitShaOrSemver
-    vault: ...
-    kong: ...
-  staging-uk:
-    namespace: staging
-    environment: staging
-    versioningScheme: Semver
-    vault: ...
-    kong: ...
+- name: platform-us:
+  environment: platform
+  namespace: apps
+  versioningScheme: Semver
+  vault: ...
+  kong: ...
+- name: dev-uk:
+  namespace: dev
+  environment: dev
+  versioningScheme: GitShaOrSemver
+  vault: ...
+  kong: ...
+- name: staging-uk:
+  namespace: staging
+  environment: staging
+  versioningScheme: Semver
+  vault: ...
+  kong: ...
 ```
 
 ## cluster <-> region relations

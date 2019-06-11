@@ -14,7 +14,7 @@ use super::container::{ContainerBuildParams, CronJobSource, JobSource, SidecarSo
 use super::kong::{KongSource, KongBuildParams};
 use super::util::{Build, Enabled, RelaxedString, Require};
 
-/// Main manifest, deserialized from `shipcat.yml`.
+/// Main manifest, deserialized from `manifest.yml`
 #[derive(Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ManifestSource {

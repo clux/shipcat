@@ -67,7 +67,7 @@ The resources you can generate are:
 
 There are also some cluster specific commands here that does not reduce much:
 
-- `clusterinfo` : cluster info from shipcat.conf for a region
+- `clusterinfo` : cluster info for a region
 - `vault-url` : the vault url for a region
 
 ### gdpr

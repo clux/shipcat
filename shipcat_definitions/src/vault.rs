@@ -103,7 +103,7 @@ impl Vault {
         Vault::new(reqwest::Client::new(), &default_addr()?, default_token()?, Mode::Standard)
     }
 
-    /// Initialize using VAULT_TOKEN evar + addr in shipcat.conf
+    /// Initialize using VAULT_TOKEN evar + addr from the Region
     pub fn regional(vc: &VaultConfig) -> Result<Vault> {
         Vault::new(reqwest::Client::new(), &vc.url, default_token()?, Mode::Standard)
     }

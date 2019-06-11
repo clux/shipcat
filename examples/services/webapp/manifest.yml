@@ -2,9 +2,6 @@ name: webapp
 image: clux/webapp-rs
 version: 0.2.0
 metadata:
-  contacts:
-  - name: "Eirik"
-    slack: "@clux"
   team: Doves
   repo: https://github.com/clux/webapp-rs
 

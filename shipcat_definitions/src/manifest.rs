@@ -26,7 +26,7 @@ use super::structs::{
     Port,
 };
 
-/// Main manifest, serializable from shipcat.yml or the shipcat CRD.
+/// Main manifest, serializable from manifest.yml or the shipcat CRD.
 #[derive(Serialize, Clone, Default)]
 #[cfg_attr(feature = "crd", derive(Deserialize))]
 pub struct Manifest {

@@ -34,7 +34,7 @@ impl ManifestSource {
         let regional_defaults = ManifestDefaults::from_region(reg)?;
         let defaults = global_defaults.merge(regional_defaults);
 
-        let source_path = Self::services_dir().join(service).join("shipcat.yml");
+        let source_path = Self::services_dir().join(service).join("manifest.yml");
         debug!("Loading service manifest from {:?}", source_path);
         let source = ManifestSource::read_from(&source_path)?;
         let mut manifest = defaults.merge_source(source);
@@ -79,7 +79,7 @@ impl ManifestSource {
     pub fn all(conf: &Config) -> Result<Vec<BaseManifest>> {
         let mut all = vec![];
         for service in Self::all_names() {
-            let source_path = Self::services_dir().join(service).join("shipcat.yml");
+            let source_path = Self::services_dir().join(service).join("manifest.yml");
             debug!("Loading service manifest from {:?}", source_path);
             let source = ManifestSource::read_from(&source_path)?;
             let manifest = source.build_base(conf)?;

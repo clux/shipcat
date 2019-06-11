@@ -8,9 +8,9 @@ This folder contains a sample manifest repository setup.
 │   └── base/...
 └── services
     ├── blog
-    │   └── shipcat.yml
+    │   └── manifest.yml
     └── webapp
-        └── shipcat.yml
+        └── manifest.yml
 ```
 
 ## Cluster setup

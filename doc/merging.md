@@ -8,7 +8,7 @@ If there are multiple manifest sources for a service, they are reduced by mergin
 
 1. Service's region-specific configuration (`services/$service/$region.yml`)
 1. Service's environment-specific configuration (`services/$service/$environment.yml`)
-1. Service's configuration (`services/$service/shipcat.yml`)
+1. Service's configuration (`services/$service/manifest.yml`)
 1. Region configuration (from the current region in `shipcat.conf`)
 1. Global configuration (from the global configuration in `shipcat.conf`)
 
@@ -16,7 +16,7 @@ If there are multiple manifest sources for a service, they are reduced by mergin
 
 _See [`Manifest#merge`](../shipcat_definitions/src/merge.rs) for the full logic of two manifest sources are merged.
 
-Some properties are global, so must only be in the service's root manifest (`shipcat.yml`):
+Some properties are global, so must only be in the service's root manifest (`manifest.yml`):
 - `name`
 - `regions`
 - `metadata`
@@ -40,7 +40,7 @@ regions:
   env:
     LOG_LEVEL: info
 
-# service/my-service/shipcat.yml
+# service/my-service/manifest.yml
 dependencies:
 - name: foo-service
 env:
@@ -75,10 +75,10 @@ results in the following:
 # region: dev-uk
 # version is unset
 dependencies:
-- name: foo-service # from shipcat.yml, because dev-uk.yml value is empty
+- name: foo-service # from manifest.yml, because dev-uk.yml value is empty
 env:
   # LOG_LEVEL is unset
-  FEATURE_A: enabled # from dev-uk.yml, overridding shipcat.yml
+  FEATURE_A: enabled # from dev-uk.yml, overridding manifest.yml
   # FEATURE_B is unset
 kong: # from dev-uk.yml
   uris: /my-service
@@ -89,7 +89,7 @@ dependencies:
 - name: bar-service # from staging.yml
 env:
   LOG_LEVEL: warn # from staging-uk.yml, overriding region in shipcat.conf
-  FEATURE_A: disabled # from shipcat.yml
+  FEATURE_A: disabled # from manifest.yml
   FEATURE_B: disabled # from staging-uk.yml, overridding staging.yml
 kong: # from staging.yml
   uris: /my-service/v1
@@ -100,7 +100,7 @@ dependencies:
 - name: bar-service # from staging.yml
 env:
   LOG_LEVEL: info # from region in shipcat.conf
-  FEATURE_A: disabled # from shipcat.yml
+  FEATURE_A: disabled # from manifest.yml
   FEATURE_B: disabled # from staging.yml
 kong: # from staging.yml
   uris: /my-service/v1
