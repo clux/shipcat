@@ -6,7 +6,7 @@ use shipcat_definitions::structs::EnvVars;
 
 use crate::util::{Build, RelaxedString};
 
-#[derive(Deserialize, Clone, Default, Debug, PartialEq)]
+#[derive(Deserialize, Clone, Default, Debug, PartialEq, Merge)]
 pub struct EnvVarsSource(BTreeMap<String, RelaxedString>);
 
 impl Build<EnvVars, ()> for EnvVarsSource {
@@ -16,14 +16,6 @@ impl Build<EnvVars, ()> for EnvVarsSource {
         // TODO: Inline
         env.verify()?;
         Ok(env)
-    }
-}
-
-impl Merge for EnvVarsSource {
-    fn merge(self, other: Self) -> Self {
-        let Self(s) = self;
-        let Self(o) = other;
-        Self(s.merge(o))
     }
 }
 
