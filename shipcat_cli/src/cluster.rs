@@ -1,5 +1,6 @@
 use shipcat_definitions::{Config, Region, Team, BaseManifest, ReconciliationMode};
 use shipcat_filebacked::{SimpleManifest};
+use crate::webhooks::{self, UpgradeState};
 use super::helm::{self, UpgradeMode};
 use super::{Result};
 
@@ -21,7 +22,6 @@ fn mass_helm(conf: &Config, region: &Region, umode: UpgradeMode, n_workers: usiz
     helm::parallel::reconcile(svcs, conf, region, umode, n_workers)
 }
 
-
 /// Apply all crds in a region
 ///
 /// Temporary helper that shells out to kubectl apply in parallel.
@@ -35,6 +35,7 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>, config: &Config, region: &Region, n_
     use threadpool::ThreadPool;
     use std::sync::mpsc::channel;
 
+    webhooks::reconcile_event(UpgradeState::Pending, &region);
     // Reconcile CRDs (definition itself)
     use shipcat_definitions::gen_all_crds;
     for crdef in gen_all_crds() {
@@ -58,6 +59,7 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>, config: &Config, region: &Region, n_
     let pool = ThreadPool::new(n_workers);
     info!("Starting {} parallel kube jobs using {} workers", n_jobs, n_workers);
 
+    webhooks::reconcile_event(UpgradeState::Started, &region);
     // then parallel apply the remaining ones
     let (tx, rx) = channel();
     for svc in svcs {
@@ -81,8 +83,11 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>, config: &Config, region: &Region, n_
     }).filter_map(Result::err).collect::<Vec<_>>();
     // propagate first non-ignorable error if exists
     if let Some(e) = res.into_iter().next() {
+        webhooks::reconcile_event(UpgradeState::Failed, &region);
         // no errors ignoreable atm
         return Err(e)
+    } else {
+        webhooks::reconcile_event(UpgradeState::Completed, &region);
     }
     Ok(())
 }

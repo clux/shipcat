@@ -13,6 +13,8 @@ use super::{Config, Region, Webhook};
 pub enum UpgradeState {
     /// Before action
     Pending,
+    // Action has started
+    Started,
     /// No errors
     Completed,
     /// Errors
