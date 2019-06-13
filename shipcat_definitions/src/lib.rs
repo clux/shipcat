@@ -7,8 +7,8 @@
 #[macro_use] extern crate log;
 #[macro_use] extern crate maplit;
 
-/// The backing for manifests must come from the filesystem or the CRD
-/// This assert enforce that users of this library choses a feature.
+// The backing for manifests must come from the filesystem or the CRD
+// This assert enforce that users of this library choses a feature.
 static_assertions::assert_cfg!(all(not(all(feature = "filesystem", feature = "crd")),
                 any(    feature = "filesystem", feature = "crd")),
 "shipcat definitions library behaves differently depending on compile time features:\n\n\

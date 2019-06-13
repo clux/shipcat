@@ -3,7 +3,7 @@ use tera::compile_templates;
 use kube::{
     client::APIClient,
     config::Configuration,
-    api::{Reflector, ApiResource, Void},
+    api::{Reflector, Api, Void, Object},
 };
 
 use std::{
@@ -20,6 +20,9 @@ use crate::integrations::{
     version::{self, VersionMap},
 };
 
+type ManifestObject = Object<Manifest, Void>;
+type ConfigObject = Object<Config, Void>;
+
 /// The canonical shared state for actix
 ///
 /// Consumers of these (http handlers) should use public impls on this struct only.
@@ -27,8 +30,8 @@ use crate::integrations::{
 /// Only this file should have a write handler to this struct.
 #[derive(Clone)]
 pub struct State {
-    manifests: Reflector<Manifest, Void>,
-    configs: Reflector<Config, Void>,
+    manifests: Reflector<ManifestObject>,
+    configs: Reflector<ConfigObject>,
     relics: RelicMap,
     sentries: SentryMap,
     versions: Arc<RwLock<VersionMap>>,
@@ -52,20 +55,17 @@ impl State {
         let ns = env::var("NAMESPACE").expect("Need NAMESPACE evar");
         let t = compile_templates!(concat!("raftcat", "/templates/*"));
         debug!("Initializing cache for {} in {}", region, ns);
-        let mfresource = ApiResource {
-            group: "babylontech.co.uk".into(),
-            resource: "shipcatmanifests".into(),
-            namespace: Some(ns.clone()),
-            ..Default::default()
-        };
-        let cfgresource = ApiResource {
-            group: "babylontech.co.uk".into(),
-            resource: "shipcatconfigs".into(),
-            namespace: Some(ns.clone()),
-            ..Default::default()
-        };
-        let manifests = Reflector::new(client.clone(), mfresource)?;
-        let configs = Reflector::new(client.clone(), cfgresource)?;
+
+        let mfresource = Api::customResource(client.clone(), "shipcatmanifests")
+            .version("v1")
+            .group("babylontech.co.uk")
+            .within(&ns);
+        let cfgresource = Api::customResource(client.clone(), "shipcatconfigs")
+            .version("v1")
+            .group("babylontech.co.uk")
+            .within(&ns);
+        let manifests = Reflector::new(mfresource).init()?;
+        let configs = Reflector::new(cfgresource).init()?;
         // Use federated config if available:
         let config_name = if configs.read()?.get("unionised").is_some() {
             "unionised".into()

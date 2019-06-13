@@ -9,9 +9,9 @@ shipcat_definitions = { path = "../shipcat_definitions", features = ["filesystem
 merge = { path = "../merge" }
 merge_derive = { path = "../merge_derive" }
 regex = "1.0.5"
-serde = "1.0.89"
-serde_derive = "1.0.89"
-serde_yaml = "0.8.8"
+serde = "1.0.92"
+serde_derive = "1.0.92"
+serde_yaml = "0.8.9"
 log = "0.4.5"
 error-chain = "0.12.0"
 walkdir = { version = "2.2.5"}

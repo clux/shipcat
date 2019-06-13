@@ -246,6 +246,7 @@ fn main() -> Result<()> {
                 .exclude("/health")
                 .exclude("/favicon.ico")
                 .exclude("/raftcat/static/*.png")
+                .exclude("/raftcat/static/images/*.png")
             )
             .middleware(sentry_actix::SentryMiddleware::new())
             .handler("/raftcat/static", actix_web::fs::StaticFiles::new("./raftcat/static").unwrap())

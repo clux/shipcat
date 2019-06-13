@@ -39,6 +39,8 @@ pub struct CrdSpec {
     pub names: CrdNames,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub additionalPrinterColumns: Option<Vec<CrdAdditionalPrinterColumns>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subresources: Option<SubResources>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -55,6 +57,11 @@ pub struct CrdAdditionalPrinterColumns {
     pub apcType: String,
     pub description: String,
     pub JSONPath: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct SubResources {
+    pub status: Option<BTreeMap<String, String>>, // actual empty type
 }
 
 pub fn gen_all_crds() -> Vec<CrdSpec> {
@@ -78,6 +85,9 @@ pub fn gen_all_crds() -> Vec<CrdSpec> {
             singular: "shipcatmanifest".into(),
             kind: SHIPCATMANIFEST_KIND.into(),
         },
+        subresources: Some(SubResources {
+            status: Some(BTreeMap::new()),
+        }),
         additionalPrinterColumns: Some(vec![
             CrdAdditionalPrinterColumns{
                 name: "Kong".into(),
