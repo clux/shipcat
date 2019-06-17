@@ -40,6 +40,30 @@ pub fn secret_presence_full(conf: &Config, regions: Vec<String>) -> Result<()> {
     Ok(())
 }
 
+/// Validate the secrets exists in all regions for a subset of services
+///
+/// This is an optimization of secret_presence_git
+pub fn secret_presence_explicit(svcs: Vec<String>, conf: &Config, regions: Vec<String>) -> Result<()> {
+    for r in regions {
+        info!("validating secrets in {}", r);
+        let reg = conf.get_region(&r)?; // verifies region or region alias exists
+        reg.verify_secrets_exist()?; // verify secrets for the region
+        debug!("Validating {:?}", svcs);
+        for svc in &svcs {
+            debug!("Validating {}", svc);
+            if let Ok(mf) = shipcat_filebacked::load_manifest(&svc, conf, &reg) {
+                if !mf.regions.contains(&r) {
+                    debug!("ignoring {} for {} (not deployed there)", svc, r);
+                    continue;
+                }
+                debug!("validating secrets for {} in {}", &svc, r);
+                mf.verify_secrets_exist(&reg.vault)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Validate secrets exists in all regions, but only for services touched in git
 pub fn secret_presence_git(conf: &Config, regions: Vec<String>) -> Result<()> {
     for r in regions {

@@ -143,8 +143,15 @@ fn main() {
         .subcommand(SubCommand::with_name("secret")
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .subcommand(SubCommand::with_name("verify-region")
+                .arg(Arg::with_name("services")
+                    .long("services")
+                    .takes_value(true)
+                    .required(false)
+                    .conflicts_with("git")
+                    .help("Explicit services to validate (comma separated)"))
                 .arg(Arg::with_name("git")
                     .long("git")
+                    .conflicts_with("services")
                     .help("Checks services changed in git only"))
                 .arg(Arg::with_name("regions")
                     .required(true)
@@ -517,6 +524,9 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             // NB: this does a cheap verify of both Config and Manifest (vault list)
             return if b.is_present("git") {
                 shipcat::validate::secret_presence_git(&rawconf, regions)
+            } else if let Some(svcs) = b.value_of("services") {
+                let svcvec = svcs.split(",").filter(|s| !s.is_empty()).map(String::from).collect::<Vec<_>>();
+                shipcat::validate::secret_presence_explicit(svcvec, &rawconf, regions)
             } else {
                 shipcat::validate::secret_presence_full(&rawconf, regions)
             };
