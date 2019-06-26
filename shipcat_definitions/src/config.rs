@@ -403,8 +403,7 @@ impl Config {
         bail!("You need to define your kube context '{}' in shipcat.conf regions first", ctx)
     }
 
-    /// Raftcat exposer - might be unnecessary if we can make regions pub(in crate::raftcat)
-    #[cfg(feature = "crd")]
+    /// Region exposer (needed in a few special cases, raftcat, crd reconcile)
     pub fn get_regions(&self) -> Vec<Region> {
         self.regions.clone()
     }

@@ -26,45 +26,59 @@ fn mass_helm(conf: &Config, region: &Region, umode: UpgradeMode, n_workers: usiz
 ///
 /// Temporary helper that shells out to kubectl apply in parallel.
 /// This will go away with catapult.
-pub fn mass_crd(conf: &Config, reg: &Region, n_workers: usize) -> Result<()> {
-    crd_reconcile(shipcat_filebacked::available(conf, reg)?, conf, reg, n_workers)
+pub fn mass_crd(conf_sec: &Config, conf_base: &Config, reg: &Region, n_workers: usize) -> Result<()> {
+    let svcs = shipcat_filebacked::available(conf_base, reg)?;
+    crd_reconcile(svcs, conf_sec, conf_base, &reg.name, n_workers)
 }
 
 use super::kube;
-fn crd_reconcile(svcs: Vec<SimpleManifest>, config: &Config, region: &Region, n_workers: usize) -> Result<()> {
+fn crd_reconcile(svcs: Vec<SimpleManifest>,
+    config_sec: &Config, config_base: &Config,
+    region: &str,
+    n_workers: usize) -> Result<()>
+{
     use threadpool::ThreadPool;
     use std::sync::mpsc::channel;
+    // NB: This needs config_base for base crd application
+    // shipcatconfig crd should not have secrets when applied
+    // shipcatmanifest_crd should not have secrets when applied (fine as long as manifest is not complete())
+    // but when doing the actual upgrade we need a config + region with secrets.
+    assert!(config_sec.has_secrets());
+    assert!(!config_base.has_secrets());
+    let region_sec = config_sec.get_regions().iter().find(|r| r.name == region).unwrap().clone();
+    let region_base = config_base.get_regions().iter().find(|r| r.name == region).unwrap().clone();
 
-    webhooks::reconcile_event(UpgradeState::Pending, &region);
+    webhooks::reconcile_event(UpgradeState::Pending, &region_sec);
     // Reconcile CRDs (definition itself)
     use shipcat_definitions::gen_all_crds;
     for crdef in gen_all_crds() {
-        kube::apply_crd(&region.name, crdef.clone(), &region.namespace)?;
+        kube::apply_crd(&region_base.name, crdef.clone(), &region_base.namespace)?;
     }
 
     // Make sure config can apply first
-    let applycfg = if let Some(ref crs) = &region.customResources {
+    let applycfg = if let Some(ref crs) = &region_base.customResources {
         // special configtype detected - re-populating config object
-        Config::new(crs.shipcatConfig.clone(), &region.name)?.0
+        Config::new(crs.shipcatConfig.clone(), &region_base.name)?.0
     } else {
-        config.clone()
+        config_base.clone()
     };
-    kube::apply_crd(&region.name, applycfg, &region.namespace)?;
+    kube::apply_crd(&region_base.name, applycfg, &region_base.namespace)?;
 
     // Single instruction kubectl delete shipcat manifests .... of excess ones
     let svc_names = svcs.iter().map(|x| x.base.name.to_string()).collect();
-    kube::remove_redundant_manifests(&region.namespace, &svc_names)?;
+    kube::remove_redundant_manifests(&region_sec.namespace, &svc_names)?;
 
     let n_jobs = svcs.len();
     let pool = ThreadPool::new(n_workers);
     info!("Starting {} parallel kube jobs using {} workers", n_jobs, n_workers);
 
-    webhooks::reconcile_event(UpgradeState::Started, &region);
+    webhooks::reconcile_event(UpgradeState::Started, &region_sec);
     // then parallel apply the remaining ones
     let (tx, rx) = channel();
     for svc in svcs {
-        let reg = region.clone();
-        let conf = config.clone();
+        let reg = region_sec.clone();
+        let conf = config_sec.clone();
+        assert!(conf.has_secrets());
 
         let tx = tx.clone(); // tx channel reused in each thread
         pool.execute(move || {
@@ -83,11 +97,11 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>, config: &Config, region: &Region, n_
     }).filter_map(Result::err).collect::<Vec<_>>();
     // propagate first non-ignorable error if exists
     if let Some(e) = res.into_iter().next() {
-        webhooks::reconcile_event(UpgradeState::Failed, &region);
+        webhooks::reconcile_event(UpgradeState::Failed, &region_sec);
         // no errors ignoreable atm
         return Err(e)
     } else {
-        webhooks::reconcile_event(UpgradeState::Completed, &region);
+        webhooks::reconcile_event(UpgradeState::Completed, &region_sec);
     }
     Ok(())
 }

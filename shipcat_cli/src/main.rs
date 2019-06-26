@@ -733,10 +733,14 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     // 4. cluster level commands
     else if let Some(a) = args.subcommand_matches("cluster") {
         if let Some(b) = a.subcommand_matches("crd") {
-            let (conf, region) = resolve_config(args, ConfigType::Base)?;
+            // This reconcile is special. It needs two config types:
+            // - Base (without secrets) for putting config crd in cluster
+            // - Filtered (with secrets) for actually upgrading when crds changed
+            let (conf_sec, _region_sec) = resolve_config(args, ConfigType::Filtered)?;
+            let (conf_base, region_base) = resolve_config(args, ConfigType::Base)?;
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("reconcile") {
-                return shipcat::cluster::mass_crd(&conf, &region, jobs);
+                return shipcat::cluster::mass_crd(&conf_sec, &conf_base, &region_base, jobs);
             }
         }
         if let Some(b) = a.subcommand_matches("vault-policy") {
