@@ -20,6 +20,12 @@ pub struct CronJob {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeout: Option<u32>,
 
+    /// Optional number of retries before marking the job as failed
+    /// Kubernetes default is 6
+    /// https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.12/#jobspec-v1-batch
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backoffLimit: Option<u16>,
+
     /// Metadata Annotations for pod spec templates in cron jobs
     ///
     /// https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/

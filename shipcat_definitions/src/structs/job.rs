@@ -33,6 +33,12 @@ pub struct Job {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeout: Option<u32>,
 
+    /// Optional number of retries before marking the job as failed
+    /// Kubernetes default is 6
+    /// https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.12/#jobspec-v1-batch
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backoffLimit: Option<u16>,
+
     /// Option to re-run the job on failure or not
     ///
     /// This defaults to none, but can be specified if wanted

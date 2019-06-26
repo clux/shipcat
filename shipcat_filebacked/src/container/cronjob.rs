@@ -15,6 +15,7 @@ pub struct CronJobSource {
     pub schedule: Option<String>,
     pub volume_claim: Option<JobVolumeClaim>,
     pub timeout: Option<u32>,
+    pub backoff_limit: Option<u16>,
     pub pod_annotations: BTreeMap<String, RelaxedString>,
 
     #[serde(flatten)]
@@ -34,6 +35,7 @@ impl Build<CronJob, ContainerBuildParams> for CronJobSource {
             schedule: self.schedule.require("schedule")?,
             volumeClaim: self.volume_claim,
             timeout: self.timeout,
+            backoffLimit: self.backoff_limit,
             podAnnotations: self.pod_annotations.build(&())?,
         })
     }

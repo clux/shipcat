@@ -14,6 +14,7 @@ use super::container::{ContainerSource, ContainerBuildParams};
 pub struct JobSource {
     pub volume_claim: Option<JobVolumeClaim>,
     pub timeout: Option<u32>,
+    pub backoff_limit: Option<u16>,
     pub restart_policy: Option<RestartPolicy>,
     pub pod_annotations: BTreeMap<String, RelaxedString>,
 
@@ -33,6 +34,7 @@ impl Build<Job, ContainerBuildParams> for JobSource {
             container,
             volumeClaim: self.volume_claim,
             timeout: self.timeout,
+            backoffLimit: self.backoff_limit,
             restartPolicy: self.restart_policy.unwrap_or_default(),
             podAnnotations: self.pod_annotations.build(&())?,
         })
