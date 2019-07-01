@@ -10,14 +10,14 @@ use super::Result;
 pub fn manifest(services: Vec<String>, conf: &Config, reg: &Region, secrets: bool) -> Result<()> {
     conf.verify()?; // this should work even with a limited config!
     for svc in services {
-        info!("validating {} for {}", svc, reg.name);
+        debug!("validating {} for {}", svc, reg.name);
         let mf = if secrets {
             shipcat_filebacked::load_manifest(&svc, conf, reg)?.complete(reg)?
         } else {
             shipcat_filebacked::load_manifest(&svc, conf, reg)?.stub(reg)?
         };
         mf.verify(conf, reg)?;
-        info!("validated {} for {}", svc, reg.name);
+        debug!("validated {} for {}", svc, reg.name);
     }
     Ok(())
 }
