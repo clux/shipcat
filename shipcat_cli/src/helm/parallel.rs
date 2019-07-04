@@ -79,7 +79,15 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
 /// This logs errors and upgrade successes individually.
 /// NB: This can reconcile lock-step upgraded services at the moment.
 pub fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, conf: Config, region: Region) -> Result<Option<UpgradeData>> {
-    mf = mf.complete(&region)?;
+    let secret_fail_udata = UpgradeData::pre_install(&mf, &mode);
+    mf = match mf.complete(&region) {
+        Ok(mfc) => mfc,
+        Err(e) => {
+            // also fire fail events if secrets fail to resolve
+            webhooks::upgrade_event(UpgradeState::Failed, &secret_fail_udata, &region, &conf);
+            return Err(e.into());
+        },
+    };
     let svc = mf.name.clone();
 
     // get version running now (to limit race condition with deploys)

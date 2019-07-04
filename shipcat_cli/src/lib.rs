@@ -49,7 +49,7 @@ error_chain! {
         }
         MissingRollingVersion(svc: String) {
             description("missing version for install")
-            display("{} has no version in manifest and is not installed yes", &svc)
+            display("{} has no version in manifest and is not installed yet", &svc)
         }
         ManifestFailure(key: String) {
             description("Manifest key not propagated correctly internally")

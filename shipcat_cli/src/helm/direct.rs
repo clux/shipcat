@@ -184,6 +184,18 @@ impl UpgradeData {
             ..Default::default()
         }
     }
+    pub fn pre_install(mf: &Manifest, umode: &UpgradeMode) -> UpgradeData {
+        UpgradeData {
+            name: mf.name.clone(),
+            version: mf.version.clone().unwrap_or_else(|| "unknown".into()),
+            metadata: mf.metadata.clone(),
+            region: mf.region.clone(),
+            chart: mf.chart.clone().unwrap(),
+            mode: umode.clone(),
+            // empty diff, namespace, 0 waittime,
+            ..Default::default()
+        }
+    }
     pub fn from_rollback(mf: &Manifest) -> UpgradeData {
         UpgradeData {
             name: mf.name.clone(),
