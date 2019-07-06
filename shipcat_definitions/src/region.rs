@@ -588,15 +588,8 @@ impl Region {
 
     // Get the Vault URL for a given service in this region
     pub fn vault_url(&self, app: &str) -> String {
-        // We use different UIs whether its the "classic vault" or the "regional vault"
-        let mut vault_url = self.vault.url.clone();
-        let path = if vault_url.contains("8200") {
-            vault_url = vault_url.replace("8200", "");
-            "/secrets/generic/secret/"
-        } else {
-            "/ui/vault/secrets/secret/list/"
-        };
-
+        let vault_url = self.vault.url.clone();
+        let path = "/ui/vault/secrets/secret/list/";
         format!("{vault_url}/{path}/{env}/{app}/",
             vault_url = vault_url.trim_matches('/'),
             path = path.trim_matches('/'),
