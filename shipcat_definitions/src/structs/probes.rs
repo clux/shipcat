@@ -60,12 +60,23 @@ pub struct Probe {
     /// How long between each probe
     #[serde(default = "period_seconds_default")]
     pub periodSeconds: u32,
+
+    /// Min consecutive successes before considering a failed probe successful
+    #[serde(default = "success_threshold_default")]
+    pub successThreshold: u32,
+
+    /// Min consecutive failures before considering a probe failed
+    #[serde(default = "failure_threshold_default")]
+    pub failureThreshold: u32,
 }
 
 // 5 is kube standard delay default, we set it a little higher
 fn initial_delay_seconds_default() -> u32 { 30 }
 // how frequently to poll
 fn period_seconds_default() -> u32 { 5 }
+// Default values from Kubernetes
+fn success_threshold_default() -> u32 { 1 }
+fn failure_threshold_default() -> u32 { 3 }
 
 
 impl Probe {
