@@ -9,6 +9,18 @@ pub fn regions(conf: &Config) -> Result<()> {
     Ok(())
 }
 
+/// Print the supported regions with teleport login
+pub fn regions_with_teleport(conf: &Config) -> Result<()> {
+    for r in conf.list_regions() {
+        let c = Region::find_owning_cluster(&r, &conf.clusters).expect("region has owning cluster");
+        if c.teleport.is_some() {
+            println!("{}", r);
+        }
+    }
+    Ok(())
+}
+
+
 /// Print the supported locations
 pub fn locations(conf: &Config) -> Result<()> {
     for r in conf.locations.keys() {

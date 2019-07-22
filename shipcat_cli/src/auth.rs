@@ -1,18 +1,6 @@
-use std::collections::BTreeMap;
-use shipcat_definitions::config::Cluster;
 use crate::kube;
 use super::{Config, Region, Result};
 use std::process::Command;
-
-fn find_cluster(clusters: &BTreeMap<String, Cluster>, region_name: &str) -> Option<Cluster> {
-    for (_, c) in clusters {
-        if c.regions.iter().any(|r| r == region_name) {
-            return Some(c.clone());
-        }
-    }
-    None
-}
-
 
 /// Check if teleport expired
 fn need_teleport_login(url: &str) -> Result<bool> {
@@ -42,12 +30,12 @@ Download link for MacOS --> https://get.gravitational.com/teleport-v3.2.6-darwin
 You must install version 3.2.* and not 4.0.0");
     }
 
-    if let Some(cluster) = find_cluster(&conf.clusters, &region.name) {
+    if let Some(cluster) = Region::find_owning_cluster(&region.name, &conf.clusters) {
         if let Some(teleport) = &cluster.teleport {
             if need_teleport_login(&teleport)? {
                 let tsh_args = vec![
                     "login".into(),
-                    format!("--ttl={}", 60*12*5), // try 1 week
+                    // NB: using default TTL here because there might be a hard limit
                     format!("--proxy={url}:443", url = &teleport),
                     "--auth=github".into(),
                 ];

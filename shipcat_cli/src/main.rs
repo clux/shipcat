@@ -244,6 +244,10 @@ fn main() {
         // all the listers (hidden from cli output)
         .subcommand(SubCommand::with_name("list-regions")
             .setting(AppSettings::Hidden)
+            .arg(Arg::with_name("teleport")
+                .short("t")
+                .long("teleport")
+                .help("Only list regions with teleport login"))
             .about("list supported regions/clusters"))
         .subcommand(SubCommand::with_name("list-locations")
             .setting(AppSettings::Hidden)
@@ -425,9 +429,13 @@ fn void<T>(_x: T) { () } // helper so that dispatch_commands can return Result<(
 /// in the dispatched functions to catch the majority of errors herein.
 fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     // listers first
-    if args.subcommand_matches("list-regions").is_some() {
+    if let Some(a) = args.subcommand_matches("list-regions") {
         let rawconf = Config::read()?;
-        return shipcat::list::regions(&rawconf);
+        return if a.is_present("teleport") {
+            shipcat::list::regions_with_teleport(&rawconf)
+        } else {
+            shipcat::list::regions(&rawconf)
+        };
     }
     else if args.subcommand_matches("list-locations").is_some() {
         let rawconf = Config::read()?;

@@ -317,7 +317,7 @@ impl Config {
         Ok(())
     }
 
-    /// Helper for list::regions
+    /// Helper for small utils that don't need the full struct
     pub fn list_regions(&self) -> Vec<String> {
         self.regions.iter().map(|r| r.name.clone()).collect()
     }
