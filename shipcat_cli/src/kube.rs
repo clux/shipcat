@@ -46,6 +46,27 @@ pub fn current_context() -> Result<String> {
     Ok(res)
 }
 
+pub fn set_context(context: &str, args: Vec<String>) -> Result<String> {
+    let mut arg_list = vec!["config".into(), "set-context".into(), context.into()];
+    arg_list.append(&mut args.clone());
+
+    let (res, _) = kout(arg_list).map_err(|e| {
+        error!("Failed to set kubectl config set-context. Is kubectl installed?");
+        e
+    })?;
+
+    Ok(res)
+}
+
+pub fn use_context(context: &str) -> Result<String> {
+    let (res, _) = kout(vec!["config".into(), "use-context".into(), context.into()]).map_err(|e| {
+        error!("Failed to set kubectl config use-context. Is kubectl installed?");
+        e
+    })?;
+
+    Ok(res)
+}
+
 fn rollout_status(mf: &Manifest) -> Result<bool> {
     // TODO: handle more than one deployment
     // Even if this were called 10 times with 1/10th of waiting time, we still can't wait:

@@ -123,6 +123,9 @@ pub mod webhooks;
 /// Simple printers
 pub mod show;
 
+/// Cluster auth
+pub mod auth;
+
 /// Smart initialiser with safety
 ///
 /// Tricks the library into reading from your manifest location.

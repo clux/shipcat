@@ -900,7 +900,7 @@ impl Manifest {
     fn get_vault_path(&self, vc: &VaultConfig) -> String {
         // some services use keys from other services
         let (svc, reg) = if let Some(ref vopts) = self.vault {
-            (vopts.name.clone(), vopts.region.clone().unwrap_or_else(|| vc.folder.clone()))
+            (vopts.name.clone(), vc.folder.clone())
         } else {
             (self.name.clone(), vc.folder.clone())
         };

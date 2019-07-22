@@ -16,7 +16,7 @@ _shipcat()
 
     local -r subcommands="help validate shell port-forward get graph helm cluster gdpr
                           kong debug product list-regions list-services list-products
-                          apply template values status config crd diff"
+                          apply template values status config crd diff auth"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
