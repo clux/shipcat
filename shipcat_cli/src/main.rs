@@ -367,9 +367,8 @@ fn main() {
                     .help("Location name"))
                 .about("Verify product manifests")))
 
-        // EKS auth
-        .subcommand(SubCommand::with_name("auth")
-            .about("EKS auth for a cluster")
+        .subcommand(SubCommand::with_name("login")
+            .about("Login to a region (using teleport if possible)")
             );
 
     // arg parse
@@ -449,9 +448,9 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     //    let l = a.value_of("location").unwrap().into();
     //    return shipcat::list::products(&conf, l);
     //}
-    else if let Some(a) = args.subcommand_matches("auth") {
+    else if let Some(a) = args.subcommand_matches("login") {
         let (conf, region) = resolve_config(a, ConfigType::Base)?;
-        return shipcat::auth::eks_auth(&conf, &region);
+        return shipcat::auth::login(&conf, &region);
     }
     // getters
     else if let Some(a) = args.subcommand_matches("get") {

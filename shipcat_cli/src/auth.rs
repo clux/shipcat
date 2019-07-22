@@ -21,7 +21,7 @@ fn need_teleport_login(url: &str) -> Result<bool> {
     }
 }
 
-pub fn eks_auth(conf: &Config, region: &Region) -> Result<()> {
+fn ensure_teleport() -> Result<()> {
     let s = Command::new("which").args(vec!["tsh"]).output()?;
     let out = String::from_utf8_lossy(&s.stdout);
     if out.is_empty() {
@@ -29,9 +29,18 @@ pub fn eks_auth(conf: &Config, region: &Region) -> Result<()> {
 Download link for MacOS --> https://get.gravitational.com/teleport-v3.2.6-darwin-amd64-bin.tar.gz
 You must install version 3.2.* and not 4.0.0");
     }
+    // TODO: pin teleport url in cluster entry?
+    Ok(())
+}
 
+/// Login to a region by going through its owning cluster
+///
+/// This will use teleport to login to EKS if a teleport url is set
+/// otherwise it assumes you have already set a context with `region.name` externally.
+pub fn login(conf: &Config, region: &Region) -> Result<()> {
     if let Some(cluster) = Region::find_owning_cluster(&region.name, &conf.clusters) {
         if let Some(teleport) = &cluster.teleport {
+            ensure_teleport()?;
             if need_teleport_login(&teleport)? {
                 let tsh_args = vec![
                     "login".into(),
@@ -49,9 +58,8 @@ You must install version 3.2.* and not 4.0.0");
                 if !s.status.success() {
                     bail!("tsh login: {}", err);
                 }
-
             } else {
-                debug!("Reusing active session for {}", teleport);
+                info!("Reusing active session for {}", teleport);
             }
 
             // NB: tsh creates a cluster entry in ~/.kube/config named after the url
@@ -64,7 +72,8 @@ You must install version 3.2.* and not 4.0.0");
             kube::set_context(&region.name, args)?;
             kube::use_context(&region.name)?;
         } else {
-            bail!("Cluster for {} does not have a teleport url", region.name);
+            info!("Reusing {} context for non-EKS region {}", region.cluster, region.name);
+            kube::use_context(&region.cluster)?;
         }
     } else {
         bail!("Region {} does not have a cluster", region.name);
