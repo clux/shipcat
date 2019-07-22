@@ -47,7 +47,7 @@ You must install version 3.2.* and not 4.0.0");
             if need_teleport_login(&teleport)? {
                 let tsh_args = vec![
                     "login".into(),
-                    format!("--ttl={}", 60*12), // explicit tsh default
+                    format!("--ttl={}", 60*12*5), // try 1 week
                     format!("--proxy={url}:443", url = &teleport),
                     "--auth=github".into(),
                 ];
