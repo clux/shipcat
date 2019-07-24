@@ -18,6 +18,7 @@ pub struct Rbac {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum AllowedApiGroups {
+    Apps,
     #[serde(rename = "")]
     Empty,
     Extensions,
