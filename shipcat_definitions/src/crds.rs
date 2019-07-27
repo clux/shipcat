@@ -90,6 +90,18 @@ pub fn gen_all_crds() -> Vec<CrdSpec> {
         }),
         additionalPrinterColumns: Some(vec![
             CrdAdditionalPrinterColumns{
+                name: "Team".into(),
+                apcType: "string".into(),
+                description: "The team which owns the service".into(),
+                JSONPath: ".spec.metadata.team".into(),
+            },
+            CrdAdditionalPrinterColumns{
+                name: "Version".into(),
+                apcType: "string".into(),
+                description: "The version of the service that is deployed".into(),
+                JSONPath: ".spec.version".into(),
+            },
+            CrdAdditionalPrinterColumns{
                 name: "Kong".into(),
                 apcType: "string".into(),
                 description: "The URI where the service is available through kong".into(),
