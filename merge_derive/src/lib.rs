@@ -62,6 +62,7 @@ fn impl_merge_struct(fields: &Fields) -> TokenStream2 {
 
             for (i, field) in fields.iter().enumerate() {
                 if let Option::None = &field.ident {
+                    let i = syn::Index::from(i);
                     let field_token = quote! {
                         self.#i.merge(other.#i),
                     };

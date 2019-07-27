@@ -443,7 +443,6 @@ impl Config {
     fn read_from(pwd: &PathBuf) -> Result<Config> {
         use std::fs::File;
         use std::io::prelude::*;
-        use semver::Version;
         let mpath = pwd.join("shipcat.conf");
         trace!("Using config in {}", mpath.display());
         if !mpath.exists() {
