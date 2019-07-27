@@ -89,8 +89,8 @@ jobs:
       - run:
           working_directory: shipcat_definitions
           command: cargo test --all --features=filesystem -- --nocapture
-      - run: cargo test --all --exclude=raftcat -- --nocapture
-      - run: cargo doc --no-deps --lib --all --exclude=raftcat
+      - run: cargo test --all -- --nocapture
+      - run: cargo doc --no-deps --lib --all
       - save_cache:
           key: target-test-{{ .Environment.CACHE_VERSION }}
           paths:

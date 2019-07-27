@@ -32,13 +32,11 @@ use std::mem;
 /// region, and replace them internally.
 ///
 /// The `as_secret` destinction only serves to put `AUTH_SECRET` into `Manifest::secrets`.
-#[derive(Serialize, Clone, Default, Debug)]
-#[cfg_attr(feature = "crd", derive(Deserialize))]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 #[serde(default)]
 pub struct EnvVars {
     /// Plain text (non-secret) environment variables
-    #[cfg_attr(feature = "filebacked", serde(skip_serializing_if = "BTreeMap::is_empty", deserialize_with = "deserializers::deserialize"))]
-    #[cfg_attr(not(feature = "filebacked"), serde(skip_serializing_if = "BTreeMap::is_empty"))]
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub plain: BTreeMap<String, String>,
 
     /// Environment variable names stored in secrets
@@ -111,21 +109,5 @@ impl EnvVars {
         }
         mem::replace(&mut self.plain, plain);
         ts
-    }
-}
-
-#[cfg(feature = "filesystem")]
-use serde::de::{Deserialize, Deserializer};
-
-#[cfg(feature = "filesystem")]
-impl<'de> Deserialize<'de> for EnvVars {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let plain = BTreeMap::deserialize(deserializer)?;
-        let secrets = BTreeSet::new();
-
-        Ok(EnvVars { plain, secrets })
     }
 }

@@ -14,7 +14,7 @@ name = "raftcat"
 path = "src/lib.rs"
 
 [dependencies]
-shipcat_definitions = { path = "../shipcat_definitions", features = ["crd"] }
+shipcat_definitions = { path = "../shipcat_definitions" }
 kube = "0.10.0"
 #kube = { path = "../../kube-rs" }
 #kube = { git = "https://github.com/clux/kube-rs", rev = "14a851d115ed8ea8ddeeb46398450d25862e3c11" }
