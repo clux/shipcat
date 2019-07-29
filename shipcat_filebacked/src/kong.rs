@@ -37,8 +37,6 @@ pub struct KongSource {
     pub upstream_send_timeout: Option<u32>,
     pub upstream_read_timeout: Option<u32>,
     pub add_headers: BTreeMap<String, String>,
-
-    pub name: Option<String>,
 }
 
 pub struct KongBuildParams {

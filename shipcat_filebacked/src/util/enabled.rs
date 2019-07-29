@@ -6,7 +6,7 @@ use super::Build;
 /// Enabled wraps a struct and adds an `enabled` field.
 #[derive(Deserialize, Default, Clone, PartialEq, Merge)]
 #[cfg_attr(test, derive(Debug, Copy))]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct Enabled<T: Merge> {
     pub enabled: Option<bool>,
 
