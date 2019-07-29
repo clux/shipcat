@@ -92,6 +92,11 @@ impl Manifest {
     pub fn complete(self, reg: &Region) -> Result<Self> {
         self.upgrade(reg, ManifestType::Completed)
     }
+
+    /// Check to see we are using the right types of manifests internally
+    pub fn is_base(&self) -> bool {
+        self.kind == ManifestType::Base
+    }
 }
 
 

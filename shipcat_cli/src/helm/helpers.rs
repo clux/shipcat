@@ -55,12 +55,13 @@ pub fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
     out
 }
 
-/// Values parsed from `helm get values {service}`
+/// Dump struct with a version field
 ///
-/// This is the completed manifests including templates, but we only need one key
-/// Just parsing this key also makes it more forwards compatible
+/// Parsed from either:
+/// - `helm get values {service}`
+/// - `kubectl get shipcatmanifest -oyaml {service}`
 #[derive(Deserialize)]
-struct HelmVals {
+struct DumbVersion {
     version: String,
 }
 
@@ -118,24 +119,23 @@ pub fn find_redundant_services(ns: &str, svcs: &[String]) -> Result<Vec<String>>
     Ok(excess.into_iter().cloned().collect())
 }
 
+/// Fetch current version from helm get values
 pub fn infer_fallback_version(service: &str, ns: &str) -> Result<String> {
-    // fetch current version from helm
-    let imgvec = vec![
+    let args = vec![
         format!("--tiller-namespace={}", ns),
         "get".into(),
         "values".into(),
         service.into(),
     ];
-    debug!("helm {}", imgvec.join(" "));
-    match hout(imgvec.clone()) {
+    match hout(args.clone()) {
         // got a result from helm + rc was 0:
         Ok((vout, verr, true)) => {
             if !verr.is_empty() {
-                warn!("{} stderr: {}", imgvec.join(" "), verr);
+                warn!("{} stderr: {}", args.join(" "), verr);
             }
             // if we got this far, release was found
             // it should work to parse the HelmVals subset of the values:
-            let values : HelmVals = serde_yaml::from_str(&vout.to_owned())?;
+            let values : DumbVersion = serde_yaml::from_str(&vout.to_owned())?;
             Ok(values.version)
         },
         _ => {
@@ -145,14 +145,13 @@ pub fn infer_fallback_version(service: &str, ns: &str) -> Result<String> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::{infer_version_change, diff_is_version_only};
 
     #[test]
     fn version_change_test() {
-        let input = "pa-aggregator, Deployment (extensions/v1beta1) has changed:
+        let input = "pa-aggregator, Deployment (apps/v1) has changed:
 -         image: \"quay.io/babylonhealth/pa-aggregator-python:e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19\"
 +         image: \"quay.io/babylonhealth/pa-aggregator-python:d4f01f5143643e75d9cc2d5e3221e82a9e1c12e5\"";
         let res = infer_version_change(input);
@@ -164,7 +163,7 @@ mod tests {
 
     #[test]
     fn version_change_semver() {
-        let input = "pa-aggregator, Deployment (extensions/v1beta1) has changed:
+        let input = "pa-aggregator, Deployment (apps/v1) has changed:
 -         image: \"quay.io/babylonhealth/pa-aggregator-python:1.2.3\"
 +         image: \"quay.io/babylonhealth/pa-aggregator-python:1.3.0-alpine\"";
         let res = infer_version_change(input);
@@ -177,7 +176,7 @@ mod tests {
     #[test]
     fn version_diff_test() {
         // simple version change with versions referenced more than once
-        let input = "react-ask-frontend, Deployment (extensions/v1beta1) has changed:
+        let input = "react-ask-frontend, Deployment (apps/v1) has changed:
 -         image: \"quay.io/babylonhealth/react-ask-frontend:6418d7cacb7438ddd4e533d78b38902bc7f79e7b\"
 +         image: \"quay.io/babylonhealth/react-ask-frontend:d27b5c6f96f05436b236dae112c7c8fcedca4c71\"
 -           value: 6418d7cacb7438ddd4e533d78b38902bc7f79e7b
@@ -194,7 +193,7 @@ mod tests {
     #[test]
     fn version_diff_test2() {
         // not just a simple version change
-        let input = "react-ask-frontend, Deployment (extensions/v1beta1) has changed:
+        let input = "react-ask-frontend, Deployment (apps/v1) has changed:
 -         image: \"quay.io/babylonhealth/react-ask-frontend:6418d7cacb7438ddd4e533d78b38902bc7f79e7b\"
 +         image: \"quay.io/babylonhealth/react-ask-frontend:d27b5c6f96f05436b236dae112c7c8fcedca4c71\"
 -           blast: keyremoval";
@@ -209,7 +208,7 @@ mod tests {
     #[test]
     fn version_diff_test3() {
         // semver version change
-        let input = "knowledge-base2-search, Deployment (extensions/v1beta1) has changed:
+        let input = "knowledge-base2-search, Deployment (apps/v1) has changed:
 -         image: \"quay.io/babylonhealth/knowledgebase2:1.0.6\"
 +         image: \"quay.io/babylonhealth/knowledgebase2:1.0.7\"
 -           value: 1.0.6

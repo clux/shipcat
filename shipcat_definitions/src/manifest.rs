@@ -750,11 +750,9 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    /// Override version with an optional one from the CLI
-    pub fn set_version(mut self, ver: &Option<String>) -> Self {
-        if ver.is_some() {
-            self.version = ver.clone(); // override version here if set
-        }
+    /// Set the version field
+    pub fn version(mut self, version: String) -> Self {
+        self.version = Some(version);
         self
     }
 

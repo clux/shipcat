@@ -1,3 +1,4 @@
+use crate::apply;
 use shipcat_definitions::{Config, Region, Team, BaseManifest, ReconciliationMode};
 use shipcat_filebacked::{SimpleManifest};
 use crate::webhooks::{self, UpgradeState};
@@ -102,31 +103,43 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>,
         return Err(e)
     } else {
         webhooks::reconcile_event(UpgradeState::Completed, &region_sec);
+        Ok(())
     }
-    Ok(())
 }
 
 fn crd_reconcile_worker(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
     let mf = shipcat_filebacked::load_manifest(svc, conf, reg)?;
-    if kube::apply_crd(svc, mf.clone(), &reg.namespace)? {
-        // 1. CRD was configured or created - upgrade the rest:
-        if reg.reconciliationMode == ReconciliationMode::CrdBorrowed {
-            // tiller owned upgrade
-            let umode = UpgradeMode::UpgradeInstallWait;
-            helm::parallel::reconcile_worker(mf, umode, conf.clone(), reg.clone())?;
-        } else if reg.reconciliationMode == ReconciliationMode::CrdOwned {
-            // shipcat owned upgrade
-            unimplemented!();
-        }
-    } else if std::env::var("SHIPCAT_MASS_RECONCILE").is_ok() {
-        // 2. CRD was unchanged
-        if reg.reconciliationMode == ReconciliationMode::CrdOwned {
-            // shipcat owned upgrade
-            unimplemented!()
-        } else {
-            // tiller owned upgrade
-            let umode = UpgradeMode::UpgradeInstallWait;
-            helm::parallel::reconcile_worker(mf, umode, conf.clone(), reg.clone())?;
+
+    // bypass pre-crd apply so we can apply CRds with versions..
+    if reg.reconciliationMode == ReconciliationMode::CrdVersioned {
+        let force = std::env::var("SHIPCAT_MASS_RECONCILE").is_ok();
+        let wait = true;
+        apply::apply(mf, force, reg, conf, wait, None)?;
+    } else {
+        // otherwise, back to old behaviour
+        if kube::apply_crd(svc, mf.clone(), &reg.namespace)? {
+            // 1. CRD was configured or created - upgrade the rest:
+            if reg.reconciliationMode == ReconciliationMode::CrdBorrowed {
+                // tiller owned upgrade, TODO: remove
+                let umode = UpgradeMode::UpgradeInstallWait;
+                helm::parallel::reconcile_worker(mf,
+                    umode, conf.clone(), reg.clone())?;
+            }
+            else {
+                // shipcat owned upgrade
+                unimplemented!();
+            }
+        } else if std::env::var("SHIPCAT_MASS_RECONCILE").is_ok() {
+            // 2. CRD was unchanged
+            if reg.reconciliationMode == ReconciliationMode::CrdBorrowed {
+                let umode = UpgradeMode::UpgradeInstallWait;
+                helm::parallel::reconcile_worker(mf,
+                    umode, conf.clone(), reg.clone())?;
+            }
+            else {
+                // shipcat owned upgrade
+                unimplemented!()
+            }
         }
     }
     Ok(())

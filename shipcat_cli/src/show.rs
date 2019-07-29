@@ -18,8 +18,12 @@ pub fn config_crd(conf: Config) -> Result<()> {
     Ok(())
 }
 
+// TODO: deprecate
 pub fn manifest_crd(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
     let mf = shipcat_filebacked::load_manifest(svc, conf, reg)?;
+    if mf.version.is_none() {
+        warn!("Do not apply this CRD manually - it has no version");
+    }
     let crd = Crd::from(mf);
     println!("{}", serde_yaml::to_string(&crd)?);
     Ok(())

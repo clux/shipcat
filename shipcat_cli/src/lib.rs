@@ -96,6 +96,9 @@ pub mod gdpr;
 /// A small CLI kubernetes interface
 pub mod kube;
 
+/// Apply logic
+pub mod apply;
+
 /// A small CLI helm interface
 pub mod helm;
 

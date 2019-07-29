@@ -4,6 +4,7 @@ use crate::{
     slack,
     Result
 };
+use crate::apply::UpgradeInfo;
 use crate::helm::{UpgradeData, UpgradeMode};
 use super::{Config, Region, Webhook};
 
@@ -28,10 +29,8 @@ pub enum UpgradeState {
 }
 
 pub fn ensure_requirements(reg: &Region) -> Result<()> {
-    if let Some(whs) = &reg.webhooks {
-        for wh in whs {
-            wh.get_configuration()?;
-        }
+    for wh in &reg.webhooks {
+        wh.get_configuration()?;
     }
     Ok(())
 }
@@ -40,16 +39,14 @@ pub fn ensure_requirements(reg: &Region) -> Result<()> {
 ///
 /// Http errors are NOT propagated from here
 pub fn reconcile_event(us: UpgradeState, reg: &Region) {
-    if let Some(whs) = &reg.webhooks {
-        for wh in whs {
-            if let Ok(whc) = wh.get_configuration() {
-                if let Err(e) = match wh {
-                    Webhook::Audit(h) => {
-                        audit::audit_reconciliation(&us, &reg.name, &h, whc)
-                    }
-                } {
-                    warn!("Failed to notify about reconciliation event: {}", e)
+    for wh in &reg.webhooks {
+        if let Ok(whc) = wh.get_configuration() {
+            if let Err(e) = match wh {
+                Webhook::Audit(h) => {
+                    audit::audit_reconciliation(&us, &reg.name, &h, whc)
                 }
+            } {
+                warn!("Failed to notify about reconciliation event: {}", e)
             }
         }
     }
@@ -58,33 +55,86 @@ pub fn reconcile_event(us: UpgradeState, reg: &Region) {
 /// Throw events to configured webhooks - warning on delivery errors
 ///
 /// Http errors are NOT propagated from here
+/// TODO: remove once apply_event used everywhere
 pub fn upgrade_event(us: UpgradeState, ud: &UpgradeData, reg: &Region, conf: &Config) {
-    //for wh in &reg.webhooks {
-    //    if let Err(e) = match wh {
-    //        Webhook::Audit(h) => {
-    //            audit::audit_deployment(us, ud, h)
-    //        }
-    //    } {
-    //        warn!("Failed to notify about deployment event: {}", e)
-    //    }
-    //}
     handle_upgrade_notifies(us, ud, &reg, &conf);
     // TODO: make a smarter loop over webhooks in here
     // TODO: first add grafana and slack to webhooks for region
 }
 
+
+/// Throw events to configured webhooks
+///
+/// This is the new version for shipcat apply module
+pub fn apply_event(us: UpgradeState, info: &UpgradeInfo, reg: &Region, conf: &Config) {
+    // Webhooks defined in shipcat.conf for the region:
+    for wh in &reg.webhooks {
+        if let Ok(whc) = wh.get_configuration() {
+            let res = match wh {
+                Webhook::Audit(h) => audit::audit_apply(&us, &info, &h, whc)
+            };
+            if let Err(e) = res {
+                warn!("Failed to notify about apply event: {}", e)
+            }
+        }
+    }
+
+    // slack notifications:
+    let (color, text) = match us {
+        UpgradeState::Completed => (
+                "good".into(),
+                format!("applied `{}` in `{}`", info.name, info.region)
+            ),
+        UpgradeState::Failed => (
+                "danger".into(),
+                format!("failed to apply `{}` in `{}`", info.name, info.region)
+            ),
+        _ => (
+                "good",
+                format!("action state: {}", serde_json::to_string(&us).unwrap_or("unknown".into()))
+            ),
+    };
+    match us {
+        UpgradeState::Completed | UpgradeState::Failed => {
+            let _ = slack::send(slack::Message {
+                text,
+                code: info.diff.clone(),
+                color: Some(String::from(color)),
+                version: Some(info.version.clone()),
+                metadata: info.metadata.clone(),
+            }, &conf, &reg.environment);
+        }
+        _ => {},
+    }
+
+    // grafana annotations:
+    match us {
+        UpgradeState::Completed | UpgradeState::Failed => {
+            let _ = grafana::create(grafana::Annotation {
+                event: grafana::Event::Upgrade,
+                service: info.name.clone(),
+                version: info.version.clone(),
+                region: info.region.clone(),
+                time: grafana::TimeSpec::Now,
+            });
+        }
+        _ => {},
+    }
+}
+
+
 /// Notify slack / audit endpoint of upgrades from a single upgrade
+///
+/// TODO: remove once helm module disappears
 fn handle_upgrade_notifies(us: UpgradeState, ud: &UpgradeData, reg: &Region, conf: &Config) {
-    if let Some(whs) = &reg.webhooks {
-        for wh in whs {
-            if let Ok(whc) = wh.get_configuration() {
-                if let Err(e) = match wh {
-                    Webhook::Audit(h) => {
-                        audit::audit_deployment(&us, &ud, &h, whc)
-                    }
-                } {
-                    warn!("Failed to notify about deployment event: {}", e)
+    for wh in &reg.webhooks {
+        if let Ok(whc) = wh.get_configuration() {
+            if let Err(e) = match wh {
+                Webhook::Audit(h) => {
+                    audit::audit_deployment(&us, &ud, &h, whc)
                 }
+            } {
+                warn!("Failed to notify about deployment event: {}", e)
             }
         }
     }
@@ -113,8 +163,7 @@ fn handle_upgrade_notifies(us: UpgradeState, ud: &UpgradeData, reg: &Region, con
                 text, code,
                 color: Some(String::from(color)),
                 version: Some(ud.version.clone()),
-                metadata: ud.metadata.clone(),
-                ..Default::default()
+                metadata: ud.metadata.clone().unwrap(),
             }, &conf, &reg.environment);
         }
         _ => {},
@@ -124,17 +173,16 @@ fn handle_upgrade_notifies(us: UpgradeState, ud: &UpgradeData, reg: &Region, con
 /// Throw events to configured webhooks - warning on delivery errors
 ///
 /// Http errors are NOT propagated from here
+/// TODO: remove once we kill this functionality
 pub fn upgrade_rollback_event(us: UpgradeState, ud: &UpgradeData, reg: &Region, conf: &Config) {
-    if let Some(whs) = &reg.webhooks {
-        for wh in whs {
-            if let Ok(whc) = wh.get_configuration() {
-                if let Err(e) = match wh {
-                    Webhook::Audit(h) => {
-                        audit::audit_deployment(&us, &ud, &h, whc)
-                    }
-                } {
-                    warn!("Failed to notify about rollback event: {}", e)
+    for wh in &reg.webhooks {
+        if let Ok(whc) = wh.get_configuration() {
+            if let Err(e) = match wh {
+                Webhook::Audit(h) => {
+                    audit::audit_deployment(&us, &ud, &h, whc)
                 }
+            } {
+                warn!("Failed to notify about rollback event: {}", e)
             }
         }
     }
@@ -145,8 +193,8 @@ pub fn upgrade_rollback_event(us: UpgradeState, ud: &UpgradeData, reg: &Region, 
             let _ = slack::send(slack::Message {
                 text: format!("rolling back `{}` in {}", &ud.name, &ud.region),
                 color: Some("warning".into()),
-                metadata: ud.metadata.clone(),
-                ..Default::default()
+                metadata: ud.metadata.clone().unwrap(),
+                code: None, version: None,
             }, &conf, &reg.environment);
             grafana::create(grafana::Annotation {
                 event: grafana::Event::Rollback,
@@ -160,8 +208,8 @@ pub fn upgrade_rollback_event(us: UpgradeState, ud: &UpgradeData, reg: &Region, 
             slack::send(slack::Message {
                 text: format!("failed to rollback `{}` in {}", &ud.name, &ud.region),
                 color: Some("danger".into()),
-                metadata: ud.metadata.clone(),
-                ..Default::default()
+                metadata: ud.metadata.clone().unwrap(),
+                code: None, version: None,
             }, &conf, &reg.environment)
         },
         _ => { Ok(()) },

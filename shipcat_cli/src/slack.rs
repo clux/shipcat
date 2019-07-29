@@ -2,7 +2,6 @@ use slack_hook::{Slack, PayloadBuilder, SlackLink, SlackText, SlackUserLink, Att
 use slack_hook::SlackTextContent::{self, Text, Link, User};
 use std::env;
 use semver::Version;
-use if_chain::{if_chain};
 
 use super::helm::helpers;
 use super::structs::{Contact, Metadata};
@@ -14,19 +13,13 @@ use shipcat_definitions::region::{Environment};
 ///
 /// These parameters get distilled into the attachments API.
 /// Mostly because this is the only thing API that supports colour.
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Message {
     /// Text in message
     pub text: String,
 
     /// Metadata from Manifest
-    pub metadata: Option<Metadata>,
-
-    /// Set when not wanting to niotify people
-    pub quiet: bool,
-
-    /// Replacement link for CI infer
-    pub link: Option<String>,
+    pub metadata: Metadata,
 
     /// Optional color for the attachment API
     pub color: Option<String>,
@@ -37,6 +30,19 @@ pub struct Message {
     /// Optional version to send when not having code diffs
     pub version: Option<String>,
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct DumbMessage {
+    /// Text in message
+    pub text: String,
+
+    /// Replacement link for CI infer
+    pub link: Option<String>,
+
+    /// Optional color for the attachment API
+    pub color: Option<String>,
+}
+
 
 pub fn env_hook_url() -> Result<String> {
     env::var("SLACK_SHIPCAT_HOOK_URL").map_err(|_| ErrorKind::MissingSlackUrl.into())
@@ -58,15 +64,59 @@ pub fn have_credentials() -> Result<()> {
     Ok(())
 }
 
+/// Send a message based on a upgrade event
 pub fn send(msg: Message, conf: &Config, env: &Environment) -> Result<()> {
     let hook_chan : String = env_channel()?;
     send_internal(msg.clone(), hook_chan, &conf, &env)?;
-    if let Some(md) = &msg.metadata {
-        if let Some(chan) = &md.notifications {
-            let c = chan.clone();
-            send_internal(msg, c.to_string(), &conf, &env)?;
-        }
+    let md = &msg.metadata;
+    if let Some(chan) = &md.notifications {
+        let c = chan.clone();
+        send_internal(msg, c.to_string(), &conf, &env)?;
     }
+    Ok(())
+}
+
+/// Send entry point for `shipcat slack`
+pub fn send_dumb(msg: DumbMessage) -> Result<()> {
+    let chan : String = env_channel()?;
+    let hook_url : &str = &env_hook_url()?;
+    let hook_user : String = env_username();
+
+    // if hook url is invalid, chain it so we know where it came from:
+    let slack = Slack::new(hook_url).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
+    let mut p = PayloadBuilder::new().channel(chan)
+      .icon_emoji(":cat:")
+      .username(hook_user);
+
+    let mut a = AttachmentBuilder::new(msg.text.clone()); // <- fallback
+    if let Some(c) = msg.color {
+        a = a.color(c)
+    }
+    // All text constructed for first attachment goes in this vec:
+    let mut texts = vec![Text(msg.text.into())];
+
+    // Optional replacement link
+    if let Some(link) = msg.link {
+        let split: Vec<&str> = link.split('|').collect();
+        // Full sanity check here as it could come from the CLI
+        if split.len() > 2 {
+            bail!("Link {} not in the form of url|description", link);
+        }
+        let desc = if split.len() == 2 { split[1].into() } else { link.clone() };
+        let addr = if split.len() == 2 { split[0].into() } else { link.clone() };
+        texts.push(Link(SlackLink::new(&addr, &desc)));
+    } else {
+        // Auto link/text from originator if no ink set
+        texts.push(infer_ci_links());
+    }
+
+    // Pass the texts array to slack_hook
+    a = a.text(texts.as_slice());
+    let ax = vec![a.build()?];
+    p = p.attachments(ax);
+
+    // Send everything. Phew.
+    slack.send(&p.build()?).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
     Ok(())
 }
 
@@ -74,6 +124,7 @@ pub fn send(msg: Message, conf: &Config, env: &Environment) -> Result<()> {
 fn send_internal(msg: Message, chan: String, conf: &Config, env: &Environment) -> Result<()> {
     let hook_url : &str = &env_hook_url()?;
     let hook_user : String = env_username();
+    let md = &msg.metadata;
 
     // if hook url is invalid, chain it so we know where it came from:
     let slack = Slack::new(hook_url).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
@@ -97,15 +148,9 @@ fn send_internal(msg: Message, chan: String, conf: &Config, env: &Environment) -
     // All text constructed for first attachment goes in this vec:
     let mut texts = vec![Text(msg.text.into())];
 
-    if msg.code.is_some() && msg.metadata.is_none() {
-        // TODO: only use this when notifying internally
-        warn!("Not providing a slack github link due to missing metadata in manifest");
-    }
-
     let mut codeattach = None;
     if let Some(diff) = msg.code {
-        // metadata always exists by Manifest::verify
-        let md = msg.metadata.clone().unwrap();
+
         // does the diff contain versions?
         let mut diff_is_pure_verison_change = false;
         if let Some((v1, v2)) = helpers::infer_version_change(&diff) {
@@ -121,48 +166,26 @@ fn send_internal(msg: Message, chan: String, conf: &Config, env: &Environment) -
                 .build()?)
         }
     } else if let Some(v) = msg.version {
-        if let Some(ref md) = msg.metadata {
-           texts.push(infer_metadata_single_link(md, v));
-        }
+        texts.push(infer_metadata_single_link(md, v));
     }
 
-    if let Some(link) = msg.link {
-        let split: Vec<&str> = link.split('|').collect();
-        // Full sanity check here as it could come from the CLI
-        if split.len() > 2 {
-            bail!("Link {} not in the form of url|description", link);
-        }
-        let desc = if split.len() == 2 { split[1].into() } else { link.clone() };
-        let addr = if split.len() == 2 { split[0].into() } else { link.clone() };
-        texts.push(Link(SlackLink::new(&addr, &desc)));
+    // Automatic CI originator link
+    texts.push(infer_ci_links());
+
+    let notificationMode = if let Some(team) = conf.teams.iter().find(|t| t.name == md.team) {
+        team.slackSettings.get(&env).unwrap_or(&NotificationMode::NotifyMaintainers)
     } else {
-        // Auto link/text from originator if no ink set
-        texts.push(infer_ci_links());
-    }
-
-    let notificationMode: &NotificationMode = if_chain!{
-        if let Some(ref md) = msg.metadata;
-        if let Some(team) = conf.teams.iter().find(|t| t.name == md.team );
-        if let Some(slackSettings) = team.slackSettings.get(&env);
-        then {
-            slackSettings
-        } else {
-            &NotificationMode::NotifyMaintainers
-        }
+        &NotificationMode::NotifyMaintainers
     };
 
     // Auto cc users
-    if let Some(ref md) = msg.metadata {
-        if !msg.quiet {
-            match notificationMode {
-                NotificationMode::NotifyMaintainers => {
-                    texts.push(Text("<- ".to_string().into()));
-                    texts.extend(contacts_to_text_content(&md.contacts));
-                }
-                _ => {},
-            }
+    match notificationMode {
+        NotificationMode::NotifyMaintainers => {
+            texts.push(Text("<- ".to_string().into()));
+            texts.extend(contacts_to_text_content(&md.contacts));
         }
-    };
+        _ => {},
+    }
 
     // Pass the texts array to slack_hook
     a = a.text(texts.as_slice());

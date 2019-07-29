@@ -64,6 +64,11 @@ fn get_teams(req: &HttpRequest<State>) -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().json(cfg.teams.clone()))
 }
 
+fn get_versions(req: &HttpRequest<State>) -> Result<HttpResponse> {
+    let vers = req.state().get_versions();
+    Ok(HttpResponse::Ok().json(vers))
+}
+
 fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
     let cfg = req.state().get_config()?;
@@ -258,6 +263,7 @@ fn main() -> Result<()> {
             .resource("/raftcat/teams/{name}", |r| r.method(Method::GET).f(get_manifests_for_team))
             .resource("/raftcat/teams", |r| r.method(Method::GET).f(get_teams))
             .resource("/raftcat/health", |r| r.method(Method::GET).f(health))
+            .resource("/raftcat/versions", |r| r.method(Method::GET).f(get_versions))
             .resource("/health", |r| r.method(Method::GET).f(health)) // redundancy
             .resource("/raftcat/", |r| r.method(Method::GET).f(index))
         })

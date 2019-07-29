@@ -475,6 +475,11 @@ pub enum ReconciliationMode {
     /// If CRD was configured, then helm apply.
     CrdBorrowed,
 
+    /// Tiller owned, CRD based decision, but versioned and forceable
+    ///
+    /// A stop gap between CRDOwned
+    CrdVersioned,
+
     /// Shipcat owned, CRD based decision
     ///
     /// If CRD was configured, kube apply chart with owner references
@@ -553,7 +558,8 @@ pub struct Region {
     #[serde(default)]
     pub locations: Vec<String>,
     /// All webhooks
-    pub webhooks: Option<Vec<Webhook>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub webhooks: Vec<Webhook>,
     /// CRD tuning
     pub customResources: Option<CRSettings>,
     /// Default values for services
@@ -576,10 +582,8 @@ impl Region {
     pub fn secrets(&mut self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
         self.kong.secrets(&v, &self.name)?;
-        if let Some(ref mut whs) = &mut self.webhooks {
-            for wh in whs.iter_mut() {
-                wh.secrets(&v, &self.name)?;
-            }
+        for wh in self.webhooks.iter_mut() {
+            wh.secrets(&v, &self.name)?;
         }
         Ok(())
     }
@@ -589,10 +593,8 @@ impl Region {
         let v = Vault::regional(&self.vault)?;
         debug!("Validating kong secrets for {}", self.name);
         self.kong.verify_secrets_exist(&v, &self.name)?;
-        if let Some(whs) = &self.webhooks {
-            for wh in whs.iter() {
-                wh.verify_secrets_exist(&v, &self.name)?;
-            }
+        for wh in &self.webhooks {
+            wh.verify_secrets_exist(&v, &self.name)?;
         }
         Ok(())
     }

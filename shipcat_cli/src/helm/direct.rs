@@ -144,7 +144,7 @@ impl UpgradeData {
         let helmdiff = if !exists {
             "".into() // can't diff against what's not there!
         } else {
-            let hdiff = diff(mf, hfile, DiffMode::Upgrade)?;
+            let hdiff = diff(mf, hfile)?;
             if mode == UpgradeMode::DiffOnly {
                 return Ok(None)
             }
@@ -276,8 +276,10 @@ impl fmt::Display for DiffMode {
 /// helm diff against current running release
 ///
 /// Shells out to helm diff, then obfuscates secrets
-fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
+/// Requires a helm values file to exist
+pub fn diff(mf: &Manifest, hfile: &str) -> Result<String> {
     let ver = mf.version.clone().unwrap(); // must be set outside
+    let dmode = DiffMode::Upgrade;
     let namespace = mf.namespace.clone();
     let diffvec = vec![
         format!("--tiller-namespace={}", namespace),

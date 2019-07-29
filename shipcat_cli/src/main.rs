@@ -62,18 +62,12 @@ fn main() {
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
-            .subcommand(SubCommand::with_name("template")
-                .about("Generate helm template from a manifest"))
-            .subcommand(SubCommand::with_name("values")
-                .about("Generate helm values from a manifest"))
             .subcommand(SubCommand::with_name("diff")
                 .about("Diff kubernetes configs with local state"))
             .subcommand(SubCommand::with_name("rollback")
                 .about("Rollback deployment (and children) to previous"))
             .subcommand(SubCommand::with_name("history")
                 .about("Show helm history for a service"))
-            .subcommand(SubCommand::with_name("install")
-                .about("Install a service as a helm release from a manifest"))
             .subcommand(SubCommand::with_name("recreate")
                 .about("Recreate pods and reconcile helm config for a service"))
             .subcommand(SubCommand::with_name("upgrade")
@@ -82,10 +76,7 @@ fn main() {
                     .long("no-wait")
                     .help("Do not wait for service timeout"))
                 .arg(Arg::with_name("auto-rollback")
-                    .long("auto-rollback"))
-                .arg(Arg::with_name("dryrun")
-                    .long("dry-run")
-                    .help("Show the diff only"))))
+                    .long("auto-rollback"))))
 
         .subcommand(SubCommand::with_name("shell")
             .about("Shell into pods for a service described in a manifest")
@@ -115,10 +106,6 @@ fn main() {
             .arg(Arg::with_name("message")
                 .required(true)
                 .multiple(true))
-            .arg(Arg::with_name("service")
-                .short("s")
-                .long("service")
-                .takes_value(true))
             .arg(Arg::with_name("color")
                 .short("c")
                 .long("color")
@@ -302,6 +289,9 @@ fn main() {
               .arg(Arg::with_name("no-wait")
                     .long("no-wait")
                     .help("Do not wait for service timeout"))
+              .arg(Arg::with_name("force")
+                    .long("force")
+                    .help("Apply template even if no changes are detected"))
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service to upgrad"))
@@ -669,16 +659,12 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let svc = a.value_of("service").map(String::from).unwrap();
         // this absolutely needs secrets..
         let (conf, region) = resolve_config(a, ConfigType::Filtered)?;
-        let umode = if a.is_present("no-wait") {
-            shipcat::helm::UpgradeMode::UpgradeInstallNoWait
-        } else {
-            shipcat::helm::UpgradeMode::UpgradeInstall
-        };
+        let wait = !a.is_present("no-wait");
+        let force = a.is_present("force");
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
         assert!(conf.has_secrets()); // sanity on cluster disruptive commands
-        return shipcat::helm::direct::upgrade_wrapper(&svc,
-            umode, &region,
-            &conf, ver).map(void);
+        let mf = shipcat_filebacked::load_manifest(&svc, &conf, &region)?;
+        return shipcat::apply::apply(mf, force, &region, &conf, wait, ver).map(void);
     }
 
     // helm subcommands
@@ -697,25 +683,8 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             return shipcat::helm::direct::rollback_wrapper(&svc, &conf, &region);
         }
 
-        if let Some(_) = a.subcommand_matches("values") {
-            //let _output = b.value_of("output").map(String::from);
-            return shipcat::helm::direct::values_wrapper(svc,
-                &region, &conf, ver.clone());
-        }
-        if let Some(_) = a.subcommand_matches("template") {
-            //let _output = b.value_of("output").map(String::from);
-            let output = None;
-            let mock = false; // not with this entry point
-            return shipcat::helm::direct::template(svc,
-                &region, &conf, ver.clone(), mock, output).map(void);
-        }
-
-
         let umode = if let Some(b) = a.subcommand_matches("upgrade") {
-            if b.is_present("dryrun") {
-                shipcat::helm::UpgradeMode::DiffOnly
-            }
-            else if b.is_present("auto-rollback") {
+            if b.is_present("auto-rollback") {
                 shipcat::helm::UpgradeMode::UpgradeWaitMaybeRollback
             }
             else if b.is_present("no-wait") {
@@ -724,9 +693,6 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             else {
                 shipcat::helm::UpgradeMode::UpgradeWait
             }
-        }
-        else if let Some(_) = a.subcommand_matches("install") {
-            shipcat::helm::UpgradeMode::UpgradeInstall
         }
         else if let Some(_) = a.subcommand_matches("diff") {
             shipcat::helm::UpgradeMode::DiffOnly
@@ -810,17 +776,11 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
     // these could technically forgo the kube dependency..
     else if let Some(a) = args.subcommand_matches("slack") {
-        let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
         let link = a.value_of("url").map(String::from);
         let color = a.value_of("color").map(String::from);
-        let metadata = if let Some(svc) = a.value_of("service") {
-            shipcat_filebacked::load_manifest(svc, &conf, &region)?.metadata
-        } else {
-            None
-        };
-        let msg = shipcat::slack::Message { text, link, color, metadata, ..Default::default() };
-        return shipcat::slack::send(msg, &conf, &region.environment);
+        let msg = shipcat::slack::DumbMessage { text, link, color };
+        return shipcat::slack::send_dumb(msg);
     }
     else if let Some(a) = args.subcommand_matches("gdpr") {
         let (conf, region) = resolve_config(args, ConfigType::Base)?;

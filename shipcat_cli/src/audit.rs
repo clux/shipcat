@@ -9,6 +9,7 @@ use crate::webhooks::UpgradeState;
 use super::{Result, ResultExt, ErrorKind};
 use super::{AuditWebhook};
 use crate::helm::direct::UpgradeData;
+use crate::apply::UpgradeInfo;
 
 /// Payload that gets sent via audit webhook
 #[derive(Serialize, Clone)]
@@ -69,7 +70,8 @@ pub struct AuditReconciliationPayload {
 }
 
 impl AuditDeploymentPayload {
-    pub fn new(whc: &BTreeMap<String, String>, ud: &UpgradeData) -> Self {
+    /// Create from shipcat::helm::UpgradeData (legacy)
+    pub fn new_legacy(whc: &BTreeMap<String, String>, ud: &UpgradeData) -> Self {
         let (service, region, version) = (ud.name.clone(), ud.region.clone(), ud.version.clone());
         let manifests_revision = whc["SHIPCAT_AUDIT_REVISION"].clone();
         Self {
@@ -77,6 +79,16 @@ impl AuditDeploymentPayload {
             manifests_revision, region, service, version,
         }
     }
+    /// Create from shipcat::apply UpgradeInfo
+    pub fn new(whc: &BTreeMap<String, String>, info: &UpgradeInfo) -> Self {
+        let (service, region, version) = (info.name.clone(), info.region.clone(), info.version.clone());
+        let manifests_revision = whc["SHIPCAT_AUDIT_REVISION"].clone();
+        Self {
+            id: format!("{}-{}-{}-{}", manifests_revision, region, service, version),
+            manifests_revision, region, service, version,
+        }
+    }
+
 }
 
 impl AuditType for AuditDeploymentPayload {
@@ -102,10 +114,22 @@ impl AuditType for AuditReconciliationPayload {
     }
 }
 
+/// Legacy deployment audit
+///
+/// Called exclusively from helm module
 pub fn audit_deployment(us: &UpgradeState, ud: &UpgradeData, audcfg: &AuditWebhook, whc: BTreeMap<String, String>) -> Result<()> {
-    let ae = AuditEvent::new(&whc, &us, AuditDeploymentPayload::new(&whc, &ud));
+    let ae = AuditEvent::new(&whc, &us, AuditDeploymentPayload::new_legacy(&whc, &ud));
     audit(ae, &audcfg)
 }
+
+/// New apply audit
+///
+/// Caleed exclusively from shipcat::apply
+pub fn audit_apply(us: &UpgradeState, u: &UpgradeInfo, audcfg: &AuditWebhook, whc: BTreeMap<String, String>) -> Result<()> {
+    let ae = AuditEvent::new(&whc, &us, AuditDeploymentPayload::new(&whc, &u));
+    audit(ae, &audcfg)
+}
+
 
 pub fn audit_reconciliation(us: &UpgradeState, region: &str, audcfg: &AuditWebhook, whc: BTreeMap<String, String>) -> Result<()> {
     let ae = AuditEvent::new(&whc, &us, AuditReconciliationPayload::new(&whc, region));

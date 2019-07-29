@@ -103,6 +103,9 @@ impl State {
             bail!("Failed to find config for {}", self.region);
         }
     }
+    pub fn get_versions(&self) -> VersionMap {
+        self.versions.read().unwrap().clone()
+    }
     pub fn get_region(&self) -> Result<Region> {
         let cfg = self.get_config()?;
         match cfg.get_region(&self.region) {
@@ -145,6 +148,9 @@ impl State {
     fn poll(&self) -> Result<()> {
         self.manifests.poll()?;
         self.configs.poll()?;
+        // TODO: decomission VERSION_URL fetching
+        // this is all in shipcatmanifests after 0.120.0
+        // TODO: make mandatory in crd spec
         if let Ok(vurl) = std::env::var("VERSION_URL") {
             *self.versions.write().unwrap() = version::get_all(&vurl)?;
         }
