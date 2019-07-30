@@ -151,8 +151,8 @@ impl Metadata {
             channel.verify()?;
         }
         if let Some(runbook) = &self.runbook {
-            if !runbook.ends_with(".md") && !runbook.ends_with(".rt") {
-                warn!("Runbook should be in markdown or restructured text in the service repo");
+            if !runbook.ends_with(".md") && !runbook.ends_with(".rt") && !runbook.ends_with(".org") {
+                bail!("Runbook must be a file in the service repo with a valid extension (.md / .rt / .org)");
             }
         }
         for k in self.custom.keys() {

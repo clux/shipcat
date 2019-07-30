@@ -1,5 +1,3 @@
-use serde_yaml;
-
 use regex::Regex;
 use super::{Result};
 
@@ -55,16 +53,6 @@ pub fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
     out
 }
 
-/// Dump struct with a version field
-///
-/// Parsed from either:
-/// - `helm get values {service}`
-/// - `kubectl get shipcatmanifest -oyaml {service}`
-#[derive(Deserialize)]
-struct DumbVersion {
-    version: String,
-}
-
 pub fn hexec(args: Vec<String>) -> Result<()> {
     use std::process::Command;
     debug!("helm {}", args.join(" "));
@@ -117,32 +105,6 @@ pub fn find_redundant_services(ns: &str, svcs: &[String]) -> Result<Vec<String>>
         debug!("No excess manifests found");
     }
     Ok(excess.into_iter().cloned().collect())
-}
-
-/// Fetch current version from helm get values
-pub fn infer_fallback_version(service: &str, ns: &str) -> Result<String> {
-    let args = vec![
-        format!("--tiller-namespace={}", ns),
-        "get".into(),
-        "values".into(),
-        service.into(),
-    ];
-    match hout(args.clone()) {
-        // got a result from helm + rc was 0:
-        Ok((vout, verr, true)) => {
-            if !verr.is_empty() {
-                warn!("{} stderr: {}", args.join(" "), verr);
-            }
-            // if we got this far, release was found
-            // it should work to parse the HelmVals subset of the values:
-            let values : DumbVersion = serde_yaml::from_str(&vout.to_owned())?;
-            Ok(values.version)
-        },
-        _ => {
-            // nothing from helm
-            bail!("Service {} not found in in {} tiller", service, ns);
-        }
-    }
 }
 
 #[cfg(test)]

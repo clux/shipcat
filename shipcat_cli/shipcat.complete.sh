@@ -16,11 +16,11 @@ _shipcat()
 
     local -r subcommands="help validate shell port-forward get graph cluster gdpr
                           kong debug product list-regions list-services list-products
-                          apply template values status config crd diff login"
+                          apply template values status config crd diff login version"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|port-forward|diff|debug|get|config|product|status|statuscake|shell|graph|cluster|gdpr|kong|list-services|list-products|apply|template|values|status|crd) ]]; then
+        if [[ ${words[i]} == @(help|validate|port-forward|diff|debug|get|config|product|version|status|statuscake|shell|graph|cluster|gdpr|kong|list-services|list-products|apply|template|values|status|crd) ]]; then
             has_sub=1
         fi
     done
@@ -39,7 +39,7 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(list-services|list-products|validate|config|shell|product|port-forward|diff|debug|graph|get|cluster|gdpr|apply|template|values|status|crd) ]]; then
+        if [[ ${words[i]} == @(list-services|list-products|validate|version|config|shell|product|port-forward|diff|debug|graph|get|cluster|gdpr|apply|template|values|status|crd) ]]; then
             special=${words[i]}
             break
         fi
@@ -60,7 +60,7 @@ _shipcat()
             get)
                 COMPREPLY=($(compgen -W "versions resources images clusterinfo vault-url apistatus codeowners vault-policy" -- "$cur"))
                 ;;
-            apply|template|values|status|crd)
+            apply|template|values|status|crd|version)
                 local -r region="$(kubectl config current-context)"
                 local -r svcs="$(shipcat list-services -r "$region")"
                 COMPREPLY=($(compgen -W "$svcs" -- "$cur"))
@@ -68,7 +68,7 @@ _shipcat()
             diff)
                 local -r region="$(kubectl config current-context)"
                 local -r svcs="$(shipcat list-services -r "$region")"
-                COMPREPLY=($(compgen -W "$svcs --git --secrets -s --crd" -- "$cur"))
+                COMPREPLY=($(compgen -W "$svcs --helm --git --secrets -s --crd" -- "$cur"))
                 ;;
             cluster)
                 local clustr_sub i

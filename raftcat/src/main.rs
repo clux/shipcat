@@ -65,7 +65,7 @@ fn get_teams(req: &HttpRequest<State>) -> Result<HttpResponse> {
 }
 
 fn get_versions(req: &HttpRequest<State>) -> Result<HttpResponse> {
-    let vers = req.state().get_versions();
+    let vers = req.state().get_versions()?;
     Ok(HttpResponse::Ok().json(vers))
 }
 
@@ -77,7 +77,6 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let revdeps = req.state().get_reverse_deps(name).ok();
     let newrelic_link = req.state().get_newrelic_link(name);
     let sentry_slug = req.state().get_sentry_slug(name);
-    let ver_fallback = req.state().get_version(name);
 
     if let Some(mf) = req.state().get_manifest(name)?.clone() {
         let pretty = serde_yaml::to_string(&mf)?;
@@ -85,7 +84,7 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
 
 
         let md = mf.metadata.clone().unwrap();
-        let (vlink, version) = if let Some(ver) = mf.version.clone().or(ver_fallback) {
+        let (vlink, version) = if let Some(ver) = mf.version.clone() {
             if semver::Version::parse(&ver).is_ok() {
                 let tag = md.version_template(&ver).unwrap_or(ver.to_string());
                 (format!("{}/releases/tag/{}", md.repo, tag), tag)

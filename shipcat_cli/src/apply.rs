@@ -93,8 +93,7 @@ pub fn apply(mfbase: Manifest,
     // This is currently needed to determine whether or not we run a diff.
     // (kube 1.13 diff can work this out, but helm diff can't.)
     // TODO: when on 1.13 only do this when explicit_version.is_none()
-    // TODO: change to do CRD lookup once all CRD instances have a version
-    let (exists, fallback) = match helm::helpers::infer_fallback_version(&svc, &mfbase.namespace) {
+    let (exists, fallback) = match kube::get_running_version(&svc, &mfbase.namespace) {
         Ok(running_ver) => (true, running_ver),
         Err(e) => {
             if let Some(v) = &explicit_version {
@@ -116,9 +115,9 @@ pub fn apply(mfbase: Manifest,
 
     // Determine what version we should actually use
     let actual_version = explicit_version.unwrap_or(fallback);
+    debug!("using {}={}", svc, actual_version);
     // Verify it's a legal version (no-shoehorning in illegal versions in rolling envs)
     region.versioningScheme.verify(&actual_version)?;
-    debug!("Using {}={}", svc, actual_version);
 
     let mfcrd = mfbase.version(actual_version);
     let mut ui = UpgradeInfo::new(&mfcrd);

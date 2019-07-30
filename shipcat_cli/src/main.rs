@@ -221,6 +221,12 @@ fn main() {
                 .help("Service to check"))
               .about("Show kubernetes status for all the resources for a service"))
 
+        .subcommand(SubCommand::with_name("version")
+              .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service to check"))
+              .about("Ask kubernetes for the current running version of a service"))
+
         .subcommand(SubCommand::with_name("crd")
               .arg(Arg::with_name("service")
                 .required(true)
@@ -680,6 +686,13 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         };
         let mf = shipcat_filebacked::load_manifest(service, &conf, &region)?.stub(&region)?;
         return shipcat::kube::shell(&mf, pod, cmd);
+    }
+    else if let Some(a) = args.subcommand_matches("version") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+        let (_conf, region) = resolve_config(a, ConfigType::Base)?;
+        let res = shipcat::kube::get_running_version(&svc, &region.namespace)?;
+        println!("{}", res);
+        return Ok(())
     }
     else if let Some(a) = args.subcommand_matches("port-forward") {
         let (conf, region) = resolve_config(args, ConfigType::Base)?;

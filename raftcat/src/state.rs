@@ -17,11 +17,13 @@ use crate::*;
 use crate::integrations::{
     newrelic::{self, RelicMap},
     sentryapi::{self, SentryMap},
-    version::{self, VersionMap},
 };
 
 type ManifestObject = Object<Manifest, Void>;
 type ConfigObject = Object<Config, Void>;
+
+/// Map of service -> versions
+pub type VersionMap = BTreeMap<String, String>;
 
 /// The canonical shared state for actix
 ///
@@ -34,7 +36,6 @@ pub struct State {
     configs: Reflector<ConfigObject>,
     relics: RelicMap,
     sentries: SentryMap,
-    versions: Arc<RwLock<VersionMap>>,
     /// Templates via tera which do not implement clone
     template: Arc<RwLock<tera::Tera>>,
     region: String,
@@ -76,7 +77,6 @@ impl State {
             manifests, configs, region, config_name,
             relics: BTreeMap::new(),
             sentries: BTreeMap::new(),
-            versions: Arc::new(RwLock::new(BTreeMap::new())),
             template: Arc::new(RwLock::new(t)),
         };
         res.update_slow_cache()?;
@@ -103,8 +103,14 @@ impl State {
             bail!("Failed to find config for {}", self.region);
         }
     }
-    pub fn get_versions(&self) -> VersionMap {
-        self.versions.read().unwrap().clone()
+    pub fn get_versions(&self) -> Result<VersionMap> {
+        let res = self.manifests.read()?.iter().fold(BTreeMap::new(), |mut acc, (k, crd)| {
+            if let Some(v) = &crd.spec.version { // TODO: make mandatory
+                acc.insert(k.clone(), v.clone());
+            }
+            acc
+        });
+        Ok(res)
     }
     pub fn get_region(&self) -> Result<Region> {
         let cfg = self.get_config()?;
@@ -140,20 +146,11 @@ impl State {
     pub fn get_sentry_slug(&self, service: &str) -> Option<String> {
         self.sentries.get(service).map(String::to_owned)
     }
-    pub fn get_version(&self, service: &str) -> Option<String> {
-        self.versions.read().unwrap().get(service).map(String::to_owned)
-    }
 
     // Interface for internal thread
     fn poll(&self) -> Result<()> {
         self.manifests.poll()?;
         self.configs.poll()?;
-        // TODO: decomission VERSION_URL fetching
-        // this is all in shipcatmanifests after 0.120.0
-        // TODO: make mandatory in crd spec
-        if let Ok(vurl) = std::env::var("VERSION_URL") {
-            *self.versions.write().unwrap() = version::get_all(&vurl)?;
-        }
         Ok(())
     }
 

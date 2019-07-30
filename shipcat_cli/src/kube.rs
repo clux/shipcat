@@ -567,10 +567,27 @@ pub fn remove_redundant_manifests(ns: &str, svcs: &Vec<String>) -> Result<Vec<St
     Ok(exvec)
 }
 
+// Get a version of a service from the current shipcatmanifest crd
+pub fn get_running_version(svc: &str, ns: &str) -> Result<String> {
+    //kubectl get shipcatmanifest $* -o jsonpath='{.spec.version}'
+    let mfargs = vec![
+        "get".into(),
+        "shipcatmanifest".into(),
+        svc.into(),
+        format!("-n={}", ns),
+        "-ojsonpath='{.spec.version}'".into(),
+    ];
+    match kout(mfargs) {
+        Ok((kout, true)) => Ok(kout),
+        _ => bail!("Manifest for '{}' not found in {}", svc, ns)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use dirs;
     use super::current_context;
+    use super::get_running_version;
 
     #[test]
     fn validate_ctx() {
@@ -581,5 +598,12 @@ mod tests {
             assert_eq!(ctx, ctx.trim());
             assert_ne!(ctx, "");
         }
+    }
+
+    #[test]
+    #[ignore]
+    fn check_get_version() {
+        let r = get_running_version("raftcat", "dev").unwrap();
+        assert_eq!(r, "0.121.0");
     }
 }

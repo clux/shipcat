@@ -1,39 +1,3 @@
-pub mod version {
-    use crate::Result;
-    use std::collections::BTreeMap;
-    use reqwest::Url;
-
-    // version fetching stuff
-    #[derive(Deserialize)]
-    struct Entry {
-        //container: String,
-        name: String,
-        version: String,
-    }
-
-    /// Map of service -> versions
-    pub type VersionMap = BTreeMap<String, String>;
-
-    // The actual HTTP GET logic
-    pub fn get_all(version_url: &str) -> Result<VersionMap> {
-        let client = reqwest::Client::new();
-        let vurl = Url::parse(version_url)?;
-        trace!("Fetching {}", vurl);
-        let mut res = client.get(vurl).send()?;
-        if !res.status().is_success() {
-            bail!("Failed to fetch version: {}", res.status());
-        }
-        let text = res.text()?;
-        trace!("Got version data: {}", text);
-        let data : Vec<Entry> = serde_json::from_str(&text)?;
-        let res = data.into_iter()
-            .fold(BTreeMap::new(), |mut acc, e| {
-                acc.insert(e.name, e.version);
-                acc
-            });
-        Ok(res)
-    }
-}
 
 pub mod sentryapi {
     use crate::Result;

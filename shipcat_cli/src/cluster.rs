@@ -1,8 +1,9 @@
 use crate::apply;
+use crate::helm; // temporary
 use shipcat_definitions::{Config, Region, Team, BaseManifest, ReconciliationMode};
 use shipcat_filebacked::{SimpleManifest};
 use crate::webhooks::{self, UpgradeState};
-use super::{Result};
+use super::{Result, Error, ErrorKind};
 
 /// Apply all crds in a region
 ///
@@ -73,19 +74,32 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>,
     let res = rx.iter().take(n_jobs).map(|r| {
         match r {
             Ok(_) => {},
-            Err(ref e) => warn!("error: {}", e),
+            Err(ref e) => warn!("{}", e),
         }
         r
     }).filter_map(Result::err).collect::<Vec<_>>();
+
     // propagate first non-ignorable error if exists
-    if let Some(e) = res.into_iter().next() {
-        webhooks::reconcile_event(UpgradeState::Failed, &region_sec);
-        // no errors ignoreable atm
-        return Err(e)
-    } else {
-        webhooks::reconcile_event(UpgradeState::Completed, &region_sec);
-        Ok(())
+    for e in res {
+        match e {
+            Error(ErrorKind::MissingRollingVersion(svc),_) => {
+                // This only happens in rolling envs because version is mandatory in other envs
+                warn!("'{}' missing version for {} - please add or install", svc, region_sec.name);
+            },
+            // remaining cases not ignorable
+            _ => {
+                webhooks::reconcile_event(UpgradeState::Failed, &region_sec);
+                return Err(e)
+            },
+        }
     }
+
+    // Otherwise we're good
+    webhooks::reconcile_event(UpgradeState::Completed, &region_sec);
+
+    // temporary sanity help - to clean out stragglers
+    let _ = helm::helpers::find_redundant_services(&region_sec.namespace, &svc_names);
+    Ok(())
 }
 
 fn crd_reconcile_worker(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
@@ -93,7 +107,7 @@ fn crd_reconcile_worker(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
 
     // bypass pre-crd apply so we can apply CRds with versions..
     if reg.reconciliationMode == ReconciliationMode::CrdVersioned {
-        let force = std::env::var("SHIPCAT_MASS_RECONCILE").is_ok();
+        let force = std::env::var("SHIPCAT_MASS_RECONCILE").unwrap_or("0".into()) == "1";
         let wait = true;
         apply::apply(mf, force, reg, conf, wait, None)?;
     } else {
