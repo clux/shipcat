@@ -152,7 +152,7 @@ impl Metadata {
         }
         if let Some(runbook) = &self.runbook {
             if !runbook.ends_with(".md") && !runbook.ends_with(".rt") {
-                bail!("Runbook must be in markdown or restructured text in the service repo");
+                warn!("Runbook should be in markdown or restructured text in the service repo");
             }
         }
         for k in self.custom.keys() {

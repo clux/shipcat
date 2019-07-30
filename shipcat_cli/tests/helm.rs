@@ -1,7 +1,7 @@
 mod common;
 use crate::common::setup;
 use shipcat_definitions::{Config, ConfigType};
-use shipcat::helm::values;
+use shipcat::helm::direct::values;
 
 #[test]
 fn helm_values() {

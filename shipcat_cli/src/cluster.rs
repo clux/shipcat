@@ -2,26 +2,7 @@ use crate::apply;
 use shipcat_definitions::{Config, Region, Team, BaseManifest, ReconciliationMode};
 use shipcat_filebacked::{SimpleManifest};
 use crate::webhooks::{self, UpgradeState};
-use super::helm::{self, UpgradeMode};
 use super::{Result};
-
-/// Helm diff the region
-///
-/// Returns the diffs only from all services across a region.
-/// Farms out the work to a thread pool.
-pub fn helm_diff(conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
-    mass_helm(conf, region, UpgradeMode::DiffOnly, n_workers)
-}
-
-// Find all active services in a region and helm::parallel::upgrade them
-fn mass_helm(conf: &Config, region: &Region, umode: UpgradeMode, n_workers: usize) -> Result<()> {
-    let mut svcs = vec![];
-    for svc in shipcat_filebacked::available(conf, region)? {
-        debug!("Scanning service {:?}", svc);
-        svcs.push(shipcat_filebacked::load_manifest(&svc.base.name, conf, region)?);
-    }
-    helm::parallel::reconcile(svcs, conf, region, umode, n_workers)
-}
 
 /// Apply all crds in a region
 ///
@@ -116,31 +97,7 @@ fn crd_reconcile_worker(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
         let wait = true;
         apply::apply(mf, force, reg, conf, wait, None)?;
     } else {
-        // otherwise, back to old behaviour
-        if kube::apply_crd(svc, mf.clone(), &reg.namespace)? {
-            // 1. CRD was configured or created - upgrade the rest:
-            if reg.reconciliationMode == ReconciliationMode::CrdBorrowed {
-                // tiller owned upgrade, TODO: remove
-                let umode = UpgradeMode::UpgradeInstallWait;
-                helm::parallel::reconcile_worker(mf,
-                    umode, conf.clone(), reg.clone())?;
-            }
-            else {
-                // shipcat owned upgrade
-                unimplemented!();
-            }
-        } else if std::env::var("SHIPCAT_MASS_RECONCILE").is_ok() {
-            // 2. CRD was unchanged
-            if reg.reconciliationMode == ReconciliationMode::CrdBorrowed {
-                let umode = UpgradeMode::UpgradeInstallWait;
-                helm::parallel::reconcile_worker(mf,
-                    umode, conf.clone(), reg.clone())?;
-            }
-            else {
-                // shipcat owned upgrade
-                unimplemented!()
-            }
-        }
+        unimplemented!()
     }
     Ok(())
 }

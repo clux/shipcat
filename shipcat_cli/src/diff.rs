@@ -1,6 +1,7 @@
 use crate::kube;
 use super::{Config, Region, Result};
 use shipcat_definitions::Crd;
+use crate::apply;
 use std::process::Command;
 
 
@@ -80,6 +81,32 @@ pub fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool
     fs::remove_file(beforepth)?;
     fs::remove_file(afterpth)?;
     Ok(s.success())
+}
+
+/// Temporary helm diff wrapper for shipcat::diff
+///
+/// This will be removed once tiller dependency is removed and 1.13 is everywhere.
+pub fn helm_diff(svc: &str, conf: &Config, region: &Region, mock: bool) -> Result<bool> {
+    let mfbase = shipcat_filebacked::load_manifest(svc, conf, region)?;
+    let mf = if mock {
+        mfbase.complete(region)?
+    } else {
+        mfbase.stub(region)?
+    };
+    let hfile = format!("{}.helm.gen.yml", svc);
+    apply::values_helm(&mf, &hfile)?;
+    let diff = match apply::diff_helm(&mf, &hfile) {
+        Ok(hdiff) => hdiff,
+        Err(e) => {
+            warn!("Unable to diff against {}: {}", svc, e);
+            None
+        },
+    };
+    if let Some(d) = &diff {
+        println!("{}", d);
+    }
+    let _ = fs::remove_file(&hfile); // try to remove temporary file
+    Ok(diff.is_some())
 }
 
 

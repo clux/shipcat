@@ -1,4 +1,4 @@
-use super::{Result, Manifest};
+use super::{Result, Region, Manifest};
 use shipcat_definitions::Crd;
 use serde::Serialize;
 use regex::Regex;
@@ -19,9 +19,9 @@ fn kout(args: Vec<String>) -> Result<(String, bool)> {
     debug!("kubectl {}", args.join(" "));
     let s = Command::new("kubectl").args(&args).output()?;
     let out : String = String::from_utf8_lossy(&s.stdout).into();
-    let err : String = String::from_utf8_lossy(&s.stderr).into();
+    let err : String = String::from_utf8_lossy(&s.stderr).to_string().trim().into();
     if !err.is_empty() {
-        warn!("kubectl {} stderr: {}", args.join(" "), err.trim());
+        warn!("kubectl {} stderr: {}", args.join(" "), err);
     }
     // kubectl keeps returning opening and closing apostrophes - strip them:
     if out.len() > 2 && out.starts_with('\'') {
@@ -117,6 +117,19 @@ pub fn await_rollout_status(mf: &Manifest) -> Result<bool> {
         }
     }
     Ok(false) // timeout
+}
+
+pub fn get_all(svc: &str, reg: &Region) -> Result<String> {
+    //kubectl get all -l=app=$*
+    let allargs = vec![
+        "get".into(),
+        "all".into(),
+        format!("-l=app={}", svc),
+        format!("-n={}", reg.namespace),
+    ];
+    let (res, _) = kout(allargs)?;
+    println!("{}", res);
+    Ok(res)
 }
 
 fn get_pods(mf: &Manifest) -> Result<String> {
@@ -343,7 +356,7 @@ fn debug_active_replicasets(mf: &Manifest) -> Result<()> {
         if latest.available > 0 && latest.available < latest.total {
             warn!("Some replicas successfully rolled out - maybe a higher timeout would help?");
         }
-        else if latest.available == 0{
+        else if latest.available == 0 {
             warn!("No replicas were rolled out fast enough ({} secs)", mf.estimate_wait_time());
             warn!("Your application might be crashing, or fail to respond to healthchecks in time");
             warn!("Current health check is set to {:?}", mf.health);

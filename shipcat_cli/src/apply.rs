@@ -1,4 +1,6 @@
-use std::fs;
+use std::path::{Path};
+use std::fs::{self, File};
+use std::io::{Write};
 use crate::kube;
 use shipcat_definitions::structs::Metadata;
 use crate::helm;
@@ -45,12 +47,6 @@ impl UpgradeInfo {
         }
     }
 }
-
-
-
-// TODO: helm migration:
-// 1. make a simplified UpgradeMode (no need for most options)
-// 2. fallback way to get version in rolling once they are in all crds
 
 /// shipcat apply
 ///
@@ -140,19 +136,25 @@ pub fn apply(mfbase: Manifest,
     assert!(mfcrd.is_base()); // TODO: inside crd apply fn
     let changed = kube::apply_crd(&svc, mfcrd, &region.namespace)?;
     if exists && !changed && !force {
-        info!("{} up to date", svc);
+        info!("{} up to date (crd check)", svc);
         return Ok(None)
     }
 
     // Create values file
     let hfile = format!("{}.helm.gen.yml", svc);
-    helm::direct::values(&mf, Some(hfile.clone()))?;
+    values_helm(&mf, &hfile)?;
 
     // Attach diff to UpgradeInfo if the service exists and we can diff
     if exists { // attach diff if possible
         match diff_helm(&mf, &hfile) {
             Ok(hdiff) => ui.diff = hdiff,
             Err(e) => warn!("Unable to diff against {}: {}", svc, e),
+        }
+        // If we received no diff, don't try to upgrade
+        // This is a stronger diff than CRD-only if this succeeds; STOP.
+        if ui.diff.is_none() {
+            info!("{} up to date (full diff check)", svc);
+            return Ok(None)
         }
     }
 
@@ -168,7 +170,7 @@ pub fn apply(mfbase: Manifest,
         },
         Ok(_) => {
             if !wait {
-                info!("successfully appied {} (without waiting)", ui.name);
+                info!("successfully applied {} (without waiting)", ui.name);
             }
             else {
                 match kube::await_rollout_status(&mf) {
@@ -267,9 +269,18 @@ pub fn diff_helm(mf: &Manifest, hfile: &str) -> Result<Option<String>> {
         println!("{}", smalldiff);
         Some(smalldiff)
     } else {
-        info!("{} is up to date", mf.name);
         None
     })
+}
+
+pub fn values_helm(mf: &Manifest, output: &str) -> Result<()> {
+    let encoded = serde_yaml::to_string(&mf)?;
+    let pth = Path::new(".").join(output);
+    debug!("Writing helm values for {} to {}", mf.name, pth.display());
+    let mut f = File::create(&pth)?;
+    writeln!(f, "{}", encoded)?;
+    debug!("Wrote helm values for {} to {}: \n{}", mf.name, pth.display(), encoded);
+    Ok(())
 }
 
 /*

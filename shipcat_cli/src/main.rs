@@ -51,33 +51,6 @@ fn main() {
                 .required(true)
                 .help("Service name")))
 
-        .subcommand(SubCommand::with_name("helm")
-            .setting(AppSettings::SubcommandRequiredElseHelp)
-            .about("Run helm like commands on shipcat manifests")
-            .arg(Arg::with_name("tag")
-                .long("tag")
-                .short("t")
-                .takes_value(true)
-                .help("Image version to deploy"))
-            .arg(Arg::with_name("service")
-                .required(true)
-                .help("Service name"))
-            .subcommand(SubCommand::with_name("diff")
-                .about("Diff kubernetes configs with local state"))
-            .subcommand(SubCommand::with_name("rollback")
-                .about("Rollback deployment (and children) to previous"))
-            .subcommand(SubCommand::with_name("history")
-                .about("Show helm history for a service"))
-            .subcommand(SubCommand::with_name("recreate")
-                .about("Recreate pods and reconcile helm config for a service"))
-            .subcommand(SubCommand::with_name("upgrade")
-                .about("Upgrade a helm release from a manifest")
-                .arg(Arg::with_name("no-wait")
-                    .long("no-wait")
-                    .help("Do not wait for service timeout"))
-                .arg(Arg::with_name("auto-rollback")
-                    .long("auto-rollback"))))
-
         .subcommand(SubCommand::with_name("shell")
             .about("Shell into pods for a service described in a manifest")
             .arg(Arg::with_name("pod")
@@ -219,15 +192,7 @@ fn main() {
                     .takes_value(true)
                     .help("Number of worker threads used"))
                 .subcommand(SubCommand::with_name("reconcile")
-                    .about("Reconcile vault policies with manifest state")))
-            .subcommand(SubCommand::with_name("helm")
-                .arg(Arg::with_name("num-jobs")
-                    .short("j")
-                    .long("num-jobs")
-                    .takes_value(true)
-                    .help("Number of worker threads used"))
-                .subcommand(SubCommand::with_name("diff")
-                    .about("Diff kubernetes region configs with local state"))))
+                    .about("Reconcile vault policies with manifest state"))))
         // all the listers (hidden from cli output)
         .subcommand(SubCommand::with_name("list-regions")
             .setting(AppSettings::Hidden)
@@ -308,6 +273,12 @@ fn main() {
                 .long("git")
                 .global(true)
                 .help("Comparing with master using a temporary git stash and git checkout"))
+              .arg(Arg::with_name("helm")
+                .long("helm")
+                .global(true)
+                .conflicts_with("git")
+                .conflicts_with("crd")
+                .help("Comparing using helm-diff plugin"))
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service to be diffed"))
@@ -543,8 +514,8 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
     else if let Some(a) = args.subcommand_matches("status") {
         let svc = a.value_of("service").map(String::from).unwrap();
-        let (conf, region) = resolve_config(a, ConfigType::Base)?;
-        return shipcat::helm::status(&svc, &conf, &region);
+        let (_conf, region) = resolve_config(a, ConfigType::Base)?;
+        return shipcat::kube::get_all(&svc, &region).map(void)
     }
     else if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");
@@ -609,8 +580,8 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("diff") {
         let svc = a.value_of("service").map(String::from).unwrap();
         let has_diff = if a.is_present("crd") {
-            let (conf, region) = resolve_config(a, ConfigType::Base)?;
             // NB: no secrets in CRD
+            let (conf, region) = resolve_config(a, ConfigType::Base)?;
             if a.is_present("git") {
                 shipcat::diff::values_vs_git(&svc, &conf, &region)?
             } else {
@@ -620,10 +591,12 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
             let (conf, region) = resolve_config(a, ss)?;
             let mock = !a.is_present("secrets");
-            if a.is_present("git") {
+            if a.is_present("helm") {
+                shipcat::diff::helm_diff(&svc, &conf, &region, mock)?
+            } else if a.is_present("git") {
+                // does not support mocking (but also has no secrets)
                 shipcat::diff::template_vs_git(&svc, &conf, &region)?
             } else {
-                // the only mode that can support secrets!
                 shipcat::diff::template_vs_kubectl(&svc, &conf, &region, mock)?
             }
         };
@@ -667,49 +640,6 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         return shipcat::apply::apply(mf, force, &region, &conf, wait, ver).map(void);
     }
 
-    // helm subcommands
-    else if let Some(a) = args.subcommand_matches("helm") {
-        let svc = a.value_of("service").unwrap(); // defined required above
-        let ver = a.value_of("tag").map(String::from); // needed for some subcommands
-
-        let (conf, region) = resolve_config(args, ConfigType::Filtered)?;
-
-        // small wrapper around helm history does not need anything fancy
-        if let Some(_) = a.subcommand_matches("history") {
-            return shipcat::helm::history(&svc, &conf, &region);
-        }
-        // small wrapper around helm rollback
-        if let Some(_) = a.subcommand_matches("rollback") {
-            return shipcat::helm::direct::rollback_wrapper(&svc, &conf, &region);
-        }
-
-        let umode = if let Some(b) = a.subcommand_matches("upgrade") {
-            if b.is_present("auto-rollback") {
-                shipcat::helm::UpgradeMode::UpgradeWaitMaybeRollback
-            }
-            else if b.is_present("no-wait") {
-                shipcat::helm::UpgradeMode::UpgradeNoWait
-            }
-            else {
-                shipcat::helm::UpgradeMode::UpgradeWait
-            }
-        }
-        else if let Some(_) = a.subcommand_matches("diff") {
-            shipcat::helm::UpgradeMode::DiffOnly
-        }
-        else if let Some(_) = a.subcommand_matches("recreate") {
-            shipcat::helm::UpgradeMode::UpgradeRecreateWait
-        }
-        else {
-            unreachable!("Helm Subcommand valid, but not implemented")
-        };
-        assert!(conf.has_secrets()); // sanity on cluster disruptive commands
-        return shipcat::helm::direct::upgrade_wrapper(svc,
-            umode, &region,
-            &conf, ver).map(void);
-    }
-
-
     // 4. cluster level commands
     else if let Some(a) = args.subcommand_matches("cluster") {
         if let Some(b) = a.subcommand_matches("crd") {
@@ -728,16 +658,6 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("reconcile") {
                 return shipcat::cluster::mass_vault(&conf, &region, jobs);
-            }
-        }
-        if let Some(b) = a.subcommand_matches("helm") {
-            // absolutely need secrets for helm reconcile
-            let (conf, region) = resolve_config(args, ConfigType::Filtered)?;
-            assert!(conf.has_secrets()); // sanity on cluster disruptive commands
-
-            let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
-            if let Some(_) = b.subcommand_matches("diff") {
-                return shipcat::cluster::helm_diff(&conf, &region, jobs);
             }
         }
     }

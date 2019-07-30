@@ -18,8 +18,7 @@ pub enum TimeSpec {
 /// The type of annotation event
 #[derive(Debug)]
 pub enum Event {
-    Upgrade,
-    Rollback,
+    Upgrade, // shipcat::apply
 }
 
 /// A representation of a particular deployment event
@@ -65,7 +64,6 @@ pub fn create(annotation: Annotation) -> Result<()> {
         "text": format!("{} {}={} in {}",
             match annotation.event {
                 Event::Upgrade => "Upgrade",
-                Event::Rollback => "Rollback"
             },
             &annotation.service,
             &annotation.version,

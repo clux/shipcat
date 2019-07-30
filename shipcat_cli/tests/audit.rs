@@ -1,6 +1,7 @@
 #![warn(rust_2018_idioms)]
 
 mod common;
+use crate::common::setup;
 
 use std::collections::BTreeMap;
 
@@ -12,13 +13,13 @@ use shipcat;
 use crate::mockito::mock;
 // use mockito::Matcher;
 
-use crate::shipcat::audit;
-use crate::shipcat::{AuditWebhook};
-use crate::shipcat::helm::direct::UpgradeData;
-use crate::shipcat::webhooks;
+use crate::shipcat::{audit, webhooks, AuditWebhook};
+use crate::shipcat::apply::UpgradeInfo;
+use shipcat_definitions::{ConfigType, Config};
 
 #[test]
 fn audit_does_audit_deployment() {
+    setup();
     let mut whc: BTreeMap<String, String> = BTreeMap::default();
     whc.insert("SHIPCAT_AUDIT_CONTEXT_ID".into(), "egcontextid".into());
     whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), "http://eg.server/".into());
@@ -28,14 +29,13 @@ fn audit_does_audit_deployment() {
         url: Url::parse(&format!("{}/audit", mockito::SERVER_URL)).unwrap(),
         token: "1234auth".into(),
     };
+
+    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let mf = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg)
+        .unwrap().version("1.0.0".into());
+
     let us = webhooks::UpgradeState::Completed;
-    let ud = UpgradeData{
-        name: "svc".into(),
-        chart: "wtv".into(),
-        version: "v1".into(),
-        region: "r1".into(),
-        ..Default::default()
-    };
+    let ud = UpgradeInfo::new(&mf);
 
     let mocked = mock("POST", "/audit")
         .match_header("content-type", "application/json")
@@ -60,7 +60,7 @@ fn audit_does_audit_deployment() {
         .expect(1)
         .create();
 
-    assert!(audit::audit_deployment(&us, &ud, &audcfg, whc).is_ok());
+    assert!(audit::audit_apply(&us, &ud, &audcfg, whc).is_ok());
     mocked.assert();
 }
 

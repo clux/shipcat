@@ -26,7 +26,7 @@ kubecat() {
     -v $PWD:/volume \
     -w /volume \
     --rm \
-    -t "quay.io/babylonhealth/kubecat:${SHIPCAT_VER}" bash -c "source jenkins.sh > /dev/null; login > /dev/null; $@"
+    -t "quay.io/babylonhealth/kubecat:${SHIPCAT_VER}" bash -c "source ci.sh > /dev/null; login > /dev/null; $@"
 }
 
 if ! kubecat "shipcat cluster helm reconcile"; then
@@ -47,7 +47,7 @@ Requires a way to generate an ephemeral `~/.kube/config` for the job runner. We 
 ```bash
 KUBE_REGION="platformus-green"
 kubectl config use-context "${KUBE_REGION}"
-secretname=$(kubectl describe sa jenkins -n kube-system | grep jenkins-token | tail -n 1 | awk '{print $2}')
+secretname=$(kubectl describe sa ci -n kube-system | grep ci-token | tail -n 1 | awk '{print $2}')
 KUBE_TOKEN=$(kubectl get secret "${secretname}" -n kube-system -o "jsonpath={.data.token}" | base64 -d)
 KUBE_CERT=$(kubectl get secret "${secretname}" -n kube-system \
     -o "jsonpath={.data['ca\.crt']}")
@@ -56,21 +56,21 @@ KUBE_CERT=$(kubectl get secret "${secretname}" -n kube-system \
 ### Vault
 A github bot account with a personal access token that is allowed to read from the vault (write permissions not needed).
 
-```bash
+```sh
 vault login -token-only -method=github token="$GITHUB_PAT"
 ```
 
 ## Slack
 A valid slack hook url that can post to the slack channel defined above.
 
-```bash
-export SLACK_SHIPCAT_HOOK_URL="https://hooks.slack.com/services/ZZZZZZZZ/ZZZZZZZZZ/zzzzzzzzzzzzzzzzzzzzzzz"
+```sh
+export SLACK_SHIPCAT_HOOK_URL="https://hooks.slack.com/services/xxx/zzz/yyy"
 ```
 
 ## Putting it all together
-A `jenkins.sh` at the root of manifests should not be more involved than:
+A `ci.sh` at the root of manifests should not be more involved than:
 
-```bash
+```sh
 #!/bin/bash
 
 kube-login() {
@@ -81,7 +81,7 @@ kube-login() {
   local -r namespace="$(shipcat get -r "$KUBE_REGION" -c "$KUBE_CLUSTER" clusterinfo | jq ".namespace" -r)"
   local -r apiserver="$(shipcat get -r "$KUBE_REGION" -c "$KUBE_CLUSTER" clusterinfo | jq ".apiserver" -r)"
 
-  # Logs in to kubernetes with the jenkins sa credentials
+  # Logs in to kubernetes with the ci sa credentials
   # Assumes that
   # - secrets have been created outside docker
   # - you are currently inside kubecat with secrets mounted
@@ -91,13 +91,13 @@ kube-login() {
     --server="${apiserver}" \
     "${KUBE_REGION}-cluster"
 
-  kubectl config set-credentials jenkins-sa \
+  kubectl config set-credentials ci-sa \
     --token="${KUBE_TOKEN}" \
     --client-key="ca.crt"
 
   kubectl config set-context \
     --cluster="${KUBE_REGION}-cluster" \
-    --user=jenkins-sa \
+    --user=ci-sa \
     --namespace="${namespace}" \
     "${KUBE_REGION}"
   kubectl config use-context "${KUBE_REGION}"

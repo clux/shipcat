@@ -470,11 +470,6 @@ impl ToString for Environment {
 /// Environments are well defined strings
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum ReconciliationMode {
-    /// Tiller owned, CRD based decision
-    ///
-    /// If CRD was configured, then helm apply.
-    CrdBorrowed,
-
     /// Tiller owned, CRD based decision, but versioned and forceable
     ///
     /// A stop gap between CRDOwned
@@ -488,7 +483,7 @@ pub enum ReconciliationMode {
 
 impl Default for ReconciliationMode {
     fn default() -> Self {
-        ReconciliationMode::CrdBorrowed
+        ReconciliationMode::CrdVersioned
     }
 }
 

@@ -106,7 +106,7 @@ helm --tiller-namespace=apps del --purge blog
 then we can respond with:
 
 ```sh
-shipcat cluster helm reconcile
+shipcat cluster crd reconcile
 ```
 
 ## Verifying

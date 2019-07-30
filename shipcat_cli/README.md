@@ -108,12 +108,6 @@ Generate StatusCake configuration format for external monitoring of services in 
 
 ## cluster level commands
 
-### cluster helm diff
-Checks what you broke across an entire region by modifying charts.
-
-### cluster helm reconcile
-Apply the current manifest configuration to the cluster in parallel.
-
 ### cluster crd reconcile
 Apply all the CRDs from manifests to the cluster.
 
