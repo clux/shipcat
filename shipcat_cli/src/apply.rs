@@ -145,14 +145,22 @@ pub fn apply(svc: &str,
     // Attach diff to UpgradeInfo if the service exists and we can diff
     if exists { // attach diff if possible
         match diff_helm(&mf, &hfile) {
-            Ok(hdiff) => ui.diff = hdiff,
-            Err(e) => warn!("Unable to diff against {}: {}", svc, e),
-        }
-        // If we received no diff, don't try to upgrade
-        // This is a stronger diff than CRD-only if this succeeds; STOP.
-        if ui.diff.is_none() {
-            info!("{} up to date (full diff check)", svc);
-            return Ok(None)
+            Ok(hdiff) => {
+                ui.diff = hdiff;
+                // If we explicitly received no diff, don't try to upgrade
+                // This is a stronger diff than CRD-only if this succeeds; STOP.
+                if ui.diff.is_none() {
+                    info!("{} up to date (full diff check)", svc);
+                    return Ok(None)
+                }
+            }
+            // If diffing failed, only run the upgrade if using --force
+            Err(e) => {
+                warn!("Unable to diff against {}: {}", svc, e);
+                if !force {
+                    return Ok(None)
+                }
+            }
         }
     }
 
