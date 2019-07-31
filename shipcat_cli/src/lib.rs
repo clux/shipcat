@@ -99,7 +99,7 @@ pub mod kube;
 /// Apply logic
 pub mod apply;
 
-/// A small CLI helm interface
+/// A small CLI helm interface (deprecated)
 pub mod helm;
 
 /// A small CLI kong config generator interface

@@ -1,18 +1,16 @@
 mod common;
 use crate::common::setup;
 use shipcat_definitions::{Config, ConfigType};
-use shipcat::helm::direct::values;
+use shipcat::helm;
 
 #[test]
-fn helm_values() {
+#[ignore] // This test requires helm cli - not on circle
+fn helm_template() {
     setup();
     let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
-    let mf = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg).unwrap().stub(&reg).unwrap();
-    if let Err(e) = values(&mf, None) {
-        println!("Failed to create helm values for fake-ask");
-        print!("{}", e);
-        assert!(false);
-    }
-    // can verify output here matches what we want if we wanted to,
-    // but type safety proves 99% of that anyway
+    let mock = true;
+    let res = helm::template("fake-ask", &reg, &conf, None, mock, None).unwrap();
+
+    // verify we have deferred to helm for templating
+    assert!(res.contains("image: \"quay.io/babylonhealth/fake-ask:1.6.0\""));
 }

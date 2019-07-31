@@ -1,7 +1,12 @@
+use threadpool::ThreadPool;
+use std::sync::mpsc::channel;
+
+use shipcat_definitions::{Config, Region, Team, BaseManifest};
+use shipcat_filebacked::{SimpleManifest};
+
 use crate::apply;
 use crate::helm; // temporary
-use shipcat_definitions::{Config, Region, Team, BaseManifest, ReconciliationMode};
-use shipcat_filebacked::{SimpleManifest};
+use super::kube;
 use crate::webhooks::{self, UpgradeState};
 use super::{Result, Error, ErrorKind};
 
@@ -14,14 +19,11 @@ pub fn mass_crd(conf_sec: &Config, conf_base: &Config, reg: &Region, n_workers: 
     crd_reconcile(svcs, conf_sec, conf_base, &reg.name, n_workers)
 }
 
-use super::kube;
 fn crd_reconcile(svcs: Vec<SimpleManifest>,
     config_sec: &Config, config_base: &Config,
     region: &str,
     n_workers: usize) -> Result<()>
 {
-    use threadpool::ThreadPool;
-    use std::sync::mpsc::channel;
     // NB: This needs config_base for base crd application
     // shipcatconfig crd should not have secrets when applied
     // shipcatmanifest_crd should not have secrets when applied (fine as long as manifest is not complete())
@@ -57,8 +59,10 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>,
 
     webhooks::reconcile_event(UpgradeState::Started, &region_sec);
     // then parallel apply the remaining ones
+    let force = std::env::var("SHIPCAT_MASS_RECONCILE").unwrap_or("0".into()) == "1";
+    let wait_for_rollout = true;
     let (tx, rx) = channel();
-    for svc in svcs {
+    for svc in svc_names.clone() {
         let reg = region_sec.clone();
         let conf = config_sec.clone();
         assert!(conf.has_secrets());
@@ -66,7 +70,7 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>,
         let tx = tx.clone(); // tx channel reused in each thread
         pool.execute(move || {
             debug!("Running CRD reconcile for {:?}", svc);
-            let res = crd_reconcile_worker(&svc.base.name, &conf, &reg);
+            let res = apply::apply(&svc, force, &reg, &conf, wait_for_rollout, None);
             tx.send(res).expect("channel will be there waiting for the pool");
         });
     }
@@ -98,21 +102,7 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>,
     webhooks::reconcile_event(UpgradeState::Completed, &region_sec);
 
     // temporary sanity help - to clean out stragglers
-    let _ = helm::helpers::find_redundant_services(&region_sec.namespace, &svc_names);
-    Ok(())
-}
-
-fn crd_reconcile_worker(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
-    let mf = shipcat_filebacked::load_manifest(svc, conf, reg)?;
-
-    // bypass pre-crd apply so we can apply CRds with versions..
-    if reg.reconciliationMode == ReconciliationMode::CrdVersioned {
-        let force = std::env::var("SHIPCAT_MASS_RECONCILE").unwrap_or("0".into()) == "1";
-        let wait = true;
-        apply::apply(mf, force, reg, conf, wait, None)?;
-    } else {
-        unimplemented!()
-    }
+    let _ = helm::find_redundant_services(&region_sec.namespace, &svc_names);
     Ok(())
 }
 
@@ -138,9 +128,6 @@ pub fn mass_vault(conf: &Config, reg: &Region, n_workers: usize) -> Result<()> {
 }
 
 fn vault_reconcile(mfs: Vec<BaseManifest>, conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
-    use threadpool::ThreadPool;
-    use std::sync::mpsc::channel;
-
     let n_jobs = conf.teams.len();
     let pool = ThreadPool::new(n_workers);
     info!("Starting {} parallel vault jobs using {} workers", n_jobs, n_workers);

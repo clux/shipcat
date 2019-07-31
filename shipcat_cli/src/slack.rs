@@ -3,11 +3,11 @@ use slack_hook::SlackTextContent::{self, Text, Link, User};
 use std::env;
 use semver::Version;
 
-use super::helm::helpers;
-use super::structs::{Contact, Metadata};
-use super::{Config, Result, ErrorKind, ResultExt};
+use shipcat_definitions::structs::{Contact, Metadata};
 use shipcat_definitions::config::NotificationMode;
 use shipcat_definitions::region::{Environment};
+use crate::diff;
+use super::{Config, Result, ErrorKind, ResultExt};
 
 /// Slack message options we support
 ///
@@ -150,16 +150,16 @@ fn send_internal(msg: Message, chan: String, conf: &Config, env: &Environment) -
 
     let mut codeattach = None;
     if let Some(diff) = msg.code {
-
         // does the diff contain versions?
-        let mut diff_is_pure_verison_change = false;
-        if let Some((v1, v2)) = helpers::infer_version_change(&diff) {
+        let is_version_only = if let Some((v1, v2)) = diff::infer_version_change(&diff) {
             let lnk = create_github_compare_url(&md, (&v1, &v2));
-            diff_is_pure_verison_change = helpers::diff_is_version_only(&diff, (&v1, &v2));
             texts.push(lnk);
-        }
-        // attach full diff as a slack attachment otherwise
-        if !diff_is_pure_verison_change {
+            diff::is_version_only(&diff, (&v1, &v2))
+        } else {
+            false
+        };
+        // is diff otherwise meaningful?
+        if !is_version_only {
             codeattach = Some(AttachmentBuilder::new(diff.clone())
                 .color("#439FE0")
                 .text(vec![Text(diff.into())].as_slice())

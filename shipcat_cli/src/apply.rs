@@ -1,10 +1,12 @@
-use std::path::{Path};
-use std::fs::{self, File};
-use std::io::{Write};
-use crate::kube;
+use std::fs;
+
 use shipcat_definitions::structs::Metadata;
-use crate::helm;
-use crate::webhooks::{self, UpgradeState};
+use crate::{
+    helm,
+    kube,
+    diff,
+    webhooks::{self, UpgradeState}
+};
 
 use super::{Manifest, Config, Region, Result, ResultExt, ErrorKind};
 
@@ -67,7 +69,7 @@ impl UpgradeInfo {
 /// It is also entirely responsible for sending webhooks on errors / successes.
 /// As such, it's entirely responsible for not propagating random errors here with `?`
 /// Every error cases is something that might need to be notified.
-pub fn apply(mfbase: Manifest,
+pub fn apply(svc: &str,
              force: bool,
              region: &Region,
              conf: &Config,
@@ -77,10 +79,7 @@ pub fn apply(mfbase: Manifest,
     if let Err(e) = webhooks::ensure_requirements(&region) {
         warn!("Could not ensure webhook requirements: {}", e);
     }
-    let svc = mfbase.name.clone();
-    // Internal sanity
-    assert_eq!(mfbase.region, region.name);
-    assert_eq!(mfbase.namespace, region.namespace);
+    let mfbase = shipcat_filebacked::load_manifest(&svc, &conf, &region)?;
 
     // A version is set EITHER via `-t SOMEVER` on CLI, or pinned in manifest
     if passed_version.is_some() && mfbase.version.is_some() {
@@ -141,7 +140,7 @@ pub fn apply(mfbase: Manifest,
 
     // Create values file
     let hfile = format!("{}.helm.gen.yml", svc);
-    values_helm(&mf, &hfile)?;
+    helm::values(&mf, &hfile)?;
 
     // Attach diff to UpgradeInfo if the service exists and we can diff
     if exists { // attach diff if possible
@@ -216,12 +215,12 @@ fn upgrade_helm(mf: &Manifest, hfile: &str) -> Result<()> {
         "--install".into(),
     ];
     info!("helm {}", upgradevec.join(" "));
-    helm::helpers::hexec(upgradevec).chain_err(||
+    helm::hexec(upgradevec).chain_err(||
         ErrorKind::HelmUpgradeFailure(mf.name.clone()))?;
     Ok(())
 }
 
-/// Minified version of helm::direct::diff
+/// Minified helm diff shell out
 ///
 /// To be gradually replaced by kubectl diff
 pub fn diff_helm(mf: &Manifest, hfile: &str) -> Result<Option<String>> {
@@ -238,8 +237,8 @@ pub fn diff_helm(mf: &Manifest, hfile: &str) -> Result<Option<String>> {
         hfile.into(),
     ];
     info!("helm {}", diffvec.join(" "));
-    let (hdiffunobfusc, hdifferr, _) = helm::helpers::hout(diffvec.clone())?;
-    let helmdiff = helm::helpers::obfuscate_secrets(
+    let (hdiffunobfusc, hdifferr, _) = helm::hout(diffvec.clone())?;
+    let helmdiff = diff::obfuscate_secrets(
         hdiffunobfusc, // move this away quickly..
         mf.get_secrets()
     );
@@ -261,7 +260,7 @@ pub fn diff_helm(mf: &Manifest, hfile: &str) -> Result<Option<String>> {
         }
     }
 
-    let smalldiff = helm::helpers::diff_format(helmdiff.clone());
+    let smalldiff = diff::minify(helmdiff.clone());
 
     Ok(if !smalldiff.is_empty() {
         debug!("{}", helmdiff); // full diff for logs
@@ -272,15 +271,7 @@ pub fn diff_helm(mf: &Manifest, hfile: &str) -> Result<Option<String>> {
     })
 }
 
-pub fn values_helm(mf: &Manifest, output: &str) -> Result<()> {
-    let encoded = serde_yaml::to_string(&mf)?;
-    let pth = Path::new(".").join(output);
-    debug!("Writing helm values for {} to {}", mf.name, pth.display());
-    let mut f = File::create(&pth)?;
-    writeln!(f, "{}", encoded)?;
-    debug!("Wrote helm values for {} to {}: \n{}", mf.name, pth.display(), encoded);
-    Ok(())
-}
+
 
 /*
 a future crd applier, that will probably need changing and updating for kube 1.15

@@ -567,7 +567,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let (conf, region) = resolve_config(a, ss)?;
 
         let mock = !a.is_present("secrets");
-        return shipcat::helm::direct::template(&svc,
+        return shipcat::helm::template(&svc,
                 &region, &conf, None, mock, None).map(void);
     }
     else if let Some(a) = args.subcommand_matches("crd") {
@@ -642,8 +642,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let force = a.is_present("force");
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
         assert!(conf.has_secrets()); // sanity on cluster disruptive commands
-        let mf = shipcat_filebacked::load_manifest(&svc, &conf, &region)?;
-        return shipcat::apply::apply(mf, force, &region, &conf, wait, ver).map(void);
+        return shipcat::apply::apply(&svc, force, &region, &conf, wait, ver).map(void);
     }
 
     // 4. cluster level commands
