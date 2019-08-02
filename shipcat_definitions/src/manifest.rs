@@ -654,8 +654,8 @@ pub struct Manifest {
     ///   uris: /webapp
     ///   strip_uri: true
     /// ```
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub kong: Option<Kong>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub kongApis: Vec<Kong>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gate: Option<Gate>,
@@ -801,7 +801,7 @@ impl Manifest {
 
         // TODO [DIP-499]: Separate gate/kong params + adjust the checks
         if let Some(g) = &self.gate {
-            if self.kong.is_none() {
+            if self.kongApis.is_empty() {
                 bail!("Can't have a `gate` configuration without a `kong` one");
             }
             if g.public != self.publiclyAccessible {

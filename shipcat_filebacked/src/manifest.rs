@@ -151,7 +151,7 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             serviceAnnotations: overrides.service_annotations,
             podAnnotations: overrides.pod_annotations.build(&())?,
             labels: overrides.labels.build(&())?,
-            kong: simple.kong,
+            kongApis: simple.kong_apis,
             gate: overrides.gate,
             hosts: overrides.hosts.unwrap_or_default(),
             kafka: kafka,
@@ -184,11 +184,11 @@ impl ManifestSource {
             image: Some(self.build_image(&base.name)?),
 
             version: overrides.version.build(&())?,
-            kong: defaults.kong.build(&KongBuildParams {
+            kong_apis: defaults.kong.build(&KongBuildParams {
                 service: base.name.to_string(),
                 region: region.clone(),
                 hosts: overrides.hosts,
-            })?.unwrap_or(None),
+            })?.unwrap_or_default().map(|k| vec![k]).unwrap_or_default(),
 
             base,
         })

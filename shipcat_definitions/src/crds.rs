@@ -105,7 +105,7 @@ pub fn gen_all_crds() -> Vec<CrdSpec> {
                 name: "Kong".into(),
                 apcType: "string".into(),
                 description: "The URI where the service is available through kong".into(),
-                JSONPath: ".spec.kong.uris".into(),
+                JSONPath: ".spec.kong_apis[*].uris".into(),
             }
         ]),
     };

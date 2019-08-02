@@ -177,7 +177,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
     // Get API Info from Manifests
     for svc in shipcat_filebacked::available(conf, reg)? {
         let mf = shipcat_filebacked::load_manifest(&svc.base.name, &conf, &reg)?;
-        if let Some(k) = mf.kong {
+        for k in mf.kongApis {
             let mut params = APIServiceParams {
                 uris: k.uris.unwrap_or("".into()),
                 hosts: k.hosts.join(","),
@@ -185,7 +185,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
                 publiclyAccessible: mf.publiclyAccessible,
                 websockets: false,
             };
-            if let Some(g) = mf.gate {
+            if let Some(g) = &mf.gate {
                 // `manifest.verify` ensures that if there is a gate conf,
                 // `gate.public` must be equal to `publiclyAccessible`.
                 // That means that the following line does not alter the value
@@ -195,7 +195,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
                 params.publiclyAccessible = g.public;
                 params.websockets = g.websockets;
             }
-            services.insert(svc.base.name, params);
+            services.insert(svc.base.name.clone(), params);
         }
     }
 

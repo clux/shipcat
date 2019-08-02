@@ -15,7 +15,7 @@ pub struct SimpleManifest {
     pub external: bool,
     pub version: Option<String>,
     pub image: Option<String>,
-    pub kong: Option<Kong>,
+    pub kong_apis: Vec<Kong>,
 }
 
 impl fmt::Debug for SimpleManifest {

@@ -66,15 +66,17 @@ fn generate_statuscake_output(conf: &Config, region: &Region) -> Result<Vec<Stat
         // Generate list of APIs to feed to Statuscake
         for mf in shipcat_filebacked::available(conf, region)? {
             debug!("Found service {:?}", mf);
-            if let Some(k) = mf.kong.clone() {
-                debug!("{:?} has a kong configuration, adding", mf);
+            for k in mf.kong_apis.clone() {
+                if k.name != mf.base.name {
+                    debug!("{:?} has an additional kong configuration ({:?}), skipping", mf, k.name);
+                    continue
+                }
+                debug!("{:?} has a main kong configuration, adding", mf);
                 tests.push(StatuscakeTest::new(
                         region,
                         mf.base.name.to_string(),
                         external_svc.to_string(),
                         k));
-            } else {
-                debug!("{:?} has no kong configuration, skipping", mf);
             }
         }
         // Extra APIs - let's not monitor them for now (too complex)

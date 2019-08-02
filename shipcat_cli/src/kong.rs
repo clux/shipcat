@@ -70,14 +70,18 @@ pub fn generate_kong_output(conf: &Config, region: &Region) -> Result<KongOutput
     // Generate list of APIs to feed to Kong
     for mf in shipcat_filebacked::available(conf, region)? {
         debug!("Scanning service {:?}", mf);
-        if let Some(k) = mf.kong {
-           apis.insert(mf.base.name, k);
+        for k in mf.kong_apis {
+            if let Some(clash) = apis.insert(k.name.clone(), k) {
+                bail!("A Kong API named {:?} is already defined", clash.name);
+            }
         }
     }
 
     // Add general Kong region config
     for (name, api) in region.kong.extra_apis.clone() {
-        apis.insert(name, api);
+        if let Some(clash) = apis.insert(name, api) {
+            bail!("A Kong API named {:?} is already defined", clash.name);
+        }
     }
     Ok(KongOutput { apis, kong: region.kong.clone() })
 }
