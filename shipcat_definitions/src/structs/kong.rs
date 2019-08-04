@@ -94,19 +94,6 @@ pub struct Kong {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub babylon_auth_header: Option<BabylonAuthHeader>,
 
-    /// Whether or not to allow anonymous users to go through an authenticated API
-    ///
-    /// Has to match the ID of the anonymous user in the kong configuration.
-    /// See Region::kong::anonymous_consumers
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub oauth2_anonymous: Option<String>,
-
-    /// Whether or not to use the oauth2 extension plugin for this api.
-    ///
-    /// TODO: can probably be deprecated?
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub oauth2_extension_plugin: Option<bool>,
-
     /// The timeout in milliseconds for establishing a connection to your upstream service. Defaults to 6000
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upstream_connect_timeout: Option<u32>,

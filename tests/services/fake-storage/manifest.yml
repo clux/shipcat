@@ -89,5 +89,3 @@ metadata:
   notifications: "#dev-platform-notif-override"
 kong:
   uris: '/fake-storage'
-  authorization:
-    enabled: true

@@ -75,15 +75,33 @@ fn kong_test() {
     let attr = plugin_attributes!("TcpLog", api.plugins.remove(0), ApiPlugin::TcpLog);
     assert_eq!(attr.enabled, true);
 
-    let attr = plugin_attributes!("Oauth2", api.plugins.remove(0), ApiPlugin::Oauth2);
-    assert_eq!(attr.enabled, true);
-    assert_eq!(attr.config.global_credentials, true);
-    assert_eq!(attr.config.provision_key, "key");
-    assert_eq!(attr.config.anonymous, Some("".to_string()));
-    assert_eq!(attr.config.token_expiration, 1800);
+    assert_plugin_removed!("Oauth2", api.plugins.remove(0), ApiPlugin::Oauth2);
 
-    assert_plugin_removed!("Jwt", api.plugins.remove(0), ApiPlugin::Jwt);
-    assert_plugin_removed!("JwtValidator", api.plugins.remove(0), ApiPlugin::JwtValidator);
+    let attr = plugin_attributes!("Jwt", api.plugins.remove(0), ApiPlugin::Jwt);
+    assert_eq!(attr.enabled, true);
+    assert_eq!(attr.config.uri_param_names, Vec::<String>::new());
+    assert_eq!(attr.config.claims_to_verify, vec!["exp"]);
+    assert_eq!(attr.config.key_claim_name, "kid");
+    assert_eq!(attr.config.anonymous, Some("".to_string()));
+
+    let attr = plugin_attributes!("JwtValidator", api.plugins.remove(0), ApiPlugin::JwtValidator);
+    assert_eq!(attr.enabled, true);
+    assert_eq!(attr.config.allowed_audiences, vec!["https://babylonhealth.com"]);
+    assert_eq!(attr.config.expected_region, "dev-uk");
+    assert_eq!(attr.config.expected_scope, "internal");
+    assert_eq!(attr.config.allow_invalid_tokens, false);
+
+    let attr = plugin_attributes!("JsonCookiesToHeaders", api.plugins.remove(0), ApiPlugin::JsonCookiesToHeaders);
+    assert_eq!(attr.enabled, true);
+    assert_eq!(attr.config.field_name, "kong_token");
+    assert_eq!(attr.config.cookie_name, "autologin_token");
+
+    let attr = plugin_attributes!("JsonCookiesCsrf", api.plugins.remove(0), ApiPlugin::JsonCookiesCsrf);
+    assert_eq!(attr.enabled, true);
+    assert_eq!(attr.config.csrf_field_name, "csrf_token");
+    assert_eq!(attr.config.cookie_name, "autologin_info");
+    assert_eq!(attr.config.strict, true);
+    assert_eq!(attr.config.csrf_header_name, "x-security-token");
 
     assert_upstream_header_transform(api.plugins.remove(0), "fake-ask");
 
@@ -104,7 +122,6 @@ fn kong_test() {
     assert_eq!(attr.enabled, true);
 
     assert_plugin_removed!("Oauth2", api.plugins.remove(0), ApiPlugin::Oauth2);
-    assert_plugin_removed!("Oauth2Extension", api.plugins.remove(0), ApiPlugin::Oauth2Extension);
 
     let attr = plugin_attributes!("Jwt", api.plugins.remove(0), ApiPlugin::Jwt);
     assert_eq!(attr.enabled, true);

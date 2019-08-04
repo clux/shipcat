@@ -207,9 +207,6 @@ impl Oauth2PluginConfig {
 }
 
 #[derive(Serialize, Clone, Default)]
-pub struct Oauth2ExtensionPluginConfig {}
-
-#[derive(Serialize, Clone, Default)]
 pub struct JwtPluginConfig {
     pub key_claim_name: String,
     #[serde(serialize_with = "empty_as_brackets")]
@@ -328,7 +325,6 @@ impl Default for CorrelationIdPluginConfig {
 pub enum ApiPlugin {
     TcpLog(PluginBase<TcpLogPluginConfig>),
     Oauth2(PluginBase<Oauth2PluginConfig>),
-    Oauth2Extension(PluginBase<Oauth2ExtensionPluginConfig>),
     Jwt(PluginBase<JwtPluginConfig>),
     JwtValidator(PluginBase<JwtValidatorPluginConfig>),
     Cors(PluginBase<CorsPluginConfig>),
@@ -404,7 +400,6 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
 
         if let Some(a) = v.authorization {
             plugins.push(ApiPlugin::Oauth2(PluginBase::removed()));
-            plugins.push(ApiPlugin::Oauth2Extension(PluginBase::removed()));
             plugins.push(ApiPlugin::Jwt(PluginBase::new(JwtPluginConfig::new(if a.allow_anonymous {
                 Some("anonymous".to_string())
             } else {
@@ -429,24 +424,18 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
                 Authentication::OAuth2 => PluginBase::new(Oauth2PluginConfig::new(
                     config.kong_token_expiration,
                     &config.oauth_provision_key,
-                    v.oauth2_anonymous.clone())),
+                    None)),
                 _ => PluginBase::removed(),
             }));
 
             // JWT plugin
             plugins.push(ApiPlugin::Jwt(match v.auth {
                 Authentication::Jwt => PluginBase::new(JwtPluginConfig::new(
-                    v.oauth2_anonymous.clone(),
+                    None,
                 )),
                 _ => PluginBase::removed(),
             }));
             plugins.push(ApiPlugin::JwtValidator(PluginBase::removed()));
-
-            // OAuth2 extension plugin
-            // TODO: Remove plugin if not Some(false)/None
-            if let Some(true) = v.oauth2_extension_plugin {
-                plugins.push(ApiPlugin::Oauth2Extension(PluginBase::default()));
-            }
         }
 
         // Babylon Auth Header plugin

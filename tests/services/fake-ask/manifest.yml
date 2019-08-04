@@ -74,6 +74,8 @@ dependencies:
   intent: "testing graph module"
 kong:
   uris: /ai-auth
+  authorization:
+    allow_cookies: true
 initContainers:
 - name: initialize
   image: foo

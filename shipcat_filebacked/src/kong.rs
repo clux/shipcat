@@ -29,8 +29,6 @@ pub struct KongSource {
     pub cookie_auth_csrf: Option<bool>,
     pub auth: Option<Authentication>,
     pub babylon_auth_header: Option<BabylonAuthHeader>,
-    pub oauth2_anonymous: Option<String>,
-    pub oauth2_extension_plugin: Option<bool>,
     pub authorization: Enabled<AuthorizationSource>,
 
     pub upstream_connect_timeout: Option<u32>,
@@ -65,12 +63,6 @@ impl Build<Option<Kong>, KongBuildParams> for KongSource {
             if self.cookie_auth_csrf.is_some() {
                 bail!("cookie_auth_csrf and authorization properties are mutually exclusive")
             }
-            if self.oauth2_anonymous.is_some() {
-                bail!("oauth2_anonymous and authorization properties are mutually exclusive")
-            }
-            if self.oauth2_extension_plugin.is_some() {
-                bail!("oauth2_extension_plugin and authorization properties are mutually exclusive")
-            }
         }
 
         let preserve_host = self.preserve_host.unwrap_or(true);
@@ -101,8 +93,6 @@ impl Build<Option<Kong>, KongBuildParams> for KongSource {
             auth,
             cookie_auth: self.cookie_auth.unwrap_or_default(),
             cookie_auth_csrf: self.cookie_auth_csrf.unwrap_or_default(),
-            oauth2_anonymous: self.oauth2_anonymous,
-            oauth2_extension_plugin: self.oauth2_extension_plugin,
         }))
     }
 }
