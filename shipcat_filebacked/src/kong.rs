@@ -24,7 +24,6 @@ pub struct KongSource {
     pub internal: Option<bool>,
     #[serde(rename = "camelCase")]
     pub publicly_accessible: Option<bool>,
-    pub unauthenticated: Option<bool>,
     pub cookie_auth: Option<bool>,
     pub cookie_auth_csrf: Option<bool>,
     pub auth: Option<Authentication>,
@@ -54,7 +53,7 @@ impl Build<Option<Kong>, KongBuildParams> for KongSource {
         }
 
         let upstream_url = self.build_upstream_url(&service, &region.namespace);
-        let (auth, authorization) = KongSource::build_auth(self.auth, self.unauthenticated, self.authorization)?;
+        let (auth, authorization) = KongSource::build_auth(self.auth, self.authorization)?;
 
         if authorization.is_some() {
             if self.cookie_auth.is_some() {
@@ -106,28 +105,19 @@ impl KongSource {
         }
     }
 
-    fn build_auth(auth: Option<Authentication>, unauthenticated: Option<bool>, authz: Enabled<AuthorizationSource>) -> Result<(Authentication, Option<Authorization>)> {
+    fn build_auth(auth: Option<Authentication>, authz: Enabled<AuthorizationSource>) -> Result<(Authentication, Option<Authorization>)> {
         match (
             auth,
-            unauthenticated.unwrap_or(false),
             authz.build(&())?,
         ) {
-            // unauthenticated is true
-            (None, true, None) => Ok((Authentication::None, None)),
-            (Some(_), true, _) => {
-                bail!("unauthenticated and auth properties are mutually exclusive")
-            }
-            (_, true, Some(_)) => {
-                bail!("unauthenticated and authorization properties are mutually exclusive")
-            }
             // authorization is enabled
-            (None, _, Some(a)) | (Some(Authentication::Jwt), _, Some(a)) => {
+            (None, Some(a)) | (Some(Authentication::Jwt), Some(a)) => {
                 Ok((Authentication::Jwt, Some(a)))
             }
-            (Some(_), _, Some(_)) => bail!("auth must be unset or JWT if authorization is enabled"),
+            (Some(_), Some(_)) => bail!("auth must be unset or JWT if authorization is enabled"),
             // otherwise
-            (Some(x), _, _) => Ok((x.clone(), None)),
-            (None, _, _) => Ok((Authentication::default(), None)),
+            (Some(x), _) => Ok((x.clone(), None)),
+            (None, _) => Ok((Authentication::default(), None)),
         }
     }
 
