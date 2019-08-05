@@ -1,14 +1,19 @@
 use std::fs;
 
-use shipcat_definitions::structs::Metadata;
+use shipcat_definitions::{
+    Manifest, Config, Region,
+    ReconciliationMode,
+    structs::Metadata,
+};
 use crate::{
     helm,
-    kube,
+    kubectl,
+    status,
     diff,
     webhooks::{self, UpgradeState}
 };
 
-use super::{Manifest, Config, Region, Result, ResultExt, ErrorKind};
+use super::{Result, ResultExt, ErrorKind};
 
 /// Information from an upgrade
 ///
@@ -76,6 +81,26 @@ pub fn apply(svc: &str,
              wait: bool,
              passed_version: Option<String>) -> Result<Option<UpgradeInfo>>
 {
+    match region.reconciliationMode {
+        ReconciliationMode::CrdStatus =>
+            apply_with_crd(svc, force, region, conf, wait, passed_version),
+        ReconciliationMode::CrdVersioned =>
+            apply_helm(svc, force, region, conf, wait, passed_version),
+        _ => unimplemented!()
+    }
+}
+
+
+/// Current legacy version
+///
+/// Reads CRDs, but doesn't write to them. Upgrades through tiller.
+fn apply_helm(svc: &str,
+             force: bool,
+             region: &Region,
+             conf: &Config,
+             wait: bool,
+             passed_version: Option<String>) -> Result<Option<UpgradeInfo>>
+{
     if let Err(e) = webhooks::ensure_requirements(&region) {
         warn!("Could not ensure webhook requirements: {}", e);
     }
@@ -92,7 +117,7 @@ pub fn apply(svc: &str,
     // This is currently needed to determine whether or not we run a diff.
     // (kube 1.13 diff can work this out, but helm diff can't.)
     // TODO: when on 1.13 only do this when explicit_version.is_none()
-    let (exists, fallback) = match kube::get_running_version(&svc, &mfbase.namespace) {
+    let (exists, fallback) = match kubectl::get_running_version(&svc, &mfbase.namespace) {
         Ok(running_ver) => (true, running_ver),
         Err(e) => {
             if let Some(v) = &explicit_version {
@@ -132,7 +157,7 @@ pub fn apply(svc: &str,
     // Old style apply shipcatmanifest crd (TODO: use kube api for .status setting)
     assert!(mfcrd.version.is_some()); // ensure crd is in right state w/o secrets
     assert!(mfcrd.is_base()); // TODO: inside crd apply fn
-    let changed = kube::apply_crd(&svc, mfcrd, &region.namespace)?;
+    let changed = kubectl::apply_crd(&svc, mfcrd, &region.namespace)?;
     if exists && !changed && !force {
         info!("{} up to date (crd check)", svc);
         return Ok(None)
@@ -170,7 +195,6 @@ pub fn apply(svc: &str,
             // upgrade failed immediately - couldn't create resources
             // typically validation failures or rbac faults
             error!("{} from {}", e, ui.name);
-            // TODO: write shipcatmanifest .status here...
             webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
             return Err(e);
         },
@@ -179,21 +203,17 @@ pub fn apply(svc: &str,
                 info!("successfully applied {} (without waiting)", ui.name);
             }
             else {
-                match kube::await_rollout_status(&mf) {
-                    Ok(success) => {
-                        if success {
-                            info!("successfully rolled out {}", &ui.name);
-                            // TODO: write shipcatmanifest .status here...
-                            webhooks::apply_event(UpgradeState::Completed, &ui, &region, &conf);
-                        } else {
-                            let _ = kube::debug_rollout_status(&mf);
-                            let _ = kube::debug(&mf);
-                            // TODO: collect these for shipcatmanifest .status
-                            warn!("failed to roll out {}", &ui.name);
-                            // TODO: write shipcatmanifest .status here...
-                            webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
-                            return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), mf.estimate_wait_time()).into());
-                        }
+                match kubectl::await_rollout_status(&mf) {
+                    Ok(true) => {
+                        info!("successfully rolled out {}", &ui.name);
+                        webhooks::apply_event(UpgradeState::Completed, &ui, &region, &conf);
+                    },
+                    Ok(false) => {
+                        let _ = kubectl::debug_rollout_status(&mf);
+                        let _ = kubectl::debug(&mf);
+                        warn!("failed to roll out {}", &ui.name);
+                        webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
+                        return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), mf.estimate_wait_time()).into());
                     },
                     Err(e) => {
                         webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
@@ -207,6 +227,212 @@ pub fn apply(svc: &str,
     let _ = fs::remove_file(&hfile); // try to remove temporary file
     Ok(Some(ui))
 }
+
+/// Last version of apply that uses tiller
+///
+/// This writes events to uses the shipcatmanifest crd
+fn apply_with_crd(svc: &str,
+             force: bool,
+             region: &Region,
+             conf: &Config,
+             wait: bool,
+             passed_version: Option<String>) -> Result<Option<UpgradeInfo>>
+{
+    if let Err(e) = webhooks::ensure_requirements(&region) {
+        warn!("Could not ensure webhook requirements: {}", e);
+    }
+    let mfbase = shipcat_filebacked::load_manifest(&svc, &conf, &region)?;
+
+    // A version is set EITHER via `-t SOMEVER` on CLI, or pinned in manifest
+    if passed_version.is_some() && mfbase.version.is_some() {
+        error!("Overriding a pinned version will be undone at next reconcile");
+        bail!("Cannot override version for '{}' because it is pinned in manifests", svc);
+    }
+    let explicit_version = mfbase.version.clone().or(passed_version);
+
+    // Interact with the kube api to get the shipcatmanifest crd and its .status
+    // This lets us work out:
+    // - if the service has been installed before (negates the need for a diff)
+    // - if we need to apply a new crd (so we have an atomic change)
+    // - if we need to interact with secret-manager TODO: do
+    let s = status::Status::new(&mfbase)?;
+
+    // Next large batch is working out the reason for the upgrade (if any)
+    let mut reason = None;
+    // Fetch the full shipcatmanifest crd
+    // NB: if kube api or early stuff here fails, then we are in a bad state.
+    // Before we have applied any CRDs it's safe to bail. Next run can retry.
+    let (actual_version, crd) = match s.get() {
+        Err(_e) => {
+            // This usually fails because it's not yet installed
+            // Other error cases: retry later
+            match explicit_version {
+                None => {
+                    warn!("'{}' cannot be installed (no version inferable)", svc);
+                    return Err(ErrorKind::MissingRollingVersion(svc.into()).into());
+                },
+                Some(v) => {
+                    reason = Some(UpgradeReason::NewService);
+                    (v, None)
+                }
+            }
+        },
+        Ok(o) => {
+            debug!("existing manifest crd: {}={:?}", o.spec.name, o.status);
+            let fallback = o.spec.version.clone().expect("manifest.version set");
+
+            // A version was supplied, and it differs from active CRD
+            if explicit_version.is_some() && explicit_version != o.spec.version {
+                reason = Some(UpgradeReason::VersionChange);
+            }
+            (explicit_version.unwrap_or(fallback), Some(o))
+         },
+    };
+    let existed = crd.is_some(); // no crd => nothing installed
+    debug!("using {}={}", svc, actual_version);
+    // no shoehorning in illegal versions in the crd!
+    region.versioningScheme.verify(&actual_version)?;
+
+    // Complete and apply the CRD
+    let mfcrd = mfbase.version(actual_version);
+    let crd_changed = s.apply(mfcrd.clone())?;
+    // Cheap reconcile ends here if !changed && !force
+    if crd_changed {
+        reason = reason.or(Some(UpgradeReason::ManifestChange));
+    }
+    if reason.is_none() && !force {
+        info!("{} up to date (crd check)", svc);
+        return Ok(None)
+    }
+
+    // Prepare for an actual upgrade now..
+    let mut ui = UpgradeInfo::new(&mfcrd);
+    webhooks::apply_event(UpgradeState::Pending, &ui, &region, &conf);
+
+    // Fetch all the secrets so we can create a completed manifest
+    // TODO: check scp.status.secretChecksum against secret-manager instead
+    let mf = match mfcrd.clone().complete(&region) {
+        Err(e) => {
+            // Fire failed events if secrets fail to resolve
+            webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
+            s.update_generate_false("SecretFailure", e.description().to_string())?;
+            return Err(e.into());
+        },
+        Ok(m) => m,
+    };
+
+    // Create values file
+    let hfile = format!("{}.helm.gen.yml", svc);
+    if let Err(e) = helm::values(&mf, &hfile) {
+        // Errors here are obscure, and should not happen, but pass them up anyway
+        webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
+        s.update_generate_false("ResolveFailure", e.description().to_string())?;
+        return Err(e);
+    };
+
+    // Attach diff to UpgradeInfo if diffing is possible
+    // TODO: use kubectl diff in 1.13
+    if existed { // helm diff only supports diffing if already installed..
+        match diff_helm(&mf, &hfile) {
+            Ok(Some(hdiff)) => {
+                ui.diff = Some(hdiff);
+                reason = reason.or(Some(UpgradeReason::TemplateDiff));
+            },
+            Ok(None) => {
+                // If we explicitly received no diff, don't try to upgrade
+                // This is a stronger diff than CRD-only if this succeeds; STOP.
+                info!("{} up to date (full diff check)", svc);
+                s.update_generate_true()?; // every force reconcile makes one generate cond
+                return Ok(None)
+            }
+            // If diffing failed, only run the upgrade if using --force
+            Err(e) => {
+                warn!("Unable to diff against {}: {}", svc, e);
+                if !force {
+                    // pass on a diff failure
+                    s.update_generate_false("DiffFailure", e.description().to_string())?;
+                    return Ok(None) // but ultimately ignore this in fast reconciles
+                }
+                reason = reason.or(Some(UpgradeReason::Forced))
+            }
+        }
+    }
+
+    // We cannot be here without a reason now, although you have to convince yourself.
+    let ureason = reason.expect("cannot apply without a reason");
+    s.update_generate_true()?; // if this fails, stop, want .status to be correct
+
+    match upgrade_helm(&mf, &hfile) {
+        Err(e) => {
+            error!("{} from {}", e, ui.name);
+            webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
+            let reason = e.description().to_string();
+            s.update_apply_false(ureason.to_string(), "ApplyFailure", reason)?; // TODO: chain
+            return Err(e);
+        },
+        Ok(_) => {
+            let _ = s.update_apply_true(ureason.to_string());
+            if !wait {
+                info!("successfully applied {} (without waiting)", ui.name);
+            }
+            else {
+                match kubectl::await_rollout_status(&mf) {
+                    Ok(true) => {
+                        info!("successfully rolled out {}", &ui.name);
+                        webhooks::apply_event(UpgradeState::Completed, &ui, &region, &conf);
+                        s.update_rollout_true()?;
+                    },
+                    Ok(false) => {
+                        let time = mf.estimate_wait_time();
+                        let reason = format!("timed out waiting {}s for rollout", time);
+                        let _ = kubectl::debug_rollout_status(&mf);
+                        let _ = kubectl::debug(&mf);
+                        // TODO: collect these for .status call ^?
+                        warn!("failed to roll out {}", &ui.name);
+                        webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
+                        s.update_rollout_false("Timeout", reason)?; // TODO: chain
+                        return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), time).into());
+                    },
+                    Err(e) => {
+                        webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
+                        s.update_rollout_false("RolloutTrackFailure", e.description().to_string())?; // TODO: chain
+                        return Err(e)
+                    }
+                }
+            }
+        }
+    };
+    // cleanups in non-error cases
+    let _ = fs::remove_file(&hfile); // try to remove temporary file
+    Ok(Some(ui))
+}
+
+
+/// Reason for an apply being allowed through
+///
+/// Some of these imply others. We pick the strongest one we can.
+#[derive(Debug)]
+pub enum UpgradeReason {
+    /// New service
+    NewService,
+    /// New version supplied either in manifest or externally in rolling
+    VersionChange,
+    /// Configuration change in manifests
+    ManifestChange,
+    /// Secret updated in vault -> secret manager
+    SecretChecksum,
+    /// Regional / Chart changes
+    TemplateDiff,
+    /// Something failed (e.g. diff failed to return) and apply was with --force
+    Forced,
+}
+
+impl ToString for UpgradeReason {
+    fn to_string(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
 
 /// Shell out to helm upgrade
 fn upgrade_helm(mf: &Manifest, hfile: &str) -> Result<()> {
@@ -278,45 +504,3 @@ pub fn diff_helm(mf: &Manifest, hfile: &str) -> Result<Option<String>> {
         None
     })
 }
-
-
-
-/*
-a future crd applier, that will probably need changing and updating for kube 1.15
-we need to know if things changed ideally..
-and presumably the new apply verb will be able to detect that..
-
-it also requires us to not have a separate serialize/deserialize per crate
-
-TODO: define status object
-
-/// Kube interface
-type ManifestApi = Api<Object<Manifest, Void>>;
-
-/// Apply a CRD using the kube api
-///
-/// This uses patch with server side apply. Requires kubernetes 1.15.
-fn apply_crd(mf: Manifest, api: ManifestApi) -> Result<bool> {
-    let crd = json!({
-        apiVersion: "babylontech.co.uk/v1"
-        kind: "ShipcatManifest",
-        metadata: {
-            name: mf.name,
-            namepace: mf.namespace,
-        }
-        spec: mf,
-    });
-    let pp = PatchParams {
-        patch_strategy: PatchStrategy::Apply, // server side apply
-        field_manager: Some("shipcat".into()),
-        force: true,
-        ..Default::default()
-    };
-    api.patch(mf.name, &pp, serde_json::to_vec(&crd))?;
-    Ok(changed)
-}
-
-/// Update the status of a crd
-fn patch_crd() { unimplemented!() }
-
-*/

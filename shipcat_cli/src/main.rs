@@ -375,13 +375,13 @@ fn run(args: &ArgMatches) -> Result<()> {
 /// Create a config for a region
 ///
 /// Resolves an optional "region" Arg or falls back to kube context.
-/// This is the ONLY user of kube::current_context for sanity.
+/// This is the ONLY user of kubectl::current_context for sanity.
 /// If the CLI entrypoint does not need a region-wide config, do not use this.
 fn resolve_config(args: &ArgMatches, ct: ConfigType) -> Result<(Config, Region)> {
     let regionguess = if let Some(r) = args.value_of("region") {
         r.into()
     } else {
-        kube::current_context()?
+        kubectl::current_context()?
     };
     let res = Config::new(ct, &regionguess)?;
     Ok(res)
@@ -521,7 +521,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("status") {
         let svc = a.value_of("service").map(String::from).unwrap();
         let (_conf, region) = resolve_config(a, ConfigType::Base)?;
-        return shipcat::kube::get_all(&svc, &region).map(void)
+        return shipcat::kubectl::get_all(&svc, &region).map(void)
     }
     else if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");
@@ -684,12 +684,12 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             None
         };
         let mf = shipcat_filebacked::load_manifest(service, &conf, &region)?.stub(&region)?;
-        return shipcat::kube::shell(&mf, pod, cmd);
+        return shipcat::kubectl::shell(&mf, pod, cmd);
     }
     else if let Some(a) = args.subcommand_matches("version") {
         let svc = a.value_of("service").map(String::from).unwrap();
         let (_conf, region) = resolve_config(a, ConfigType::Base)?;
-        let res = shipcat::kube::get_running_version(&svc, &region.namespace)?;
+        let res = shipcat::kubectl::get_running_version(&svc, &region.namespace)?;
         println!("{}", res);
         return Ok(())
     }
@@ -697,13 +697,13 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let service = a.value_of("service").unwrap();
         let mf = shipcat_filebacked::load_manifest(service, &conf, &region)?.stub(&region)?;
-        return shipcat::kube::port_forward(&mf);
+        return shipcat::kubectl::port_forward(&mf);
     }
     else if let Some(a) = args.subcommand_matches("debug") {
         let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let service = a.value_of("service").unwrap();
         let mf = shipcat_filebacked::load_manifest(service, &conf, &region)?.stub(&region)?;
-        return shipcat::kube::debug(&mf);
+        return shipcat::kubectl::debug(&mf);
     }
 
     // these could technically forgo the kube dependency..

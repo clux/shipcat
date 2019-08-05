@@ -470,10 +470,15 @@ impl ToString for Environment {
 /// Environments are well defined strings
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum ReconciliationMode {
-    /// Tiller owned, CRD based decision, but versioned and forceable
+    /// Tiller owned, CRD based decision, versioned, forceable
     ///
-    /// A stop gap between CRDOwned
+    /// A stop gap between CrdOwned
     CrdVersioned,
+
+    /// Tiller owned, CRD based decision, versioned, forceable, with .status
+    ///
+    /// Another stop gap before CrdOwned
+    CrdStatus,
 
     /// Shipcat owned, CRD based decision
     ///

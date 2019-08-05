@@ -191,12 +191,6 @@ pub struct Config {
     #[serde(default)]
     pub allowedCustomMetadata: BTreeSet<String>,
 
-    /// Deprecated shipcat version pin
-    ///
-    /// TODO: make this an output property once it's not serialized
-    #[serde(default)]
-    version: String,
-
     /// Shipcat version pins
     pub versions: BTreeMap<Environment, Version>,
 

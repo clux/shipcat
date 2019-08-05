@@ -1,4 +1,4 @@
-use crate::kube;
+use crate::kubectl;
 use super::{Config, Region, Result};
 use std::process::Command;
 
@@ -69,11 +69,11 @@ pub fn login(conf: &Config, region: &Region) -> Result<()> {
                 format!("--user={}", &teleport),
                 format!("--namespace={}", region.namespace),
             ];
-            kube::set_context(&region.name, args)?;
-            kube::use_context(&region.name)?;
+            kubectl::set_context(&region.name, args)?;
+            kubectl::use_context(&region.name)?;
         } else {
             info!("Reusing {} context for non-EKS region {}", region.cluster, region.name);
-            kube::use_context(&region.cluster)?;
+            kubectl::use_context(&region.cluster)?;
         }
     } else {
         bail!("Region {} does not have a cluster", region.name);

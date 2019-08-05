@@ -91,7 +91,7 @@ pub use crate::base::BaseManifest;
 
 /// Crd wrappers
 mod crds;
-pub use crate::crds::{Crd, CrdList, CrdEvent, CrdEventType, gen_all_crds};
+pub use crate::crds::{Crd, gen_all_crds};
 
 /// Internal classifications and states
 mod states;

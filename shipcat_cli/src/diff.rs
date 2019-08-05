@@ -1,6 +1,6 @@
 use regex::Regex;
 use shipcat_definitions::Crd;
-use crate::kube;
+use crate::kubectl;
 use crate::helm;
 use crate::apply;
 use super::{Config, Region, Result};
@@ -130,7 +130,7 @@ pub fn values_vs_kubectl(svc: &str, conf: &Config, region: &Region) -> Result<bo
     let mut f = File::create(&pth)?;
     writeln!(f, "{}", encoded)?;
     // shell out to kubectl:
-    let (out, success) = kube::diff(pth.clone(), &region.namespace)?;
+    let (out, success) = kubectl::diff(pth.clone(), &region.namespace)?;
     println!("{}", out);
     // cleanup:
     fs::remove_file(pth)?;
@@ -148,7 +148,7 @@ pub fn template_vs_kubectl(svc: &str, conf: &Config, region: &Region, mock: bool
     let version = None; // TODO: override in rolling?
     helm::template(&svc, &region, &conf, version, mock, Some(pth.clone()))?;
 
-    let (out, success) = kube::diff(pth.clone(), &region.namespace)?;
+    let (out, success) = kubectl::diff(pth.clone(), &region.namespace)?;
     println!("{}", out);
     // cleanup:
     fs::remove_file(pth)?;

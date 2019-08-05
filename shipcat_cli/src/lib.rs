@@ -67,6 +67,10 @@ error_chain! {
             description("slack message send failed")
             display("Failed to send the slack message to '{}' ", &hook)
         }
+        KubeError {
+            description("Failed to call the kube api")
+            display("Failed to call the kube api")
+        }
     }
 }
 
@@ -94,7 +98,10 @@ pub mod validate;
 pub mod gdpr;
 
 /// A small CLI kubernetes interface
-pub mod kube;
+pub mod kubectl;
+
+/// A kubernetes API interface for reading/writing .status
+pub mod status;
 
 /// Apply logic
 pub mod apply;

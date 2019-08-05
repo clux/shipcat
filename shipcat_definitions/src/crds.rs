@@ -48,6 +48,8 @@ pub struct CrdNames {
     pub plural: String,
     pub singular: String,
     pub kind: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub shortNames: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -73,6 +75,7 @@ pub fn gen_all_crds() -> Vec<CrdSpec> {
             plural: "shipcatconfigs".into(),
             singular: "shipcatconfig".into(),
             kind: SHIPCATCONFIG_KIND.into(),
+            shortNames: vec![],
         },
         ..CrdSpec::default()
     };
@@ -80,10 +83,11 @@ pub fn gen_all_crds() -> Vec<CrdSpec> {
         group: DOMAIN.into(),
         version: VERSION.into(),
         scope: "Namespaced".into(),
-        names: CrdNames{
+        names: CrdNames {
             plural: "shipcatmanifests".into(),
             singular: "shipcatmanifest".into(),
             kind: SHIPCATMANIFEST_KIND.into(),
+            shortNames: vec!["sm".into()],
         },
         subresources: Some(SubResources {
             status: Some(BTreeMap::new()),
@@ -106,6 +110,12 @@ pub fn gen_all_crds() -> Vec<CrdSpec> {
                 apcType: "string".into(),
                 description: "The URI where the service is available through kong".into(),
                 JSONPath: ".spec.kong_apis[*].uris".into(),
+            },
+            CrdAdditionalPrinterColumns{
+                name: "Status".into(),
+                apcType: "string".into(),
+                description: "Rollout status summary".into(),
+                JSONPath: ".status.summary.status".into(),
             }
         ]),
     };
@@ -165,36 +175,4 @@ impl From<Config> for Crd<Config> {
             spec: conf,
         }
     }
-}
-
-// Some extra wrappers for kube api
-
-/// Basic CRD List wrapper struct
-#[derive(Deserialize, Serialize)]
-pub struct CrdList<T> {
-    pub apiVersion: String,
-    pub kind: String,
-    pub metadata: Metadata,
-    pub items: Vec<Crd<T>>,
-}
-
-/// Types of events returned from watch requests
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum CrdEventType {
-    Added,
-    Modified,
-    Deleted,
-    // Too old resource versions can happen (Error)
-    // but then the CrdEvent<T> is wrong - T is an error object
-}
-
-/// CRD Event wrapper
-///
-/// This needs to be parsed per line from a kube api watch request.
-#[derive(Deserialize, Serialize)]
-pub struct CrdEvent<T> {
-    #[serde(rename = "type")]
-    pub kind: CrdEventType,
-    pub object: Crd<T>,
 }

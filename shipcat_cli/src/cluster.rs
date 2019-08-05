@@ -6,7 +6,7 @@ use shipcat_filebacked::{SimpleManifest};
 
 use crate::apply;
 use crate::helm; // temporary
-use super::kube;
+use super::kubectl;
 use crate::webhooks::{self, UpgradeState};
 use super::{Result, Error, ErrorKind};
 
@@ -37,7 +37,7 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>,
     // Reconcile CRDs (definition itself)
     use shipcat_definitions::gen_all_crds;
     for crdef in gen_all_crds() {
-        kube::apply_crd(&region_base.name, crdef.clone(), &region_base.namespace)?;
+        kubectl::apply_crd(&region_base.name, crdef.clone(), &region_base.namespace)?;
     }
 
     // Make sure config can apply first
@@ -47,11 +47,11 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>,
     } else {
         config_base.clone()
     };
-    kube::apply_crd(&region_base.name, applycfg, &region_base.namespace)?;
+    kubectl::apply_crd(&region_base.name, applycfg, &region_base.namespace)?;
 
     // Single instruction kubectl delete shipcat manifests .... of excess ones
     let svc_names = svcs.iter().map(|x| x.base.name.to_string()).collect();
-    kube::remove_redundant_manifests(&region_sec.namespace, &svc_names)?;
+    kubectl::remove_redundant_manifests(&region_sec.namespace, &svc_names)?;
 
     let n_jobs = svcs.len();
     let pool = ThreadPool::new(n_workers);
