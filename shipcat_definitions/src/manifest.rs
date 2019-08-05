@@ -660,10 +660,6 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gate: Option<Gate>,
 
-    /// Hosts to override kong hosts
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub hosts: Vec<String>,
-
     /// Kafka config
     ///
     /// A small convencience struct to indicate that the service uses `Kafka`,
