@@ -39,14 +39,13 @@ pub struct KongSource {
 pub struct KongBuildParams {
     pub service: String,
     pub region: Region,
-    pub hosts: Option<Vec<String>>,
 }
 
 impl Build<Option<Kong>, KongBuildParams> for KongSource {
     /// Build a Kong from a KongSource, validating and mutating properties.
     fn build(self, params: &KongBuildParams) -> Result<Option<Kong>> {
-        let KongBuildParams { region, service, hosts } = params;
-        let hosts = self.build_hosts(&region.kong.base_url, hosts.clone().unwrap_or_default())?;
+        let KongBuildParams { region, service } = params;
+        let hosts = self.build_hosts(&region.kong.base_url)?;
 
         if hosts.is_empty() && self.uris.is_none() {
             return Ok(None);
@@ -121,14 +120,13 @@ impl KongSource {
         }
     }
 
-    fn build_hosts(&self, base_url: &String, tophosts: Vec<String>) -> Result<Vec<String>> {
+    fn build_hosts(&self, base_url: &String) -> Result<Vec<String>> {
         let hosts: Vec<String> = self.hosts.clone().unwrap_or_default().into();
         let host = self.host.clone().filter(|x| !x.is_empty());
-        match (tophosts.as_slice(), host, hosts.as_slice()) {
-            (_, None, []) => Ok(tophosts),
-            ([], None, _) => Ok(hosts),
-            ([], Some(host), []) => Ok(vec![format!("{}{}", host, base_url)]),
-            (_, _, _) => bail!("hosts, kong.hosts and kong.host are mutually exclusive"),
+        match (host, hosts.as_slice()) {
+            (None, _) => Ok(hosts),
+            (Some(host), []) => Ok(vec![format!("{}{}", host, base_url)]),
+            (_, _) => bail!("kong.hosts and kong.host are mutually exclusive"),
         }
     }
 }

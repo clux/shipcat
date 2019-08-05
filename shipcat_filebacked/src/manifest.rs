@@ -67,8 +67,6 @@ pub struct ManifestOverrides {
     pub pod_annotations: BTreeMap<String, RelaxedString>,
     pub labels: BTreeMap<String, RelaxedString>,
     pub gate: Option<Gate>,
-    // TODO: Remove in favour of kong.hosts
-    pub hosts: Option<Vec<String>>,
     pub kafka: Option<Kafka>,
     pub source_ranges: Option<Vec<String>>,
     pub rbac: Option<Vec<Rbac>>,
@@ -187,7 +185,6 @@ impl ManifestSource {
             kong_apis: defaults.kong.build(&KongBuildParams {
                 service: base.name.to_string(),
                 region: region.clone(),
-                hosts: overrides.hosts,
             })?.unwrap_or_default().map(|k| vec![k]).unwrap_or_default(),
 
             base,
