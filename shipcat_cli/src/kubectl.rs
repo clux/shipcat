@@ -369,6 +369,26 @@ pub fn debug_rollout_status(mf: &Manifest) -> Result<()> {
     Ok(())
 }
 
+// Helper to see what your pods are like
+pub fn kpods(mf: &Manifest) -> Result<String> {
+    let custom_cols = vec![
+        "NAME:metadata.name".into(),
+        format!("VERSION:{{spec.containers[*].env[?(@.name==\'SERVICE_VERSION\')].value}}"),
+        // READY is garbage here: https://github.com/kubernetes/kubernetes/issues/71612
+        "READY:status.containerStatuses[*].ready".into(), //  TODO: fix ^
+        "RESTARTS:status.containerStatuses[0].restartCount".into(),
+    ];
+    let podargs = vec![
+        "get".into(),
+        "pods".into(),
+        format!("-lapp={}", mf.name),
+        format!("-o=custom-columns={}", custom_cols.join(",")),
+        "--sort-by=.metadata.creationTimestamp".into(),
+    ];
+    let (out, _succ) = kout(podargs)?;
+    Ok(out)
+}
+
 
 /// Shell into all pods associated with a service
 ///

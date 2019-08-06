@@ -111,12 +111,6 @@ pub fn gen_all_crds() -> Vec<CrdSpec> {
                 description: "The URI where the service is available through kong".into(),
                 JSONPath: ".spec.kong_apis[*].uris".into(),
             },
-            CrdAdditionalPrinterColumns{
-                name: "Status".into(),
-                apcType: "string".into(),
-                description: "Rollout status summary".into(),
-                JSONPath: ".status.summary.status".into(),
-            }
         ]),
     };
     vec![shipcatConfig, shipcatManifest]

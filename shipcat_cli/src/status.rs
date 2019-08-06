@@ -9,6 +9,7 @@ use kube::{
 };
 
 fn make_date() -> String {
+    // Format == `1996-12-19T16:39:57-08:00`, but we hardcode Utc herein.
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
 }
 
@@ -85,22 +86,17 @@ pub struct ConditionSummary {
     #[serde(default)]
     last_successful_rollout: Option<String>,
 
-
-    /// Best effort most relevant reason for why an apply failed
-    ///
-    /// This is nulled out when rollout condition is set to true
+    // last action we performed
     #[serde(default)]
-    reason: Option<String>,
+    last_action: Option<String>,
 
-    /// An indicator on whether or not something has failed
-    ///
-    /// If this is true, then everything has passed
+    /// reason for last failure (if any)
     #[serde(default)]
-    status: bool,
+    last_failure_reason: Option<String>,
 
     /// Best effort reason for why an apply was triggered
     #[serde(default)]
-    upgrade_reason: Option<String>,
+    last_apply_reason: Option<String>,
 }
 
 /// Condition
@@ -136,9 +132,7 @@ pub struct Condition {
     #[serde(default)]
     pub message: Option<String>,
 
-    /// When the condition was last written in a RFC 3339 format
-    ///
-    /// Format == `1996-12-19T16:39:57-08:00`, but we hardcode Utc herein.
+    /// When the condition was last written (RFC 3339 timestamp)
     #[serde(rename = "lastTransitionTime")]
     pub last_transition: String,
 
@@ -285,10 +279,11 @@ impl Status {
 
     /// Full CRD fetcher
     pub fn get(&self) -> Result<ManifestK> {
-        Ok(self.scm.get(&self.name).map_err(|e| {
+        let o = self.scm.get(&self.name).map_err(|e| {
             warn!("KubeError: {}", e);
             Error::from(ErrorKind::KubeError) // TODO: FIX CHAIN
-        })?)
+        })?;
+        Ok(o)
     }
 
     // ====================================================
@@ -320,6 +315,7 @@ impl Status {
                 },
                 "summary": {
                     "lastSuccessfulGenerate": now,
+                    "lastAction": "Generate",
                 }
             }
         });
@@ -353,8 +349,8 @@ impl Status {
                     "generated": cond
                 },
                 "summary": {
-                    "reason": reason,
-                    "status": false,
+                    "lastFailureReason": reason,
+                    "lastAction": "Generate",
                 }
             }
         });
@@ -373,7 +369,8 @@ impl Status {
                 "summary": {
                     "lastApply": now,
                     "lastSuccessfulApply": now,
-                    "upgradeReason": ureason,
+                    "lastApplyReason": ureason,
+                    "lastAction": "Apply",
                 }
             }
         });
@@ -391,9 +388,9 @@ impl Status {
                 },
                 "summary": {
                     "lastApply": now,
-                    "reason": reason,
-                    "status": false,
-                    "upgradeReason": ureason,
+                    "lastFailureReason": reason,
+                    "lastApplyReason": ureason,
+                    "lastAction": "Apply",
                 }
             }
         });
@@ -411,8 +408,8 @@ impl Status {
                 },
                 "summary": {
                     "lastRollout": now,
-                    "status": false,
-                    "reason": reason,
+                    "lastFailureReason": reason,
+                    "lastAction": "Rollout",
                 }
             }
         });
@@ -431,8 +428,8 @@ impl Status {
                 "summary": {
                     "lastRollout": now,
                     "lastSuccessfulRollout": now,
-                    "status": true,
-                    "reason": null,
+                    "lastFailureReason": null,
+                    "lastAction": "Rollout",
                 }
             }
         });
@@ -488,19 +485,24 @@ fn format_condition(name: &str, cond: &Condition) -> Result<()> {
 use crate::{Config, Region};
 /// Entry point for `shipcat status`
 pub fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
+    use crate::kubectl;
     let mf = shipcat_filebacked::load_manifest(svc, conf, reg)?;
     let crd = Status::new(&mf)?.get()?;
 
-    let md = mf.metadata.expect("need metadata");
+    let md = mf.metadata.clone().expect("need metadata");
     let ver = crd.spec.version.expect("need version");
+    let support = md.support.clone().unwrap();
     let link = md.github_link_for_version(&ver);
-    let term_repo = format!("\x1B]8;;{}\x07{}\x1B]8;;\x07", md.repo, mf.name);
+    // crazy terminal hyperlink escape codes with rust format {} parts:
+    let term_repo = format!("\x1B]8;;{}\x07{}\x1B]8;;\x07", md.repo, mf.name.to_uppercase());
     let term_version = format!("\x1B]8;;{}\x07{}\x1B]8;;\x07", link, ver);
+    let slack_link = format!("\x1B]8;;{}\x07{}\x1B]8;;\x07", support.link(&conf.slack), *support);
 
-    println!("{} is running {}", term_repo, term_version);
+    println!("==> {} is running {}", term_repo, term_version);
+    println!("{}", slack_link);
     println!("");
 
-    println!("# Conditions");
+    println!("==> CONDITIONS");
     if let Some(stat) = crd.status {
         let conds = &stat.conditions;
         if let Some(gen) = &conds.generated {
@@ -513,6 +515,9 @@ pub fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
             format_condition("RolledOut", &ro)?;
         }
     }
-    // TODO: maybe get kube resources that
+    println!("");
+
+    println!("==> RESOURCES");
+    println!("{}", kubectl::kpods(&mf)?);
     Ok(())
 }
