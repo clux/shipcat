@@ -125,6 +125,17 @@ impl Metadata {
         })?;
         Ok(res)
     }
+
+    pub fn github_link_for_version(&self, ver: &str) -> String {
+        use semver::Version;
+        if Version::parse(&ver).is_ok() {
+            let tag = self.version_template(&ver).unwrap_or(ver.to_string());
+            format!("{}/releases/tag/{}", self.repo, tag)
+        } else {
+            format!("{}/commit/{}", self.repo, ver)
+        }
+    }
+
 }
 
 impl Metadata {

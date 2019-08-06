@@ -520,8 +520,8 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
     else if let Some(a) = args.subcommand_matches("status") {
         let svc = a.value_of("service").map(String::from).unwrap();
-        let (_conf, region) = resolve_config(a, ConfigType::Base)?;
-        return shipcat::kubectl::get_all(&svc, &region).map(void)
+        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        return shipcat::status::show(&svc, &conf, &region)
     }
     else if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");

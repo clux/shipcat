@@ -217,12 +217,7 @@ fn short_ver(ver: &str) -> String {
 }
 
 fn infer_metadata_single_link(md: &Metadata, ver: String) -> SlackTextContent {
-    let url = if Version::parse(&ver).is_ok() {
-        let tag = md.version_template(&ver).unwrap_or(ver.to_string());
-        format!("{}/releases/tag/{}", md.repo, tag)
-    } else {
-        format!("{}/commit/{}", md.repo, ver)
-    };
+    let url = md.github_link_for_version(&ver);
     Link(SlackLink::new(&url, &short_ver(&ver)))
 }
 

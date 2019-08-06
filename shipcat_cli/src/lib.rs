@@ -25,6 +25,7 @@ error_chain! {
         Reqw(reqwest::UrlError);
         Reqe(reqwest::Error);
         Time(::std::time::SystemTimeError);
+        Chrono(chrono::format::ParseError);
     }
     errors {
         MissingSlackUrl {

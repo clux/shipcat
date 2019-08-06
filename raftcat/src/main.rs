@@ -82,18 +82,9 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
         let pretty = serde_yaml::to_string(&mf)?;
         let mfstub = mf.clone().stub(&region).unwrap();
 
-
         let md = mf.metadata.clone().unwrap();
-        let (vlink, version) = if let Some(ver) = mf.version.clone() {
-            if semver::Version::parse(&ver).is_ok() {
-                let tag = md.version_template(&ver).unwrap_or(ver.to_string());
-                (format!("{}/releases/tag/{}", md.repo, tag), tag)
-            } else {
-                (format!("{}/commit/{}", md.repo, ver), ver)
-            }
-        } else {
-            (md.repo, "rolling".into())
-        };
+        let version = mf.version.clone().unwrap();
+        let vlink = md.github_link_for_version(&version);
 
         let health = if let Some(h) = mf.health.clone() {
             h.uri

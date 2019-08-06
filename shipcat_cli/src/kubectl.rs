@@ -1,4 +1,4 @@
-use super::{Result, Region, Manifest};
+use super::{Result, Manifest};
 use shipcat_definitions::Crd;
 use serde::Serialize;
 use regex::Regex;
@@ -117,19 +117,6 @@ pub fn await_rollout_status(mf: &Manifest) -> Result<bool> {
         }
     }
     Ok(false) // timeout
-}
-
-pub fn get_all(svc: &str, reg: &Region) -> Result<String> {
-    //kubectl get all -l=app=$*
-    let allargs = vec![
-        "get".into(),
-        "all".into(),
-        format!("-l=app={}", svc),
-        format!("-n={}", reg.namespace),
-    ];
-    let (res, _) = kout(allargs)?;
-    println!("{}", res);
-    Ok(res)
 }
 
 fn get_pods(mf: &Manifest) -> Result<String> {

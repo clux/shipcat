@@ -8,6 +8,10 @@ use kube::{
     client::APIClient,
 };
 
+fn make_date() -> String {
+    Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
+}
+
 /// Status object for shipcatmanifests crd
 ///
 /// All fields optional, but we try to ensure all fields exist.
@@ -110,7 +114,8 @@ pub struct ConditionSummary {
 ///    status: "False"
 ///    type: ContainersReady
 ///
-/// where we ignore lastProbeTime / lastHeartbeatTime because they are expensive.
+/// where we ignore lastProbeTime / lastHeartbeatTime because they are expensive,
+/// and we add in an originator/source of the condition for parallel setups.
 ///
 /// However, due to the lack of possibilities for patching statuses and general
 /// difficulty dealing with the vector struct, we instead have multiple named variants.
@@ -147,7 +152,7 @@ impl Condition {
         Condition {
             status: true,
             source: Some(a.clone()),
-            last_transition: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
+            last_transition: make_date(),
             reason: None,
             message: None,
         }
@@ -157,7 +162,7 @@ impl Condition {
         Condition {
             status: false,
             source: Some(a.clone()),
-            last_transition: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
+            last_transition: make_date(),
             reason: Some(err.into()),
             message: Some(msg),
         }
@@ -306,7 +311,7 @@ impl Status {
     // helper to delete accidental flags
     pub fn update_generate_true(&self) -> Result<ManifestK> {
         debug!("Setting generated true");
-        let now = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+        let now = make_date();
         let cond = Condition::ok(&self.applier);
         let data = json!({
             "status": {
@@ -358,7 +363,7 @@ impl Status {
 
     pub fn update_apply_true(&self, ureason: String) -> Result<ManifestK> {
         debug!("Setting applied true");
-        let now = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+        let now = make_date();
         let cond = Condition::ok(&self.applier);
         let data = json!({
             "status": {
@@ -377,7 +382,7 @@ impl Status {
 
     pub fn update_apply_false(&self, ureason: String, err: &str, reason: String) -> Result<ManifestK> {
         debug!("Setting applied false");
-        let now = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+        let now = make_date();
         let cond = Condition::bad(&self.applier, err, reason.clone());
         let data = json!({
             "status": {
@@ -398,7 +403,7 @@ impl Status {
     pub fn update_rollout_false(&self, err: &str, reason: String) -> Result<ManifestK> {
         debug!("Setting rolledout false");
         let cond = Condition::bad(&self.applier, err, reason.clone());
-        let now = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+        let now = make_date();
         let data = json!({
             "status": {
                 "conditions": {
@@ -416,7 +421,7 @@ impl Status {
 
     pub fn update_rollout_true(&self) -> Result<ManifestK> {
         debug!("Setting rolledout true");
-        let now = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+        let now = make_date();
         let cond = Condition::ok(&self.applier);
         let data = json!({
             "status": {
@@ -433,4 +438,81 @@ impl Status {
         });
         self.patch(&data)
     }
+}
+
+fn format_date_diff(old_ts: &str) -> Result<String> {
+    use chrono::{Duration, DateTime};
+    let last = old_ts.parse::<DateTime<Utc>>()?;
+    let diff : Duration = Utc::now() - last;
+    let days = diff.num_days();
+    let hours = diff.num_hours();
+    let mins = diff.num_minutes();
+    let diff_fmt = if days >= 1 {
+        let plural = if days > 1 { "s" } else { "" };
+        format!("{} day{}", days, plural)
+    } else if hours >= 1 {
+        let plural = if hours > 1 { "s" } else { "" };
+        format!("{} hour{}", hours, plural)
+    } else {
+        let plural = if mins > 1 { "s" } else { "" };
+        format!("{} minute{}", mins, plural)
+    };
+    Ok(diff_fmt)
+}
+
+fn format_condition(name: &str, cond: &Condition) -> Result<()> {
+    use std::io::{self, Write};
+    print!("{}", name);
+    let when = format_date_diff(&cond.last_transition)?;
+    print!(" {} ago", when);
+    if let Some(src) = &cond.source {
+        let via = if let Some(url) = &src.url {
+            format!("\x1B]8;;{}\x07{}\x1B]8;;\x07", url, src.name)
+        } else {
+            src.name.clone()
+        };
+        print!(" via {}", via);
+    }
+    if cond.status {
+        print!(" (Success)");
+    } else if let (Some(r), Some(msg)) = (&cond.reason, &cond.message) {
+        print!(" ({}: {})", r, msg);
+    } else {
+        print!(" (Failure)"); // no reason!?
+    }
+    print!("\n");
+    let _ = io::stdout().flush();
+    Ok(())
+}
+
+use crate::{Config, Region};
+/// Entry point for `shipcat status`
+pub fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
+    let mf = shipcat_filebacked::load_manifest(svc, conf, reg)?;
+    let crd = Status::new(&mf)?.get()?;
+
+    let md = mf.metadata.expect("need metadata");
+    let ver = crd.spec.version.expect("need version");
+    let link = md.github_link_for_version(&ver);
+    let term_repo = format!("\x1B]8;;{}\x07{}\x1B]8;;\x07", md.repo, mf.name);
+    let term_version = format!("\x1B]8;;{}\x07{}\x1B]8;;\x07", link, ver);
+
+    println!("{} is running {}", term_repo, term_version);
+    println!("");
+
+    println!("# Conditions");
+    if let Some(stat) = crd.status {
+        let conds = &stat.conditions;
+        if let Some(gen) = &conds.generated {
+            format_condition("Generated", &gen)?;
+        }
+        if let Some(app) = &conds.applied {
+            format_condition("Applied", &app)?;
+        }
+        if let Some(ro) = &conds.rolledout {
+            format_condition("RolledOut", &ro)?;
+        }
+    }
+    // TODO: maybe get kube resources that
+    Ok(())
 }
