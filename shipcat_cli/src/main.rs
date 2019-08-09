@@ -272,6 +272,10 @@ fn main() {
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service to generate an environment for"))
+              .arg(Arg::with_name("secrets")
+                .short("s")
+                .long("secrets")
+                .help("Use actual secrets from vault"))
               .about("Show env vars in a format that can be sourced in a shell"))
 
         .subcommand(SubCommand::with_name("diff")
@@ -580,7 +584,8 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("env") {
         let svc = a.value_of("service").map(String::from).unwrap();
         let (conf, region) = resolve_config(a, ConfigType::Filtered)?;
-        return shipcat::env::print_bash(&svc, &conf, &region);
+        let mock = !a.is_present("secrets");
+        return shipcat::env::print_bash(&svc, &conf, &region, mock);
     }
 
     else if let Some(a) = args.subcommand_matches("diff") {
