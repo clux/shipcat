@@ -1,8 +1,9 @@
 #[macro_use] extern crate clap;
 #[macro_use] extern crate log;
 
+use std::str::FromStr;
 use shipcat::*;
-use clap::{Arg, App, AppSettings, SubCommand, ArgMatches};
+use clap::{Arg, App, AppSettings, SubCommand, ArgMatches, Shell};
 use std::process;
 
 fn print_error_debug(e: &Error) {
@@ -20,7 +21,7 @@ fn print_error_debug(e: &Error) {
     }
 }
 
-fn main() {
+fn build_cli() -> App<'static, 'static> {
     let app = App::new("shipcat")
         .version(crate_version!())
         .setting(AppSettings::VersionlessSubcommands)
@@ -50,6 +51,14 @@ fn main() {
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name")))
+
+        .subcommand(SubCommand::with_name("completions")
+            .about("Generate autocompletion script for shipcat for the specified shell")
+            .usage("This can be source using: $ source <(shipcat completions bash)")
+            .arg(Arg::with_name("shell")
+                .required(true)
+                .possible_values(&Shell::variants())
+                .help("Shell to generate completions for (zsh or bash)")))
 
         .subcommand(SubCommand::with_name("shell")
             .about("Shell into pods for a service described in a manifest")
@@ -341,9 +350,19 @@ fn main() {
         .subcommand(SubCommand::with_name("login")
             .about("Login to a region (using teleport if possible)")
             );
-
-    // arg parse
+    app
+}
+fn main() {
+    let app = build_cli();
     let args = app.get_matches();
+
+    // completions handling first
+    if let Some(a) = args.subcommand_matches("completions") {
+        let sh = Shell::from_str(a.value_of("shell").unwrap()).unwrap();
+        build_cli().gen_completions_to("shipcat", sh, &mut std::io::stdout());
+        process::exit(0);
+    }
+
     let name = args.subcommand_name().unwrap();
     let _ = run(&args).map_err(|e| {
         error!("{} error: {}", name, e);

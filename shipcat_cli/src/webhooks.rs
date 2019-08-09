@@ -13,6 +13,8 @@ use super::{Config, Region, Webhook};
 pub enum UpgradeState {
     /// Before action
     Pending,
+    /// Action was cancelled before start
+    Cancelled,
     // Action has started
     Started,
     /// No errors
@@ -53,7 +55,14 @@ pub fn apply_event(us: UpgradeState, info: &UpgradeInfo, reg: &Region, conf: &Co
     for wh in &reg.webhooks {
         if let Ok(whc) = wh.get_configuration() {
             let res = match wh {
-                Webhook::Audit(h) => audit::audit_apply(&us, &info, &h, whc)
+                Webhook::Audit(h) => {
+                    match us {
+                        UpgradeState::Started |
+                        UpgradeState::Completed |
+                        UpgradeState::Failed => audit::audit_apply(&us, &info, &h, whc),
+                        _ => Ok(()), // audit only sends Started / Failed / Completed
+                    }
+                }
             };
             if let Err(e) = res {
                 warn!("Failed to notify about apply event: {}", e)

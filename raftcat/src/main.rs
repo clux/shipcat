@@ -31,7 +31,7 @@ use actix_web::{
 fn get_single_manifest(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
     if let Some(mf) = req.state().get_manifest(name)? {
-        Ok(HttpResponse::Ok().json(mf))
+        Ok(HttpResponse::Ok().json(mf.spec))
     } else {
         Ok(HttpResponse::NotFound().finish())
     }
@@ -43,7 +43,7 @@ fn get_all_manifests(req: &HttpRequest<State>) -> Result<HttpResponse> {
 fn get_resource_usage(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
     if let Some(mf) = req.state().get_manifest(name)? {
-        let totals = mf.compute_resource_totals().unwrap(); // TODO: use 'failure' in shipcat_definitions
+        let totals = mf.spec.compute_resource_totals().unwrap(); // TODO: use 'failure' in shipcat_definitions
         Ok(HttpResponse::Ok().json(totals))
     } else {
         Ok(HttpResponse::NotFound().finish())
@@ -78,7 +78,8 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let newrelic_link = req.state().get_newrelic_link(name);
     let sentry_slug = req.state().get_sentry_slug(name);
 
-    if let Some(mf) = req.state().get_manifest(name)?.clone() {
+    if let Some(mfobj) = req.state().get_manifest(name)? {
+        let mf = mfobj.spec;
         let pretty = serde_yaml::to_string(&mf)?;
         let mfstub = mf.clone().stub(&region).unwrap();
 
@@ -119,6 +120,21 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
         ctx.insert("mfenv", &mf.env);
         ctx.insert("mfenvstub", &mfstub.env);
         ctx.insert("mfdeps", &mf.dependencies);
+
+        if let Some(status) = mfobj.status {
+            let conds = &status.conditions;
+            let mut cvec = vec![];
+            if let Some(g) = &conds.generated {
+                cvec.push(format!("Generated: {}", g.html_list_item().unwrap()));
+            }
+            if let Some(a) = &conds.applied {
+                cvec.push(format!("Applied: {}", a.html_list_item().unwrap()));
+            }
+            if let Some(r) = &conds.rolledout {
+                cvec.push(format!("RolledOut: {}", r.html_list_item().unwrap()));
+            }
+            ctx.insert("conditions", &cvec);
+        }
 
         // integration insert if found in the big query
         if let Some(lio_link) = region.logzio_url(&mf.name) {

@@ -19,7 +19,7 @@ use crate::integrations::{
     sentryapi::{self, SentryMap},
 };
 
-type ManifestObject = Object<Manifest, Void>;
+type ManifestObject = Object<Manifest, ManifestStatus>;
 type ConfigObject = Object<Config, Void>;
 
 /// Map of service -> versions
@@ -119,9 +119,9 @@ impl State {
             Err(e) => bail!("could not resolve cluster for {}: {}", self.region, e)
         }
     }
-    pub fn get_manifest(&self, key: &str) -> Result<Option<Manifest>> {
+    pub fn get_manifest(&self, key: &str) -> Result<Option<ManifestObject>> {
         if let Some(crd) = self.manifests.read()?.get(key) {
-            return Ok(Some(crd.spec.clone()));
+            return Ok(Some(crd.to_owned()));
         }
         Ok(None)
     }

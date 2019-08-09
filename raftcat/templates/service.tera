@@ -37,6 +37,11 @@
                 <li class="tabList__tabItem">
                   <button class="tabItem__button" data-tab="environment">Environment</button>
                 </li>
+                {% if conditions %}
+                  <li class="tabList__tabItem">
+                    <button class="tabItem__button" data-tab="conditions">Conditions</button>
+                  </li>
+                {% endif %}
                 {% if revdeps or mfdeps %}
                   <li class="tabList__tabItem">
                     <button class="tabItem__button" data-tab="usedBy">Dependencies</button>
@@ -141,6 +146,21 @@
                   </div>
                 </div>
 
+
+                {% if conditions %}
+                  <div id="conditions">
+                  <h3>Last conditions:</h3>
+                    <ul>
+                      {% for c in conditions %}
+                      <li>{{ c }}</li>
+                      {% endfor %}
+                    </ul>
+                    <p>This information is available on the command line using:</p>
+                    <code class="bash">shipcat status {{ manifest.name }}</code>
+                    <p>In the {{ region.name }} kubernetes context.</p>
+                  </div>
+                {% endif %}
+
                 {% if revdeps or mfdeps %}
                   <div id="usedBy">
                   <h3>Services used by this service:</h3>
@@ -167,6 +187,7 @@
                 <p>Extra is how far the base can be exceeded with autoscaling parameters</p>
                 <p>All values are in gigabytes (memory) and vCPUs (cpu)</p>
 
+                <!--COMMENTED OUT BECAUSE MISLEADING
                 <h3>Daily cost estimate:</h3>
                 {% if cost.0 == cost.1 %}
                 <p><i>{{ cost.1 }}$</i></p>
@@ -174,7 +195,7 @@
                 <p><i>{{ cost.0 }} - {{ cost.1 }} $</i></p>
                 {% endif %}
                 <p>(Based on number of required worker nodes (<a href="https://aws.amazon.com/ec2/pricing/on-demand/">m5.2xlarge</a>) only - databases not accounted for)</p>
-                {% endif %}
+                {% endif %}-->
 
                 <h3>Rollout cycles per upgrade:</h3>
                 <p><i>{{ rollouts }}</i></p>

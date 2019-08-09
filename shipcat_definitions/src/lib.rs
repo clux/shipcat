@@ -24,6 +24,7 @@ error_chain! {
         Reqw(reqwest::UrlError);
         Reqe(reqwest::Error);
         Time(::std::time::SystemTimeError);
+        Chrono(chrono::format::ParseError);
     }
     errors {
         MissingVaultAddr {
@@ -92,6 +93,10 @@ pub use crate::base::BaseManifest;
 /// Crd wrappers
 mod crds;
 pub use crate::crds::{Crd, gen_all_crds};
+
+/// Status objects
+pub mod status;
+pub use status::ManifestStatus;
 
 /// Internal classifications and states
 mod states;

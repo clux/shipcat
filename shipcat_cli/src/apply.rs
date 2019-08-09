@@ -343,6 +343,7 @@ fn apply_with_crd(svc: &str,
                 // This is a stronger diff than CRD-only if this succeeds; STOP.
                 info!("{} up to date (full diff check)", svc);
                 s.update_generate_true()?; // every force reconcile makes one generate cond
+                webhooks::apply_event(UpgradeState::Cancelled, &ui, &region, &conf);
                 return Ok(None)
             }
             // If diffing failed, only run the upgrade if using --force
@@ -351,6 +352,7 @@ fn apply_with_crd(svc: &str,
                 if !force {
                     // pass on a diff failure
                     s.update_generate_false("DiffFailure", e.description().to_string())?;
+                    webhooks::apply_event(UpgradeState::Cancelled, &ui, &region, &conf);
                     return Ok(None) // but ultimately ignore this in fast reconciles
                 }
                 reason = reason.or(Some(UpgradeReason::Forced))
@@ -361,6 +363,7 @@ fn apply_with_crd(svc: &str,
     // We cannot be here without a reason now, although you have to convince yourself.
     let ureason = reason.expect("cannot apply without a reason");
     s.update_generate_true()?; // if this fails, stop, want .status to be correct
+    webhooks::apply_event(UpgradeState::Started, &ui, &region, &conf);
 
     match upgrade_helm(&mf, &hfile) {
         Err(e) => {
