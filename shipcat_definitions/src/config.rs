@@ -435,16 +435,13 @@ impl Config {
 
     /// Read a config file in an arbitrary path
     fn read_from(pwd: &PathBuf) -> Result<Config> {
-        use std::fs::File;
-        use std::io::prelude::*;
+        use std::fs;
         let mpath = pwd.join("shipcat.conf");
         trace!("Using config in {}", mpath.display());
         if !mpath.exists() {
             bail!("Config file {} does not exist", mpath.display())
         }
-        let mut f = File::open(&mpath)?;
-        let mut data = String::new();
-        f.read_to_string(&mut data)?;
+        let data = fs::read_to_string(&mpath)?;
         let res = serde_yaml::from_str(&data);
         match res {
             Err(e) => {

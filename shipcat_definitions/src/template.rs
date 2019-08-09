@@ -123,18 +123,15 @@ impl EnvVars {
 /// Read an arbitrary template from manifests/{folder}/{name}.j2
 #[cfg(feature = "filesystem")]
 fn read_arbitrary_template_file(folder: &str, name: &str) -> Result<String> {
-    use std::fs::File;
+    use std::fs;
     use std::path::Path;
-    use std::io::prelude::*;
 
     let pth = Path::new(".").join(folder).join(format!("{}.j2", name));
     if !pth.exists() {
         bail!("Template file in {} does not exist", pth.display());
     }
     // read the template - should work now
-    let mut f = File::open(&pth)?;
-    let mut data = String::new();
-    f.read_to_string(&mut data)?;
+    let data = fs::read_to_string(&pth)?;
     Ok(data)
 }
 

@@ -2,8 +2,7 @@
 
 use serde_yaml;
 use std::path::PathBuf;
-use std::io::prelude::*;
-use std::fs::File;
+use std::fs;
 
 use super::{Product, Result, Config};
 
@@ -31,9 +30,7 @@ impl Product {
         if !pth.exists() {
             bail!("Defaults file {} does not exist", pth.display())
         }
-        let mut f = File::open(&pth)?;
-        let mut data = String::new();
-        f.read_to_string(&mut data)?;
+        let data = fs::read_to_string(&pth)?;
         // Because Product has most things implementing Default via serde
         // we can put this straight into a Product struct
         let px: Product = serde_yaml::from_str(&data)?;

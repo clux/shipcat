@@ -11,17 +11,13 @@ fn default_addr() -> Result<String> {
 
 #[cfg(feature = "filesystem")]
 fn file_token_fallback() -> Result<String> {
-    use std::fs::File;
+    use std::fs;
 
-    // Build a path to ~/.vault-token.
     let path = dirs::home_dir()
         .ok_or_else(|| { ErrorKind::NoHomeDirectory })?
         .join(".vault-token");
 
-    // Read the file.
-    let mut f = File::open(path)?;
-    let mut token = String::new();
-    f.read_to_string(&mut token)?;
+    let token = fs::read_to_string(&path)?;
     Ok(token)
 }
 

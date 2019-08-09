@@ -1,5 +1,4 @@
-use std::fs::File;
-use std::io::prelude::*;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use merge::Merge;
@@ -36,20 +35,20 @@ impl ManifestSource {
 
         let source_path = Self::services_dir().join(service).join("manifest.yml");
         debug!("Loading service manifest from {:?}", source_path);
-        let source = ManifestSource::read_from(&source_path)?;
+        let source : ManifestSource = read_from(&source_path)?;
         let mut manifest = defaults.merge_source(source);
 
         let env_path = dir.join(format!("{}.yml", reg.environment.to_string()));
         if env_path.is_file() {
             debug!("Loading service overrides from {:?}", env_path);
-            let env = ManifestOverrides::read_from(&env_path)?;
+            let env : ManifestOverrides = read_from(&env_path)?;
             manifest = manifest.merge_overrides(env);
         }
 
         let region_path = dir.join(format!("{}.yml", reg.name));
         if region_path.is_file() {
             debug!("Loading service overrides from {:?}", region_path);
-            let region = ManifestOverrides::read_from(&region_path)?;
+            let region : ManifestOverrides = read_from(&region_path)?;
             manifest = manifest.merge_overrides(region);
         }
 
@@ -81,7 +80,7 @@ impl ManifestSource {
         for service in Self::all_names() {
             let source_path = Self::services_dir().join(service).join("manifest.yml");
             debug!("Loading service manifest from {:?}", source_path);
-            let source = ManifestSource::read_from(&source_path)?;
+            let source : ManifestSource = read_from(&source_path)?;
             let manifest = source.build_base(conf)?;
             all.push(manifest);
         }
@@ -135,32 +134,18 @@ impl ManifestDefaults {
     }
 }
 
-trait ManifestFile
-where
-    Self: Sized,
-{
-    fn read_from(path: &PathBuf) -> Result<Self>;
-}
-
-impl<T> ManifestFile for T
-where
-    T: DeserializeOwned,
-{
-    fn read_from(path: &PathBuf) -> Result<Self> {
-        trace!("Reading manifest in {}", path.display());
-        if !path.exists() {
-            bail!("Manifest file {} does not exist", path.display())
-        }
-        let mut f = File::open(&path)?;
-        let mut data = String::new();
-        f.read_to_string(&mut data)?;
-        if data.is_empty() {
-            bail!("Manifest file {} is empty", path.display());
-        }
-
-        Ok(serde_yaml::from_str(&data)?)
+fn read_from<T: DeserializeOwned>(path: &PathBuf) -> Result<T> {
+    trace!("Reading manifest in {}", path.display());
+    if !path.exists() {
+        bail!("Manifest file {} does not exist", path.display())
     }
+    let data = fs::read_to_string(&path)?;
+    if data.is_empty() {
+        bail!("Manifest file {} is empty", path.display());
+    }
+    Ok(serde_yaml::from_str(&data)?)
 }
+
 
 #[cfg(test)]
 mod tests {

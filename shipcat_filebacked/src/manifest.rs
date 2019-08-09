@@ -270,8 +270,7 @@ impl ManifestSource {
 }
 
 fn read_template_file(svc: &str, tmpl: &str) -> Result<String> {
-    use std::fs::File;
-    use std::io::prelude::*;
+    use std::fs;
     use std::path::Path;
     // try to read file from ./services/{svc}/{tmpl} into `tpl` sting
     let pth = Path::new(".").join("services").join(svc).join(tmpl);
@@ -292,9 +291,7 @@ fn read_template_file(svc: &str, tmpl: &str) -> Result<String> {
         gpth
     };
     // read the template - should work now
-    let mut f = File::open(&found_pth)?;
-    let mut data = String::new();
-    f.read_to_string(&mut data)?;
+    let data = fs::read_to_string(&found_pth)?;
     Ok(data)
 }
 

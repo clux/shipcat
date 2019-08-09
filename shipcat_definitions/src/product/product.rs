@@ -1,9 +1,6 @@
 use serde_yaml;
 use regex::Regex;
-//use walkdir::WalkDir;
-
-use std::io::prelude::*;
-use std::fs::File;
+use std::fs;
 use std::path::{PathBuf, Path};
 
 use super::{Result, Config};
@@ -146,9 +143,7 @@ impl Product {
         if !mpath.exists() {
             bail!("Product file {} does not exist", mpath.display())
         }
-        let mut f = File::open(&mpath)?;
-        let mut data = String::new();
-        f.read_to_string(&mut data)?;
+        let data = fs::read_to_string(&mpath)?;
         Ok(serde_yaml::from_str(&data)?)
     }
 
