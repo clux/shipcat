@@ -72,7 +72,7 @@ where T: Serialize,
 
 /// Serialise empty as brackets.
 /// Kong represents an empty list as {}, so Kongfig expects the same to correctly diff the state to work out required changes.
-fn empty_as_brackets<S, T>(t: &Vec<T>, s: S) -> Result<S::Ok, S::Error>
+fn empty_as_brackets<S, T>(t: &[T], s: S) -> Result<S::Ok, S::Error>
 where T: Serialize,
       S: Serializer
 {
@@ -163,7 +163,7 @@ impl TcpLogPluginConfig {
     fn new(host: &str, port: u32) -> Self {
         TcpLogPluginConfig {
             host: host.into(),
-            port: port.into(),
+            port: port,
             keepalive: 60000,
             timeout: 10000,
         }
@@ -320,6 +320,7 @@ impl Default for CorrelationIdPluginConfig {
     }
 }
 
+#[allow(clippy::large_enum_variant)] // variants all reasonably similar
 #[derive(Serialize, Clone)]
 #[serde(tag = "name", rename_all = "kebab-case")]
 pub enum ApiPlugin {

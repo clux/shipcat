@@ -12,8 +12,8 @@ pub enum AvailabilityPolicy {
 impl AvailabilityPolicy {
     fn verify(&self, name: &str, maxNumber: u32) -> Result<()> {
         match self {
-            AvailabilityPolicy::Unsigned(ref n) => {
-                if n > &maxNumber {
+            AvailabilityPolicy::Unsigned(n) => {
+                if *n > maxNumber {
                     bail!("Cannot have {} set higher than replicaCount {}", name, maxNumber);
                 }
             },
@@ -39,7 +39,7 @@ impl AvailabilityPolicy {
             AvailabilityPolicy::Percentage(percstr) => {
                 let digits = percstr.chars().take_while(|ch| *ch != '%').collect::<String>();
                 let surgeperc : u32 = digits.parse().unwrap(); // safe due to verify ^
-                ((replicas as f64 * surgeperc as f64)/ 100.0).ceil() as u32
+                ((f64::from(replicas) * f64::from(surgeperc))/ 100.0).ceil() as u32
             },
             AvailabilityPolicy::Unsigned(u) => {
                 *u
@@ -101,13 +101,13 @@ impl RollingUpdate {
 
         } else {
             // default surge percentage is 25
-            ((replicas * 25) as f64 / 100.0).ceil() as u32
+            (f64::from(replicas * 25) / 100.0).ceil() as u32
         };
         let unavail = if let Some(unav) = self.maxUnavailable.clone() {
             // maxUnavailable is max number/percentage
             unav.to_replicas(replicas)
         } else {
-            ((replicas * 25) as f64 / 100.0).ceil() as u32
+            (f64::from(replicas * 25) / 100.0).ceil() as u32
         };
         // Work out how many iterations is needed assuming consistent rollout time
         // Often, this is not true, but it provides a good indication
@@ -135,7 +135,7 @@ impl RollingUpdate {
     }
     pub fn rollout_iterations_default(replicas: u32) -> u32 {
         // default surge percentage is 25
-        ((replicas as f64 * 25 as f64)/ 100.0).ceil() as u32
+        ((f64::from(replicas) * 25.0)/ 100.0).ceil() as u32
     }
 }
 

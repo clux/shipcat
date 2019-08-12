@@ -271,7 +271,7 @@ pub fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
 
     println!("==> {} is running {}", term_repo, term_version);
     println!("{}", slack_link);
-    println!("");
+    println!();
 
     println!("==> CONDITIONS");
     if let Some(stat) = crd.status {
@@ -286,7 +286,7 @@ pub fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
             println!("RolledOut {}", format_condition(ro)?);
         }
     }
-    println!("");
+    println!();
 
     println!("==> RESOURCES");
     print!("{}", kubectl::kpods(&mf)?);

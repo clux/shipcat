@@ -245,7 +245,7 @@ impl Config {
             if r.cluster == "" {
                 bail!("Need to set the serving `cluster` of {}", r.name);
             }
-            if !self.clusters.keys().cloned().collect::<Vec<_>>().contains(&r.cluster) {
+            if !self.clusters.keys().any(|c| c == &r.cluster) {
                 bail!("Region {} served by missing cluster '{}'", r.name, r.cluster);
             }
             r.vault.verify(&r.name)?;
@@ -292,7 +292,7 @@ impl Config {
 
     fn verify_version(ver: &Version) -> Result<()> {
         let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-        if ver > &current {
+        if *ver > current {
             let url = "https://github.com/Babylonpartners/shipcat/releases";
             let brewurl = "https://github.com/Babylonpartners/homebrew-babylon";
             let s1 = format!("Precompiled releases available at {}", url);
@@ -470,7 +470,7 @@ impl Config {
                 warn!("Invalid shipcat.conf - either genuine error, or your manifests dir is out of date locally");
 
                 // 3. genuine mistake in config additions/removals
-                return Err(e.into()) // propagate normal error
+                Err(e.into()) // propagate normal error
             }
             Ok(d) => Ok(d)
         }

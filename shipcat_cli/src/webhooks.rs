@@ -73,11 +73,11 @@ pub fn apply_event(us: UpgradeState, info: &UpgradeInfo, reg: &Region, conf: &Co
     // slack notifications:
     let (color, text) = match us {
         UpgradeState::Completed => (
-                "good".into(),
+                "good",
                 format!("applied `{}` in `{}`", info.name, info.region)
             ),
         UpgradeState::Failed => (
-                "danger".into(),
+                "danger",
                 format!("failed to apply `{}` in `{}`", info.name, info.region)
             ),
         _ => (

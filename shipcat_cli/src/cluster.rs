@@ -50,7 +50,7 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>,
     kubectl::apply_crd(&region_base.name, applycfg, &region_base.namespace)?;
 
     // Single instruction kubectl delete shipcat manifests .... of excess ones
-    let svc_names = svcs.iter().map(|x| x.base.name.to_string()).collect();
+    let svc_names = svcs.iter().map(|x| x.base.name.to_string()).collect::<Vec<_>>();
     kubectl::remove_redundant_manifests(&region_sec.namespace, &svc_names)?;
 
     let n_jobs = svcs.len();

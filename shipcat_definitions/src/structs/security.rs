@@ -116,16 +116,16 @@ impl DataFieldType {
     fn is_pii(&self) -> bool {
         // Matching by exclusion by default
         match self {
-            &DataFieldType::HealthCheck => false,
+            DataFieldType::HealthCheck => false,
             _ => true
         }
     }
     fn is_spii(&self) -> bool {
         match self {
-            &DataFieldType::FullName => false,
-            &DataFieldType::HomeAddress => false,
-            &DataFieldType::DateOfBirth => false,
-            &DataFieldType::BabylonUserId => false,
+            DataFieldType::FullName => false,
+            DataFieldType::HomeAddress => false,
+            DataFieldType::DateOfBirth => false,
+            DataFieldType::BabylonUserId => false,
             // Otherwise fall back to the weaker PII
             // because: not PII implies not SPII
             // slightly more sensible default than just `true`

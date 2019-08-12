@@ -179,12 +179,9 @@ fn send_internal(msg: Message, chan: String, conf: &Config, env: &Environment) -
     };
 
     // Auto cc users
-    match notificationMode {
-        NotificationMode::NotifyMaintainers => {
-            texts.push(Text("<- ".to_string().into()));
-            texts.extend(contacts_to_text_content(&md.contacts));
-        }
-        _ => {},
+    if let NotificationMode::NotifyMaintainers = notificationMode {
+        texts.push(Text("<- ".to_string().into()));
+        texts.extend(contacts_to_text_content(&md.contacts));
     }
 
     // Pass the texts array to slack_hook
@@ -233,7 +230,7 @@ fn create_github_compare_url(md: &Metadata, vers: (&str, &str)) -> SlackTextCont
     Link(SlackLink::new(&url, &short_ver(vers.1)))
 }
 
-fn contacts_to_text_content(contacts: &Vec<Contact>) -> Vec<SlackTextContent> {
+fn contacts_to_text_content(contacts: &[Contact]) -> Vec<SlackTextContent> {
     contacts.iter().map(|cc| { User(SlackUserLink::new(&cc.slack)) }).collect()
 }
 

@@ -110,7 +110,7 @@ pub fn find_redundant_services(ns: &str, svcs: &[String]) -> Result<Vec<String>>
                 warn!("helm {} stderr: {}",  lsargs.join(" "), verr);
             }
             // we should have a helm ls -q output:
-            vout.lines().into_iter().map(String::from).collect()
+            vout.lines().map(String::from).collect()
         }
         _ => {
             bail!("No services found in {} tiller", ns)

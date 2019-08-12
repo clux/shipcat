@@ -25,7 +25,7 @@ impl StatuscakeTest {
         } else if let Some(uris) = kong.uris {
             Some(format!("{}/status/{}/health",
                     external_svc,
-                    uris.trim_start_matches("/")))
+                    uris.trim_start_matches('/')))
         } else {
             // No host, no uri, what's going on?
             None

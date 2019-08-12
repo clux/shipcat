@@ -77,7 +77,7 @@ impl VaultConfig {
         if self.folder == "" {
             bail!("Need to set the vault folder for {}", region);
         }
-        if self.folder.contains("/") {
+        if self.folder.contains('/') {
             bail!("vault config folder '{}' (under {}) cannot contain slashes", self.folder, self.url);
         }
         Ok(())
@@ -570,7 +570,7 @@ pub struct Region {
 impl Region {
     /// Find the Cluster struct that owns this Region
     pub fn find_owning_cluster(region: &str, clusters: &BTreeMap<String, Cluster>) -> Option<Cluster> {
-        for (_, c) in clusters {
+        for c in clusters.values() {
             if c.regions.iter().any(|r| r == region) {
                 return Some(c.clone());
             }

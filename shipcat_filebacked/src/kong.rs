@@ -96,7 +96,7 @@ impl Build<Option<Kong>, KongBuildParams> for KongSource {
 }
 
 impl KongSource {
-    fn build_upstream_url(&self, service: &String, namespace: &String) -> String {
+    fn build_upstream_url(&self, service: &str, namespace: &str) -> String {
         if let Some(upstream_url) = &self.upstream_url {
             upstream_url.to_string()
         } else {
@@ -120,7 +120,7 @@ impl KongSource {
         }
     }
 
-    fn build_hosts(&self, base_url: &String) -> Result<Vec<String>> {
+    fn build_hosts(&self, base_url: &str) -> Result<Vec<String>> {
         let hosts: Vec<String> = self.hosts.clone().unwrap_or_default().into();
         let host = self.host.clone().filter(|x| !x.is_empty());
         match (host, hosts.as_slice()) {

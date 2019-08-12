@@ -135,8 +135,7 @@ pub fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
                 trace!("Found dependency new in graph: {}", dep.name);
                 let depmf = shipcat_filebacked::load_manifest(&dep.name, conf, reg)?;
                 let depnode = ManifestNode::new(&depmf);
-                let depidx = graph.add_node(depnode);
-                depidx
+                graph.add_node(depnode) // depidx
             };
             graph.update_edge(idx, subidx, DepEdge::new(&dep));
         }

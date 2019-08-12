@@ -33,7 +33,7 @@ where
         where
             E: Error,
         {
-            Ok(value.split(",").map(String::from).collect())
+            Ok(value.split(',').map(String::from).collect())
         }
 
         fn visit_seq<A>(self, seq: A) -> Result<Vec<String>, A::Error>

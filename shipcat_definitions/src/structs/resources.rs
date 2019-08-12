@@ -74,12 +74,12 @@ impl Mul<u32> for ResourceRequirements<f64> {
 
     fn mul(self, scalar: u32) -> ResourceRequirements<f64> {
         let requests = Resources {
-            memory: self.requests.memory * (scalar as f64),
-            cpu: self.requests.cpu * (scalar as f64),
+            memory: self.requests.memory * f64::from(scalar),
+            cpu: self.requests.cpu * f64::from(scalar),
         };
         let limits = Resources {
-            memory: self.limits.memory * (scalar as f64),
-            cpu: self.limits.cpu * (scalar as f64),
+            memory: self.limits.memory * f64::from(scalar),
+            cpu: self.limits.cpu * f64::from(scalar),
         };
         ResourceRequirements { requests, limits }
     }

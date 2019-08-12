@@ -204,7 +204,7 @@ impl ManifestSource {
         })
     }
 
-    fn build_image(&self, service: &String) -> Result<String> {
+    fn build_image(&self, service: &str) -> Result<String> {
         if let Some(image) = &self.overrides.image {
             image.clone().build(&())
         } else if let Some(prefix) = &self.overrides.defaults.image_prefix {
@@ -242,7 +242,7 @@ impl ManifestSource {
     }
 
     // TODO: Extract KafkaSource
-    fn build_kafka(&self, service: &String, reg: &Region) -> Option<Kafka> {
+    fn build_kafka(&self, service: &str, reg: &Region) -> Option<Kafka> {
         let original = &self.overrides.kafka;
         original.clone().map(|mut kf| {
             kf.implicits(service, reg.clone());
@@ -251,7 +251,7 @@ impl ManifestSource {
     }
 
     // TODO: Extract ConfigsSource
-    fn build_configs(&self, service: &String) -> Result<Option<ConfigMap>> {
+    fn build_configs(&self, service: &str) -> Result<Option<ConfigMap>> {
         let original = &self.overrides.configs;
         if original.is_none() {
             return Ok(None);

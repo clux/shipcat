@@ -7,7 +7,7 @@ use shipcat_definitions::structs::job::{JobVolumeClaim, RestartPolicy};
 use crate::util::{Build, RelaxedString};
 use std::collections::BTreeMap;
 
-use super::container::{ContainerSource, ContainerBuildParams};
+use super::source::{ContainerSource, ContainerBuildParams};
 
 #[derive(Deserialize, Merge, Clone, Default)]
 #[serde(default, rename_all = "camelCase")]

@@ -22,7 +22,7 @@ fn print_error_debug(e: &Error) {
 }
 
 fn build_cli() -> App<'static, 'static> {
-    let app = App::new("shipcat")
+    App::new("shipcat")
         .version(crate_version!())
         .setting(AppSettings::VersionlessSubcommands)
         .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -349,9 +349,9 @@ fn build_cli() -> App<'static, 'static> {
 
         .subcommand(SubCommand::with_name("login")
             .about("Login to a region (using teleport if possible)")
-            );
-    app
+            )
 }
+
 fn main() {
     let app = build_cli();
     let args = app.get_matches();
@@ -410,12 +410,13 @@ fn resolve_config(args: &ArgMatches, ct: ConfigType) -> Result<(Config, Region)>
     Ok(res)
 }
 
-fn void<T>(_x: T) { () } // helper so that dispatch_commands can return Result<()>
+fn void<T>(_x: T) {} // helper so that dispatch_commands can return Result<()>
 
 /// Dispatch clap arguments to shipcat handlers
 ///
 /// A boring and somewhat error-prone "if-x-then-fnx dance". We are relying on types
 /// in the dispatched functions to catch the majority of errors herein.
+#[allow(clippy::cognitive_complexity)] // clap 3 will have typed subcmds..
 fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     // listers first
     if let Some(a) = args.subcommand_matches("list-regions") {
@@ -524,12 +525,12 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("secret") {
         let rawconf = Config::read()?;
         if let Some(b) = a.subcommand_matches("verify-region") {
-            let regions = b.values_of("regions").unwrap().map(String::from).collect::<Vec<_>>();
+            let regions = b.values_of("regions").unwrap().map(String::from).collect();
             // NB: this does a cheap verify of both Config and Manifest (vault list)
             return if b.is_present("git") {
                 shipcat::validate::secret_presence_git(&rawconf, regions)
             } else if let Some(svcs) = b.value_of("services") {
-                let svcvec = svcs.split(",").filter(|s| !s.is_empty()).map(String::from).collect::<Vec<_>>();
+                let svcvec = svcs.split(',').filter(|s| !s.is_empty()).map(String::from).collect();
                 shipcat::validate::secret_presence_explicit(svcvec, &rawconf, regions)
             } else {
                 shipcat::validate::secret_presence_full(&rawconf, regions)

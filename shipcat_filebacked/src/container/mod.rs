@@ -1,9 +1,10 @@
-mod container;
+mod source;
+pub use source::ContainerBuildParams;
+
 mod env;
 mod resources;
 mod image;
 
-pub use container::ContainerBuildParams;
 pub use env::EnvVarsSource;
 pub use resources::ResourceRequirementsSource;
 pub use image::{ImageNameSource, ImageTagSource};

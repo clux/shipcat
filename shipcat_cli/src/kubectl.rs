@@ -373,7 +373,7 @@ pub fn debug_rollout_status(mf: &Manifest) -> Result<()> {
 pub fn kpods(mf: &Manifest) -> Result<String> {
     let custom_cols = vec![
         "NAME:metadata.name".into(),
-        format!("VERSION:{{spec.containers[*].env[?(@.name==\'SERVICE_VERSION\')].value}}"),
+        "VERSION:{spec.containers[*].env[?(@.name==\'SERVICE_VERSION\')].value}".to_string(),
         // READY is garbage here: https://github.com/kubernetes/kubernetes/issues/71612
         "READY:status.containerStatuses[*].ready".into(), //  TODO: fix ^
         "RESTARTS:status.containerStatuses[0].restartCount".into(),
@@ -498,9 +498,7 @@ pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> 
     if !status {
         bail!("subprocess failure from kubectl: {:?}", applyargs);
     }
-    let changed = if out.contains("configured") {
-        true
-    } else if out.contains("created") {
+    let changed = if out.contains("configured") || out.contains("created") {
         true
     } else if out.contains("unchanged") {
         false
@@ -550,7 +548,7 @@ pub fn diff(pth: PathBuf, ns: &str) -> Result<(String, bool)> {
 }
 
 use std::collections::HashSet;
-pub fn remove_redundant_manifests(ns: &str, svcs: &Vec<String>) -> Result<Vec<String>> {
+pub fn remove_redundant_manifests(ns: &str, svcs: &[String]) -> Result<Vec<String>> {
     let requested: HashSet<_> = svcs.iter().cloned().collect();
     let found: HashSet<_> = find_all_manifest_crds(ns)?.iter().cloned().collect();
     debug!("Found manifests: {:?}", found);
@@ -566,7 +564,7 @@ pub fn remove_redundant_manifests(ns: &str, svcs: &Vec<String>) -> Result<Vec<St
         delargs.push(x.to_string());
     }
     if !excess.is_empty() {
-        let _res = kexec(delargs)?;
+        kexec(delargs)?;
     } else {
         debug!("No excess manifests found");
     }

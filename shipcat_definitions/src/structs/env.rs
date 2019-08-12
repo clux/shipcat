@@ -54,11 +54,11 @@ impl EnvVars {
         }
     }
 
-    fn is_vault_secret(value: &String) -> bool {
+    fn is_vault_secret(value: &str) -> bool {
         value == "IN_VAULT"
     }
 
-    fn template_secret_value(value: &String) -> Option<String> {
+    fn template_secret_value(value: &str) -> Option<String> {
         let prefix = "SHIPCAT_SECRET::";
         if value.starts_with(prefix) {
             Some(value.to_string().split_off(prefix.len()))

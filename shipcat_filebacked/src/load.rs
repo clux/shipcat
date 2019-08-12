@@ -109,7 +109,7 @@ impl ManifestDefaults {
         let mut defs = Self::default();
         defs.chart = Option::Some(conf.defaults.chart.clone());
         defs.image_prefix = Option::Some(conf.defaults.imagePrefix.clone());
-        defs.replica_count = Option::Some(conf.defaults.replicaCount.clone());
+        defs.replica_count = Option::Some(conf.defaults.replicaCount);
 
         Ok(defs)
     }
