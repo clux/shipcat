@@ -119,24 +119,22 @@ pub fn await_rollout_status(mf: &Manifest) -> Result<bool> {
     Ok(false) // timeout
 }
 
-fn get_pods(mf: &Manifest) -> Result<String> {
-    //kubectl get pods -l=app=$* -o jsonpath='{.items[*].metadata.name}'
-    let podargs = vec![
-        "get".into(),
-        "pods".into(),
-        format!("-l=app={}", mf.name),
-        format!("-n={}", mf.namespace),
-        "-o".into(),
-        "jsonpath='{.items[*].metadata.name}'".into(),
-    ];
-    // TODO: filter out ones not running conditionally - exec wont work with this
-    let (podsres, _) = kout(podargs)?;
-    debug!("Active pods: {:?}", podsres);
-    Ok(podsres)
+enum PodClassification {
+    Active,
+    Broken,
+}
+
+fn get_active_pods(mf: &Manifest) -> Result<String> {
+    let (_, pods) = get_classified_pods(PodClassification::Active, mf).unwrap();
+    Ok(pods.join(" "))
 }
 
 /// Return non-running or partially ready pods
 fn get_broken_pods(mf: &Manifest) -> Result<(String, Vec<String>)> {
+    get_classified_pods(PodClassification::Broken, mf)
+}
+
+fn get_classified_pods(pc: PodClassification, mf: &Manifest) -> Result<(String, Vec<String>)> {
     let podargs = vec![
         "get".into(),
         "pods".into(),
@@ -145,25 +143,35 @@ fn get_broken_pods(mf: &Manifest) -> Result<(String, Vec<String>)> {
         "--no-headers".into(),
     ];
     let (podres, _) = kout(podargs)?;
-    let mut bpods = vec![];
     let status_re = Regex::new(r" (?P<ready>\d+)/(?P<total>\d+) ").unwrap();
+    let mut active = vec![];
+    let mut broken = vec![];
+
     for l in podres.lines() {
         if !l.contains("Running") {
             if let Some(p) = l.split(' ').next() {
                 warn!("Found pod not running: {}", p);
-                bpods.push(p.into());
+                broken.push(p.into());
             }
         }
         else if let Some(caps) = status_re.captures(l) {
             if caps["ready"] != caps["total"] {
                 if let Some(p) = l.split(' ').next() {
                     warn!("Found pod with less than necessary containers healthy: {}", p);
-                    bpods.push(p.into());
+                    broken.push(p.into());
+                }
+            } else {
+                if let Some(p) = l.split(' ').next() {
+                    active.push(p.into());
                 }
             }
         }
     }
-    Ok((podres, bpods))
+
+    match pc {
+        PodClassification::Active => Ok((podres, active)),
+        PodClassification::Broken => Ok((podres, broken)),
+    }
 }
 
 /// Debug helper when upgrades fail
@@ -395,7 +403,11 @@ pub fn kpods(mf: &Manifest) -> Result<String> {
 /// Optionally specify the arbitrary pod index from kubectl get pods
 pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -> Result<()> {
     // TODO: kubectl auth can-i create pods/exec
-    let podsres = get_pods(&mf)?;
+    let podsres = get_active_pods(&mf)?;
+    debug!("podsres: {}", podsres);
+    if podsres.is_empty() {
+        bail!("No healthy pods for {}, cannot connect", mf.name);
+    }
     let pods = podsres.split(' ').collect::<Vec<_>>();
     let pnr = desiredpod.unwrap_or(0);
     if let Some(p) = pods.get(pnr) {
