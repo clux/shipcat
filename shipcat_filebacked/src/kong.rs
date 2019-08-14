@@ -24,8 +24,6 @@ pub struct KongSource {
     pub internal: Option<bool>,
     #[serde(rename = "camelCase")]
     pub publicly_accessible: Option<bool>,
-    pub cookie_auth: Option<bool>,
-    pub cookie_auth_csrf: Option<bool>,
     pub auth: Option<Authentication>,
     pub babylon_auth_header: Option<BabylonAuthHeader>,
     pub authorization: Enabled<AuthorizationSource>,
@@ -54,15 +52,6 @@ impl Build<Option<Kong>, KongBuildParams> for KongSource {
         let upstream_url = self.build_upstream_url(&service, &region.namespace);
         let (auth, authorization) = KongSource::build_auth(self.auth, self.authorization)?;
 
-        if authorization.is_some() {
-            if self.cookie_auth.is_some() {
-                bail!("cookie_auth and authorization properties are mutually exclusive")
-            }
-            if self.cookie_auth_csrf.is_some() {
-                bail!("cookie_auth_csrf and authorization properties are mutually exclusive")
-            }
-        }
-
         let preserve_host = self.preserve_host.unwrap_or(true);
 
         Ok(Some(Kong {
@@ -89,8 +78,6 @@ impl Build<Option<Kong>, KongBuildParams> for KongSource {
             add_headers: self.add_headers,
             // Legacy authorization
             auth,
-            cookie_auth: self.cookie_auth.unwrap_or_default(),
-            cookie_auth_csrf: self.cookie_auth_csrf.unwrap_or_default(),
         }))
     }
 }

@@ -475,15 +475,6 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
             plugins.push(ApiPlugin::RequestTransformer(PluginBase::removed()))
         }
 
-        // If enabled: JsonCookies and JsonCookiesCsrf
-        if v.cookie_auth {
-            plugins.push(ApiPlugin::JsonCookiesToHeaders(PluginBase::default()));
-        }
-
-        if v.cookie_auth_csrf {
-            plugins.push(ApiPlugin::JsonCookiesCsrf(PluginBase::default()));
-        }
-
         // Create the main API object
         apis.push(Api {
             name: k.to_string(),

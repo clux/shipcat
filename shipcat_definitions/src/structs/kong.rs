@@ -32,14 +32,6 @@ pub struct Kong {
     #[serde(default, skip_serializing_if = "Not::not")]
     pub publiclyAccessible: bool,
 
-    /// Whether to allow cookie based authentication for front-end applications
-    #[serde(default, skip_serializing_if = "Not::not")]
-    pub cookie_auth: bool,
-
-    /// Whether or not to CSRF for cookie auths (mattmalones plugin)
-    #[serde(default, skip_serializing_if = "Not::not")]
-    pub cookie_auth_csrf: bool,
-
     /// Authorization for API
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization: Option<Authorization>,
