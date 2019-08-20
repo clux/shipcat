@@ -256,6 +256,11 @@ fn build_cli() -> App<'static, 'static> {
                 .short("s")
                 .long("secrets")
                 .help("Use actual secrets from vault"))
+              .arg(Arg::with_name("tag")
+                .long("tag")
+                .short("t")
+                .takes_value(true)
+                .help("Image version to override (useful when validating)"))
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service to generate kube yaml for"))
@@ -589,10 +594,11 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
         let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
         let (conf, region) = resolve_config(a, ss)?;
+        let ver = a.value_of("tag").map(String::from);
 
         let mock = !a.is_present("secrets");
         return shipcat::helm::template(&svc,
-                &region, &conf, None, mock, None).map(void);
+                &region, &conf, ver, mock, None).map(void);
     }
     else if let Some(a) = args.subcommand_matches("crd") {
         let svc = a.value_of("service").map(String::from).unwrap();

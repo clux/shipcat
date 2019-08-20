@@ -91,9 +91,10 @@ pub fn apply(svc: &str,
 }
 
 
-/// Current legacy version
+/// Legacy version
 ///
 /// Reads CRDs, but doesn't write to them. Upgrades through tiller.
+#[deprecated(since = "0.132.2", note = "CrdVersioned users should move on to CrdStatus")]
 fn apply_helm(svc: &str,
              force: bool,
              region: &Region,
@@ -101,6 +102,7 @@ fn apply_helm(svc: &str,
              wait: bool,
              passed_version: Option<String>) -> Result<Option<UpgradeInfo>>
 {
+    warn!("CrdVersioned shipcat::apply is deprecated, please move to CrdStatus");
     if let Err(e) = webhooks::ensure_requirements(&region) {
         warn!("Could not ensure webhook requirements: {}", e);
     }
