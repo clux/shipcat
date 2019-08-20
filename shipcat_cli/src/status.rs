@@ -1,4 +1,4 @@
-use crate::{Result, Error, ErrorKind, Manifest};
+use crate::{Result, ErrorKind, Manifest};
 use serde_json::json;
 
 use kube::{
@@ -15,7 +15,7 @@ use shipcat_definitions::status::{make_date, ManifestStatus, Applier, Condition,
 fn make_client() -> Result<APIClient> {
     let config = kube::config::incluster_config().or_else(|_| {
         kube::config::load_kube_config()
-    }).map_err(|_e| Error::from(ErrorKind::KubeError))?;
+    }).map_err(ErrorKind::KubeError)?;
     Ok(kube::client::APIClient::new(config))
 }
 
@@ -70,10 +70,7 @@ impl Status {
 
     /// Full CRD fetcher
     pub fn get(&self) -> Result<ManifestK> {
-        let o = self.scm.get(&self.name).map_err(|e| {
-            warn!("KubeError: {}", e);
-            Error::from(ErrorKind::KubeError) // TODO: FIX CHAIN
-        })?;
+        let o = self.scm.get(&self.name).map_err(ErrorKind::KubeError)?;
         Ok(o)
     }
 
@@ -85,11 +82,7 @@ impl Status {
     fn patch(&self, data: &serde_json::Value) -> Result<ManifestK> {
         let pp = PatchParams::default();
         let o = self.scm.patch_status(&self.name, &pp, serde_json::to_vec(data)?)
-            .map_err(|e| {
-                warn!("KubeError: {}", e);
-                Error::from(ErrorKind::KubeError)
-            })?;
-            //.chain_err(|| ErrorKind::KubeError)?; can't atm because it's a failure..
+            .map_err(ErrorKind::KubeError)?;
         debug!("Patched status: {:?}", o.status);
         Ok(o)
     }

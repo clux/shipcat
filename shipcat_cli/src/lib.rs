@@ -68,9 +68,9 @@ error_chain! {
             description("slack message send failed")
             display("Failed to send the slack message to '{}' ", &hook)
         }
-        KubeError {
-            description("Failed to call the kube api")
-            display("Failed to call the kube api")
+        KubeError(e: kube::Error) {
+            description("kube api interaction failed")
+            display("kube api: {}: {:?}", e, e)
         }
     }
 }
