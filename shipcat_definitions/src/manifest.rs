@@ -196,16 +196,9 @@ pub struct Manifest {
     #[serde(default, skip_serializing)]
     pub dataHandling: Option<DataHandling>,
 
-    /// Language the service is written in
-    ///
-    /// This does not provide any special behaviour at the moment.
-    ///
-    /// ```yaml
-    /// language: python
-    /// ```
+    #[deprecated(since = "0.125.0", note = "use metadata.language instead")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
-
 
     /// Kubernetes resource limits and requests
     ///

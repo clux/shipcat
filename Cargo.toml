@@ -6,9 +6,8 @@ members = [
   "merge",
   "merge_derive",
   "shipcat_filebacked",
+  "shipcat_definitions",
 ]
-# Definitions has its own workspace atm.
-exclude = ["shipcat_definitions"]
 
 [profile.release]
 debug = false

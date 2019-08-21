@@ -18,7 +18,7 @@ ADD https://storage.googleapis.com/kubernetes-release/release/v${KUBEVER}/bin/li
 # NB: skipping https://github.com/garethr/kubetest because alpine dylibs fail
 RUN set -x && \
     apk update && \
-    apk add --no-cache curl ca-certificates make bash jq git python3 unzip && \
+    apk add --no-cache curl ca-certificates findutils make bash jq git python3 unzip && \
     chmod +x /usr/local/bin/kubectl && \
     curl -sSL https://storage.googleapis.com/kubernetes-helm/helm-v${HELMVER}-linux-amd64.tar.gz | tar xz -C /usr/local/bin --strip-components=1 && \
     curl -sSL https://github.com/garethr/kubeval/releases/download/${KUBEVALVER}/kubeval-linux-amd64.tar.gz | tar xvz -C /usr/local/bin && \

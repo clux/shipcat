@@ -76,6 +76,23 @@ impl DerefMut for SlackChannel {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum Language {
+    Rust,
+    Go,
+    Scala,
+    Java,
+    Ruby,
+    Python,
+    JavaScript,
+    TypeScript,
+    Kotlin,
+    Swift,
+    // You're something weird.
+    Other,
+}
+
+
 /// Metadata for a service
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(test, derive(Default))]
@@ -84,6 +101,9 @@ pub struct Metadata {
     pub repo: String,
     /// Owning team
     pub team: String,
+    /// Language the service is written in
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<Language>,
     /// Release tagging scheme
     ///
     /// Defaults to the version itself. Leading v tagging services can use "v{{ version }}"
@@ -211,7 +231,6 @@ mod tests {
     fn invalid_slack_channel() {
         let sc = SlackChannel::new("# iaminvalidåß∂ƒ••");
         let valid = sc.verify();
-        println!("{:?}", valid);
         assert!(valid.is_err());
     }
 }

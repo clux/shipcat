@@ -42,25 +42,20 @@ jobs:
     docker:
       - image: clux/muslrust:stable
     working_directory: /volume
-    parallelism: 2
+    resource_class: xlarge
     steps:
       - checkout
+      - run: grep "\[metadata\]" -A 9000 Cargo.lock > deps_checksum
       - restore_cache:
           keys:
-            - cargo.registry-musl-{{ .Environment.CACHE_VERSION }}
-      - restore_cache:
-          keys:
-            - target-musl-{{ .Environment.CACHE_VERSION }}
+          - musl_cache_2_{{ checksum "deps_checksum" }}
       - run: cargo build --release -p shipcat
       - run: cargo build --release -p raftcat
       - save_cache:
-          key: target-musl-{{ .Environment.CACHE_VERSION }}
           paths:
+            - /root/.cargo/registry
             - target
-      - save_cache:
-          key: cargo.registry-musl-{{ .Environment.CACHE_VERSION }}
-          paths:
-            - /root/.cargo
+          key: musl_cache_2_{{ checksum "deps_checksum" }}
       # Ensure we have a built `shipcat.x86_64-unknown-linux-musl` at workspace root
       - run: mv target/x86_64-unknown-linux-musl/release/shipcat{,.x86_64-unknown-linux-musl}
       - run: mv target/x86_64-unknown-linux-musl/release/raftcat{,.x86_64-unknown-linux-musl}
@@ -72,33 +67,26 @@ jobs:
 
   cargo_test:
     docker:
-      - image: clux/muslrust:stable
-    working_directory: /volume
+      - image: circleci/rust:latest
     resource_class: xlarge
     environment:
       - RUST_BACKTRACE: "full"
     steps:
       - checkout
+      - run: grep "\[metadata\]" -A 9000 Cargo.lock > deps_checksum
       - restore_cache:
           keys:
-            - cargo.registry-test-{{ .Environment.CACHE_VERSION }}
-      - restore_cache:
-          keys:
-            - target-test-{{ .Environment.CACHE_VERSION }}
-      # `shipcat` and `raftcat` can't be compiled at the same time (due to filebacked feature in shipcat_definitions)
-      - run:
-          working_directory: shipcat_definitions
-          command: cargo test --all --features=filesystem -- --nocapture
+          - debug_cache_2_{{ checksum "deps_checksum" }}
+      - run: cargo test --all --no-run
       - run: cargo test --all -- --nocapture
+      # Tests within shipcat_definitions do not get run with features
+      - run: cargo test -p shipcat_definitions --features=filesystem -- --nocapture
       - run: cargo doc --no-deps --lib --all
       - save_cache:
-          key: target-test-{{ .Environment.CACHE_VERSION }}
           paths:
+            - /usr/local/cargo/registry
             - target
-      - save_cache:
-          key: cargo.registry-test-{{ .Environment.CACHE_VERSION }}
-          paths:
-            - /root/.cargo
+          key: debug_cache_2_{{ checksum "deps_checksum" }}
 
   docker_build:
     machine: true
@@ -118,28 +106,19 @@ jobs:
     macos:
       xcode: "10.2.0"
     working_directory: /Users/distiller/project
-    parallelism: 2
     steps:
       - checkout
-      - run:
-          name: Install rust
-          command: |
-            curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
+      - run: curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
+      - run: grep "\[metadata\]" -A 9000 Cargo.lock > deps_checksum
       - restore_cache:
-          key: cargo.registry-mac-{{ .Environment.CACHE_VERSION }}
-      - restore_cache:
-          key: target-mac-{{ .Environment.CACHE_VERSION }}
-      - run:
-          name: Build
-          command: ~/.cargo/bin/cargo build --verbose --release -p shipcat
+          keys:
+          - mac_cache_{{ checksum "deps_checksum" }}
+      - run: ~/.cargo/bin/cargo build --release -p shipcat
       - save_cache:
-          key: target-mac-{{ .Environment.CACHE_VERSION }}
           paths:
+            - /Users/distiller/.cargo/registry
             - target
-      - save_cache:
-          key: cargo.registry-mac-{{ .Environment.CACHE_VERSION }}
-          paths:
-            - /Users/distiller/.cargo
+          key: mac_cache_{{ checksum "deps_checksum" }}
       # Ensure we have a built `shipcat.x86_64-apple-darwin` at workspace root
       - run: mv target/release/shipcat{,.x86_64-apple-darwin}
       - persist_to_workspace:
