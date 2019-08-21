@@ -109,6 +109,9 @@ fn build_cli() -> App<'static, 'static> {
                 .help("Skip checking if the current region is supported by this Shipcat version"))
               .about("Validate the shipcat manifest"))
 
+        .subcommand(SubCommand::with_name("verify")
+            .about("Verify all manifests of a region"))
+
         .subcommand(SubCommand::with_name("secret")
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .subcommand(SubCommand::with_name("verify-region")
@@ -574,6 +577,14 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             conf.verify_version_pin(&region.environment)?;
         }
         return shipcat::validate::manifest(services, &conf, &region, a.is_present("secrets"));
+    }
+    else if let Some(a) = args.subcommand_matches("verify") {
+        return if a.value_of("region").is_some() {
+            let (conf, region) = resolve_config(a, ConfigType::Base)?;
+            shipcat::validate::regional_manifests(&conf, &region)
+        } else {
+            shipcat::validate::all_manifests()
+        };
     }
     else if let Some(a) = args.subcommand_matches("values") {
         let svc = a.value_of("service").map(String::from).unwrap();

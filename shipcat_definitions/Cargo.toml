@@ -10,7 +10,7 @@ authors = [
 name = "shipcat_definitions"
 description = "Definition for Manifest and Config for shipcat"
 readme = "README.md"
-version = "0.123.2"
+version = "0.124.0"
 categories = ["configuration"]
 keywords = ["kubernetes", "helm", "deployment", "standardisation", "validation"]
 license-file = "LICENSE"
@@ -28,7 +28,6 @@ serde = "1.0.79"
 serde_derive = "1.0.79"
 serde_yaml = "0.8.5"
 tera = "0.11.16"
-kube = "0.10.0"
 chrono = { version = "0.4.6", features = ["serde"] }
 semver = { version = "0.9.0", features = ["serde"] }
 base64 = "0.9.3"

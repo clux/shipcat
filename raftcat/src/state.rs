@@ -68,7 +68,8 @@ impl State {
         let manifests = Reflector::new(mfresource).init()?;
         let configs = Reflector::new(cfgresource).init()?;
         // Use federated config if available:
-        let config_name = if configs.read()?.get("unionised").is_some() {
+        let config_name = if configs.read()?.iter()
+            .any(|crd : &ConfigObject| crd.metadata.name == "unionised") {
             "unionised".into()
         } else {
             region.clone()
@@ -89,27 +90,27 @@ impl State {
     }
     // Getters for main
     pub fn get_manifests(&self) -> Result<BTreeMap<String, Manifest>> {
-        let xs = self.manifests.read()?.into_iter().fold(BTreeMap::new(), |mut acc, (k, crd)| {
-            acc.insert(k, crd.spec); // don't expose crd metadata + status
+        let xs = self.manifests.read()?.into_iter().fold(BTreeMap::new(), |mut acc, crd| {
+            acc.insert(crd.spec.name.clone(), crd.spec); // don't expose crd metadata + status
             acc
         });
         Ok(xs)
     }
     pub fn get_config(&self) -> Result<Config> {
         let cfgs = self.configs.read()?;
-        if let Some(cfg) = cfgs.get(&self.config_name) {
+        if let Some(cfg) = cfgs.iter().find(|c| c.metadata.name == self.config_name) {
             Ok(cfg.spec.clone())
         } else {
             bail!("Failed to find config for {}", self.region);
         }
     }
     pub fn get_versions(&self) -> Result<VersionMap> {
-        let res = self.manifests.read()?.iter().fold(BTreeMap::new(), |mut acc, (k, crd)| {
-            if let Some(v) = &crd.spec.version { // TODO: make mandatory
-                acc.insert(k.clone(), v.clone());
-            }
-            acc
-        });
+        let res = self.manifests.read()?
+            .into_iter()
+            .fold(BTreeMap::new(), |mut acc, crd| {
+                acc.insert(crd.spec.name, crd.spec.version.unwrap());
+                acc
+            });
         Ok(res)
     }
     pub fn get_region(&self) -> Result<Region> {
@@ -120,22 +121,22 @@ impl State {
         }
     }
     pub fn get_manifest(&self, key: &str) -> Result<Option<ManifestObject>> {
-        if let Some(crd) = self.manifests.read()?.get(key) {
-            return Ok(Some(crd.to_owned()));
-        }
-        Ok(None)
+        let opt = self.manifests.read()?
+            .into_iter()
+            .find(|o| o.spec.name == key);
+        Ok(opt)
     }
     pub fn get_manifests_for(&self, team: &str) -> Result<Vec<String>> {
         let mfs = self.manifests.read()?.into_iter()
-            .filter(|(_, crd)| crd.spec.metadata.clone().unwrap().team == team)
-            .map(|(k, _)| k.clone()).collect();
+            .filter(|crd| crd.spec.metadata.clone().unwrap().team == team)
+            .map(|crd| crd.spec.name.clone()).collect();
         Ok(mfs)
     }
     pub fn get_reverse_deps(&self, service: &str) -> Result<Vec<String>> {
         let mut res = vec![];
-        for (svc, crd) in &self.manifests.read()? {
+        for crd in &self.manifests.read()? {
             if crd.spec.dependencies.iter().any(|d| d.name == service) {
-                res.push(svc.clone())
+                res.push(crd.spec.name.clone())
             }
         }
         Ok(res)

@@ -1,5 +1,60 @@
 use super::{Config, Region};
 use super::Result;
+use rayon::prelude::*;
+
+
+/// Validate all manifests in a service directory for a region
+///
+/// This is meant to replace `shipcat validate ..all_services`
+/// This does not check secrets.
+pub fn regional_manifests(conf: &Config, reg: &Region) -> Result<()> {
+    let available = shipcat_filebacked::available(conf, &reg)?;
+
+    let errs = available.par_iter()
+        .map(|mf| {
+            shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?
+                .stub(&reg)?
+                .verify(&conf, &reg)?;
+            Ok(())
+        })
+        .filter_map(Result::err)
+        .collect::<Vec<_>>();
+
+    if !errs.is_empty() {
+        for e in &errs {
+            error!("{}", e);
+        }
+        bail!("Invalid shipcat data in {} files", errs.len());
+    }
+    Ok(())
+}
+
+/// Validate all manifests in a service directory for ALL regions
+///
+/// This is meant to replace a for loop over shipcat list-regions
+/// This does not check secrets
+pub fn all_manifests() -> Result<()> {
+    use crate::ConfigType;
+    let regions = Config::read()?.list_regions();
+
+    let errs = regions.par_iter()
+        .map(|r| {
+            let (conf, region) = Config::new(ConfigType::Base, &r)?;
+            regional_manifests(&conf, &region)?;
+            Ok(())
+        })
+        .filter_map(Result::err)
+        .collect::<Vec<_>>();
+
+    if !errs.is_empty() {
+        for e in &errs {
+            error!("{}", e);
+        }
+        bail!("Invalid shipcat data in {} files", errs.len());
+    }
+    Ok(())
+}
+
 
 /// Validate the manifest of a service in the services directory
 ///
