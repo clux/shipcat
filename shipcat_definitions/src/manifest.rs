@@ -196,10 +196,6 @@ pub struct Manifest {
     #[serde(default, skip_serializing)]
     pub dataHandling: Option<DataHandling>,
 
-    #[deprecated(since = "0.125.0", note = "use metadata.language instead")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub language: Option<String>,
-
     /// Kubernetes resource limits and requests
     ///
     /// Api straight from [kubernetes resources](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/)
@@ -364,6 +360,18 @@ pub struct Manifest {
     /// ```
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<Dependency>,
+
+    /// What products (set of microservices) this service is part of
+    ///
+    /// The allowed list of products are defined in shipcat.conf under products
+    ///
+    /// ```yaml
+    /// products:
+    /// - chatbot
+    /// - triage
+    /// ```
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub products: Vec<String>,
 
     /// Worker `Deployment` objects to additinally include
     ///
@@ -827,6 +835,11 @@ impl Manifest {
         }
         if let Some(ref cmap) = self.configs {
             cmap.verify()?;
+        }
+        for p in &self.products {
+            if !conf.products.contains(p) {
+                bail!("product {} must be one of the ones defined in the config", p)
+            }
         }
         // misc minor properties
         if self.replicaCount.unwrap() == 0 {

@@ -1,10 +1,10 @@
 use failure::err_msg;
-use tera::compile_templates;
 use kube::{
+    api::{Api, Object, Reflector, Void},
     client::APIClient,
     config::Configuration,
-    api::{Reflector, Api, Void, Object},
 };
+use tera::compile_templates;
 
 use std::{
     collections::BTreeMap,
@@ -13,10 +13,12 @@ use std::{
     time::Duration,
 };
 
-use crate::*;
-use crate::integrations::{
-    newrelic::{self, RelicMap},
-    sentryapi::{self, SentryMap},
+use crate::{
+    integrations::{
+        newrelic::{self, RelicMap},
+        sentryapi::{self, SentryMap},
+    },
+    *,
 };
 
 type ManifestObject = Object<Manifest, ManifestStatus>;
@@ -68,14 +70,20 @@ impl State {
         let manifests = Reflector::new(mfresource).init()?;
         let configs = Reflector::new(cfgresource).init()?;
         // Use federated config if available:
-        let config_name = if configs.read()?.iter()
-            .any(|crd : &ConfigObject| crd.metadata.name == "unionised") {
+        let is_federated = configs
+            .read()?
+            .iter()
+            .any(|crd: &ConfigObject| crd.metadata.name == "unionised");
+        let config_name = if is_federated {
             "unionised".into()
         } else {
             region.clone()
         };
         let mut res = State {
-            manifests, configs, region, config_name,
+            manifests,
+            configs,
+            region,
+            config_name,
             relics: BTreeMap::new(),
             sentries: BTreeMap::new(),
             template: Arc::new(RwLock::new(t)),
@@ -83,29 +91,39 @@ impl State {
         res.update_slow_cache()?;
         Ok(res)
     }
+
     /// Template getter for main
     pub fn render_template(&self, tpl: &str, ctx: tera::Context) -> String {
         let t = self.template.read().unwrap();
         t.render(tpl, &ctx).unwrap()
     }
+
     // Getters for main
     pub fn get_manifests(&self) -> Result<BTreeMap<String, Manifest>> {
-        let xs = self.manifests.read()?.into_iter().fold(BTreeMap::new(), |mut acc, crd| {
-            acc.insert(crd.spec.name.clone(), crd.spec); // don't expose crd metadata + status
-            acc
-        });
+        let xs = self
+            .manifests
+            .read()?
+            .into_iter()
+            .fold(BTreeMap::new(), |mut acc, crd| {
+                acc.insert(crd.spec.name.clone(), crd.spec); // don't expose crd metadata + status
+                acc
+            });
         Ok(xs)
     }
+
     pub fn get_config(&self) -> Result<Config> {
         let cfgs = self.configs.read()?;
-        if let Some(cfg) = cfgs.iter().find(|c| c.metadata.name == self.config_name) {
-            Ok(cfg.spec.clone())
+        if let Some(cfg) = cfgs.into_iter().find(|c| c.metadata.name == self.config_name) {
+            Ok(cfg.spec)
         } else {
             bail!("Failed to find config for {}", self.region);
         }
     }
+
     pub fn get_versions(&self) -> Result<VersionMap> {
-        let res = self.manifests.read()?
+        let res = self
+            .manifests
+            .read()?
             .into_iter()
             .fold(BTreeMap::new(), |mut acc, crd| {
                 acc.insert(crd.spec.name, crd.spec.version.unwrap());
@@ -113,25 +131,30 @@ impl State {
             });
         Ok(res)
     }
+
     pub fn get_region(&self) -> Result<Region> {
         let cfg = self.get_config()?;
-        match cfg.get_region(&self.region) {
-            Ok(r) => Ok(r),
-            Err(e) => bail!("could not resolve cluster for {}: {}", self.region, e)
-        }
+        cfg.get_region(&self.region).map_err(|e| {
+            err_msg(format!("could not resolve cluster for {}: {}", self.region, e))
+        })
     }
+
     pub fn get_manifest(&self, key: &str) -> Result<Option<ManifestObject>> {
-        let opt = self.manifests.read()?
-            .into_iter()
-            .find(|o| o.spec.name == key);
+        let opt = self.manifests.read()?.into_iter().find(|o| o.spec.name == key);
         Ok(opt)
     }
+
     pub fn get_manifests_for(&self, team: &str) -> Result<Vec<String>> {
-        let mfs = self.manifests.read()?.into_iter()
+        let mfs = self
+            .manifests
+            .read()?
+            .into_iter()
             .filter(|crd| crd.spec.metadata.clone().unwrap().team == team)
-            .map(|crd| crd.spec.name.clone()).collect();
+            .map(|crd| crd.spec.name.clone())
+            .collect();
         Ok(mfs)
     }
+
     pub fn get_reverse_deps(&self, service: &str) -> Result<Vec<String>> {
         let mut res = vec![];
         for crd in &self.manifests.read()? {
@@ -141,9 +164,11 @@ impl State {
         }
         Ok(res)
     }
+
     pub fn get_newrelic_link(&self, service: &str) -> Option<String> {
         self.relics.get(service).map(String::to_owned)
     }
+
     pub fn get_sentry_slug(&self, service: &str) -> Option<String> {
         self.sentries.get(service).map(String::to_owned)
     }
@@ -162,7 +187,7 @@ impl State {
                 Ok(res) => {
                     self.sentries = res;
                     info!("Loaded {} sentry slugs", self.sentries.len());
-                },
+                }
                 Err(e) => warn!("Unable to load sentry slugs: {}", err_msg(e)),
             }
         } else {
@@ -172,7 +197,7 @@ impl State {
             Ok(res) => {
                 self.relics = res;
                 info!("Loaded {} newrelic links", self.relics.len());
-            },
+            }
             Err(e) => warn!("Unable to load newrelic projects. {}", err_msg(e)),
         }
         Ok(())
@@ -190,11 +215,14 @@ pub fn init(cfg: Configuration) -> Result<State> {
         loop {
             std::thread::sleep(Duration::from_secs(30));
             // update state here - can cause a few more waits in edge cases
-            state_clone.poll().map_err(|e| {
-                // Can't recover: boot as much as kubernetes' backoff allows
-                error!("Failed to refesh cache '{}' - rebooting", e);
-                std::process::exit(1); // boot might fix it if network is failing
-            }).unwrap();
+            state_clone
+                .poll()
+                .map_err(|e| {
+                    // Can't recover: boot as much as kubernetes' backoff allows
+                    error!("Failed to refesh cache '{}' - rebooting", e);
+                    std::process::exit(1); // boot might fix it if network is failing
+                })
+                .unwrap();
         }
     });
     Ok(state)

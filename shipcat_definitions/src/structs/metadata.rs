@@ -77,6 +77,7 @@ impl DerefMut for SlackChannel {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "lowercase")]
 pub enum Language {
     Rust,
     Go,
@@ -88,6 +89,13 @@ pub enum Language {
     TypeScript,
     Kotlin,
     Swift,
+    Php,
+    Elixir,
+    Clojure,
+    Haskell,
+    C,
+    Cpp,
+    Bash,
     // You're something weird.
     Other,
 }

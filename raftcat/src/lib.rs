@@ -7,7 +7,7 @@
 pub use failure::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub use shipcat_definitions::{Manifest, ManifestStatus, Config, Cluster, Region, Team};
+pub use shipcat_definitions::{Cluster, Config, Manifest, ManifestStatus, Region, Team};
 
 /// Integrations with external solutions like sentry/newrelic etc
 pub mod integrations;

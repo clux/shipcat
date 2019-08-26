@@ -1,12 +1,11 @@
 #![allow(unused_imports, unused_variables)]
 
-#[macro_use]
-extern crate log;
+#[macro_use] extern crate log;
 
 use serde_derive::Serialize;
 
-use std::env;
 use chrono::Local;
+use std::env;
 
 pub use raftcat::*;
 
@@ -22,8 +21,8 @@ fn find_team(cfg: &Config, slug: &str) -> Option<Team> {
 // ----------------------------------------------------------------------------------
 // Web server interface
 use actix_web::{
-    server, App, Path, Responder, HttpRequest, HttpResponse, middleware,
     http::{header, Method, StatusCode},
+    middleware, server, App, HttpRequest, HttpResponse, Path, Responder,
 };
 
 
@@ -91,7 +90,8 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
             h.uri
         } else if let Some(h) = mf.readinessProbe.clone() {
             serde_json::to_string(&h)?
-        } else { // can be here if no exposed port
+        } else {
+            // can be here if no exposed port
             "non-service".into()
         };
         let (support, supportlink) = (md.support.clone(), md.support.unwrap().link(&cfg.slack));
@@ -200,18 +200,25 @@ struct SimpleRegion {
 fn index(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let mut ctx = tera::Context::new();
 
-    let data = req.state().get_manifests()?.into_iter().map(|(k, m)| {
-        SimpleManifest {
+    let data = req
+        .state()
+        .get_manifests()?
+        .into_iter()
+        .map(|(k, m)| SimpleManifest {
             name: k,
             team: m.metadata.unwrap().team.to_lowercase(),
-        }
-    }).collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
     let data = serde_json::to_string(&data)?;
     ctx.insert("manifests", &data);
 
-    let regions = req.state().get_config()?.get_regions().into_iter().filter_map(|r| {
-        r.raftcat_url().map(|url| SimpleRegion { name: r.name, url })
-    }).collect::<Vec<_>>();
+    let regions = req
+        .state()
+        .get_config()?
+        .get_regions()
+        .into_iter()
+        .filter_map(|r| r.raftcat_url().map(|url| SimpleRegion { name: r.name, url }))
+        .collect::<Vec<_>>();
     if regions.len() > 1 {
         let regions = serde_json::to_string(&regions)?;
         ctx.insert("regions", &regions);
@@ -234,50 +241,63 @@ fn main() -> Result<()> {
             env::set_var("RUST_LOG", "actix_web=info,raftcat=debug,kube=debug");
         }
     }
-    //env::set_var("RUST_BACKTRACE", "full"); // <- don't! this spams logz.io, rely on sentry!
+    // env::set_var("RUST_BACKTRACE", "full"); // <- don't! this spams logz.io, rely on sentry!
     env_logger::init();
 
     // TODO: fix so that this path isn't checked at all
     env::set_var("VAULT_TOKEN", "INVALID"); // needed because it happens super early..
 
-    // Load the config: local kube config prioritised first for local development
-    // NB: Only supports a config with client certs locally (e.g. kops setup)
-    let cfg = match env::var("HOME").expect("have HOME dir").as_ref() {
-        "/root" => kube::config::incluster_config(),
-        _ => kube::config::load_kube_config(),
-    }.expect("Failed to load kube config");
+    // Set up kube access + fetch initial state. Crashing on failure here.
+    let cfg = kube::config::incluster_config().or_else(|_| {
+        kube::config::load_kube_config()
+    }).expect("Failed to load kube config");
     let shared_state = state::init(cfg).unwrap(); // crash if init fails
 
     info!("Creating http server");
     let sys = actix::System::new("raftcat");
     server::new(move || {
         App::with_state(shared_state.clone())
-            .middleware(middleware::Logger::default()
-                .exclude("/raftcat/health")
-                .exclude("/health")
-                .exclude("/favicon.ico")
-                .exclude("/raftcat/static/*.png")
-                .exclude("/raftcat/static/images/*.png")
+            .middleware(
+                middleware::Logger::default()
+                    .exclude("/raftcat/health")
+                    .exclude("/health")
+                    .exclude("/favicon.ico")
+                    .exclude("/raftcat/static/*.png")
+                    .exclude("/raftcat/static/images/*.png"),
             )
             .middleware(sentry_actix::SentryMiddleware::new())
-            .handler("/raftcat/static", actix_web::fs::StaticFiles::new("./raftcat/static").unwrap())
+            .handler(
+                "/raftcat/static",
+                actix_web::fs::StaticFiles::new("./raftcat/static").unwrap(),
+            )
             .resource("/raftcat/config", |r| r.method(Method::GET).f(get_config))
-            .resource("/raftcat/manifests/{name}/resources", |r| r.method(Method::GET).f(get_resource_usage))
-            .resource("/raftcat/manifests/{name}", |r| r.method(Method::GET).f(get_single_manifest))
-            .resource("/raftcat/manifests", |r| r.method(Method::GET).f(get_all_manifests))
-            .resource("/raftcat/services/{name}", |r| r.method(Method::GET).f(get_service))
-            .resource("/raftcat/teams/{name}", |r| r.method(Method::GET).f(get_manifests_for_team))
+            .resource("/raftcat/manifests/{name}/resources", |r| {
+                r.method(Method::GET).f(get_resource_usage)
+            })
+            .resource("/raftcat/manifests/{name}", |r| {
+                r.method(Method::GET).f(get_single_manifest)
+            })
+            .resource("/raftcat/manifests", |r| {
+                r.method(Method::GET).f(get_all_manifests)
+            })
+            .resource("/raftcat/services/{name}", |r| {
+                r.method(Method::GET).f(get_service)
+            })
+            .resource("/raftcat/teams/{name}", |r| {
+                r.method(Method::GET).f(get_manifests_for_team)
+            })
             .resource("/raftcat/teams", |r| r.method(Method::GET).f(get_teams))
             .resource("/raftcat/health", |r| r.method(Method::GET).f(health))
             .resource("/raftcat/versions", |r| r.method(Method::GET).f(get_versions))
             .resource("/health", |r| r.method(Method::GET).f(health)) // redundancy
             .resource("/raftcat/", |r| r.method(Method::GET).f(index))
-        })
-        .bind("0.0.0.0:8080").expect("Can not bind to 0.0.0.0:8080")
-        .shutdown_timeout(0)    // <- Set shutdown timeout to 0 seconds (default 60s)
-        .start();
+    })
+    .bind("0.0.0.0:8080")
+    .expect("Can not bind to 0.0.0.0:8080")
+    .shutdown_timeout(0) // <- Set shutdown timeout to 0 seconds (default 60s)
+    .start();
 
     info!("Starting listening on 0.0.0.0:8080");
     let _ = sys.run();
-    std::process::exit(0); // SIGTERM ends up here eventually
+    Ok(())
 }

@@ -188,6 +188,10 @@ pub struct Config {
     /// Team definitions
     pub teams: Vec<Team>,
 
+    /// Allowed products
+    #[serde(default)]
+    pub products: Vec<String>,
+
     #[serde(default)]
     pub allowedCustomMetadata: BTreeSet<String>,
 

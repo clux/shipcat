@@ -16,6 +16,10 @@ test:
 	cargo test -p shipcat
 	cargo test -p raftcat
 
+fmt:
+	#rustup component add rustfmt --toolchain nightly
+	cargo +nightly fmt
+
 build:
 	docker build -t $(REPO)/$(NAME):$(VERSION) .
 
