@@ -108,12 +108,21 @@ impl KongSource {
     }
 
     fn build_hosts(&self, base_url: &str) -> Result<Vec<String>> {
-        let hosts: Vec<String> = self.hosts.clone().unwrap_or_default().into();
-        let host = self.host.clone().filter(|x| !x.is_empty());
-        match (host, hosts.as_slice()) {
-            (None, _) => Ok(hosts),
-            (Some(host), []) => Ok(vec![format!("{}{}", host, base_url)]),
-            (_, _) => bail!("kong.hosts and kong.host are mutually exclusive"),
+        let mut hosts: Vec<String> = self.hosts.clone().unwrap_or_default().into();
+        if let Some(host) = self.host.clone().filter(|x| !x.is_empty()) {
+            if !hosts.is_empty() {
+                bail!("kong.hosts and kong.host are mutually exclusive")
+            }
+            hosts = vec![host];
         }
+        Ok(hosts.into_iter()
+            .map(|h| {
+                let fully_qualified = h.contains(".");
+                if fully_qualified {
+                    h
+                } else {
+                    format!("{}{}", h, base_url)
+                }
+            }).collect())
     }
 }

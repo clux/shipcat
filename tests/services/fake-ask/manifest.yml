@@ -74,6 +74,9 @@ dependencies:
   intent: "testing graph module"
 kong:
   uris: /ai-auth
+  hosts:
+  - fake-ask
+  - fake.example.com
   authorization:
     allow_cookies: true
 initContainers:

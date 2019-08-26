@@ -65,6 +65,10 @@ fn kong_test() {
     let mut api = output.apis.remove(0);
     assert_eq!(api.name, "fake-ask");
     assert_eq!(api.attributes.uris, Some(vec!["/ai-auth".to_string()]));
+    assert_eq!(api.attributes.hosts, vec![
+        "fake-ask.dev.something.domain.com".to_string(),
+        "fake.example.com".to_string(),
+    ]);
     assert_eq!(api.attributes.strip_uri, false);
     assert_eq!(api.attributes.upstream_url, "http://fake-ask.dev.svc.cluster.local");
 
@@ -111,6 +115,8 @@ fn kong_test() {
     let mut api = output.apis.remove(0);
     assert_eq!(api.name, "fake-storage");
     assert_eq!(api.attributes.uris, Some(vec!["/fake-storage".to_string()]));
+    assert!(api.attributes.hosts.is_empty());
+
     assert_eq!(api.attributes.strip_uri, false);
     assert_eq!(api.attributes.upstream_url, "http://fake-storage.dev.svc.cluster.local");
 
