@@ -361,18 +361,6 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<Dependency>,
 
-    /// What products (set of microservices) this service is part of
-    ///
-    /// The allowed list of products are defined in shipcat.conf under products
-    ///
-    /// ```yaml
-    /// products:
-    /// - chatbot
-    /// - triage
-    /// ```
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub products: Vec<String>,
-
     /// Worker `Deployment` objects to additinally include
     ///
     /// These are more flexible than `sidecars`, because they scale independently of
@@ -836,9 +824,9 @@ impl Manifest {
         if let Some(ref cmap) = self.configs {
             cmap.verify()?;
         }
-        for p in &self.products {
-            if !conf.products.contains(p) {
-                bail!("product {} must be one of the ones defined in the config", p)
+        for (k, _v) in &self.labels {
+            if !conf.allowedLabels.contains(k) {
+                bail!("Service: {} using label {} not defined in config", self.name, k)
             }
         }
         // misc minor properties
