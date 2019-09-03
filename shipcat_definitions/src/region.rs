@@ -568,16 +568,6 @@ pub struct Region {
 }
 
 impl Region {
-    /// Find the Cluster struct that owns this Region
-    pub fn find_owning_cluster(region: &str, clusters: &BTreeMap<String, Cluster>) -> Option<Cluster> {
-        for c in clusters.values() {
-            if c.regions.iter().any(|r| r == region) {
-                return Some(c.clone());
-            }
-        }
-        None
-    }
-
     // Internal secret populator for Config::new
     pub fn secrets(&mut self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;

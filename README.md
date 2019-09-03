@@ -53,7 +53,7 @@ Shipcat is made up of three main components:
 
 - [shipcat_definitions](https://babylonpartners.github.io/shipcat/shipcat_definitions/index.html) - allowed syntax in our kube clusters - `manifest.yml` + `shipcat.conf`
 - [shipcat](https://github.com/Babylonpartners/shipcat/tree/master/shipcat_cli) - the pipeline cli and validator useable by developers and CI
-- [raftcat](https://github.com/Babylonpartners/shipcat/tree/master/raftcat) - an experimental kubernetes operator that reads CRD manifests
+- [raftcat](https://github.com/Babylonpartners/shipcat/tree/master/raftcat) - an kubernetes api/watcher that reads the `shipcatmanifests` custom resource
 
 ## Integrations
 While shipcat mainly deals with kubernetes, there are extensive and optional integrations with:

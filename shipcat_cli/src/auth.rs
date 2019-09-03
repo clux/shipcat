@@ -35,10 +35,10 @@ You must install version 3.2.* and not 4.0.0");
 
 /// Login to a region by going through its owning cluster
 ///
-/// This will use teleport to login to EKS if a teleport url is set
+/// This will use teleport to login if a teleport url is set
 /// otherwise it assumes you have already set a context with `region.name` externally.
 pub fn login(conf: &Config, region: &Region) -> Result<()> {
-    if let Some(cluster) = Region::find_owning_cluster(&region.name, &conf.clusters) {
+    if let Some(cluster) = conf.find_owning_cluster(&region) {
         if let Some(teleport) = &cluster.teleport {
             ensure_teleport()?;
             if need_teleport_login(&teleport)? {
@@ -72,7 +72,9 @@ pub fn login(conf: &Config, region: &Region) -> Result<()> {
             kubectl::set_context(&region.name, args)?;
             kubectl::use_context(&region.name)?;
         } else {
-            info!("Reusing {} context for non-EKS region {}", region.cluster, region.name);
+            // We assume there's an external way to for users to create kube contexts
+            // if not teleport url is set on the owning cluster.
+            info!("Reusing {} context for non-teleport region {}", region.cluster, region.name);
             kubectl::use_context(&region.cluster)?;
         }
     } else {

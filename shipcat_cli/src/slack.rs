@@ -129,7 +129,7 @@ fn send_internal(msg: Message, chan: String, conf: &Config, env: &Environment) -
     // if hook url is invalid, chain it so we know where it came from:
     let slack = Slack::new(hook_url).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
     let mut p = PayloadBuilder::new().channel(chan)
-      .icon_emoji(":ship:")
+      .icon_emoji(":shipcat:")
       .username(hook_user);
 
     debug!("Got slack notify {:?}", msg);

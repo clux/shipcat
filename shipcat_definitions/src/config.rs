@@ -405,6 +405,20 @@ impl Config {
     pub fn get_regions(&self) -> Vec<Region> {
         self.regions.clone()
     }
+
+    /// Find the Cluster struct that owns this Region
+    pub fn find_owning_cluster(&self, region: &Region) -> Option<Cluster> {
+        for c in self.clusters.values() {
+            if c.regions.iter().any(|r| r == &region.name) {
+                if c.name != region.cluster {
+                    warn!("Inactive cluster: {} for {}", c.name, region.name);
+                } else {
+                    return Some(c.clone());
+                }
+            }
+        }
+        None
+    }
 }
 
 /// Filesystem accessors for Config

@@ -208,10 +208,6 @@ fn build_cli() -> App<'static, 'static> {
         // all the listers (hidden from cli output)
         .subcommand(SubCommand::with_name("list-regions")
             .setting(AppSettings::Hidden)
-            .arg(Arg::with_name("teleport")
-                .short("t")
-                .long("teleport")
-                .help("Only list regions with teleport login"))
             .about("list supported regions/clusters"))
         .subcommand(SubCommand::with_name("list-locations")
             .setting(AppSettings::Hidden)
@@ -427,13 +423,9 @@ fn void<T>(_x: T) {} // helper so that dispatch_commands can return Result<()>
 #[allow(clippy::cognitive_complexity)] // clap 3 will have typed subcmds..
 fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     // listers first
-    if let Some(a) = args.subcommand_matches("list-regions") {
+    if let Some(_a) = args.subcommand_matches("list-regions") {
         let rawconf = Config::read()?;
-        return if a.is_present("teleport") {
-            shipcat::list::regions_with_teleport(&rawconf)
-        } else {
-            shipcat::list::regions(&rawconf)
-        };
+        return shipcat::list::regions(&rawconf);
     }
     else if args.subcommand_matches("list-locations").is_some() {
         let rawconf = Config::read()?;
