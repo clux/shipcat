@@ -1,4 +1,6 @@
 # shipcat
+![Shipcat logo](logo/shipcat_logo.png "Shipcat")
+
 [![CircleCI](https://circleci.com/gh/Babylonpartners/shipcat.svg?style=shield)](https://circleci.com/gh/Babylonpartners/shipcat)
 [![Docker Repository on Quay](https://quay.io/repository/babylonhealth/kubecat/status "Docker Repository on Quay")](https://quay.io/repository/babylonhealth/kubecat?tab=tags)
 
