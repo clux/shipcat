@@ -1,4 +1,3 @@
-use crate::config::Cluster;
 use crate::structs::kong::Kong;
 use std::collections::BTreeMap;
 use std::env;
@@ -472,23 +471,28 @@ impl ToString for Environment {
 pub enum ReconciliationMode {
     /// Tiller owned, CRD based decision, versioned, forceable
     ///
+    /// Deprecated. For kubernetes 1.10 and 1.11.
+    /// Will be removed soon.
     /// A stop gap between CrdOwned
     CrdVersioned,
 
     /// Tiller owned, CRD based decision, versioned, forceable, with .status
     ///
-    /// Another stop gap before CrdOwned
+    /// Requires kubernetes 1.12 or newer.
+    /// A stop gap before CrdOwned
     CrdStatus,
 
     /// Shipcat owned, CRD based decision
     ///
+    /// Requires kubernetes 1.13
     /// If CRD was configured, kube apply chart with owner references
+    /// Not implemented yet.
     CrdOwned,
 }
 
 impl Default for ReconciliationMode {
     fn default() -> Self {
-        ReconciliationMode::CrdVersioned
+        ReconciliationMode::CrdStatus
     }
 }
 

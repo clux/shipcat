@@ -39,7 +39,7 @@ Some manifest values are abstractions on top of kubernetes (like `configs` on to
 A basic manifest will typically contain something like:
 
 ```yaml
-name: shipcat-api
+name: raftcat
 image: quay.io/babylonhealth/kubecat
 metadata:
   contacts:
@@ -47,6 +47,7 @@ metadata:
     slack: "@clux"
   team: Platform
   repo: https://github.com/Babylonpartners/shipcat
+  language: rust
 
 # kubernetes resources
 resources:
@@ -72,11 +73,11 @@ regions:
 
 # evars
 env:
-  JAVA_OPTS: "-Xms256m -Xmx2048m"
-  DB_URL: IN_VAULT
+  RUST_LOG: "tokio=info,raftcat=debug"
+  DATABASE_URL: IN_VAULT
+  REGION_NAME: "{{ region }}"
+  NAMESPACE: "{{ namespace }}"
   STORAGE_URL: "{{ base_urls.services }}/storage-provider/"
-  CLIENT_ID: "{{ kong.consumers['ask2'].oauth_client_id }}"
-  CLIENT_SECRET: "{{ kong.consumers['ask2'].oauth_client_secret | as_secret }}"
 
 # config mapped files
 configs:

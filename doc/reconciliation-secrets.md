@@ -1,10 +1,10 @@
 # Reconciliation Setup
-Reconciliation is currently performed in a tight loop around a manifest repository. Here is a sample setup for the `platformus-green` cluster defined in [clusters.md](./clusters.md)
+Reconciliation is currently performed in a tight loop around a manifest repository. Here is a sample setup for a `platformus-green` cluster defined in [clusters.md](./clusters.md)
 
 ```bash
 export SLACK_SHIPCAT_CHANNEL="#us-notifications"
-export KUBE_REGION="dev-us"
-export KUBE_CLUSTER="devus-green"
+export KUBE_REGION="platform-us"
+export KUBE_CLUSTER="platformus-green"
 export SHIPCAT_VER="$(yq ".versions.dev" -r < shipcat.conf)"
 
 echo $KUBE_CERT | base64 -d > ca.crt
@@ -29,8 +29,8 @@ kubecat() {
     -t "quay.io/babylonhealth/kubecat:${SHIPCAT_VER}" bash -c "source ci.sh > /dev/null; login > /dev/null; $@"
 }
 
-if ! kubecat "shipcat cluster helm reconcile"; then
-  kubecat "shipcat slack -c danger -u \"${BUILD_URL}|${JOB_NAME} #${BUILD_NUMBER}\" \"helm reconciliation failed\""
+if ! kubecat "shipcat cluster crd reconcile"; then
+  kubecat "shipcat slack -c danger -u \"${BUILD_URL}|${JOB_NAME} #${BUILD_NUMBER}\" \"crd reconciliation failed\""
   exit 1
 fi
 ```

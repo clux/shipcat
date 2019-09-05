@@ -235,24 +235,20 @@ pub struct Manifest {
     /// ```yaml
     /// env:
     ///   # plain eva:
-    ///   PLAIN_EVAR: plaintextvalue
+    ///   RUST_LOG: "tokio=info,raftcat=debug"
     ///
     ///   # vault lookup:
     ///   DATABASE_URL: IN_VAULT
     ///
     ///   # templated evars:
     ///   INTERNAL_AUTH_URL: "{{ base_urls.services }}/auth/internal"
-    ///   AUTH_ID: "{{ kong.consumers['webapp'].oauth_client_id }}"
-    ///   AUTH_SECRET: "{{ kong.consumers['webapp'].oauth_client_secret | as_secret }}"
+    ///   REGION_NAME: "{{ region }}"
+    ///   NAMESPACE: "{{ namespace }}"
+
     /// ```
     ///
     /// The vault lookup will GET from the region specific path for vault, in the
     /// webapp subfolder, getting the `DATABASE_URL` secret.
-    ///
-    /// The `kong` templating will use the secrets read from the `Config` for this
-    /// region, and replace them internally.
-    ///
-    /// The `as_secret` destinction only serves to put `AUTH_SECRET` into `Manifest::secrets`.
     #[serde(default)]
     pub env: EnvVars,
 

@@ -6,11 +6,11 @@ Sample config:
 ```yaml
 clusters:
   platformus-green:
-    api: https://api.platformus-green.kube.babylontech.co.uk
+    api: https://api.platformus-green.kube.domain.invalid
     regions:
     - platform-us
   kops-uk:
-    api: https://api.kube-uk.dev.babylontech.co.uk
+    api: https://api.kube-uk.dev.domain.invalid
     regions:
     - dev-uk
     - staging-uk
@@ -21,25 +21,30 @@ regions:
   environment: platform
   namespace: apps
   versioningScheme: Semver
+  cluster: platformus-green
   vault: ...
   kong: ...
 - name: dev-uk:
   namespace: dev
   environment: dev
+  cluster: kops-uk
   versioningScheme: GitShaOrSemver
   vault: ...
   kong: ...
 - name: staging-uk:
   namespace: staging
   environment: staging
+  cluster: kops-uk
   versioningScheme: Semver
   vault: ...
   kong: ...
 ```
 
 ## cluster <-> region relations
-- one region can have multiple clusters (`platform-us` -> `platformus-green` + `platformus-blue`)
-- one cluster can have multiple regions (`kops-uk` covers to `dev-uk` and `staging-uk`)
+- one region can be covered by multiple clusters (`platform-us` -> `platformus-green` + `platformus-blue`)
+- one cluster can serve multiple regions (`kops-uk` covers to `dev-uk` and `staging-uk`)
+
+The `cluster` key on the region disambiguates the cluster choice when reconciling a region.
 
 ## cluster aliases
 This is a raw map of kube context (`kubectl config current-context`) into the shipcat `region` as specified by a key name in `regions`.
@@ -58,6 +63,3 @@ A shipcat region is an abstract kube region with the possibility of getting the 
 - one context is bound to a single cluster
 
 This is because a kube context is a triple: , and a shipcat region is a light abstraction on top of that.
-
-## Reconciliation caveats
-If a job is running reconciliation on a region backed by multiple clusters; you need to specify which of the clusters you are specifying.

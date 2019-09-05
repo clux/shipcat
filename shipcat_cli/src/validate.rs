@@ -1,6 +1,6 @@
 use super::{Config, Region};
-use super::Result;
-use rayon::prelude::*;
+use super::{Result, Error};
+use rayon::{iter::Either, prelude::*};
 
 
 /// Validate all manifests in a service directory for a region
@@ -10,15 +10,14 @@ use rayon::prelude::*;
 pub fn regional_manifests(conf: &Config, reg: &Region) -> Result<()> {
     let available = shipcat_filebacked::available(conf, &reg)?;
 
-    let errs = available.par_iter()
+    let (errs, _mfs) : (Vec<Error>, Vec<_>) = available.par_iter()
         .map(|mf| {
-            shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?
-                .stub(&reg)?
-                .verify(&conf, &reg)?;
-            Ok(())
+            let mf = shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?
+                .stub(&reg)?;
+            mf.verify(&conf, &reg)?;
+            Ok(mf)
         })
-        .filter_map(Result::err)
-        .collect::<Vec<_>>();
+        .partition_map(Either::from);
 
     if !errs.is_empty() {
         for e in &errs {
@@ -26,6 +25,7 @@ pub fn regional_manifests(conf: &Config, reg: &Region) -> Result<()> {
         }
         bail!("Invalid shipcat data in {} files", errs.len());
     }
+    // TODO: cross reference uniqueness values here
     Ok(())
 }
 

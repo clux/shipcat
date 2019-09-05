@@ -94,7 +94,7 @@ pub fn apply(svc: &str,
 /// Legacy version
 ///
 /// Reads CRDs, but doesn't write to them. Upgrades through tiller.
-#[deprecated(since = "0.132.2", note = "CrdVersioned users should move on to CrdStatus")]
+#[deprecated(since = "0.122.2", note = "CrdVersioned users should move on to CrdStatus")]
 fn apply_helm(svc: &str,
              force: bool,
              region: &Region,

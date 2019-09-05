@@ -81,10 +81,8 @@ Examples:
 env:
   INTERNAL_AUTH_URL: "{{ base_urls.services }}/auth/internal"
   CI_PLATFORM_URL: "{{ base_urls.services }}/ci-platform//"
-  INTERNAL_AUTH_CLIENTID: "{{ kong.consumers['my-service'].oauth_client_id }}"
-  INTERNAL_AUTH_CLIENTSECRET: "{{ kong.consumers['my-service'].oauth_client_secret | as_secret }}"
+  REGION_NAME: "{{ region }}"
+  NAMESPACE: "{{ namespace }}"
 ```
 
-The first two are filled in from the `base_urls` map in `shipcat.conf` for the region, while the other ones are fetched from `kong.consumers` for the service after first fetching the values from vault.
-
-The `| as_secret` template function lets shipcat know that this evar should be mounted as a kubernetes secret and not visible in plaintext on a kube dashboard.
+The first two are filled in from the `base_urls` map in `shipcat.conf` for the region, while the other two use other values from our `tera` template context.

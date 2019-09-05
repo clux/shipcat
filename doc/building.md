@@ -27,6 +27,11 @@ These tarballs can be extracted into `/usr/local` directly (or any directory on 
 ```bash
 echo "source /usr/local/share/shipcat/shipcat.complete.sh" >> ~/.bash_completion
 ```
+or
+
+```bash
+echo "source <(shipcat completions bash)" >> ~/.bash_completion
+```
 
 as a one time step.
 
@@ -57,7 +62,7 @@ export SHIPCAT_MANIFEST_DIR=$HOME/repos/manifests
 A few notes on how we build on CI.
 
 ## musl
-The exported `shipcat` executable (in the docker / linux worlds) is cross-linked to [musl-libc](https://www.musl-libc.org/) (for easier multi linux and alpine compatibility), we just reuse the build image that does that everywhere. The public [muslrust](https://github.com/clux/muslrust) image takes care of the complexity here w.r.t. statically linking with openssl (used by http clients).
+The exported `shipcat` executable (in the docker / linux worlds) is cross-linked to [musl-libc](https://www.musl-libc.org/) (for easier multi linux and alpine compatibility), we just reuse the build image that does that everywhere. The public [muslrust](https://github.com/clux/muslrust) image takes care of the complexity here w.r.t. statically linking with openssl (used by http clients). This build dependency can be removed in the future by using `rustls`.
 
 ### Caching
 We cache two folders:
@@ -67,7 +72,7 @@ We cache two folders:
 
 They are loaded the start of the job and, updated at the end (so we have a cache of the newest).
 
-Unfortunately, because there is no good way of cleaning out old artifacts / sources, they tend to grow in cache folders on CircleCI. Thus the `CACHE_VERSION` evar is overridden on every couple of months once the builds start getting slower (typically once the cache starts to be around 1G).
+Due to how the caches grow, we tend to do a full rebuild whenever the dependencies part of `Cargo.lock` changes.
 
 ## Github Releases
 Build artifacts from the musl build (linux) and mac build (darwin) create two executables that are persisted to CircleCI's workspace and reused in an uploading job when tags are created on github.

@@ -4,10 +4,10 @@ Our `shipcat` CLI aims to provide a declarative interface to complex services vi
 The [shipcat manifests guide](https://engineering.ops.babylontech.co.uk/docs/cicd-shipcat-manifests/) has an introduction, and explanations of the data currently supported.
 
 # Extending the manifests
-The procedure for adding automation to `shipcat` is to write a little bit of [rust](https://engineering.ops.babylontech.co.uk/docs/languages-rust/) in the following way:
+The procedure for adding syntax to `shipcat` is to write a little bit of `rust` in the following way:
 
 ## 1. Define Structs
-This is done in shipcat's [structs directory](https://github.com/Babylonpartners/shipcat/tree/master/src/structs) by defining your new structs. Here's the recently added `Dependency` struct (which was used to add `graph` functionality later on).
+This is done in shipcat's [structs directory](https://github.com/Babylonpartners/shipcat/tree/master/shipcat_definitions/src/structs) in `shipcat_definitions`. Here's the `Dependency` struct (which was used to add `graph` functionality later on).
 
 ```rust
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -43,7 +43,7 @@ impl Dependency {
         }
         // self.api must parse as an integer
         assert!(self.api.is_some(), "api version set by implicits");
-        if let Some(ref apiv) = self.api {
+        if let Some(apiv) = &self.api {
             let vstr = apiv.chars().skip_while(|ch| *ch == 'v').collect::<String>();
             let ver : usize = vstr.parse()?;
             trace!("Parsed api version of dependency {} as {}", self.name.clone(), ver);
@@ -53,7 +53,9 @@ impl Dependency {
 }
 ```
 
-This example verifies, most crucially, that any named dependencies exist in the services folder.
+This example verifies some internal mechanics of optionals, and that the api format is correct. It also checks that any named dependencies exist in the services folder.
+
+Normally, you should not need to do file-system access within a verifier because there are more efficient [multi-validators in shipcat verify](https://github.com/Babylonpartners/shipcat/blob/master/shipcat_cli/src/validate.rs).
 
 ## 3. Export it
 Add two lines to `mod.rs`:
@@ -98,16 +100,8 @@ make sure you call its verifier from master `verify` in the same file:
         }
 ```
 
-Finally, make it mergeable (overrideable from an environment override file), by adding a check to `merge.rs` to the `merge` fn:
-
-```rust
-        if !mf.dependencies.is_empty() {
-            self.dependencies = mf.dependencies;
-        }
-```
-
 ## 5. Code review
-If everyone's happy in code review, then, after merge there will be a new version of `shipcat` available to use in the [manifests repository](https://github.com/Babylonpartners/manifests).
+If everyone's happy in code review, then we can run `./scripts/bump_version.sh OLDVER NEWVER` and commit to the branch (use semver). After merge there will be a new version of `shipcat` available to use in the [manifests repository](https://github.com/Babylonpartners/manifests).
 
 That's it. You can start to **capture** new information from the manifests. However, this is not immediately useful unless you plan on using the values in your `helm` charts. Otherwise, you might want to implement a new generator. The second part of this document details how to to the latter.
 
@@ -175,10 +169,10 @@ then defer to your new interface from `main.rs`:
 ```
 
 ## 5. Autocomplete
-Try to extend the various arrays in `shipcat.complete.sh` with your new subcommand if you can grok it. Otherwise, don't worry, it's not essential.
+Try to extend the various arrays in `shipcat.complete.sh` with your new subcommand if you can grok it. Otherwise, don't worry, it's not essential. This is becoming more automatic with clap 3.
 
 ## 6. Bump the version
-Bump a minor in all three Cargo.toml files. The versions all stay in sync.
+Bump a minor in all three `Cargo.toml` files. The versions all stay in sync. This should be done with `./scripts/bump_version.sh OLDVER NEWVER` using semver versions.
 
 ## 7. Code review
 If everyone's happy in code review, then, after merge there will be a new version of `shipcat` available.
