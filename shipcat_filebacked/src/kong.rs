@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 
 use shipcat_definitions::structs::{Authentication, Authorization, BabylonAuthHeader, Cors, Kong};
 use shipcat_definitions::{Region, Result};
-use shipcat_definitions::deserializers::{CommaSeparatedString};
 
 use super::authorization::AuthorizationSource;
 use super::util::{Build, Enabled};
@@ -13,9 +12,7 @@ use super::util::{Build, Enabled};
 pub struct KongSource {
     pub upstream_url: Option<String>,
     pub uris: Option<String>,
-    // TODO: Breaking change to Option<Vec<String>>
-    pub hosts: Option<CommaSeparatedString>,
-    pub host: Option<String>,
+    pub hosts: Option<Vec<String>>,
     pub strip_uri: Option<bool>,
     pub preserve_host: Option<bool>,
     pub cors: Option<Cors>,
@@ -108,14 +105,7 @@ impl KongSource {
     }
 
     fn build_hosts(&self, base_url: &str) -> Result<Vec<String>> {
-        let mut hosts: Vec<String> = self.hosts.clone().unwrap_or_default().into();
-        if let Some(host) = self.host.clone().filter(|x| !x.is_empty()) {
-            if !hosts.is_empty() {
-                bail!("kong.hosts and kong.host are mutually exclusive")
-            }
-            hosts = vec![host];
-        }
-        Ok(hosts.into_iter()
+        Ok(self.hosts.clone().unwrap_or_default().into_iter()
             .map(|h| {
                 let fully_qualified = h.contains(".");
                 if fully_qualified {
