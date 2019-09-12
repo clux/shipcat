@@ -42,6 +42,24 @@ tag-latest:
 	docker tag  $(REPO)/$(NAME):$(VERSION) $(REPO)/$(NAME):latest
 	docker push $(REPO)/$(NAME):latest
 
+build-circleci:
+	docker build -t $(REPO)/$(NAME):$(VERSION)-circleci -f Dockerfile.circleci .
+
+install-circleci:
+	docker push $(REPO)/$(NAME):$(VERSION)-circleci
+
+tag-semver-circleci:
+	@if docker run -e DOCKER_REPO=babylonhealth/$(NAME) -e DOCKER_TAG=$(SEMVER_VERSION)-circleci quay.io/babylonhealth/tag-exists; \
+	    then echo "Tag $(SEMVER_VERSION)-circleci already exists - ignoring" && exit 0 ; \
+	else \
+			docker tag $(REPO)/$(NAME):$(VERSION)-circleci $(REPO)/$(NAME):$(SEMVER_VERSION)-circleci; \
+			docker push $(REPO)/$(NAME):$(SEMVER_VERSION)-circleci; \
+	fi
+
+tag-latest-circleci:
+	docker tag  $(REPO)/$(NAME):$(VERSION)-circleci $(REPO)/$(NAME):latest-circleci
+	docker push $(REPO)/$(NAME):latest-circleci
+
 clippy:
 	touch shipcat_definitions/src/lib.rs
 	cargo clippy -p shipcat -- --allow clippy::or_fun_call --allow clippy::redundant_pattern_matching --allow clippy::redundant_field_names

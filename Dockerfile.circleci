@@ -1,35 +1,26 @@
-FROM alpine:3.7
+FROM circleci/python:3.7.4-node
 
 ENV KUBEVER=1.13.4 \
     HELMVER=2.13.0 \
     HELMDIFFVER="2.11.0%2B3" \
     KUBEVALVER=0.12.0 \
     VAULTVER=0.11.1 \
-    HOME=/config \
     SSL_CERT_DIR=/etc/ssl/certs/
 
 # Install kubectl (see https://aur.archlinux.org/packages/kubectl-bin )
 ADD https://storage.googleapis.com/kubernetes-release/release/v${KUBEVER}/bin/linux/amd64/kubectl /usr/local/bin/kubectl
 
+# Switch to root user temporarily to avoid having to sudo everything
+USER root
+
 # Install everything
 # NB: skipping https://github.com/garethr/kubetest because alpine dylibs fail
 RUN set -x && \
-    apk update && \
-    apk add --no-cache curl ca-certificates findutils make bash jq git python3 unzip && \
     chmod +x /usr/local/bin/kubectl && \
     curl -sSL https://storage.googleapis.com/kubernetes-helm/helm-v${HELMVER}-linux-amd64.tar.gz | tar xz -C /usr/local/bin --strip-components=1 && \
     curl -sSL https://github.com/garethr/kubeval/releases/download/${KUBEVALVER}/kubeval-linux-amd64.tar.gz | tar xvz -C /usr/local/bin && \
     curl -sSL https://releases.hashicorp.com/vault/${VAULTVER}/vault_${VAULTVER}_linux_amd64.zip > vault.zip && \
-    unzip vault.zip && mv vault /usr/local/bin && \
-    apk del unzip && rm vault.zip
-
-# Create non-root user (alpine)
-RUN adduser kubectl -Du 1000 -h /config && \
-    \
-    # Basic check it works.
-    kubectl version --client && \
-    helm version -c && \
-    kubeval --version
+    unzip vault.zip && mv vault /usr/local/bin
 
 # Setup helm and plugins
 # Currently the version pinning mechanism in helm plugin does not work for tags with + in them
@@ -39,14 +30,30 @@ RUN set -x && \
     helm init -c && \
     curl -sSL https://github.com/databus23/helm-diff/releases/download/v${HELMDIFFVER}/helm-diff-linux.tgz | tar xvz -C $(helm home)/plugins
 
-# Add core dependencies of validation
-RUN apk add --no-cache --virtual virtualbuild libffi-dev g++ python3-dev openssl-dev && \
-    pip3 install --upgrade pip && \
-    pip3 install yamllint yq && \
-    pip3 install semver jira jinja2 && \
-    apk del virtualbuild
+# Install python dependencies
+RUN pip install --upgrade pip && \
+    pip install \
+        "colorama>=0.3.7,<1.0.0" \
+        "jinja2>=2.10,<3.0" \
+        "jira>=2.0.0,<3.0.0" \
+        "mock>=2.0.0,<3.0.0" \
+        "packaging>=19.0,<20.0" \
+        "PyGithub>=1.43.4,<2.0.0" \
+        "pytest>=5.0.0,<6.0.0" \
+        "python-dotenv==0.10.1" \
+        "pyyaml>=3.13,<4.0" \
+        "redis>=2.10.6,<3.0.0" \
+        "requests>=2.16.0,<3.0.0" \
+        "ruamel.yaml==0.15.90" \
+        "semver>=2.8.1,<3.0.0" \
+        "six>=1.12.0,<2.0.0" \
+        "tabulate==0.8.3" \
+        "yq>=2.7.2,<3.0.0"
 
-# Install shipcat (built for musl outside)
-ADD shipcat.x86_64-unknown-linux-musl /usr/local/bin/shipcat
+# Install node packages as non-root
+RUN npm install -g js-yaml@3.13.1 danger@8.0.0
 
-USER kubectl
+USER circleci
+
+# Smoke test python && node
+RUN danger --version && python -c "import yaml"

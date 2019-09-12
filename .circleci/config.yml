@@ -20,6 +20,13 @@ workflows:
             branches:
               only:
                 - master
+      - docker_build_circleci:
+          requires:
+            - musl_build
+          filters:
+            branches:
+              only:
+                - master
       - mac_build:
           filters:
             tags:
@@ -101,6 +108,18 @@ jobs:
       - run: make tag-semver
       - run: make raftcat
       - run: make raftcat-semver
+
+  docker_build_circleci:
+    machine: true
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run: docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" quay.io
+      - run: make build-circleci
+      - run: make install-circleci
+      - run: make tag-latest-circleci
+      - run: make tag-semver-circleci
 
   mac_build:
     macos:
