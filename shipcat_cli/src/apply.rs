@@ -718,6 +718,7 @@ fn upgrade_kubectl(mf: &Manifest, tfile: &str) -> Result<()> {
         "-f".into(),
         tfile.into(),
         "--prune".into(),
+        // NB: assumes one deploy per namespace
         format!("-l=app.kubernetes.io/name={}", mf.name),
     ];
     info!("kubectl {}", applyvec.join(" "));

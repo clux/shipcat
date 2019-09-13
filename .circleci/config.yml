@@ -148,7 +148,7 @@ jobs:
   github_release:
     working_directory: ~/project
     docker:
-      - image: circleci/golang:1.8
+      - image: circleci/golang:1.12
     steps:
       - checkout
       - attach_workspace:
