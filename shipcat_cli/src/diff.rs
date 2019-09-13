@@ -3,7 +3,7 @@ use shipcat_definitions::Crd;
 use crate::kubectl;
 use crate::helm;
 use crate::apply;
-use super::{Config, Region, Result};
+use super::{Config, Region, Manifest, Result};
 use std::process::Command;
 
 
@@ -52,9 +52,9 @@ pub fn values_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> 
 /// Because this uses the template in master against local state,
 /// we don't resolve secrets for this (would compare equal values anyway).
 pub fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> {
-    let mock = true; // both would be equivalent vault reads anyway
     let afterpth = Path::new(".").join("after.shipcat.gen.yml");
-    let _after = helm::template(&svc, &region, &conf, None, mock, Some(afterpth.clone()))?;
+    let mf_after = shipcat_filebacked::load_manifest(svc, conf, region)?.stub(region)?;
+    let _after = helm::template(&mf_after, Some(afterpth.clone()))?;
 
     // move git to get before state:
     git(&["checkout", "master", "--quiet"])?;
@@ -65,7 +65,8 @@ pub fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool
 
     // compute old state:
     let beforepth = Path::new(".").join("before.shipcat.gen.yml");
-    let _before = helm::template(&svc, &region, &conf, None, mock, Some(beforepth.clone()))?;
+    let mf_before = shipcat_filebacked::load_manifest(svc, conf, region)?.stub(region)?;
+    let _before = helm::template(&mf_before, Some(beforepth.clone()))?;
 
     // move git back
     if needs_stash {
@@ -87,27 +88,18 @@ pub fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool
 /// Temporary helm diff wrapper for shipcat::diff
 ///
 /// This will be removed once tiller dependency is removed and 1.13 is everywhere.
-pub fn helm_diff(svc: &str, conf: &Config, region: &Region, mock: bool) -> Result<bool> {
-    let mfbase = shipcat_filebacked::load_manifest(svc, conf, region)?;
-    let mf = if mock {
-        mfbase.complete(region)?
-    } else {
-        mfbase.stub(region)?
-    };
-    let hfile = format!("{}.helm.gen.yml", svc);
+pub fn helm_diff(mf: &Manifest) -> Result<Option<String>> {
+    let hfile = format!("{}.helm.gen.yml", mf.name);
     helm::values(&mf, &hfile)?;
     let diff = match apply::diff_helm(&mf, &hfile) {
         Ok(hdiff) => hdiff,
         Err(e) => {
-            warn!("Unable to diff against {}: {}", svc, e);
+            warn!("Unable to diff against {}: {}", mf.name, e);
             None
         },
     };
-    if let Some(d) = &diff {
-        println!("{}", d);
-    }
     let _ = fs::remove_file(&hfile); // try to remove temporary file
-    Ok(diff.is_some())
+    Ok(diff)
 }
 
 
@@ -130,7 +122,7 @@ pub fn values_vs_kubectl(svc: &str, conf: &Config, region: &Region) -> Result<bo
     let mut f = File::create(&pth)?;
     writeln!(f, "{}", encoded)?;
     // shell out to kubectl:
-    let (out, success) = kubectl::diff(pth.clone(), &region.namespace)?;
+    let (out, _err, success) = kubectl::diff(pth.clone(), &region.namespace)?;
     println!("{}", out);
     // cleanup:
     fs::remove_file(pth)?;
@@ -141,18 +133,24 @@ pub fn values_vs_kubectl(svc: &str, conf: &Config, region: &Region) -> Result<bo
 ///
 /// Generate template as we write it and pipe it to `kubectl diff -`
 /// Only works on clusters with kubectl 1.13 on the server side, so not available everywhere
-pub fn template_vs_kubectl(svc: &str, conf: &Config, region: &Region, mock: bool) -> Result<bool> {
+pub fn template_vs_kubectl(mf: &Manifest) -> Result<Option<String>> {
     // Generate template in a temp file:
-    let tfile = format!("{}.shipcat.tpl.gen.yml", svc);
+    let tfile = format!("{}.shipcat.tpl.gen.yml", mf.name);
     let pth = Path::new(".").join(tfile);
-    let version = None; // TODO: override in rolling?
-    helm::template(&svc, &region, &conf, version, mock, Some(pth.clone()))?;
 
-    let (out, success) = kubectl::diff(pth.clone(), &region.namespace)?;
-    println!("{}", out);
+    let _tpl = helm::template(&mf, Some(pth.clone()))?;
+
+    let (out, err, success) = kubectl::diff(pth.clone(), &mf.namespace)?;
     // cleanup:
     fs::remove_file(pth)?;
-    Ok(success)
+    if !success && !err.is_empty() && err.trim() != "exit status 1" {
+        println!("kubectl diff stderr: {}", err.trim());
+    }
+    if !out.is_empty() {
+        Ok(Some(out))
+    } else {
+        Ok(None)
+    }
 }
 
 // Compare using diff(1)
@@ -178,20 +176,51 @@ fn shell_diff(before: &str, after: &str) -> Result<bool> {
     Ok(s.success())
 }
 
-/// Minify diff output from kubectl diff or helm diff
-///
-/// Trims out non-change lines
-pub fn minify(diff: String) -> String {
-    let diff_re = Regex::new(r"has changed|^\-|^\+").unwrap();
-    // filter out lines that doesn't contain "has changed" or starting with + or -
+/// Minify diff output from helm diff or kube diff
+pub fn minify(diff: &str) -> String {
+    // kubectl diff starts with `diff -u` shell output
+    // this might not remain true, but helm support will be removed soon
+    if diff.starts_with("diff -u") {
+        minify_kube(diff)
+    } else {
+        minify_helm(diff)
+    }
+}
+
+/// Minify diff output from helm diff
+fn minify_helm(diff: &str) -> String {
+    let has_changed_re = Regex::new(r"has changed|^\- |^\+ ").unwrap();
+    // only show lines that includes "has changed" or starting with + or -
     diff.split('\n').filter(|l| {
-        diff_re.is_match(l)
+        has_changed_re.is_match(l)
     }).collect::<Vec<_>>().join("\n")
+}
+
+
+/// Minify diff output from kubectl diff
+fn minify_kube(diff: &str) -> String {
+    let has_changed_re = Regex::new(r"^\- |^\+ ").unwrap();
+    let generation_re = Regex::new(r"generation[:]{1}").unwrap();
+    let type_re = Regex::new(r"--- /tmp/LIVE-[a-zA-Z0-9]+/([\w\.]+)").unwrap();
+    // Find the +++/--- header and extract the type from it.
+    // Then trim everything that doesn't start with `- ` or `+ `
+    // and additionally ignore `generation` integer updates
+
+    let mut res = vec![];
+    for l in diff.lines() {
+        if let Some(cap) = type_re.captures(l) {
+            res.push(format!("{} has changed:", &cap[1]));
+        }
+        else if !l.starts_with("+++") && !generation_re.is_match(l) && has_changed_re.is_match(l) {
+            res.push(l.to_string());
+        }
+    }
+    res.join("\n")
 }
 
 /// Check if a diff contains only version related changes
 pub fn is_version_only(diff: &str, vers: (&str, &str)) -> bool {
-    let smalldiff = minify(diff.to_string());
+    let smalldiff = minify(diff);
     trace!("Checking diff for {:?}", vers);
     for l in smalldiff.lines() {
         // ignore headline for resource type (no actual changes)
@@ -236,7 +265,7 @@ pub fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{infer_version_change, is_version_only};
+    use super::{minify, infer_version_change, is_version_only};
 
     #[test]
     fn version_change_test() {
@@ -308,5 +337,34 @@ mod tests {
         assert_eq!(old, "1.0.6");
         assert_eq!(new, "1.0.7");
         assert!(is_version_only(input, (&new, &old)));
+    }
+
+    #[test]
+    fn kubectl_diff_minify_test() {
+        let input = "diff -u -N /tmp/LIVE-A9/apps.v1.Deployment.dev.raftcat /tmp/MERGED-B0/apps.v1.Deployment.dev.raftcat
+--- /tmp/LIVE-A9/apps.v1.Deployment.dev.raftcat   2019-09-11 16:12:26.819641578 +0100
++++ /tmp/MERGED-B0/apps.v1.Deployment.dev.raftcat 2019-09-11 16:12:26.852974183 +0100
+@@ -6,7 +6,7 @@
+     kubectl.kubernetes.io/last-applied-configuration: |
+       {\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\"}
+   creationTimestamp: \"2019-09-11T14:49:14Z\"
+-  generation: 5
++  generation: 6
+   labels:
+     app: raftcat
+     chart: raftcat-0.3.0
+@@ -66,7 +66,7 @@
+       containers:
+       - env:
+         - name: BLAAA
+-          value: eirik4
++          value: eirik5
+         - name: LOG_LEVEL
+           value: DEBUG
+         - name: NAMESPACE";
+
+        assert_eq!(minify(input), "apps.v1.Deployment.dev.raftcat has changed:
+-          value: eirik4
++          value: eirik5");
     }
 }

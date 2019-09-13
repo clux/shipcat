@@ -189,6 +189,9 @@ fn build_cli() -> App<'static, 'static> {
         .subcommand(SubCommand::with_name("cluster")
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .about("Perform cluster level recovery / reconcilation commands")
+            .subcommand(SubCommand::with_name("diff")
+                // Use RAYON_NUM_THREADS to parallelize
+                .about("Diff all services against the a region"))
             .subcommand(SubCommand::with_name("crd")
                 .arg(Arg::with_name("num-jobs")
                     .short("j")
@@ -255,6 +258,14 @@ fn build_cli() -> App<'static, 'static> {
                 .short("s")
                 .long("secrets")
                 .help("Use actual secrets from vault"))
+              .arg(Arg::with_name("current")
+                .short("k")
+                .long("current")
+                .help("Use uids and versions from the current kubernetes shipcatmanifest"))
+              .arg(Arg::with_name("check")
+                .short("c")
+                .long("check")
+                .help("Check the validity of the template"))
               .arg(Arg::with_name("tag")
                 .long("tag")
                 .short("t")
@@ -308,6 +319,18 @@ fn build_cli() -> App<'static, 'static> {
               .arg(Arg::with_name("crd")
                 .long("crd")
                 .help("Compare the shipcatmanifest crd output instead of the full kube yaml"))
+              .arg(Arg::with_name("current")
+                .short("k")
+                .long("current")
+                .help("Use uids and versions from the current kubernetes shipcatmanifest"))
+              .arg(Arg::with_name("minify")
+                .short("m")
+                .long("minify")
+                .help("Minify the diff context"))
+              .arg(Arg::with_name("obfuscate")
+                .long("obfuscate")
+                .requires("secrets")
+                .help("Obfuscate secrets in the diff"))
               .arg(Arg::with_name("secrets")
                 .long("secrets")
                 .short("s")
@@ -353,6 +376,10 @@ fn build_cli() -> App<'static, 'static> {
 
         .subcommand(SubCommand::with_name("login")
             .about("Login to a region (using teleport if possible)")
+            .arg(Arg::with_name("force")
+                .long("force")
+                .short("f")
+                .help("Remove the old tsh state file to force a login"))
             )
 }
 
@@ -441,7 +468,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     //}
     else if let Some(a) = args.subcommand_matches("login") {
         let (conf, region) = resolve_config(a, ConfigType::Base)?;
-        return shipcat::auth::login(&conf, &region);
+        return shipcat::auth::login(&conf, &region, a.is_present("force"));
     }
     // getters
     else if let Some(a) = args.subcommand_matches("get") {
@@ -599,9 +626,29 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let (conf, region) = resolve_config(a, ss)?;
         let ver = a.value_of("tag").map(String::from);
 
-        let mock = !a.is_present("secrets");
-        return shipcat::helm::template(&svc,
-                &region, &conf, ver, mock, None).map(void);
+        let mut mf = if a.is_present("secrets") {
+            shipcat_filebacked::load_manifest(&svc, &conf, &region)?.complete(&region)?
+        } else {
+            shipcat_filebacked::load_manifest(&svc, &conf, &region)?.stub(&region)?
+        };
+        mf.version = mf.version.or(ver);
+        if a.is_present("current") {
+            let s = status::Status::new(&mf)?;
+            let crd = s.get()?;
+            mf.version = mf.version.or(crd.spec.version);
+            mf.uid = crd.metadata.uid;
+        } else {
+            // ensure valid chart
+            mf.uid = Some("FAKE-GUID".to_string());
+            mf.version = mf.version.or(Some("latest".to_string()));
+        }
+        let tpl = shipcat::helm::template(&mf, None)?;
+        if a.is_present("check") {
+            shipcat::helm::template_check(&mf, &region, &tpl)?;
+        } else {
+            println!("{}", tpl);
+        }
+        return Ok(());
     }
     else if let Some(a) = args.subcommand_matches("crd") {
         let svc = a.value_of("service").map(String::from).unwrap();
@@ -619,7 +666,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
     else if let Some(a) = args.subcommand_matches("diff") {
         let svc = a.value_of("service").map(String::from).unwrap();
-        let has_diff = if a.is_present("crd") {
+        let diff_exit = if a.is_present("crd") {
             // NB: no secrets in CRD
             let (conf, region) = resolve_config(a, ConfigType::Base)?;
             if a.is_present("git") {
@@ -627,20 +674,46 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             } else {
                 shipcat::diff::values_vs_kubectl(&svc, &conf, &region)?
             }
+        } else if a.is_present("git") {
+            // special - serial git diff
+            // does not support mocking (but also has no secrets)
+            let (conf, region) = resolve_config(a, ConfigType::Base)?;
+            shipcat::diff::template_vs_git(&svc, &conf, &region)?
         } else {
             let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
             let (conf, region) = resolve_config(a, ss)?;
-            let mock = !a.is_present("secrets");
-            if a.is_present("helm") {
-                shipcat::diff::helm_diff(&svc, &conf, &region, mock)?
-            } else if a.is_present("git") {
-                // does not support mocking (but also has no secrets)
-                shipcat::diff::template_vs_git(&svc, &conf, &region)?
+            let mut mf = if !a.is_present("secrets") {
+                shipcat_filebacked::load_manifest(&svc, &conf, &region)?.stub(&region)?
             } else {
-                shipcat::diff::template_vs_kubectl(&svc, &conf, &region, mock)?
+                shipcat_filebacked::load_manifest(&svc, &conf, &region)?.complete(&region)?
+            };
+            if a.is_present("current") {
+                let s = status::Status::new(&mf)?;
+                let crd = s.get()?;
+                mf.version = mf.version.or(crd.spec.version);
+                mf.uid = crd.metadata.uid;
+            } else {
+                // ensure valid chart
+                mf.uid = Some("FAKE-GUID".to_string());
+                mf.version = mf.version.or(Some("latest".to_string()));
             }
+            let diff = if a.is_present("helm") {
+                shipcat::diff::helm_diff(&mf)?
+            } else {
+                shipcat::diff::template_vs_kubectl(&mf)?
+            };
+            if let Some(mut out) = diff {
+                if a.is_present("obfuscate") {
+                    out = shipcat::diff::obfuscate_secrets(out, mf.get_secrets())
+                };
+                if a.is_present("minify") {
+                    out = shipcat::diff::minify(&out)
+                };
+                println!("{}", out);
+                false
+            } else { true }
         };
-        process::exit(if has_diff { 0 } else { 1 }); // emulate diff return codes
+        process::exit(if diff_exit { 0 } else { 1 });
     }
 
 
@@ -691,6 +764,10 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             if let Some(_) = b.subcommand_matches("reconcile") {
                 return shipcat::cluster::mass_crd(&conf_sec, &conf_base, &region_base, jobs);
             }
+        }
+        if let Some(_b) = a.subcommand_matches("diff") {
+            let (conf, region) = resolve_config(args, ConfigType::Filtered)?;
+            return shipcat::cluster::mass_diff(&conf, &region);
         }
         if let Some(b) = a.subcommand_matches("vault-policy") {
             let (conf, region) = resolve_config(args, ConfigType::Base)?;

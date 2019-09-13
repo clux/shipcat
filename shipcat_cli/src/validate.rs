@@ -18,10 +18,10 @@ pub fn regional_manifests(conf: &Config, reg: &Region) -> Result<()> {
             Ok(mf)
         })
         .partition_map(Either::from);
-
     if !errs.is_empty() {
         for e in &errs {
             error!("{}", e);
+            debug!("{:?}", e);
         }
         bail!("Invalid shipcat data in {} files", errs.len());
     }
@@ -49,6 +49,7 @@ pub fn all_manifests() -> Result<()> {
     if !errs.is_empty() {
         for e in &errs {
             error!("{}", e);
+            debug!("{:?}", e);
         }
         bail!("Invalid shipcat data in {} files", errs.len());
     }

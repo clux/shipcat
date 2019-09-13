@@ -712,6 +712,16 @@ pub struct Manifest {
     #[cfg_attr(feature = "filesystem", serde(skip_deserializing))]
     pub namespace: String,
 
+    /// Uid from the CRD injected into the helm chart
+    ///
+    /// This is required to inject into the charts due to
+    /// https://github.com/kubernetes/kubernetes/issues/66068
+    ///
+    /// Exposed from shipcat, but not overrideable.
+    #[serde(default)]
+    #[cfg_attr(feature = "filesystem", serde(skip_deserializing, skip_serializing_if = "Option::is_none"))]
+    pub uid: Option<String>,
+
     /// Raw secrets from environment variables.
     ///
     /// The `env` map fills in secrets in this via the `vault` client.
@@ -820,7 +830,7 @@ impl Manifest {
         if let Some(ref cmap) = self.configs {
             cmap.verify()?;
         }
-        for (k, _v) in &self.labels {
+        for k in self.labels.keys() {
             if !conf.allowedLabels.contains(k) {
                 bail!("Service: {} using label {} not defined in config", self.name, k)
             }

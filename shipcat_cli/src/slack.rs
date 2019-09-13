@@ -180,8 +180,10 @@ fn send_internal(msg: Message, chan: String, conf: &Config, env: &Environment) -
 
     // Auto cc users
     if let NotificationMode::NotifyMaintainers = notificationMode {
-        texts.push(Text("<- ".to_string().into()));
-        texts.extend(contacts_to_text_content(&md.contacts));
+        if !md.contacts.is_empty() {
+            texts.push(Text("<- ".to_string().into()));
+            texts.extend(contacts_to_text_content(&md.contacts));
+        }
     }
 
     // Pass the texts array to slack_hook

@@ -18,7 +18,6 @@ pub struct Crd<T> {
     pub metadata: Metadata,
     pub spec: T,
 }
-
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Metadata {
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -30,8 +29,12 @@ pub struct Metadata {
     pub resourceVersion: String,
 }
 
+// TODO: replace Crd<T> + Metadata with:
+//use kube::api::{Object, Metadata, Void};
+//type Crd<T> = Object<T, Void>;
+
 /// Literal CRD - eg for creating definitions against kube api
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Clone, Default)]
 pub struct CrdSpec {
     pub group: String,
     pub version: String,
@@ -43,7 +46,7 @@ pub struct CrdSpec {
     pub subresources: Option<SubResources>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Clone, Default)]
 pub struct CrdNames {
     pub plural: String,
     pub singular: String,
@@ -52,7 +55,7 @@ pub struct CrdNames {
     pub shortNames: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Clone, Default)]
 pub struct CrdAdditionalPrinterColumns {
     pub name: String,
     #[serde(rename = "type")]

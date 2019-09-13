@@ -51,6 +51,10 @@ error_chain! {
             description("invalid template")
             display("service '{}' has invalid templates", svc)
         }
+        InvalidOneOffTemplate(tpl: String) {
+            description("invalid template")
+            display("template '{}' is invalid", tpl)
+        }
         InvalidManifest(svc: String) {
             description("manifest does not validate")
             display("manifest for {} does not validate", &svc)

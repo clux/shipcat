@@ -3,16 +3,13 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Values.name }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Values.name }}
     type: {{ .Values.type | default "service" }}
 {{- if $.Values.labels }}
 {{ toYaml $.Values.labels | indent 4 }}
 {{- end }}
-    chart: {{ template "chart.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+{{- template "chart.shipcatRefs" . }}
 spec:
   ports:
   - port: 80
@@ -31,5 +28,4 @@ spec:
 {{- end }}
   selector:
     app: {{ .Values.name }}
-    release: {{ .Release.Name }}
 {{- end }}

@@ -14,7 +14,7 @@ fn need_teleport_login(url: &str) -> Result<bool> {
     if let Some(idx) = lines.iter().position(|l| l.contains(url)) {
         let valid_ln = lines[idx+5]; // idx+5 is Valid until line
         debug!("Checking Valid line {}", valid_ln);
-        return Ok(valid_ln.contains("EXPIRED"))
+        Ok(valid_ln.contains("EXPIRED"))
     } else {
         debug!("No {} found in tsh status", url);
         Ok(true)
@@ -37,11 +37,20 @@ You must install version 3.2.* and not 4.0.0");
 ///
 /// This will use teleport to login if a teleport url is set
 /// otherwise it assumes you have already set a context with `region.name` externally.
-pub fn login(conf: &Config, region: &Region) -> Result<()> {
+pub fn login(conf: &Config, region: &Region, force: bool) -> Result<()> {
     if let Some(cluster) = conf.find_owning_cluster(&region) {
         if let Some(teleport) = &cluster.teleport {
             ensure_teleport()?;
-            if need_teleport_login(&teleport)? {
+            let needs_login = need_teleport_login(&teleport)?;
+            if force {
+                let tsh_state_file = dirs::home_dir()
+                    .expect("need a homedir")
+                    .join(".tsh")
+                    .join(format!("{}.yaml", teleport));
+                debug!("Removing {}", tsh_state_file.display());
+                std::fs::remove_file(tsh_state_file)?;
+            }
+            if needs_login || force {
                 let tsh_args = vec![
                     "login".into(),
                     // NB: using default TTL here because there might be a hard limit

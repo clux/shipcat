@@ -107,7 +107,7 @@ impl KongSource {
     fn build_hosts(&self, base_url: &str) -> Result<Vec<String>> {
         Ok(self.hosts.clone().unwrap_or_default().into_iter()
             .map(|h| {
-                let fully_qualified = h.contains(".");
+                let fully_qualified = h.contains('.');
                 if fully_qualified {
                     h
                 } else {

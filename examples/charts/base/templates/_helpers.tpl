@@ -4,9 +4,18 @@
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "chart.chart" -}}
-{{- printf "%s-%s" .Values.name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
+{{- define "chart.shipcatRefs" }}
+    app.kubernetes.io/name: {{ .Values.name }}
+    app.kubernetes.io/version: {{ .Values.version }}
+    app.kubernetes.io/managed-by: shipcat
+  ownerReferences:
+  - apiVersion: babylontech.co.uk/v1
+    kind: ShipcatManifest
+    controller: false
+    name: {{ .Values.name }}
+    uid: {{ .Values.uid }}
+{{- end }}
+
 
 {{- define "container-env" -}}
 {{- range $k, $v := .plain }}

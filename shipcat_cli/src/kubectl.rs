@@ -5,7 +5,7 @@ use regex::Regex;
 use serde_yaml;
 use chrono::{Utc, DateTime};
 
-fn kexec(args: Vec<String>) -> Result<()> {
+pub fn kexec(args: Vec<String>) -> Result<()> {
     use std::process::Command;
     debug!("kubectl {}", args.join(" "));
     let s = Command::new("kubectl").args(&args).status()?;
@@ -160,10 +160,8 @@ fn get_classified_pods(pc: PodClassification, mf: &Manifest) -> Result<(String, 
                     warn!("Found pod with less than necessary containers healthy: {}", p);
                     broken.push(p.into());
                 }
-            } else {
-                if let Some(p) = l.split(' ').next() {
-                    active.push(p.into());
-                }
+            } else if let Some(p) = l.split(' ').next() {
+                active.push(p.into());
             }
         }
     }
@@ -539,7 +537,7 @@ fn find_all_manifest_crds(ns: &str) -> Result<Vec<String>> {
 
 use std::path::PathBuf;
 // Kubectl diff experiment (ignores secrets)
-pub fn diff(pth: PathBuf, ns: &str) -> Result<(String, bool)> {
+pub fn diff(pth: PathBuf, ns: &str) -> Result<(String, String, bool)> {
     let args = vec![
         "diff".into(),
         format!("-n={}", ns),
@@ -556,7 +554,7 @@ pub fn diff(pth: PathBuf, ns: &str) -> Result<(String, bool)> {
     if err.contains("the dryRun alpha feature is disabled") {
         bail!("kubectl diff is not supported in your cluster: {}", err.trim());
     }
-    Ok((out, s.status.success()))
+    Ok((out, err, s.status.success()))
 }
 
 use std::collections::HashSet;

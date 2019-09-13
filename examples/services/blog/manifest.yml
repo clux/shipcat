@@ -2,10 +2,7 @@ name: blog
 image: clux/blog
 version: 0.1.0
 metadata:
-  contacts:
-  - name: "Eirik"
-    slack: "@clux"
-  team: Doves
+  team: doves
   repo: https://github.com/clux/blog
 
 # kubernetes resources

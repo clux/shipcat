@@ -60,6 +60,10 @@ error_chain! {
             description("Helm upgrade call failed")
             display("Helm upgrade of {} failed", &svc)
         }
+        KubectlApplyFailure(svc: String) {
+            description("Kube apply call failed")
+            display("Kube apply of {} failed", &svc)
+        }
         UpgradeTimeout(svc: String, secs: u32) {
             description("upgrade timed out")
             display("{} upgrade timed out waiting {}s for deployment(s) to come online", &svc, secs)

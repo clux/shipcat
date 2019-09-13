@@ -52,6 +52,7 @@ pub fn reconcile_event(us: UpgradeState, reg: &Region) {
 /// This is the new version for shipcat apply module
 pub fn apply_event(us: UpgradeState, info: &UpgradeInfo, reg: &Region, conf: &Config) {
     // Webhooks defined in shipcat.conf for the region:
+    debug!("Apply event: {:?}", info);
     for wh in &reg.webhooks {
         if let Ok(whc) = wh.get_configuration() {
             let res = match wh {

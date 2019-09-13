@@ -4,16 +4,76 @@ use std::sync::mpsc::channel;
 use shipcat_definitions::{Config, Region, Team, BaseManifest};
 use shipcat_filebacked::{SimpleManifest};
 
+use rayon::{iter::Either, prelude::*};
 use crate::apply;
 use crate::helm; // temporary
+use crate::{status, diff};
 use super::kubectl;
 use crate::webhooks::{self, UpgradeState};
 use super::{Result, Error, ErrorKind};
 
+/// Diffs all services in a region
+///
+/// Helper that shells out to kubectl diff in parallel.
+pub fn mass_diff(conf: &Config, reg: &Region) -> Result<()> {
+    let svcs = shipcat_filebacked::available(conf, reg)?;
+    assert!(conf.has_secrets());
+
+    let (errs, diffs) : (Vec<Error>, Vec<_>) = svcs.par_iter()
+        .map(|mf| {
+            let mut mf = shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?
+                .complete(&reg)?;
+            // complete with version and uid from crd
+            let s = status::Status::new(&mf)?;
+            let crd = s.get()?;
+            mf.version = mf.version.or(crd.spec.version);
+            mf.uid = crd.metadata.uid;
+            info!("Diffing {}", mf.name);
+            let d = if let Some(kdiffunobfusc) = diff::template_vs_kubectl(&mf)? {
+                let kubediff = diff::obfuscate_secrets(
+                    kdiffunobfusc, // move this away quickly..
+                    mf.get_secrets(),
+                );
+                let smalldiff = diff::minify(&kubediff);
+                Some(smalldiff)
+            } else {
+                None
+            };
+            Ok((mf.name, d))
+        })
+        .partition_map(Either::from);
+    for (n, d) in diffs {
+        if let Some(diff) = d {
+            info!("{} diff output:\n{}", n, diff);
+        } else {
+            info!("{} unchanged", n)
+        }
+    }
+    if !errs.is_empty() {
+        for e in &errs {
+            match e {
+                Error(ErrorKind::KubeError(e2), _) => {
+                    warn!("{}", e2); // probably missing service (undiffeable)
+                }
+                Error(ErrorKind::MissingRollingVersion(svc),_) => {
+                    // This only happens in rolling envs because version is mandatory in other envs
+                    warn!("ignored missing service {}: {}", svc, e.description());
+                },
+                _ => {
+                    error!("{}", e);
+                    debug!("{:?}", e);
+                }
+            }
+        }
+        bail!("Failed to diff {} manifests", errs.len());
+    }
+    Ok(())
+}
+
+
 /// Apply all crds in a region
 ///
-/// Temporary helper that shells out to kubectl apply in parallel.
-/// This will go away with catapult.
+/// Helper that shells out to kubectl apply in parallel.
 pub fn mass_crd(conf_sec: &Config, conf_base: &Config, reg: &Region, n_workers: usize) -> Result<()> {
     let svcs = shipcat_filebacked::available(conf_base, reg)?;
     crd_reconcile(svcs, conf_sec, conf_base, &reg.name, n_workers)

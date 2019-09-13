@@ -36,7 +36,9 @@ pub fn render_file_data(data: String, context: &Context) -> Result<String> {
     tera.register_filter("indent", indent);
     tera.register_filter("as_secret", as_secret);
 
-    let result = tera.render("one_off", context)?;
+    let result = tera.render("one_off", context).chain_err(|| {
+        ErrorKind::InvalidOneOffTemplate(data)
+    })?;
     let mut xs = vec![];
     for l in result.lines() {
         // trim whitespace (mostly to satisfy linters)
@@ -50,7 +52,9 @@ pub fn one_off(tpl: &str, ctx: &Context) -> Result<String> {
     let mut tera = Tera::default();
     tera.add_raw_template("one_off", tpl)?;
     tera.register_filter("as_secret", as_secret);
-    let res = tera.render("one_off", ctx)?;
+    let res = tera.render("one_off", ctx).chain_err(|| {
+        ErrorKind::InvalidOneOffTemplate(tpl.into())
+    })?;
     Ok(res)
 }
 

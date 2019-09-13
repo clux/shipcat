@@ -5,7 +5,8 @@ use std::io::Write;
 
 use serde_yaml;
 
-use super::{Result, Manifest, Config, Region};
+use shipcat_definitions::{Region, ReconciliationMode, Manifest};
+use super::{Result};
 
 pub fn hexec(args: Vec<String>) -> Result<()> {
     use std::process::Command;
@@ -42,30 +43,14 @@ pub fn values(mf: &Manifest, output: &str) -> Result<()> {
 /// Analogue of helm template
 ///
 /// Generates helm values to disk, then passes it to helm template
-pub fn template(svc: &str, region: &Region, conf: &Config, ver: Option<String>, mock: bool, output: Option<PathBuf>) -> Result<String> {
-    let mut mf = if mock {
-        shipcat_filebacked::load_manifest(svc, conf, region)?.stub(region)?
-    } else {
-        shipcat_filebacked::load_manifest(svc, conf, region)?.complete(region)?
-    };
-
-    // template or values does not need version - but respect passed in / manifest
-    if ver.is_some() {
-        // override with set version only if set - respect pin otherwise
-        mf.version = ver;
-    }
-    // sanity verify what we changed (no-shoehorning in illegal versions in rolling envs)
-    if let Some(v) = &mf.version {
-        region.versioningScheme.verify(&v)?;
-    }
-
-    let hfile = format!("{}.helm.gen.yml", svc);
+pub fn template(mf: &Manifest, output: Option<PathBuf>) -> Result<String> {
+    let hfile = format!("{}.helm.gen.yml", mf.name);
     values(&mf, &hfile)?;
 
     // helm template with correct params
     let tplvec = vec![
         "template".into(),
-        format!("charts/{}", mf.chart.unwrap()),
+        format!("charts/{}", mf.chart.clone().unwrap()),
         "-f".into(),
         hfile.clone(),
     ];
@@ -77,15 +62,214 @@ pub fn template(svc: &str, region: &Region, conf: &Config, ver: Option<String>, 
     }
     if let Some(o) = output {
         let pth = Path::new(".").join(o);
-        info!("Writing helm template for {} to {}", svc, pth.display());
+        debug!("Writing helm template for {} to {}", mf.name, pth.display());
         let mut f = File::create(&pth)?;
         writeln!(f, "{}", tpl)?;
-        debug!("Wrote helm template for {} to {}: \n{}", svc, pth.display(), tpl);
-    } else {
-        println!("{}", tpl);
-    }
+        debug!("Wrote helm template for {} to {}: \n{}", mf.name, pth.display(), tpl);
+    };
     fs::remove_file(hfile)?;
     Ok(tpl)
+}
+
+/// Helper to validate the assumption of the charts
+///
+/// This is an addon to checks done through `kubeval`.
+/// We don't validate kubernetes schemas in here, but we do validate consistency of:
+/// - labels: app.kubernetes.io/name, app.kubernetes.io/version, app.kubernetes.io/managed-by
+/// - ownerReferences (need ShipcatManifest, !controller, uid propagated, name correct)
+pub fn template_check(mf: &Manifest, reg: &Region, tpl: &str) -> Result<()> {
+    let mut invalids = vec![];
+    for to in tpl.split("---") {
+        let kind = match serde_yaml::from_str::<PartialObject>(&to) {
+            Err(_) => {
+                trace!("Skipping partial without kind: {}", to);
+                continue;
+            },
+            Ok(o) => {
+                debug!("Checking: {}", o.kind);
+                o.kind
+            },
+        };
+        let obj : MetaObject = serde_yaml::from_str(to)?;
+        let types = &obj.types;
+        let name = &obj.metadata.name;
+        if types.apiVersion.is_none() {
+            warn!("Missing apiVersion in object: {}", kind);
+        }
+
+        let ok = match reg.reconciliationMode {
+            ReconciliationMode::CrdOwned => {
+                let owner_ok = check_owner_refs(mf, &kind, &obj)?;
+                let labels_ok = check_labels(mf, &kind, &obj)?;
+                labels_ok && owner_ok
+            },
+            ReconciliationMode::CrdStatus | ReconciliationMode::CrdVersioned => {
+                check_tiller_refs(mf, &kind, &obj)?
+            },
+        };
+        if !ok {
+            invalids.push(format!("{} {{ {} }}", kind, name));
+        }
+    }
+    if !invalids.is_empty() {
+        bail!("Invalid objects: {:?}", invalids);
+    }
+    Ok(())
+}
+
+use kube::api::{TypeMeta, ObjectMeta};
+#[derive(Deserialize)]
+struct PartialObject {
+    kind: String,
+}
+
+#[derive(Deserialize)]
+struct MetaObject {
+    #[serde(flatten)]
+    types: TypeMeta,
+    metadata: ObjectMeta,
+}
+
+fn check_labels(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool> {
+    let mut success = true;
+    let labels = &obj.metadata.labels;
+    match labels.get("app.kubernetes.io/name") {
+        Some(n) => {
+            if n == &mf.name {
+                debug!("{}: valid app.kubernetes.io/name label {}", kind, n)
+            } else {
+                success = false;
+                warn!("{}: invalid app.kubernetes.io/name label {}", kind, n)
+            }
+        },
+        None => {
+            success = false;
+            warn!("{}: missing app.kubernetes.io/name label", kind);
+        }
+    };
+    match labels.get("app.kubernetes.io/managed-by") {
+        Some(n) => {
+            if n == "shipcat" {
+                debug!("{}: valid app.kubernetes.io/managed-by label {}", kind, n)
+            } else {
+                success = false;
+                warn!("{}: invalid app.kubernetes.io/managed-by label {}", kind, n)
+            }
+        },
+        None => {
+            success = false;
+            warn!("{}: missing app.kubernetes.io/managed-by label", kind);
+        }
+    };
+    if let Some(v) = &mf.version {
+        match labels.get("app.kubernetes.io/version") {
+            Some(n) => {
+                if n == v {
+                    debug!("{}: valid app.kubernetes.io/version label {}", kind, n)
+                } else {
+                    success = false;
+                    warn!("{}: invalid app.kubernetes.io/version label {}", kind, n)
+                }
+            },
+            None => {
+                success = false;
+                warn!("{}: missing app.kubernetes.io/version label", kind);
+            }
+        };
+    }
+    Ok(success)
+}
+
+fn check_owner_refs(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool> {
+    let mut success = true;
+    // First ownerReferences must be ShipcatManifest
+    match obj.metadata.ownerReferences.first() {
+        Some(or) => {
+            if or.kind == "ShipcatManifest" &&
+               !or.controller &&
+               or.name == mf.name {
+                debug!("{}: valid ownerReference for {}", kind, or.kind);
+            } else {
+                success = false;
+                warn!("{}: invalid ownerReference for {}", kind, serde_yaml::to_string(or)?);
+            }
+            if let Some(uid) = &mf.uid {
+                if uid == &or.uid {
+                    debug!("{}: valid uid in ownerReference for {}", kind, or.uid)
+                } else {
+                    success = false;
+                    warn!("{}: invalid uid in ownerReference for {}", kind, or.uid)
+                }
+            }
+        },
+        None => {
+            success = false;
+            warn!("{}: missing ownerReferences", kind);
+        },
+    }
+    Ok(success)
+}
+
+// pre-migration helper to ensure chart consistency
+//
+// will be removed with CrdStatus
+fn check_tiller_refs(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool> {
+    let mut success = true;
+    // Should not have ownerReferences when using tiller
+    match obj.metadata.ownerReferences.first() {
+        Some(or) => {
+            success = false;
+            warn!("{}: unexpeceted ownerReference for {}", kind, serde_yaml::to_string(or)?);
+        },
+        None => {
+            debug!("{}: ownerReferences unset", kind);
+        },
+    };
+    let labels = &obj.metadata.labels;
+    match labels.get("chart") {
+        Some(n) => {
+            if n.starts_with(&mf.name) {
+                debug!("{}: valid chart label {}", kind, n);
+            } else {
+                success = false;
+                warn!("{}: invalid chart label {}", kind, n);
+            }
+        },
+        None => {
+            success = false;
+            warn!("{}: missing chart label", kind);
+        },
+    };
+    match labels.get("heritage") {
+        Some(n) => {
+            // tiller internal name
+            if n == "Tiller" {
+                debug!("{}: valid heritage label {}", kind, n);
+            } else {
+                success = false;
+                warn!("{}: invalid heritage label {}", kind, n);
+            }
+        },
+        None => {
+            success = false;
+            warn!("{}: missing heritage label", kind);
+        },
+    };
+    match labels.get("release") {
+        Some(n) => {
+            if n == &mf.name {
+                debug!("{}: valid release label {}", kind, n);
+            } else {
+                success = false;
+                warn!("{}: invalid release label {}", kind, n);
+            }
+        },
+        None => {
+            success = false;
+            warn!("{}: missing release label", kind);
+        },
+    };
+    Ok(success)
 }
 
 

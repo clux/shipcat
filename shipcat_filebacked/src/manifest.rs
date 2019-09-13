@@ -157,6 +157,7 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             region: region.name.clone(),
             environment: region.environment.to_string(),
             namespace: region.namespace.clone(),
+            uid: Default::default(),
             secrets: Default::default(),
             kind: Default::default(),
         })

@@ -1,19 +1,16 @@
 {{- range $w := $.Values.workers }}
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ $w.name }}
-  namespace: {{ $.Release.Namespace }}
-  labels:
+   labels:
     app: {{ $.Values.name }}
     type: {{ $.Values.type | default "service" }}
 {{- if $.Values.labels }}
 {{ toYaml $.Values.labels | indent 4 }}
 {{- end }}
-    chart: {{ template "chart.chart" $ }}
-    release: {{ $.Release.Name }}
-    heritage: {{ $.Release.Service }}
+{{- template "chart.shipcatRefs" $ }}
 spec:
   replicas: {{ $w.replicaCount }}
   revisionHistoryLimit: 20
@@ -26,12 +23,10 @@ spec:
   selector:
     matchLabels:
       app: {{ $w.name }}
-      release: {{ $.Release.Name }}
   template:
     metadata:
       labels:
         app: {{ $w.name }}
-        release: {{ $.Release.Name }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
         checksum/secrets: {{ include (print $.Template.BasePath "/secrets.yaml") $ | sha256sum }}

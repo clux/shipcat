@@ -1,6 +1,6 @@
 # sample manifests
 
-This folder contains a sample manifest repository setup.
+This folder contains a sample manifest repository setup for a kubernetes cluster of version >= 1.13.
 
 ```sh
 ├── shipcat.conf
@@ -50,16 +50,12 @@ You can deploy services to the cluster:
 shipcat apply blog
 ```
 
-If you would like to deploy using `kubectl`, or drop `tiller`, you could apply directly:
+Note that `apply` does not rely on `tiller` because of the `reconciliationMode` set in `shipcat.conf`.
 
-```sh
-shipcat template -s blog | kubectl apply --prune -lapp=blog -f -
-```
-
-The rest of this example guide does rely on tiller somewhat though.
+The rest of this example guide does rely on tiller for test database.
 
 
-## Using secrets
+## Integrations
 Let's set up a simulated vault for our kube cluster:
 
 ```sh
@@ -99,8 +95,7 @@ The evars are used to send upgrade notifications to slack hooks (if they are val
 Let's pretend that our cluster died:
 
 ```sh
-helm --tiller-namespace=apps del --purge webapp
-helm --tiller-namespace=apps del --purge blog
+kubectl delete shipcatmanifest webapp blog
 ```
 
 then we can respond with:
@@ -117,4 +112,15 @@ kubectl port-forward deployment/webapp 8000
 curl -s -X POST http://0.0.0.0:8000/posts -H "Content-Type: application/json" \
   -d '{"title": "hello", "body": "world"}'
 curl -s -X GET "http://0.0.0.0:8000/posts/1"
+```
+
+## Security
+Ensure the current commands are run before merging into a repository like this folder:
+
+```sh
+shipcat config verify
+shipcat verify -r minikube
+shipcat secret verify-region -r minikube --changed=blog,webapp
+shipcat template webapp -c
+shipcat template webapp | kubeval -v 1.13.8 --strict
 ```
