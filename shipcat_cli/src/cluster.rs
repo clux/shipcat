@@ -28,7 +28,7 @@ pub fn mass_diff(conf: &Config, reg: &Region) -> Result<()> {
             let crd = s.get()?;
             mf.version = mf.version.or(crd.spec.version);
             mf.uid = crd.metadata.uid;
-            info!("Diffing {}", mf.name);
+            info!("diffing {}", mf.name);
             let d = if let Some(kdiffunobfusc) = diff::template_vs_kubectl(&mf)? {
                 let kubediff = diff::obfuscate_secrets(
                     kdiffunobfusc, // move this away quickly..

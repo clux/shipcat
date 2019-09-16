@@ -313,6 +313,11 @@ fn build_cli() -> App<'static, 'static> {
                 .conflicts_with("git")
                 .conflicts_with("crd")
                 .help("Comparing using helm-diff plugin"))
+              .arg(Arg::with_name("tag")
+                .long("tag")
+                .short("t")
+                .takes_value(true)
+                .help("Image version to deploy"))
               .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service to be diffed"))
@@ -687,6 +692,8 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             } else {
                 shipcat_filebacked::load_manifest(&svc, &conf, &region)?.complete(&region)?
             };
+            let ver = a.value_of("tag").map(String::from);
+            mf.version = mf.version.or(ver);
             if a.is_present("current") {
                 let s = status::Status::new(&mf)?;
                 let crd = s.get()?;

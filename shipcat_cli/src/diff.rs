@@ -178,9 +178,11 @@ fn shell_diff(before: &str, after: &str) -> Result<bool> {
 
 /// Minify diff output from helm diff or kube diff
 pub fn minify(diff: &str) -> String {
-    // kubectl diff starts with `diff -u` shell output
-    // this might not remain true, but helm support will be removed soon
-    if diff.starts_with("diff -u") {
+    // kubectl diff contain at least one --- or one +++ with tmp/LIVE or tmp/merged
+    let minus_line = Regex::new(r"--- /tmp/LIVE-[a-zA-Z0-9]+/([\w\.]+)").unwrap();
+    let plus_line = Regex::new(r"--- /tmp/MERGED-[a-zA-Z0-9]+/([\w\.]+)").unwrap();
+    // helm diff output never contain any of these, and is deprecated
+    if minus_line.is_match(diff) || plus_line.is_match(diff) {
         minify_kube(diff)
     } else {
         minify_helm(diff)
@@ -341,8 +343,7 @@ mod tests {
 
     #[test]
     fn kubectl_diff_minify_test() {
-        let input = "diff -u -N /tmp/LIVE-A9/apps.v1.Deployment.dev.raftcat /tmp/MERGED-B0/apps.v1.Deployment.dev.raftcat
---- /tmp/LIVE-A9/apps.v1.Deployment.dev.raftcat   2019-09-11 16:12:26.819641578 +0100
+        let input = "--- /tmp/LIVE-A9/apps.v1.Deployment.dev.raftcat   2019-09-11 16:12:26.819641578 +0100
 +++ /tmp/MERGED-B0/apps.v1.Deployment.dev.raftcat 2019-09-11 16:12:26.852974183 +0100
 @@ -6,7 +6,7 @@
      kubectl.kubernetes.io/last-applied-configuration: |
@@ -366,5 +367,27 @@ mod tests {
         assert_eq!(minify(input), "apps.v1.Deployment.dev.raftcat has changed:
 -          value: eirik4
 +          value: eirik5");
+    }
+
+    #[test]
+    fn kubectl_diff_version_only() {
+        let min_input = "extensions.v1beta1.Deployment.dev has changed:
+-    app.kubernetes.io/version: a844d0db93216b25d22a482ab80029d4a552f285
++    app.kubernetes.io/version: 203894776eed17f00b9dd0bc25a09dcef644ea67
+-          value: a844d0db93216b25d22a482ab80029d4a552f285
+-        image: quay.io/babylonhealth/aim-dashboard:a844d0db93216b25d22a482ab80029d4a552f285
++          value: 203894776eed17f00b9dd0bc25a09dcef644ea67
++        image: quay.io/babylonhealth/aim-dashboard:203894776eed17f00b9dd0bc25a09dcef644ea67
+v1.ServiceAccount.dev has changed:
+-    app.kubernetes.io/version: a844d0db93216b25d22a482ab80029d4a552f285
++    app.kubernetes.io/version: 203894776eed17f00b9dd0bc25a09dcef644ea67
+v1.Service.dev has changed:
+-    app.kubernetes.io/version: a844d0db93216b25d22a482ab80029d4a552f285
++    app.kubernetes.io/version: 203894776eed17f00b9dd0bc25a09dcef644ea67";
+
+        let res = infer_version_change(min_input);
+        assert!(res.is_some());
+        let (old, new) = res.unwrap();
+        assert!(is_version_only(min_input, (&old, &new)));
     }
 }

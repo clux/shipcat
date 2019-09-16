@@ -1,5 +1,9 @@
+0.127.1 / 2019-09-16
+====================
+  * Diff now correctly detects kubectl diff output and filters out generation
+
 0.127.0 / 2019-09-13
-==================
+====================
   * First release to support upgrades withut tiller.
   * `ReconciliationMode::CrdOwned` and can be set per-region in `shipcat.conf`.
   * Tested properly in examples/ directory
@@ -28,6 +32,6 @@ metadata:
    - `--current` or `-k` added (to use actual uids/versions from kube)
 
 0.126.0 / 2019-09-03
-==================
+====================
   * `reconciliationMode` default is now `CrdStatus` rather than `CrdVersioned`
   * Kubernetes default server requirement now 1.12
