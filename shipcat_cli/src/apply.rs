@@ -247,7 +247,7 @@ fn apply_helm_with_crd(svc: &str,
     let mfbase = shipcat_filebacked::load_manifest(&svc, &conf, &region)?;
 
     // A version is set EITHER via `-t SOMEVER` on CLI, or pinned in manifest
-    if passed_version.is_some() && mfbase.version.is_some() {
+    if passed_version.is_some() && mfbase.version.is_some() && mfbase.version != passed_version {
         error!("Overriding a pinned version will be undone at next reconcile");
         bail!("Cannot override version for '{}' because it is pinned in manifests", svc);
     }
@@ -526,7 +526,7 @@ fn apply_kubectl(svc: &str,
     let mfbase = shipcat_filebacked::load_manifest(&svc, &conf, &region)?;
 
     // A version is set EITHER via `-t SOMEVER` on CLI, or pinned in manifest
-    if passed_version.is_some() && mfbase.version.is_some() {
+    if passed_version.is_some() && mfbase.version.is_some() && mfbase.version != passed_version {
         error!("Overriding a pinned version will be undone at next reconcile");
         bail!("Cannot override version for '{}' because it is pinned in manifests", svc);
     }
