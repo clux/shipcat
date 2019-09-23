@@ -97,11 +97,21 @@ fn kong_test() {
 
     let attr = plugin_attributes!("JsonCookiesToHeaders", api.plugins.remove(0), ApiPlugin::JsonCookiesToHeaders);
     assert_eq!(attr.enabled, true);
-    assert_eq!(attr.config.field_name, "kong_token");
-    assert_eq!(attr.config.cookie_name, "autologin_token");
+    assert_eq!(attr.config.auth_service, Some("service".to_string()));
+    assert_eq!(attr.config.body_refresh_token_key, Some("key".to_string()));
+    assert_eq!(attr.config.cookie_max_age_sec, None);
+    assert_eq!(attr.config.enable_refresh_expired_access_tokens, Some(true));
+    assert_eq!(attr.config.http_timeout_msec, Some(10000));
+    assert_eq!(attr.config.renew_before_expiry_sec, Some(120));
+
+    // Deprecated fields - to be removed after Kong update
+    assert_eq!(attr.config.field_name, None);
+    assert_eq!(attr.config.cookie_name, None);
 
     let attr = plugin_attributes!("JsonCookiesCsrf", api.plugins.remove(0), ApiPlugin::JsonCookiesCsrf);
     assert_eq!(attr.enabled, true);
+
+    // Deprecated fields - to be removed after Kong update
     assert_eq!(attr.config.csrf_field_name, "csrf_token");
     assert_eq!(attr.config.cookie_name, "autologin_info");
     assert_eq!(attr.config.strict, true);

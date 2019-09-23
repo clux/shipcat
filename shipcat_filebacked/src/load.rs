@@ -126,6 +126,12 @@ impl ManifestDefaults {
                     allow_cookies: Some(authz.allow_cookies),
                     allow_invalid_tokens: Some(authz.allow_invalid_tokens),
                     required_scopes: Some(authz.required_scopes),
+                    enable_cookie_refresh: Some(authz.enable_cookie_refresh),
+                    refresh_auth_service: authz.refresh_auth_service,
+                    refresh_body_refresh_token_key: authz.refresh_body_refresh_token_key,
+                    refresh_max_age_sec: authz.refresh_max_age_sec,
+                    refresh_http_timeout_msec: authz.refresh_http_timeout_msec,
+                    refresh_renew_before_expiry_sec: authz.refresh_renew_before_expiry_sec,
                 },
             };
         }

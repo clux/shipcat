@@ -79,6 +79,7 @@ kong:
   - fake.example.com
   authorization:
     allow_cookies: true
+    enable_cookie_refresh: true
 initContainers:
 - name: initialize
   image: foo
