@@ -3,18 +3,10 @@ use shipcat_definitions::Crd;
 use crate::kubectl;
 use crate::helm;
 use crate::apply;
+use crate::git;
 use super::{Config, Region, Manifest, Result};
 use std::process::Command;
 
-
-fn git(args: &[&str]) -> Result<()> {
-    debug!("git {}", args.join(" "));
-    let s = Command::new("git").args(args).status()?;
-    if !s.success() {
-        bail!("Subprocess failure from git: {}", s.code().unwrap_or(1001))
-    }
-    Ok(())
-}
 
 /// Fast local git compare of the crd
 ///
@@ -27,10 +19,12 @@ pub fn values_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> 
     let after = serde_yaml::to_string(&aftermf)?;
 
     // move git to get before state:
-    git(&["checkout", "master", "--quiet"])?;
-    let needs_stash = git(&["diff", "--quiet", "--exit-code"]).is_err() || git(&["diff", "--cached", "--quiet", "--exit-code"]).is_err();
+    let merge_base = git::merge_base()?;
+    git::checkout(&merge_base)?;
+
+    let needs_stash = git::needs_stash();
     if needs_stash {
-        git(&["stash", "--quiet"])?;
+        git::stash_push()?;
     }
 
     // compute before state
@@ -39,9 +33,9 @@ pub fn values_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> 
 
     // move git back
     if needs_stash {
-        git(&["stash", "pop", "--quiet"])?;
+        git::stash_pop()?;
     }
-    git(&["checkout", "-", "--quiet"])?;
+    git::checkout("-")?;
 
     // display diff
     shell_diff(&before, &after)
@@ -57,10 +51,12 @@ pub fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool
     let _after = helm::template(&mf_after, Some(afterpth.clone()))?;
 
     // move git to get before state:
-    git(&["checkout", "master", "--quiet"])?;
-    let needs_stash = git(&["diff", "--quiet", "--exit-code"]).is_err() || git(&["diff", "--cached", "--quiet", "--exit-code"]).is_err();
+    let merge_base = git::merge_base()?;
+    git::checkout(merge_base.as_str())?;
+
+    let needs_stash = git::needs_stash();
     if needs_stash {
-        git(&["stash", "--quiet"])?;
+        git::stash_push()?;
     }
 
     // compute old state:
@@ -70,9 +66,9 @@ pub fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool
 
     // move git back
     if needs_stash {
-        git(&["stash", "pop", "--quiet"])?;
+        git::stash_pop()?;
     }
-    git(&["checkout", "-", "--quiet"])?;
+    git::checkout("-")?;
 
     // display diff
     // doesn't reuse shell_diff because we already have files from direct::template

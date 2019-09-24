@@ -1,6 +1,7 @@
 use super::{Config, Region};
 use super::{Result, Error};
 use rayon::{iter::Either, prelude::*};
+use crate::git;
 
 
 /// Validate all manifests in a service directory for a region
@@ -165,25 +166,14 @@ pub fn config(conf: Config) -> Result<()> {
 // Dumb git diff helper that matches normal service files:
 //
 // Effectively checks:
-// git diff --name-only master | grep ./services/{svc}/*
+// git diff --name-only $(git merge-base origin/master HEAD) | grep ./services/{svc}/*
 fn git_diff_changes() -> Result<Vec<String>> {
-    use std::process::Command;
     use regex::Regex;
-    let args = ["diff", "--name-only", "origin/master"];
-    debug!("git {}", args.join(" "));
-    let s = Command::new("git").args(&args).output()?;
-    if !s.status.success() {
-        bail!("Subprocess failure from git: {}", s.status.code().unwrap_or(1001))
-    }
-    let out : String = String::from_utf8_lossy(&s.stdout).into();
-    let err : String = String::from_utf8_lossy(&s.stderr).into();
-    if !err.is_empty() {
-        warn!("{} stderr: {}", args.join(" "), err);
-    }
-    debug!("{}", out);
+    let merge_base = git::merge_base()?;
+    let diff_output = git::diff_filenames(&merge_base)?;
     let svc_re = Regex::new(r"^services/(?P<svc>[0-9a-z\-]{1,50})/").unwrap();
     let mut res = vec![];
-    for l in out.lines() {
+    for l in diff_output.lines() {
         if let Some(caps) = svc_re.captures(l) {
             if let Some(svc) = caps.name("svc") {
                 res.push(svc.as_str().to_string());

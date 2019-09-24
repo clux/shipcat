@@ -129,6 +129,9 @@ pub mod get;
 /// Diffing module for values
 pub mod diff;
 
+/// Git stuff
+pub mod git;
+
 /// Env module for sourcing secrets
 pub mod env;
 
