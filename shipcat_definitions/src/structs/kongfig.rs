@@ -301,7 +301,13 @@ impl Default for JsonCookiesToHeadersPluginConfig {
             // Deprecated fields - to be removed after Kong update
             field_name: Some("kong_token".into()),
             cookie_name: Some("autologin_token".into()),
-            ..Default::default()
+
+            auth_service: None,
+            body_refresh_token_key: None,
+            cookie_max_age_sec: None,
+            enable_refresh_expired_access_tokens: None,
+            http_timeout_msec: None,
+            renew_before_expiry_sec: None,
         }
     }
 }
@@ -438,7 +444,7 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
                         // Deprecated fields - to be removed after Kong update
                         field_name: None,
                         cookie_name: None,
-                        
+
                         auth_service: a.refresh_auth_service,
                         body_refresh_token_key: a.refresh_body_refresh_token_key,
                         cookie_max_age_sec: a.refresh_max_age_sec,
