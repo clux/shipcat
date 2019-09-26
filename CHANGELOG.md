@@ -1,3 +1,8 @@
+0.129.0 / 2019-09-26
+====================
+  * `diff` can can compare regions
+  * `apply` now resilient against manifest schema changes (bug)
+
 0.127.1 / 2019-09-16
 ====================
   * Diff now correctly detects kubectl diff output and filters out generation

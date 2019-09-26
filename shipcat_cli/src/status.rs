@@ -24,10 +24,19 @@ fn make_client() -> Result<APIClient> {
 /// This is the new version of Crd<Manifest> (which will be removed)
 type ManifestK = Object<Manifest, ManifestStatus>;
 
+type ManifestMinimalK = Object<MinimalManifest, ManifestStatus>;
+
+/// The few immutable properties that always must exist during upgrades
+#[derive(Clone, Serialize, Deserialize)]
+pub struct MinimalManifest {
+    pub name: String,
+    pub version: String,
+}
+
 /// Interface for dealing with status
 pub struct Status {
-    /// This allow graceful degradation by wrapping it in an option
     scm: Api<ManifestK>,
+    scm_minimal: Api<ManifestMinimalK>,
     applier: Applier,
     name: String,
 }
@@ -37,13 +46,17 @@ impl Status {
     pub fn new(mf: &Manifest) -> Result<Self> {
         // hide the client in here -> Api resource for now (not needed elsewhere)
         let client = make_client()?;
-        let scm : Api<ManifestK> = Api::customResource(client, "shipcatmanifests")
+        let scm : Api<ManifestK> = Api::customResource(client.clone(), "shipcatmanifests")
+            .group("babylontech.co.uk")
+            .within(&mf.namespace);
+        let scm_minimal : Api<ManifestMinimalK> = Api::customResource(client, "shipcatmanifests")
             .group("babylontech.co.uk")
             .within(&mf.namespace);
         Ok(Status {
             name: mf.name.clone(),
             applier: Applier::infer(),
             scm: scm,
+            scm_minimal: scm_minimal,
         })
     }
 
@@ -71,6 +84,12 @@ impl Status {
     /// Full CRD fetcher
     pub fn get(&self) -> Result<ManifestK> {
         let o = self.scm.get(&self.name).map_err(ErrorKind::KubeError)?;
+        Ok(o)
+    }
+
+    /// Minimal CRD fetcher (for upgrades)
+    pub fn get_minimal(&self) -> Result<ManifestMinimalK> {
+        let o = self.scm_minimal.get(&self.name).map_err(ErrorKind::KubeError)?;
         Ok(o)
     }
 

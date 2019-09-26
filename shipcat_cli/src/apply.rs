@@ -234,6 +234,7 @@ fn apply_helm(svc: &str,
 /// Last version of apply that uses tiller
 ///
 /// This writes events to uses the shipcatmanifest crd
+#[deprecated(since = "0.129.0", note = "CrdStatus users should move on to CrdOwned")]
 fn apply_helm_with_crd(svc: &str,
              force: bool,
              region: &Region,
@@ -268,7 +269,7 @@ fn apply_helm_with_crd(svc: &str,
     let (actual_version, crd) = match s.get() {
         Err(_e) => {
             // This usually fails because it's not yet installed
-            // Other error cases: retry later
+            // but it can also fail if the schema has changed
             match explicit_version {
                 None => {
                     warn!("'{}' cannot be installed (no version inferable)", svc);
@@ -541,12 +542,13 @@ fn apply_kubectl(svc: &str,
 
     // Next large batch is working out the reason for the upgrade (if any)
     let mut reason = None;
-    // Fetch the full shipcatmanifest crd
-    // NB: if kube api or early stuff here fails, then we are in a bad state.
-    // Before we have applied any CRDs it's safe to bail. Next run can retry.
-    let (actual_version, crd) = match s.get() {
+
+    // Fetch the minimial shipcatmanifest crd to read version + metadata
+    // Safe to bail, pre CRD apply. Next run can retry if kube api getter fails.
+    let (actual_version, crd) = match s.get_minimal() {
         Err(e) => {
             // This usually fails because it's not yet installed
+            // serde errors should not happen as using minimal variant!
             debug!("Caught: {}", e); // log it anyway
             match explicit_version {
                 None => {
@@ -561,16 +563,20 @@ fn apply_kubectl(svc: &str,
         },
         Ok(o) => {
             debug!("existing manifest crd: {}={:?}", o.spec.name, o.status);
-            let fallback = o.spec.version.clone().expect("manifest.version set");
-
-            // A version was supplied, and it differs from active CRD
-            if explicit_version.is_some() && explicit_version != o.spec.version {
-                reason = Some(UpgradeReason::VersionChange);
+            let fallback = o.spec.version.clone();
+            match explicit_version {
+                None => (fallback, Some(o)),
+                Some(v) => {
+                    if v != fallback {
+                        // A version was supplied, and it differs from active CRD
+                        reason = Some(UpgradeReason::VersionChange);
+                    }
+                    (v, Some(o))
+                }
             }
-            (explicit_version.unwrap_or(fallback), Some(o))
          },
     };
-    let is_installed = crd.is_some(); // no crd => nothing installed
+    let can_diff = crd.is_some();
     debug!("using {}={}", svc, actual_version);
     // no shoehorning in illegal versions in the crd!
     region.versioningScheme.verify(&actual_version)?;
@@ -629,7 +635,7 @@ fn apply_kubectl(svc: &str,
     }
 
     // Attach diff to UpgradeInfo if diffing is possible
-    if is_installed { // helm diff only supports diffing if already installed..
+    if can_diff { // helm diff only supports diffing if already installed..
         match diff_kubectl(&mf, &tfile) {
             Ok(Some(kdiff)) => {
                 ui.diff = Some(kdiff);
