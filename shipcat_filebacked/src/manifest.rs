@@ -4,13 +4,13 @@ use std::collections::BTreeMap;
 use shipcat_definitions::structs::{
     autoscaling::AutoScaling, security::DataHandling, tolerations::Tolerations, volume::Volume,
     ConfigMap, Dependency, Gate, HealthCheck, HostAlias,
-    Kafka, LifeCycle, Metadata, PersistentVolume, Port, Probe, Rbac,
+    Kafka, LifeCycle, Metadata, PersistentVolume, Probe, Rbac,
     RollingUpdate, VaultOpts, VolumeMount,
 };
 use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result};
 
 use super::{SimpleManifest};
-use super::container::{ContainerBuildParams, CronJobSource, JobSource, SidecarSource, InitContainerSource, EnvVarsSource, WorkerSource, ResourceRequirementsSource, ImageNameSource, ImageTagSource};
+use super::container::{ContainerBuildParams, CronJobSource, JobSource, SidecarSource, InitContainerSource, EnvVarsSource, WorkerSource, ResourceRequirementsSource, ImageNameSource, ImageTagSource, PortSource};
 use super::kong::{KongSource, KongBuildParams};
 use super::util::{Build, Enabled, RelaxedString, Require};
 
@@ -43,7 +43,7 @@ pub struct ManifestOverrides {
     pub configs: Option<ConfigMap>,
     pub vault: Option<VaultOpts>,
     pub http_port: Option<u32>,
-    pub ports: Option<Vec<Port>>,
+    pub ports: Option<Vec<PortSource>>,
     pub external_port: Option<u32>,
     pub health: Option<HealthCheck>,
     pub dependencies: Option<Vec<Dependency>>,
@@ -126,7 +126,7 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             configs: configs,
             vault: overrides.vault,
             httpPort: overrides.http_port,
-            ports: overrides.ports.unwrap_or_default(),
+            ports: overrides.ports.unwrap_or_default().build(&())?,
             externalPort: overrides.external_port,
             health: overrides.health,
             dependencies: overrides.dependencies.unwrap_or_default(),

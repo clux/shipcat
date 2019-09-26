@@ -2,13 +2,14 @@ use merge::Merge;
 use regex::Regex;
 
 use shipcat_definitions::Result;
-use shipcat_definitions::structs::{Container, Probe, Port, VolumeMount};
+use shipcat_definitions::structs::{Container, Probe, VolumeMount};
 
 use crate::util::{Build, Require};
 
 use super::EnvVarsSource;
 use super::image::{ImageTagSource, ImageNameSource};
 use super::resources::ResourceRequirementsSource;
+use super::port::PortSource;
 
 #[derive(Deserialize, Clone, Default)]
 pub struct ContainerName(String);
@@ -41,7 +42,7 @@ pub struct ContainerSource {
     pub readiness_probe: Option<Probe>,
     pub liveness_probe: Option<Probe>,
 
-    pub ports: Option<Vec<Port>>,
+    pub ports: Option<Vec<PortSource>>,
 
     pub volume_mounts: Option<Vec<VolumeMount>>,
 }
@@ -57,11 +58,6 @@ impl Build<Container, ContainerBuildParams> for ContainerSource {
         } else {
             self.env
         };
-        let ports = self.ports.unwrap_or_default();
-        for p in &ports {
-            // TODO: Inline
-            p.verify()?;
-        }
         if let Some(rp) = &self.readiness_probe {
             // TODO: Inline
             rp.verify()?;
@@ -83,7 +79,7 @@ impl Build<Container, ContainerBuildParams> for ContainerSource {
             readiness_probe: self.readiness_probe,
             liveness_probe: self.liveness_probe,
 
-            ports,
+            ports: self.ports.unwrap_or_default().build(&())?,
 
             volume_mounts: self.volume_mounts.unwrap_or_default(),
         })

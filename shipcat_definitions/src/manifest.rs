@@ -818,9 +818,6 @@ impl Manifest {
         for tl in &self.tolerations {
             tl.verify()?;
         }
-        for p in &self.ports {
-            p.verify()?;
-        }
         for r in &self.rbac {
             r.verify()?;
         }
