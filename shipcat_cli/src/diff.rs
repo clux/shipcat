@@ -38,7 +38,21 @@ pub fn values_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> 
     git::checkout("-")?;
 
     // display diff
-    shell_diff(&before, &after)
+    shell_diff(&before, &after, "before", "after")
+}
+
+/// Fast local compare of shipcat template for two regions
+pub fn values_vs_region(svc: &str, conf: &Config, region: &Region, ref_region: &Region) -> Result<bool> {
+    let before_region = format!("{}.{}", svc, ref_region.name);
+    let before_mf = shipcat_filebacked::load_manifest(svc, conf, ref_region)?;
+    let before_values = serde_yaml::to_string(&before_mf)?;
+
+    let after_region = format!("{}.{}", svc, region.name);
+    let after_mf = shipcat_filebacked::load_manifest(svc, conf, region)?;
+    let after_values = serde_yaml::to_string(&after_mf)?;
+
+    // display diff
+    shell_diff(&before_values, &after_values, &before_region, &after_region)
 }
 
 /// Fast local git compare of shipcat template
@@ -151,18 +165,20 @@ pub fn template_vs_kubectl(mf: &Manifest) -> Result<Option<String>> {
 
 // Compare using diff(1)
 // difference libraries all seemed to be lacking somewhat
-fn shell_diff(before: &str, after: &str) -> Result<bool> {
-    let beforepth = Path::new(".").join("before.shipcat.gen.yml");
+fn shell_diff(before: &str, after: &str, before_name: &str, after_name: &str) -> Result<bool> {
+    let beforefilename = format!("{}.shipcat.gen.yml", before_name);
+    let beforepth = Path::new(".").join(&beforefilename);
     debug!("Writing before to {}", beforepth.display());
     let mut f = File::create(&beforepth)?;
     writeln!(f, "{}", before)?;
 
-    let afterpth = Path::new(".").join("after.shipcat.gen.yml");
+    let afterfilename = format!("{}.shipcat.gen.yml", after_name);
+    let afterpth = Path::new(".").join(&afterfilename);
     debug!("Writing after to {}", afterpth.display());
     let mut f = File::create(&afterpth)?;
     writeln!(f, "{}", after)?;
 
-    let args = ["-u", "before.shipcat.gen.yml", "after.shipcat.gen.yml"];
+    let args = ["-u", &beforefilename, &afterfilename];
     debug!("diff {}", args.join(" "));
     let s = Command::new("diff").args(&args).status()?;
     // cleanup

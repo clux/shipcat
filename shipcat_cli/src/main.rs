@@ -307,6 +307,14 @@ fn build_cli() -> App<'static, 'static> {
                 .long("git")
                 .global(true)
                 .help("Comparing with master using a temporary git stash and git checkout"))
+              .arg(Arg::with_name("with-region")
+                .long("with-region")
+                .global(true)
+                .takes_value(true)
+                .conflicts_with("git")
+                .conflicts_with("crd")
+                .conflicts_with("helm")
+                .help("Comparing with the same service in a different region"))
               .arg(Arg::with_name("helm")
                 .long("helm")
                 .global(true)
@@ -684,6 +692,13 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             // does not support mocking (but also has no secrets)
             let (conf, region) = resolve_config(a, ConfigType::Base)?;
             shipcat::diff::template_vs_git(&svc, &conf, &region)?
+        } else if a.is_present("with-region") {
+            // special - diff between two regions
+            // does not support mocking (but also has no secrets)
+            let (conf, region) = resolve_config(a, ConfigType::Base)?;
+            let with_region = a.value_of("with-region").unwrap();
+            let (_ref_conf, ref_region) = Config::new(ConfigType::Base, with_region)?;
+            shipcat::diff::values_vs_region(&svc, &conf, &region, &ref_region)?
         } else {
             let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
             let (conf, region) = resolve_config(a, ss)?;
