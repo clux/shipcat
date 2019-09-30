@@ -1,6 +1,6 @@
 [package]
 name = "merge_derive"
-version = "0.129.0"
+version = "0.129.1"
 authors = ["Jay Anslow <jay@anslow.me.uk>"]
 edition = "2018"
 
