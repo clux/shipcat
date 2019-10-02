@@ -2,7 +2,7 @@ name: blog
 image: clux/blog
 version: 0.1.0
 metadata:
-  team: doves
+  team: observability
   repo: https://github.com/clux/blog
 
 # kubernetes resources

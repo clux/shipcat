@@ -1,7 +1,7 @@
 use threadpool::ThreadPool;
 use std::sync::mpsc::channel;
 
-use shipcat_definitions::{Config, Region, Team, BaseManifest};
+use shipcat_definitions::{Config, Region, BaseManifest};
 use shipcat_filebacked::{SimpleManifest};
 
 use rayon::{iter::Either, prelude::*};
@@ -184,11 +184,11 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>,
 /// is sufficiently elevated to write general policies.
 pub fn mass_vault(conf: &Config, reg: &Region, n_workers: usize) -> Result<()> {
     let svcs = shipcat_filebacked::all(conf)?;
-    vault_reconcile(svcs, &conf, reg, n_workers)
+    vault_reconcile(svcs, conf, reg, n_workers)
 }
 
 fn vault_reconcile(mfs: Vec<BaseManifest>, conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
-    let n_jobs = conf.teams.len();
+    let n_jobs = conf.teams.len() + conf.owners.squads.len();
     let pool = ThreadPool::new(n_workers);
     info!("Starting {} parallel vault jobs using {} workers", n_jobs, n_workers);
 
@@ -197,13 +197,28 @@ fn vault_reconcile(mfs: Vec<BaseManifest>, conf: &Config, region: &Region, n_wor
     for t in conf.teams.clone() {
         let mfs = mfs.clone();
         let reg = region.clone();
+        let admins = t.githubAdmins.clone();
+
         let tx = tx.clone(); // tx channel reused in each thread
         pool.execute(move || {
             debug!("Running vault reconcile for {}", t.name);
-            let res = vault_reconcile_worker(mfs, t, reg);
+            let res = vault_reconcile_worker(mfs, &t.name, admins, reg);
             tx.send(res).expect("channel will be there waiting for the pool");
         });
     }
+    for (name, squad) in conf.owners.clone().squads {
+        let mfs = mfs.clone();
+        let reg = region.clone();
+        let admins = squad.github.admins.clone();
+
+        let tx = tx.clone(); // tx channel reused in each thread
+        pool.execute(move || {
+            debug!("Running vault reconcile for {}", name);
+            let res = vault_reconcile_worker(mfs, &name, admins, reg);
+            tx.send(res).expect("channel will be there waiting for the pool");
+        });
+    }
+
     // wait for threads collect errors
     let res = rx.iter().take(n_jobs).map(|r| {
         match r {
@@ -220,54 +235,58 @@ fn vault_reconcile(mfs: Vec<BaseManifest>, conf: &Config, region: &Region, n_wor
     Ok(())
 }
 
-fn vault_reconcile_worker(svcs: Vec<BaseManifest>, team: Team, reg: Region) -> Result<()> {
+fn vault_reconcile_worker(
+    svcs: Vec<BaseManifest>,
+    team: &str,
+    admins_opt: Option<String>,
+    reg: Region) -> Result<()>
+{
     use std::path::Path;
     use std::fs::File;
     use std::io::Write;
-    //let root = std::env::var("SHIPCAT_MANIFEST_DIR").expect("needs manifest directory set");
-    if let Some(admins) = team.clone().githubAdmins {
-        // TODO: validate that the github team exists?
-        let policy = reg.vault.make_policy(svcs, team.clone(), reg.environment.clone())?;
-        debug!("Vault policy: {}", policy);
-        // Write policy to a file named "{admins}-policy.hcl"
-        let pth = Path::new(".").join(format!("{}-policy.hcl", admins));
-        info!("Writing vault policy for {} to {}", admins, pth.display());
-        let mut f = File::create(&pth)?;
-        writeln!(f, "{}", policy)?;
-        // Write a vault policy with the name equal to the admin team:
-        use std::process::Command;
-        // vault write policy < file
-        {
-            info!("Applying vault policy for {} in {}", admins, reg.name);
-            let write_args = vec![
-                "policy".into(),
-                "write".into(),
-                admins.clone(),
-                format!("{}-policy.hcl", admins),
-            ];
-            debug!("vault {}", write_args.join(" "));
-            let s = Command::new("vault").args(&write_args).status()?;
-            if !s.success() {
-                bail!("Subprocess failure from vault: {}", s.code().unwrap_or(1001))
-            }
-        }
-        // vault write auth -> team
-        {
-            info!("Associating vault policy for {} with github team {} in {}", team.name, admins, reg.name);
-            let assoc_args = vec![
-                "write".into(),
-                format!("auth/github/map/teams/{}", admins),
-                format!("value={}", admins),
-            ];
-            debug!("vault {}", assoc_args.join(" "));
-            let s = Command::new("vault").args(&assoc_args).status()?;
-            if !s.success() {
-                bail!("Subprocess failure from vault: {}", s.code().unwrap_or(1001))
-            }
-        }
-    } else {
-        debug!("Team '{}' does not have a defined githubAdmins team in shipcat.conf - ignoring", team.name);
+    if admins_opt.is_none() {
+        debug!("'{}' does not have a github admins team - ignoring", team);
         return Ok(()) // nothing to do
     };
+    let admins = admins_opt.unwrap();
+
+    let policy = reg.vault.make_policy(svcs, &team, reg.environment.clone())?;
+    debug!("Vault policy: {}", policy);
+    // Write policy to a file named "{admins}-policy.hcl"
+    let pth = Path::new(".").join(format!("{}-policy.hcl", admins));
+    info!("Writing vault policy for {} to {}", admins, pth.display());
+    let mut f = File::create(&pth)?;
+    writeln!(f, "{}", policy)?;
+    // Write a vault policy with the name equal to the admin team:
+    use std::process::Command;
+    // vault write policy < file
+    {
+        info!("Applying vault policy for {} in {}", admins, reg.name);
+        let write_args = vec![
+            "policy".into(),
+            "write".into(),
+            admins.clone(),
+            format!("{}-policy.hcl", admins),
+        ];
+        debug!("vault {}", write_args.join(" "));
+        let s = Command::new("vault").args(&write_args).status()?;
+        if !s.success() {
+            bail!("Subprocess failure from vault: {}", s.code().unwrap_or(1001))
+        }
+    }
+    // vault write auth -> team
+    {
+        info!("Associating vault policy for {} with github team {} in {}", team, admins, reg.name);
+        let assoc_args = vec![
+            "write".into(),
+            format!("auth/github/map/teams/{}", admins),
+            format!("value={}", admins),
+        ];
+        debug!("vault {}", assoc_args.join(" "));
+        let s = Command::new("vault").args(&assoc_args).status()?;
+        if !s.success() {
+            bail!("Subprocess failure from vault: {}", s.code().unwrap_or(1001))
+        }
+    }
     Ok(())
 }

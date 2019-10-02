@@ -1,3 +1,4 @@
+use crate::teams::{Owners, ServiceOwnership};
 use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::{Deref, DerefMut};
@@ -49,8 +50,9 @@ impl SlackChannel {
     }
 
     pub fn verify(&self) -> Result<()> {
-        let channelre = Regex::new(r"^#[a-z0-9._-]+$").unwrap();
-        if !channelre.is_match(&self.0) {
+        let channelre = Regex::new(r"^#[a-z0-9._-]+$").unwrap(); // plaintext
+        let channelre2 = Regex::new(r"^C|G[A-Z0-9]+$").unwrap(); // better
+        if !channelre.is_match(&self.0) && !channelre2.is_match(&self.0) {
             bail!("channel is invalid: {}", self.0)
         }
 
@@ -58,8 +60,12 @@ impl SlackChannel {
     }
 
     pub fn link(&self, params: &SlackParameters) -> String {
-        let hashless = self.0.clone().split_off(1);
-        format!("slack://channel?id={}&team={}", hashless, params.team)
+        if self.0.starts_with('#') {
+            let hashless = self.0.clone().split_off(1);
+            format!("slack://channel?id={}&team={}", hashless, params.team)
+        } else {
+            format!("slack://channel?id={}&team={}", self.0, params.team)
+        }
     }
 }
 
@@ -107,8 +113,19 @@ pub enum Language {
 pub struct Metadata {
     /// Git repository
     pub repo: String,
-    /// Owning team
+    /// Owning team/squad/tribe
+    ///
+    /// What this string is allowed to be depends on serviceOwnership setting
+    /// This is configured in shipcat.conf
     pub team: String,
+
+    /// Squad output parameter - not deserialized
+    #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
+    pub squad: Option<String>,
+    /// Tribe output parameter - not deserialized
+    #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
+    pub tribe: Option<String>,
+
     /// Language the service is written in
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub language: Option<Language>,
@@ -167,10 +184,29 @@ impl Metadata {
 }
 
 impl Metadata {
-    pub fn verify(&self, teams: &[Team], allowedCustomMetadata: &BTreeSet<String>) -> Result<()> {
-        let ts = teams.to_vec().into_iter().map(|t| t.name).collect::<Vec<_>>();
-        if !ts.contains(&self.team) {
-            bail!("Illegal team name {} not found in the config", self.team);
+    pub fn verify(&self,
+        teams: &[Team],
+        owners: &Owners,
+        ownership: &ServiceOwnership,
+        allowedCustomMetadata: &BTreeSet<String>)
+    -> Result<()> {
+        match ownership {
+            // Deprecated dual mode:
+            ServiceOwnership::SquadsOrLegacyTeam => {
+                if !owners.squads.contains_key(&self.team) {
+                    warn!("Team name {} does not match a squad in teams.yml", self.team);
+                    // fallback legacy
+                    let ts = teams.to_vec().into_iter().map(|t| t.name).collect::<Vec<_>>();
+                    if !ts.contains(&self.team) {
+                        bail!("Illegal team name {} not found in the config", self.team);
+                    }
+                }
+            },
+            ServiceOwnership::Squads => {
+                if !owners.squads.contains_key(&self.team) {
+                    bail!("Team name {} does not match a squad in teams.yml", self.team);
+                }
+            },
         }
         for cc in &self.contacts {
             cc.verify()?;

@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[allow(unused_imports)]
 use std::path::{Path, PathBuf};
 use crate::structs::SlackChannel;
-
+use crate::teams;
 
 #[allow(unused_imports)]
 use super::{Result, Error};
@@ -186,6 +186,7 @@ pub struct Config {
     pub github: GithubParameters,
 
     /// Team definitions
+    #[serde(default)]
     pub teams: Vec<Team>,
 
     /// Allowed labels
@@ -197,6 +198,16 @@ pub struct Config {
 
     /// Shipcat version pins
     pub versions: BTreeMap<Environment, Version>,
+
+    /// Owners of services, squads, tribes
+    ///
+    /// Populated from teams.yml
+    #[serde(default)]
+    pub owners: teams::Owners,
+
+    /// What part of owners are used for service ownership
+    #[serde(default)]
+    pub serviceOwnership: teams::ServiceOwnership,
 
     // Internal state of the config
     #[serde(default, skip_serializing, skip_deserializing)]
@@ -497,7 +508,8 @@ impl Config {
     /// Read a config in pwd and leave placeholders
     pub fn read() -> Result<Config> {
         let pwd = Path::new(".");
-        let conf = Config::read_from(&pwd.to_path_buf())?;
+        let mut conf = Config::read_from(&pwd.to_path_buf())?;
+        conf.owners = teams::Owners::read()?;
         Ok(conf)
     }
 

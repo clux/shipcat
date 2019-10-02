@@ -30,7 +30,7 @@ From the shipcat root directory.
 Export the vault secrets and manifest evars (provided you have raftcat in your manifests):
 
 ```sh
-source <(shipcat env raftcat)
+source <(shipcat env -s raftcat)
 ```
 
 ## Integrations

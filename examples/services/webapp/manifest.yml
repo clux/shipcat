@@ -2,7 +2,7 @@ name: webapp
 image: clux/webapp-rs
 version: 0.2.0
 metadata:
-  team: doves
+  team: observability
   repo: https://github.com/clux/webapp-rs
 
 # kubernetes resources

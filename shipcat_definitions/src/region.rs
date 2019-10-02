@@ -86,10 +86,10 @@ impl VaultConfig {
     ///
     /// Returns plaintext hcl
     #[cfg(feature = "filesystem")]
-    pub fn make_policy(&self, mfs: Vec<BaseManifest>, team: Team, env: Environment) -> Result<String> {
+    pub fn make_policy(&self, mfs: Vec<BaseManifest>, team: &str, env: Environment) -> Result<String> {
         let mut owned_manifests = vec![];
         for mf in mfs {
-            if mf.metadata.team == team.name {
+            if mf.metadata.team == team {
                 owned_manifests.push(mf.name);
             }
         }

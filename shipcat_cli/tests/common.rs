@@ -3,9 +3,9 @@ use std::collections::BTreeSet;
 use std::env;
 use std::fs;
 use std::path::Path;
-use std::sync::{Once, ONCE_INIT};
+use std::sync::Once;
 
-static START: Once = ONCE_INIT;
+static START: Once = Once::new();
 
 macro_rules! btree_set {
     ( $( $x:expr ),* ) => {

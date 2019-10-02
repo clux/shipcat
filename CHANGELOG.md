@@ -1,3 +1,8 @@
+0.130.0 / 2019-10-01
+====================
+  * `shipcat` accepts team owners in `teams.yml`
+  * `shipcat.conf` will phase out `teams` vector from this release
+
 0.129.0 / 2019-09-26
 ====================
   * `diff` can can compare regions

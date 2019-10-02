@@ -2,6 +2,7 @@
 use std::collections::BTreeMap;
 use semver::Version;
 use shipcat_definitions::Environment;
+use shipcat_definitions::teams::ServiceOwnership;
 
 use super::{Config, Team, Region, Result};
 
@@ -49,21 +50,56 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
     for mf in shipcat_filebacked::all(conf)? {
         let md = mf.metadata;
         let mut ghids = vec![];
-        // teams guaranteed by validates on Manifest and Config
-        if let Some(t) = &conf.teams.iter().find(|t| t.name == md.team) {
-            if let Some(gha) = &t.githubAdmins {
-                ghids.push(format!("@{}/{}", org.to_lowercase(), gha));
+        match conf.serviceOwnership {
+            // Deprecated dual mode:
+            ServiceOwnership::SquadsOrLegacyTeam => {
+                if let Some(s) = conf.owners.squads.get(&md.team) {
+                    // Check teams.yml for squads first:
+                    if let Some(gha) = &s.github.admins {
+                        ghids.push(format!("@{}", gha));
+                    }
+                    // Add all squad members. Helpful because github codeowners are bad for teams
+                    // (Teams need to be added explicitly to the repo...)
+                    // Can perhaps be removed in the future
+                    for o in &s.members {
+                        if let Some(p) = conf.owners.people.get(o) {
+                            ghids.push(format!("@{}", p.github));
+                        }
+                    }
+                } else if let Some(t) = &conf.teams.iter().find(|t| t.name == md.team) {
+                    // Otherwise legacy team mode
+                    if let Some(gha) = &t.githubAdmins {
+                        ghids.push(format!("@{}/{}", org.to_lowercase(), gha));
+                    }
+                    for o in t.owners.clone() {
+                        ghids.push(format!("@{}", o.github.unwrap()));
+                    }
+                } else {
+                    warn!("No team found for {} in shipcat.conf - ignoring {}", md.team, mf.name);
+                }
             }
-            // TODO: take this out now that we have teams?
-            for o in t.owners.clone() {
-                ghids.push(format!("@{}", o.github.unwrap()));
-            }
-            if !ghids.is_empty() {
-                output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
-            }
-        } else {
-            warn!("No team found for {} in shipcat.conf - ignoring {}", md.team, mf.name);
+            ServiceOwnership::Squads => {
+                if let Some(s) = conf.owners.squads.get(&md.team) {
+                    if let Some(gha) = &s.github.admins {
+                        ghids.push(format!("@{}", gha));
+                    }
+                    // Add all squad members. Helpful because github codeowners are bad for teams
+                    // (Teams need to be added explicitly to the repo...)
+                    // Can perhaps be removed in the future
+                    for o in &s.members {
+                        if let Some(p) = conf.owners.people.get(o) {
+                            ghids.push(format!("@{}", p.github));
+                        }
+                    }
+                } else {
+                    warn!("No squad found for {} in teams.yml - ignoring {}", md.team, mf.name);
+                }
+            },
         }
+        if !ghids.is_empty() {
+            output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
+        }
+
     }
     println!("{}", output.join("\n"));
     Ok(output)
@@ -82,16 +118,37 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
 /// Assumes you have setup github provider using right organisation.
 /// vault write auth/github/config organization={GithubOrganisation}
 pub fn vaultpolicy(conf: &Config, region: &Region, team_name: &str) -> Result<String> {
-    let team = if let Some(t) = conf.teams.iter().find(|t| t.name == team_name) {
-        t
-    } else {
-        bail!("Team '{}' does not exist in shipcat.conf", team_name);
-    };
-    if team.githubAdmins.is_none() {
-        warn!("Team '{}' does not define a githubAdmins team in shipcat.conf", team.name);
-    }
     let mfs = shipcat_filebacked::all(conf)?;
-    let output = region.vault.make_policy(mfs, team.clone(), region.environment.clone())?;
+    let team = match conf.serviceOwnership {
+        ServiceOwnership::SquadsOrLegacyTeam => {
+            if let Some(s) = conf.owners.squads.get(team_name) {
+                if s.github.admins.is_none() {
+                    warn!("Squad '{}' does not define a github.admins team in teams.yml", s.name);
+                }
+                s.name.clone()
+            }
+            else if let Some(t) = conf.teams.iter().find(|t| t.name == team_name) {
+                // fallback to legacy teams
+                if t.githubAdmins.is_none() {
+                    warn!("Team '{}' does not define a githubAdmins team in shipcat.conf", t.name);
+                }
+                t.name.clone()
+            } else {
+                bail!("Team '{}' does not exist in shipcat.conf", team_name);
+            }
+        },
+        ServiceOwnership::Squads => {
+            if let Some(s) = conf.owners.squads.get(team_name) {
+                if s.github.admins.is_none() {
+                    warn!("Squad '{}' does not define a github.admins team in teams.yml", s.name);
+                }
+                s.name.clone()
+            } else {
+                bail!("Squad '{}' does not exist in teams.yml", team_name)
+            }
+        }
+    };
+    let output = region.vault.make_policy(mfs, &team, region.environment.clone())?;
     println!("{}", output);
     Ok(output)
 }

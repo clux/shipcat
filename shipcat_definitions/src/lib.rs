@@ -94,6 +94,9 @@ pub use crate::manifest::Manifest;
 pub mod base;
 pub use crate::base::BaseManifest;
 
+/// Definitions of teams/squads/tribes (via ewok or otherwise)
+pub mod teams;
+
 /// Crd wrappers
 mod crds;
 pub use crate::crds::{Crd, gen_all_crds};
