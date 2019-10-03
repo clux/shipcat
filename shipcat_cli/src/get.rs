@@ -56,7 +56,7 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
                 if let Some(s) = conf.owners.squads.get(&md.team) {
                     // Check teams.yml for squads first:
                     if let Some(gha) = &s.github.admins {
-                        ghids.push(format!("@{}", gha));
+                        ghids.push(format!("@{}/{}", org.to_lowercase(), gha));
                     }
                     // Add all squad members. Helpful because github codeowners are bad for teams
                     // (Teams need to be added explicitly to the repo...)
@@ -81,7 +81,7 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
             ServiceOwnership::Squads => {
                 if let Some(s) = conf.owners.squads.get(&md.team) {
                     if let Some(gha) = &s.github.admins {
-                        ghids.push(format!("@{}", gha));
+                        ghids.push(format!("@{}/{}", org.to_lowercase(), gha));
                     }
                     // Add all squad members. Helpful because github codeowners are bad for teams
                     // (Teams need to be added explicitly to the repo...)
