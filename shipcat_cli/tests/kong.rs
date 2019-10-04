@@ -104,18 +104,8 @@ fn kong_test() {
     assert_eq!(attr.config.http_timeout_msec, Some(10000));
     assert_eq!(attr.config.renew_before_expiry_sec, Some(120));
 
-    // Deprecated fields - to be removed after Kong update
-    assert_eq!(attr.config.field_name, None);
-    assert_eq!(attr.config.cookie_name, None);
-
     let attr = plugin_attributes!("JsonCookiesCsrf", api.plugins.remove(0), ApiPlugin::JsonCookiesCsrf);
     assert_eq!(attr.enabled, true);
-
-    // Deprecated fields - to be removed after Kong update
-    assert_eq!(attr.config.csrf_field_name, "csrf_token");
-    assert_eq!(attr.config.cookie_name, "autologin_info");
-    assert_eq!(attr.config.strict, true);
-    assert_eq!(attr.config.csrf_header_name, "x-security-token");
 
     assert_upstream_header_transform(api.plugins.remove(0), "fake-ask");
 

@@ -255,20 +255,11 @@ pub struct JwtValidatorPluginConfig {
 
 #[derive(Serialize, Clone)]
 pub struct JsonCookiesCsrfPluginConfig {
-    // Deprecated fields - to be removed after Kong update
-    pub csrf_field_name: String,
-    pub cookie_name: String,
-    pub strict: bool,
-    pub csrf_header_name: String,
 }
+
 impl Default for JsonCookiesCsrfPluginConfig {
     fn default() -> Self {
         JsonCookiesCsrfPluginConfig {
-            // Deprecated fields - to be removed after Kong update
-            cookie_name: "autologin_info".into(),
-            csrf_field_name: "csrf_token".into(),
-            csrf_header_name: "x-security-token".into(),
-            strict: true,
         }
     }
 }
@@ -287,25 +278,15 @@ pub struct JsonCookiesToHeadersPluginConfig {
     pub http_timeout_msec: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub renew_before_expiry_sec: Option<u32>,
-
-    // Deprecated fields - to be removed after Kong update
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub field_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cookie_name: Option<String>,
 }
 
 impl Default for JsonCookiesToHeadersPluginConfig {
     fn default() -> Self {
         JsonCookiesToHeadersPluginConfig {
-            // Deprecated fields - to be removed after Kong update
-            field_name: Some("kong_token".into()),
-            cookie_name: Some("autologin_token".into()),
-
             auth_service: None,
             body_refresh_token_key: None,
             cookie_max_age_sec: None,
-            enable_refresh_expired_access_tokens: None,
+            enable_refresh_expired_access_tokens: Some(false),
             http_timeout_msec: None,
             renew_before_expiry_sec: None,
         }
@@ -439,22 +420,14 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
                 expected_region: region.name.clone(),
             })));
             if a.allow_cookies {
-                if a.enable_cookie_refresh {
-                    plugins.push(ApiPlugin::JsonCookiesToHeaders(PluginBase::new(JsonCookiesToHeadersPluginConfig {
-                        // Deprecated fields - to be removed after Kong update
-                        field_name: None,
-                        cookie_name: None,
-
-                        auth_service: a.refresh_auth_service,
-                        body_refresh_token_key: a.refresh_body_refresh_token_key,
-                        cookie_max_age_sec: a.refresh_max_age_sec,
-                        enable_refresh_expired_access_tokens: Some(a.enable_cookie_refresh),
-                        http_timeout_msec: a.refresh_http_timeout_msec,
-                        renew_before_expiry_sec: a.refresh_renew_before_expiry_sec,
-                    })));
-                } else {
-                    plugins.push(ApiPlugin::JsonCookiesToHeaders(PluginBase::default()));
-                }
+                plugins.push(ApiPlugin::JsonCookiesToHeaders(PluginBase::new(JsonCookiesToHeadersPluginConfig {
+                    auth_service: a.refresh_auth_service,
+                    body_refresh_token_key: a.refresh_body_refresh_token_key,
+                    cookie_max_age_sec: a.refresh_max_age_sec,
+                    enable_refresh_expired_access_tokens: Some(a.enable_cookie_refresh),
+                    http_timeout_msec: a.refresh_http_timeout_msec,
+                    renew_before_expiry_sec: a.refresh_renew_before_expiry_sec,
+                })));
                 plugins.push(ApiPlugin::JsonCookiesCsrf(PluginBase::default()));
             } else {
                 plugins.push(ApiPlugin::JsonCookiesToHeaders(PluginBase::removed()));
