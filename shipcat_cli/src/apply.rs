@@ -649,10 +649,10 @@ fn apply_kubectl(svc: &str,
                 s.update_generate_true()?; // every force reconcile makes one generate cond
                 return Ok(None)
             }
-            // If diffing failed, only run the upgrade if using --force
+            // If diffing failed, only run the upgrade if we have to:
             Err(e) => {
                 warn!("Unable to diff against {}: {}", svc, e);
-                if !force {
+                if !force && reason.is_none() {
                     // pass on a diff failure
                     webhooks::apply_event(UpgradeState::Cancelled, &ui, &region, &conf);
                     s.update_generate_false("DiffFailure", e.description().to_string())?;

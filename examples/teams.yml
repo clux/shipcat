@@ -16,7 +16,7 @@ squads:
       team: o11y
       admins: o11y
     slack:
-      internal: CA04UJ8S0
+      support: CA04UJ8S0
       notifications: CA04UJ8S0
 tribes:
   platform-engineering:

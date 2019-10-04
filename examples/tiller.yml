@@ -36,7 +36,7 @@ rules:
 
 # The actual Tiller deployment
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
@@ -48,6 +48,10 @@ metadata:
 spec:
   replicas: 1
   strategy: {}
+  selector:
+    matchLabels:
+      app: helm
+      name: tiller
   template:
     metadata:
       creationTimestamp: null
