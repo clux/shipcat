@@ -68,6 +68,10 @@ pub struct Probe {
     /// Min consecutive failures before considering a probe failed
     #[serde(default = "failure_threshold_default")]
     pub failureThreshold: u32,
+    
+    /// Number of seconds after which the probe times out
+    #[serde(default = "timeout_seconds_default")]
+    pub timeoutSeconds: u32,
 }
 
 // 5 is kube standard delay default, we set it a little higher
@@ -77,6 +81,7 @@ fn period_seconds_default() -> u32 { 5 }
 // Default values from Kubernetes
 fn success_threshold_default() -> u32 { 1 }
 fn failure_threshold_default() -> u32 { 3 }
+fn timeout_seconds_default() -> u32 { 1 }
 
 
 impl Probe {
