@@ -1,64 +1,25 @@
 use super::Result;
 
-/// RBAC (Role-Based Access Control)
+/// RBAC (Role-Based Access Control) PolicyRule
 ///
 /// Designed for services which requires escalated privileges
 /// Used to generate roles and role bindings in kubernetes
+///
+/// This is a port of [k8s PolicyRule](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.15/#policyrule-v1beta1-rbac-authorization-k8s-io)
+/// We skip `nonResourceURLs` since it is only relevant for ClusterRoles
+/// We also disallow empty resources to shoehorn in "all" access.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Rbac {
-    /// API groups containing resources (defined below)
-    pub apiGroups: Vec<AllowedApiGroups>,
+    /// API groups containing resources
+    pub apiGroups: Vec<String>,
     /// Resources on which to apply verbs / actions
-    pub resources: Vec<AllowedResources>,
+    pub resources: Vec<String>,
+    /// Optional white list of names that the rule applies to.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub resourceNames: Vec<String>,
     /// Actions to be allowed
-    pub verbs: Vec<AllowedVerbs>
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "lowercase")]
-pub enum AllowedApiGroups {
-    Apps,
-    #[serde(rename = "")]
-    Empty,
-    Extensions,
-    Batch,
-    #[serde(rename = "babylontech.co.uk")]
-    Babylontech,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "lowercase")]
-pub enum AllowedResources {
-    Deployments,
-    ReplicaSets,
-    Jobs,
-    CronJobs,
-    Pods,
-    #[serde(rename = "pods/log")]
-    PodsSlashLog,
-    ConfigMaps,
-    Namespaces,
-    HorizontalPodAutoscaler,
-    Events,
-    Nodes,
-    RoleBindings,
-    Roles,
-    Secrets,
-    ServiceAccounts,
-    Services,
-    ShipcatManifests,
-    ShipcatConfigs,
-}
-
-/// We don't allow eg Delete or other operations for security reasons (least privilege).
-/// More operations can be added if required but due diligence would be sane.
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "lowercase")]
-pub enum AllowedVerbs {
-    List,
-    Get,
-    Watch,
+    pub verbs: Vec<String>
 }
 
 impl Rbac {
