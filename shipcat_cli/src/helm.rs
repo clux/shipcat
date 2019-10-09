@@ -8,9 +8,17 @@ use serde_yaml;
 use shipcat_definitions::{Region, ReconciliationMode, Manifest};
 use super::{Result};
 
+pub fn hexists() -> Result<()> {
+    if which::which("helm").is_err() {
+        bail!("helm executable not found!");
+    }
+    Ok(())
+}
+
 pub fn hexec(args: Vec<String>) -> Result<()> {
     use std::process::Command;
     debug!("helm {}", args.join(" "));
+    hexists()?;
     let s = Command::new("helm").args(&args).status()?;
     if !s.success() {
         bail!("Subprocess failure from helm: {}", s.code().unwrap_or(1001))
@@ -20,6 +28,7 @@ pub fn hexec(args: Vec<String>) -> Result<()> {
 pub fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
     use std::process::Command;
     debug!("helm {}", args.join(" "));
+    hexists()?;
     let s = Command::new("helm").args(&args).output()?;
     let out : String = String::from_utf8_lossy(&s.stdout).into();
     let err : String = String::from_utf8_lossy(&s.stderr).into();

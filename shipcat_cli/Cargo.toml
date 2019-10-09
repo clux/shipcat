@@ -48,6 +48,7 @@ libc = "0.2.43"
 url_serde = "0.2.0"
 url = "1.7.2"
 rayon = "1.1.0"
+which = "3.0.0"
 
 [dependencies.petgraph]
 features = ["serde-1"]
