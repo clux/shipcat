@@ -1,0 +1,3 @@
+examples/shipcat.conf linguist-language=YAML
+tests/shipcat.conf linguist-language=YAML
+Dockerfile.* linguist-language=Dockerfile
