@@ -1,3 +1,4 @@
-examples/shipcat.conf linguist-language=YAML
-tests/shipcat.conf linguist-language=YAML
-Dockerfile.* linguist-language=Dockerfile
+shipcat.conf linguist-language=YAML
+Dockerfile.circleci linguist-language=Dockerfile
+Dockerfile.raftcat linguist-language=Dockerfile
+Dockerfile.kongfig linguist-language=Dockerfile
