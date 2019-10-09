@@ -22,8 +22,8 @@ kubectl config set-context --cluster=minikube --user=minikube --namespace=apps m
 kubectl create namespace apps
 ```
 
-## Shipcat Usage
-From this folder, you can then:
+## Local Exploration
+You can use `shipcat` at the root of this folder, or anywhere else if you point `SHIPCAT_MANIFEST_DIR` at it. Here are some examples:
 
 Check completed manifest:
 
@@ -36,27 +36,17 @@ Check generated kube yaml:
 ```sh
 shipcat template webapp
 ```
-## Set up tiller
-We set up a somewhat restricted tiller in the `apps` namespace:
+
+Diff the template against what's running (try after installing):
 
 ```sh
-kubectl apply -f tiller.yml
+shipcat diff webapp
 ```
 
-## Deploying
-You can deploy services to the cluster:
+and with some integration setup, ensure that everything can be applied to your cluster automatically:
 
-```sh
-shipcat apply blog
-```
-
-Note that `apply` does not rely on `tiller` because of the `reconciliationMode` set in `shipcat.conf`.
-
-The rest of this example guide does rely on tiller for test database.
-
-
-## Integrations
-Let's set up a simulated vault for our kube cluster:
+## Vault Integration
+Secrets are currently resolved from `vault`, so let's install a sample backend:
 
 ```sh
 docker run --cap-add=IPC_LOCK -e 'VAULT_DEV_ROOT_TOKEN_ID=myroot' -e 'VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200' -p 8200:8200 -d --rm --name vault vault:0.11.3
@@ -66,13 +56,14 @@ vault secrets disable secret
 vault secrets enable -version=1 -path=secret kv
 ```
 
-and a simulated database for a `webapp`:
+## Install a database
+The `webapp` service relies on having a database. If you want to supply your own working `DATABASE_URL` in vault further down, you can do so yourself. Here is how to do it with [helm 3](https://github.com/helm/helm/releases):
 
 ```sh
-helm --tiller-namespace=apps install --set postgresqlPassword=pw,postgresqlDatabase=webapp -n=webapp-pg stable/postgresql
+helm install --set postgresqlPassword=pw,postgresqlDatabase=webapp -n=webapp-pg stable/postgresql
 ```
 
-Then we can write the external`DATABASE_URL` for `webapp`:
+Then we can write the external `DATABASE_URL` for `webapp`:
 
 ```sh
 vault write secret/minikube/webapp/DATABASE_URL value=postgres://postgres:pw@webapp-pg-postgresql.apps/webapp
@@ -80,31 +71,36 @@ vault write secret/minikube/webapp/DATABASE_URL value=postgres://postgres:pw@web
 
 You can verify that `shipcat` picks up on this via: `shipcat values -s webapp`.
 
-Finally, let's deploy `webapp`!
+### Slack integrations
+For `shipcat apply` and `shipcat cluster` commands to work you should have a place to send notifications:
 
 ```sh
 export SLACK_SHIPCAT_HOOK_URL=https://hooks.slack.com/services/.....
 export SLACK_SHIPCAT_CHANNEL=#test
-
-shipcat apply webapp
 ```
 
 The evars are used to send upgrade notifications to slack hooks (if they are valid).
 
 ## Cluster reconcile
-Let's pretend that our cluster died:
-
-```sh
-kubectl delete shipcatmanifest webapp blog
-```
-
-then we can respond with:
+Now that all our dependencies are set up; we can ensure our cluster is up-to-date with our repository:
 
 ```sh
 shipcat cluster crd reconcile
 ```
 
-## Verifying
+This will install all the necessary custom resource definitions into kubernetes, then install the `shipcatmanifest` instances of `blog` and `webapp` (in parallel).
+
+To garbage collect a release, you can delete its `shipcatmanifests`:
+
+```sh
+kubectl delete shipcatmanifest webapp blog
+```
+
+Re-running `reconcile` after doing so will reinstall the services.
+
+After having reconciled a cluster, you can then run individual `shipcat apply webapp` commands manually.
+
+## Checking it works
 You can hit your api by port-forwarding to it:
 
 ```sh

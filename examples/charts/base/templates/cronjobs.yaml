@@ -10,7 +10,7 @@ metadata:
 {{- if $.Values.labels }}
 {{ toYaml $.Values.labels | indent 4 }}
 {{- end }}
-{{- template "chart.shipcatRefs" . }}
+{{- template "chart.shipcatRefs" $ }}
 spec:
   concurrencyPolicy: Forbid
   schedule: "{{ $v.schedule }}"
