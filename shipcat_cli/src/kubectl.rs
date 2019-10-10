@@ -456,8 +456,16 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
 ///
 /// Useful because we have autocomplete on manifest names in shipcat
 pub fn port_forward(mf: &Manifest) -> Result<()> {
-    // TODO: kubectl auth can-i create something?
-    let port = mf.httpPort.unwrap();
+    // TODO: kubectl auth can-i create pods/portforward first
+    let port = if let Some(p) = mf.httpPort {
+        p
+    } else if let Some(p) = mf.ports.iter().find(|p| p.name == "http") {
+        p.port
+    } else if let Some(p) = mf.ports.iter().find(|p| p.name == "grpc") {
+        p.port
+    } else {
+        bail!("{} does not expose an http/grpc port to port-forward to", mf.name)
+    };
     // first 1024 ports need sudo so avoid that
     let localport = if port <= 1024 { 7777 } else { port };
 
