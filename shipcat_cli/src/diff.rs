@@ -8,6 +8,22 @@ use super::{Config, Region, Manifest, Result};
 use std::process::Command;
 
 
+/// YAML serialisation of a manifest.
+///
+/// Return an empty string if the manifest fails region-validation,
+/// otherwise YAML serialise the content. For diff purposes, the content
+/// of a manifest not in a region is a blank, rather than being invalid.
+fn as_yaml(svc: &str, conf: &Config, region: &Region) -> Result<String> {
+    let mf = shipcat_filebacked::load_manifest(&svc, conf, region)?;
+    if let Ok(m) = mf.verify_region() {
+        let yaml = serde_yaml::to_string(&m)?;
+        Ok(yaml)
+    } else {
+        Ok("".to_string())
+    }
+}
+
+
 /// Fast local git compare of the crd
 ///
 /// Should be pretty safe. Stashes existing work, checks out master, compares,
@@ -15,8 +31,7 @@ use std::process::Command;
 ///
 /// Because this does fiddle with git state while running it is not the default implementation.
 pub fn values_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> {
-    let aftermf = shipcat_filebacked::load_manifest(&svc, conf, region)?;
-    let after = serde_yaml::to_string(&aftermf)?;
+    let after = as_yaml(&svc, conf, region)?;
 
     // move git to get before state:
     let merge_base = git::merge_base()?;
@@ -28,8 +43,7 @@ pub fn values_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> 
     }
 
     // compute before state
-    let beforemf = shipcat_filebacked::load_manifest(&svc, conf, region)?;
-    let before = serde_yaml::to_string(&beforemf)?;
+    let before = as_yaml(&svc, conf, region)?;
 
     // move git back
     if needs_stash {
@@ -44,12 +58,10 @@ pub fn values_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> 
 /// Fast local compare of shipcat template for two regions
 pub fn values_vs_region(svc: &str, conf: &Config, region: &Region, ref_region: &Region) -> Result<bool> {
     let before_region = format!("{}.{}", svc, ref_region.name);
-    let before_mf = shipcat_filebacked::load_manifest(svc, conf, ref_region)?;
-    let before_values = serde_yaml::to_string(&before_mf)?;
+    let before_values = as_yaml(svc, conf, ref_region)?;
 
     let after_region = format!("{}.{}", svc, region.name);
-    let after_mf = shipcat_filebacked::load_manifest(svc, conf, region)?;
-    let after_values = serde_yaml::to_string(&after_mf)?;
+    let after_values = as_yaml(svc, conf, region)?;
 
     // display diff
     shell_diff(&before_values, &after_values, &before_region, &after_region)

@@ -753,14 +753,22 @@ impl Manifest {
         Ok(())
     }
 
+    /// Verify the region for this manifest is one of its declared ones
+    ///
+    /// Assumes the manifest has been populated with `implicits`
+    pub fn verify_region(&self) -> Result<&Self> {
+        assert!(self.region != ""); // needs to have been set by implicits!
+        if !self.regions.contains(&self.region.to_string()) {
+            bail!("Unsupported region {} for service {}", self.region, self.name);
+        };
+        Ok(self)
+    }
+
     /// Verify assumptions about manifest
     ///
     /// Assumes the manifest has been populated with `implicits`
     pub fn verify(&self, conf: &Config, region: &Region) -> Result<()> {
-        assert!(self.region != ""); // needs to have been set by implicits!
-        if !self.regions.contains(&self.region.to_string()) {
-            bail!("Unsupported region {} for service {}", self.region, self.name);
-        }
+        self.verify_region()?;
         // limit to 50 characters, alphanumeric, dashes for sanity.
         // 63 is kube dns limit (13 char suffix buffer)
         let re = Regex::new(r"^[0-9a-z\-]{1,50}$").unwrap();
