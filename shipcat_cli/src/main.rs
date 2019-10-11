@@ -289,8 +289,17 @@ fn build_cli() -> App<'static, 'static> {
                     .help("Apply template even if no changes are detected"))
               .arg(Arg::with_name("service")
                 .required(true)
-                .help("Service to upgrad"))
+                .help("Service to apply"))
             .about("Apply a service's configuration in kubernetes (through helm)"))
+
+        .subcommand(SubCommand::with_name("restart")
+              .arg(Arg::with_name("no-wait")
+                    .long("no-wait")
+                    .help("Do not wait for service timeout"))
+              .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service to restart"))
+            .about("Restart a deployment rollout to restart all pods safely"))
 
         .subcommand(SubCommand::with_name("env")
               .arg(Arg::with_name("service")
@@ -772,6 +781,14 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
         assert!(conf.has_secrets()); // sanity on cluster disruptive commands
         return shipcat::apply::apply(&svc, force, &region, &conf, wait, ver).map(void);
+    }
+
+    else if let Some(a) = args.subcommand_matches("restart") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        let mf = shipcat_filebacked::load_manifest(&svc, &conf, &region)?;
+        let wait = !a.is_present("no-wait");
+        return shipcat::apply::restart(&mf, wait).map(void);
     }
 
     // 4. cluster level commands

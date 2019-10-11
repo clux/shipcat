@@ -764,3 +764,35 @@ pub fn diff_kubectl(mf: &Manifest, tfile: &str) -> Result<Option<String>> {
         None
     })
 }
+
+pub fn restart(mf: &Manifest, wait: bool) -> Result<()> {
+    // upgrade it using the same command
+    let restartvec = vec![
+        "rollout".into(),
+        format!("-n={}", mf.namespace),
+        "restart".into(),
+        format!("deployment/{}", mf.name),
+        //  TODO: workers
+    ];
+    info!("kubectl {}", restartvec.join(" "));
+    kubectl::kexec(restartvec).chain_err(||
+        ErrorKind::KubectlApplyFailure(mf.name.clone()))?;
+
+    if !wait {
+        info!("successfully triggered a restart of deployment/{}", mf.name);
+        return Ok(());
+    }
+
+    if kubectl::await_rollout_status(&mf)? {
+        info!("successfully restarted deployment/{}", &mf.name);
+        Ok(())
+    } else {
+        let time = mf.estimate_wait_time();
+        let reason = format!("timed out waiting {}s for rollout to restart", time);
+        let _ = kubectl::debug_rollout_status(&mf);
+        let _ = kubectl::debug(&mf);
+        warn!("failed to roll out {}", &mf.name);
+        warn!("{}", reason);
+        Err(ErrorKind::UpgradeTimeout(mf.name.clone(), time).into())
+    }
+}
