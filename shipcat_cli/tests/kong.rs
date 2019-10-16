@@ -92,7 +92,7 @@ fn kong_test() {
     assert_eq!(attr.enabled, true);
     assert_eq!(attr.config.allowed_audiences, vec!["https://babylonhealth.com"]);
     assert_eq!(attr.config.expected_region, "dev-uk");
-    assert_eq!(attr.config.expected_scope, Some("internal".to_string()));
+    assert_eq!(attr.config.expected_scope, "internal");
     assert_eq!(attr.config.allow_invalid_tokens, false);
 
     let attr = plugin_attributes!("JsonCookiesToHeaders", api.plugins.remove(0), ApiPlugin::JsonCookiesToHeaders);
@@ -140,7 +140,7 @@ fn kong_test() {
     assert_eq!(attr.enabled, true);
     assert_eq!(attr.config.allowed_audiences, vec!["https://babylonhealth.com"]);
     assert_eq!(attr.config.expected_region, "dev-uk");
-    assert_eq!(attr.config.expected_scope, Some("internal".to_string()));
+    assert_eq!(attr.config.expected_scope, "internal");
     assert_eq!(attr.config.allow_invalid_tokens, false);
 
     assert_plugin_removed!("JsonCookiesToHeaders", api.plugins.remove(0), ApiPlugin::JsonCookiesToHeaders);
