@@ -40,42 +40,46 @@ impl Build<Option<Kong>, KongBuildParams> for KongSource {
     /// Build a Kong from a KongSource, validating and mutating properties.
     fn build(self, params: &KongBuildParams) -> Result<Option<Kong>> {
         let KongBuildParams { region, service } = params;
-        let hosts = self.build_hosts(&region.kong.base_url)?;
+        if let Some(k) = &region.kong {
+            let hosts = self.build_hosts(&k.base_url)?;
 
-        if hosts.is_empty() && self.uris.is_none() {
-            return Ok(None);
+            if hosts.is_empty() && self.uris.is_none() {
+                return Ok(None);
+            }
+
+            let upstream_url = self.build_upstream_url(&service, &region.namespace);
+            let (auth, authorization) = KongSource::build_auth(self.auth, self.authorization)?;
+
+            let preserve_host = self.preserve_host.unwrap_or(true);
+
+            Ok(Some(Kong {
+                name: service.to_string(),
+                upstream_url: upstream_url,
+                upstream_service: if preserve_host {
+                    Some(service.to_string())
+                } else {
+                    None
+                },
+                internal: self.internal.unwrap_or_default(),
+                publiclyAccessible: self.publicly_accessible.unwrap_or_default(),
+                uris: self.uris,
+                hosts,
+                authorization,
+                strip_uri: self.strip_uri.unwrap_or_default(),
+                preserve_host,
+                cors: self.cors,
+                additional_internal_ips: self.additional_internal_ips.unwrap_or_default(),
+                babylon_auth_header: self.babylon_auth_header,
+                upstream_connect_timeout: self.upstream_connect_timeout,
+                upstream_send_timeout: self.upstream_send_timeout,
+                upstream_read_timeout: self.upstream_read_timeout,
+                add_headers: self.add_headers,
+                // Legacy authorization
+                auth,
+            }))
+        } else {
+            Ok(None)
         }
-
-        let upstream_url = self.build_upstream_url(&service, &region.namespace);
-        let (auth, authorization) = KongSource::build_auth(self.auth, self.authorization)?;
-
-        let preserve_host = self.preserve_host.unwrap_or(true);
-
-        Ok(Some(Kong {
-            name: service.to_string(),
-            upstream_url: upstream_url,
-            upstream_service: if preserve_host {
-                Some(service.to_string())
-            } else {
-                None
-            },
-            internal: self.internal.unwrap_or_default(),
-            publiclyAccessible: self.publicly_accessible.unwrap_or_default(),
-            uris: self.uris,
-            hosts,
-            authorization,
-            strip_uri: self.strip_uri.unwrap_or_default(),
-            preserve_host,
-            cors: self.cors,
-            additional_internal_ips: self.additional_internal_ips.unwrap_or_default(),
-            babylon_auth_header: self.babylon_auth_header,
-            upstream_connect_timeout: self.upstream_connect_timeout,
-            upstream_send_timeout: self.upstream_send_timeout,
-            upstream_read_timeout: self.upstream_read_timeout,
-            add_headers: self.add_headers,
-            // Legacy authorization
-            auth,
-        }))
     }
 }
 

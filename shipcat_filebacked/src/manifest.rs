@@ -171,6 +171,15 @@ impl ManifestSource {
 
         let overrides = self.overrides.clone();
         let defaults = overrides.defaults;
+        let kong_apis = if region.kong.is_some() {
+            defaults.kong.build(&KongBuildParams {
+                service: base.name.to_string(),
+                region: region.clone(),
+            })?.unwrap_or_default().map(|k| vec![k]).unwrap_or_default()
+        } else {
+            // NB: this drops kong entries on the floor if region.kong is None
+            vec![]
+        };
 
         Ok(SimpleManifest {
             region: region.name.to_string(),
@@ -180,13 +189,8 @@ impl ManifestSource {
 
             // TODO: Make image non-optional
             image: Some(self.build_image(&base.name)?),
-
             version: overrides.version.build(&())?,
-            kong_apis: defaults.kong.build(&KongBuildParams {
-                service: base.name.to_string(),
-                region: region.clone(),
-            })?.unwrap_or_default().map(|k| vec![k]).unwrap_or_default(),
-
+            kong_apis,
             base,
         })
     }

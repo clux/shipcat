@@ -66,24 +66,27 @@ impl KongCrdOutput {
 
 pub fn generate_kong_output(conf: &Config, region: &Region) -> Result<KongOutput> {
     let mut apis = BTreeMap::new();
+    if let Some(kong) = &region.kong {
+        // Generate list of APIs to feed to Kong
+        for mf in shipcat_filebacked::available(conf, region)? {
+            debug!("Scanning service {:?}", mf);
+            for k in mf.kong_apis {
+                if let Some(clash) = apis.insert(k.name.clone(), k) {
+                    bail!("A Kong API named {:?} is already defined", clash.name);
+                }
+            }
+        }
 
-    // Generate list of APIs to feed to Kong
-    for mf in shipcat_filebacked::available(conf, region)? {
-        debug!("Scanning service {:?}", mf);
-        for k in mf.kong_apis {
-            if let Some(clash) = apis.insert(k.name.clone(), k) {
+        // Add general Kong region config
+        for (name, api) in kong.extra_apis.clone() {
+            if let Some(clash) = apis.insert(name, api) {
                 bail!("A Kong API named {:?} is already defined", clash.name);
             }
         }
+        Ok(KongOutput { apis, kong: kong.clone() })
+    } else {
+        bail!("kong not available in {}", region.name)
     }
-
-    // Add general Kong region config
-    for (name, api) in region.kong.extra_apis.clone() {
-        if let Some(clash) = apis.insert(name, api) {
-            bail!("A Kong API named {:?} is already defined", clash.name);
-        }
-    }
-    Ok(KongOutput { apis, kong: region.kong.clone() })
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -108,12 +111,15 @@ pub fn output(conf: &Config, region: &Region, mode: KongOutputMode) -> Result<()
         }
     };
     let _ = io::stdout().write(format!("{}\n", output).as_bytes());
-
     Ok(())
 }
 
 /// Return the config_url for the given region
 pub fn config_url(region: &Region) -> Result<()> {
-    println!("{}", region.kong.config_url);
+    if let Some(k) = &region.kong {
+        println!("{}", k.config_url);
+    } else {
+        bail!("No kong specified in {} region", region.name);
+    }
     Ok(())
 }

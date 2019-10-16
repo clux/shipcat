@@ -269,11 +269,13 @@ impl Config {
                     bail!("A base_url must not end with a slash");
                 }
             }
-            r.kong.verify()?;
-            if used_kong_urls.contains(&r.kong.config_url) {
-                bail!("Cannot reuse kong config urls for {} across regions", r.name);
+            if let Some(kong) = &r.kong {
+                kong.verify()?;
+                if used_kong_urls.contains(&kong.config_url) {
+                    bail!("Cannot reuse kong config urls for {} across regions", r.name);
+                }
+                used_kong_urls.push(kong.config_url.clone());
             }
-            used_kong_urls.push(r.kong.config_url.clone());
         }
         let mut vteams = vec![];
         for t in &self.teams {

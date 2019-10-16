@@ -174,11 +174,11 @@ impl DataHandling {
                 let enc = f.encrypted.unwrap(); // filled by implicits
                 // can't block on this yet - so just warn a lot
                 if f.name.is_spii() && !enc {
-                    warn!("{} stores SPII ({:?}) without encryption", s.backend, f.name)
+                    debug!("{} stores SPII ({:?}) without encryption", s.backend, f.name)
                 }
                 // weaker warning
                 else if f.name.is_pii() && !enc {
-                    warn!("{} stores PII ({:?}) without encryption", s.backend, f.name)
+                    debug!("{} stores PII ({:?}) without encryption", s.backend, f.name)
                 }
 
             }

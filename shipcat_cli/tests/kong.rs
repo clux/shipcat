@@ -30,7 +30,7 @@ macro_rules! assert_plugin_removed {
 fn kong_test() {
     setup();
     let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
-    let kongrs = generate_kong_output(&conf, &reg).unwrap();
+    let kongrs = generate_kong_output(&conf, &reg).unwrap(); // kong exists in region
     let mut output = KongfigOutput::new(kongrs, &reg);
 
     assert_eq!(output.host, "admin.dev.something.domain.com");

@@ -163,9 +163,10 @@ pub struct ClusterInfo {
     pub environment: String,
     pub apiserver: String,
     pub cluster: String,
-    // TODO: these two optional
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kong: Option<String>,
+    // TODO: this optional
     pub vault: String,
-    pub kong: String,
 }
 
 /// Entry point for clusterinfo
@@ -181,7 +182,7 @@ pub fn clusterinfo(conf: &Config, ctx: &str, cluster: Option<&str>) -> Result<Cl
         apiserver: clust.api,
         cluster: clust.name,
         vault: reg.vault.url.clone(),
-        kong: reg.kong.config_url.clone(),
+        kong: reg.kong.map(|k| k.config_url),
     };
     println!("{}", serde_json::to_string_pretty(&ci)?);
     Ok(ci)
@@ -256,16 +257,18 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
         }
     }
 
-    // Get extra API Info from Config
-    for (name, api) in reg.kong.extra_apis.clone() {
-        services.insert(name, APIServiceParams {
-            uris: api.uris.unwrap_or("".into()),
-            hosts: api.hosts.join(","),
-            internal: api.internal,
-            publiclyAccessible: api.publiclyAccessible,
-            // TODO [DIP-499]: `extra_apis` do not support `gate` confs
-            websockets: false,
-        });
+    // Get extra API Info from Config: TODO: remove
+    if let Some(kong) = &reg.kong {
+        for (name, api) in kong.extra_apis.clone() {
+            services.insert(name, APIServiceParams {
+                uris: api.uris.unwrap_or("".into()),
+                hosts: api.hosts.join(","),
+                internal: api.internal,
+                publiclyAccessible: api.publiclyAccessible,
+                // TODO [DIP-499]: `extra_apis` do not support `gate` confs
+                websockets: false,
+            });
+        }
     }
 
     let output = APIStatusOutput{region, services};

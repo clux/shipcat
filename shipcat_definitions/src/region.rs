@@ -540,7 +540,7 @@ pub struct Region {
     pub env: BTreeMap<String, String>,
     /// Kong configuration for the region
     #[serde(default)]
-    pub kong: KongConfig,
+    pub kong: Option<KongConfig>,
     /// Statuscake configuration for the region
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub statuscake: Option<StatuscakeConfig>,
@@ -575,7 +575,9 @@ impl Region {
     // Internal secret populator for Config::new
     pub fn secrets(&mut self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
-        self.kong.secrets(&v, &self.name)?;
+        if let Some(ref mut kong) = &mut self.kong {
+            kong.secrets(&v, &self.name)?;
+        }
         for wh in self.webhooks.iter_mut() {
             wh.secrets(&v, &self.name)?;
         }
@@ -585,8 +587,10 @@ impl Region {
     // Entry point for region verifier
     pub fn verify_secrets_exist(&self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
-        debug!("Validating kong secrets for {}", self.name);
-        self.kong.verify_secrets_exist(&v, &self.name)?;
+        if let Some(kong) = &self.kong {
+            debug!("Validating kong secrets for {}", self.name);
+            kong.verify_secrets_exist(&v, &self.name)?;
+        }
         for wh in &self.webhooks {
             wh.verify_secrets_exist(&v, &self.name)?;
         }

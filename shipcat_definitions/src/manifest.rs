@@ -779,9 +779,10 @@ impl Manifest {
             bail!("Please use dashes to separate words only");
         }
 
+        // TODO: remove?
         if let Some(ref dh) = self.dataHandling {
             dh.verify()?
-        } // TODO: mandatory for later environments!
+        }
 
         if let Some(ref md) = self.metadata {
             md.verify(&conf.teams,
@@ -877,22 +878,8 @@ impl Manifest {
         }
 
         // health check
-        // every service that exposes http MUST have a health check
-        if self.httpPort.is_some() && (self.health.is_none() && self.readinessProbe.is_none()) {
-            bail!("{} has an httpPort but no health check", self.name)
-        }
-
-        // add some warnigs about missing health checks and ports regardless
-        // TODO: make both mandatory once we have sidecars supported
-        if self.httpPort.is_none() {
-            warn!("{} exposes no http port", self.name);
-        }
         if self.health.is_none() && self.readinessProbe.is_none() {
             warn!("{} does not set a health check", self.name)
-        }
-
-        if !self.serviceAnnotations.is_empty() {
-            warn!("serviceAnnotation is an experimental/temporary feature")
         }
 
         Ok(())
