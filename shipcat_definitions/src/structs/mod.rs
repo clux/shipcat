@@ -84,11 +84,7 @@ pub use self::vault::VaultOpts;
 
 /// Cron Jobs
 pub mod cronjob;
-pub use self::cronjob::CronJob;
-
-/// Jobs
-pub mod job;
-pub use self::job::Job;
+pub use self::cronjob::{CronJob, JobVolumeClaim};
 
 // Kubernetes Containers
 pub mod container;

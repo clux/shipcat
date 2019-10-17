@@ -1,8 +1,7 @@
 use merge::Merge;
 
 use shipcat_definitions::Result;
-use shipcat_definitions::structs::CronJob;
-use shipcat_definitions::structs::job::{JobVolumeClaim};
+use shipcat_definitions::structs::{JobVolumeClaim, CronJob};
 
 use crate::util::{Build, Require, RelaxedString};
 use std::collections::BTreeMap;

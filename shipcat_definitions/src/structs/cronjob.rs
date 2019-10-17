@@ -1,6 +1,14 @@
 use super::Container;
-use super::job::JobVolumeClaim;
 use std::collections::BTreeMap;
+
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
+pub struct JobVolumeClaim {
+    /// The cron job name
+    pub size: String,
+    pub mountPath: String,
+}
+
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct CronJob {

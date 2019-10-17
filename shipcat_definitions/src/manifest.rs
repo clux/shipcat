@@ -16,7 +16,7 @@ use super::structs::{
     {Metadata, VaultOpts, Dependency},
     security::DataHandling,
     Probe,
-    CronJob, Job, EnvVars,
+    CronJob, EnvVars,
     {Gate, Kafka, Kong, Rbac},
     RollingUpdate,
     autoscaling::AutoScaling,
@@ -575,21 +575,6 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cronJobs: Vec<CronJob>,
 
-    /// Job images to run as kubernetes `Job` objects
-    ///
-    /// An abstraction on top of [kubernetes jobs](https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/)
-    ///
-    /// NOTE: This experimental feature runs in parallel to deployments.
-    ///       There are no guarantees. Jobs will currently fail silently if they fail.
-    ///
-    /// ```yaml
-    /// jobs:
-    /// - name: ping-task
-    ///   command: ["./ping.sh"]
-    /// ```
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub jobs: Vec<Job>,
-
     /// Annotations to set on `Service` objects
     ///
     /// Useful for `LoadBalancer` type `Service` objects.
@@ -606,7 +591,7 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub serviceAnnotations: BTreeMap<String, String>,
 
-    /// Metadata Annotations for pod spec templates in deployments, jobs, and cron jobs
+    /// Metadata Annotations for pod spec templates in deployments, and cron jobs
     ///
     /// https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
     ///
@@ -907,9 +892,6 @@ impl Manifest {
         }
         for c in &mut self.cronJobs {
             envs.push(&mut c.container.env);
-        }
-        for j in &mut self.jobs {
-            envs.push(&mut j.container.env);
         }
         for i in &mut self.initContainers {
             envs.push(&mut i.env);

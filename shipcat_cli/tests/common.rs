@@ -206,11 +206,6 @@ fn templating_test() {
     assert_eq!(&c.container.env.plain["URL"], "https://woot.com/cronjob");
     assert_eq!(c.container.env.secrets, BTreeSet::new());
 
-    // verify job templating
-    let j = &mf.jobs[0];
-    assert_eq!(&j.container.env.plain["URL"], "https://woot.com/job");
-    assert_eq!(j.container.env.secrets, BTreeSet::new());
-
     // verify secrets
     let sec = mf.secrets;
     assert_eq!(&sec["CLIENT_SECRET"], "FAKEASKSECRET"); // via reg.kong consumers

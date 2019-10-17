@@ -11,7 +11,7 @@ use shipcat_definitions::teams::{ServiceOwnership};
 use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result};
 
 use super::{SimpleManifest};
-use super::container::{ContainerBuildParams, CronJobSource, JobSource, SidecarSource, InitContainerSource, EnvVarsSource, WorkerSource, ResourceRequirementsSource, ImageNameSource, ImageTagSource, PortSource};
+use super::container::{ContainerBuildParams, CronJobSource, SidecarSource, InitContainerSource, EnvVarsSource, WorkerSource, ResourceRequirementsSource, ImageNameSource, ImageTagSource, PortSource};
 use super::kong::{KongSource, KongBuildParams};
 use super::util::{Build, Enabled, RelaxedString, Require};
 
@@ -62,7 +62,6 @@ pub struct ManifestOverrides {
     pub volume_mounts: Option<Vec<VolumeMount>>,
     pub persistent_volumes: Option<Vec<PersistentVolume>>,
     pub cron_jobs: Option<Vec<CronJobSource>>,
-    pub jobs: Option<Vec<JobSource>>,
     pub service_annotations: BTreeMap<String, String>,
     pub pod_annotations: BTreeMap<String, RelaxedString>,
     pub labels: BTreeMap<String, RelaxedString>,
@@ -145,7 +144,6 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             volumeMounts: overrides.volume_mounts.unwrap_or_default(),
             persistentVolumes: overrides.persistent_volumes.unwrap_or_default(),
             cronJobs: overrides.cron_jobs.unwrap_or_default().build(&container_build_params)?,
-            jobs: overrides.jobs.unwrap_or_default().build(&container_build_params)?,
             serviceAnnotations: overrides.service_annotations,
             podAnnotations: overrides.pod_annotations.build(&())?,
             labels: overrides.labels.build(&())?,
