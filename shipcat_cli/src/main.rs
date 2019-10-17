@@ -40,6 +40,10 @@ fn build_cli() -> App<'static, 'static> {
             .long("debug")
             .global(true)
             .help("Adds line numbers to log statements"))
+        .arg(Arg::with_name("strict-version-check")
+            .long("strict-version-check")
+            .global(true)
+            .help("Fail on outdated versions"))
         .arg(Arg::with_name("region")
                 .short("r")
                 .long("region")
@@ -104,9 +108,6 @@ fn build_cli() -> App<'static, 'static> {
                 .short("s")
                 .long("secrets")
                 .help("Verifies secrets exist everywhere"))
-            .arg(Arg::with_name("skip-version-check")
-                .long("skip-version-check")
-                .help("Skip checking if the current region is supported by this Shipcat version"))
               .about("Validate the shipcat manifest"))
 
         .subcommand(SubCommand::with_name("verify")
@@ -460,6 +461,14 @@ fn resolve_config(args: &ArgMatches, ct: ConfigType) -> Result<(Config, Region)>
         kubectl::current_context()?
     };
     let res = Config::new(ct, &regionguess)?;
+    if let Err(e) = res.0.verify_version_pin(&res.1.environment) {
+        if args.is_present("strict-version-check") {
+            return Err(e.into())
+        } else {
+            warn!("shipcat version less than pinned minimum - results may vary");
+            warn!("{}", e);
+        }
+    }
     Ok(res)
 }
 
@@ -614,9 +623,6 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         // this only needs a kube context if you don't specify it
         let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
         let (conf, region) = resolve_config(a, ss)?;
-        if !a.is_present("skip-version-check") {
-            conf.verify_version_pin(&region.environment)?;
-        }
         return shipcat::validate::manifest(services, &conf, &region, a.is_present("secrets"));
     }
     else if let Some(a) = args.subcommand_matches("verify") {
