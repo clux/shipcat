@@ -25,6 +25,8 @@ use super::structs::{
     Worker,
     Port,
 };
+use super::structs::newrelic::Newrelic;
+use super::structs::sentry::Sentry;
 
 /// Main manifest, serializable from manifest.yml or the shipcat CRD.
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -667,6 +669,33 @@ pub struct Manifest {
     /// ```
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rbac: Vec<Rbac>,
+
+    /// Monitoring section covering NewRelic configuration
+    ///
+    /// ```yaml
+    /// newrelic:
+    ///   alerts:
+    ///     alert_name_foo:
+    ///       name: alert_name_foo:
+    ///       template: appdex
+    ///       slack: C12ABYZ78
+    ///       params:
+    ///         threshold: "0.5"
+    ///         priority: critical
+    /// ```
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub newrelic: Option<Newrelic>,
+
+    /// Monitoring section covering Sentry configuration
+    ///
+    /// ```yaml
+    /// sentry:
+    ///   slack: C12ABYZ78
+    ///   silent: false
+    ///   dsnEnvName: MY_CUSTOM_DSN
+    /// ```
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sentry: Option<Sentry>,
 
     // ------------------------------------------------------------------------
     // Output variables

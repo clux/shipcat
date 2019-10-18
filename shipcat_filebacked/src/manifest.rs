@@ -13,6 +13,8 @@ use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result};
 use super::{SimpleManifest};
 use super::container::{ContainerBuildParams, CronJobSource, SidecarSource, InitContainerSource, EnvVarsSource, WorkerSource, ResourceRequirementsSource, ImageNameSource, ImageTagSource, PortSource};
 use super::kong::{KongApisSource, KongApisBuildParams, KongSource};
+use super::sentry_source::SentrySource;
+use super::newrelic_source::NewrelicSource;
 use super::util::{Build, Enabled, RelaxedString, Require};
 
 /// Main manifest, deserialized from `manifest.yml`
@@ -69,6 +71,10 @@ pub struct ManifestOverrides {
     pub kafka: Option<Kafka>,
     pub source_ranges: Option<Vec<String>>,
     pub rbac: Option<Vec<Rbac>>,
+    pub sentry: Option<SentrySource>,
+    //  to have this section merge alerts sub-field deeply
+    //      we have to avoid using Option
+    pub newrelic: NewrelicSource,
 
     #[serde(flatten)]
     pub defaults: ManifestDefaults,
@@ -102,6 +108,13 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
         let container_build_params = ContainerBuildParams {
             main_envs: defaults.env.clone(),
         };
+
+        let team_notifications = simple
+            .base
+            .metadata
+            .clone()
+            .notifications
+            .expect("notifications channel is always defined");
 
         Ok(Manifest {
             name,
@@ -154,7 +167,10 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             kafka: kafka,
             sourceRanges: overrides.source_ranges.unwrap_or_default(),
             rbac: overrides.rbac.unwrap_or_default(),
-
+            newrelic: overrides.newrelic.build(&team_notifications)?,
+            sentry: overrides.sentry
+                .map(|sentry| sentry.build(&team_notifications))
+                .transpose()?,
             region: region.name.clone(),
             environment: region.environment.to_string(),
             namespace: region.namespace.clone(),

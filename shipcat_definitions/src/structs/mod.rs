@@ -1,11 +1,11 @@
 #![allow(non_snake_case)]
 
-/// Allow normal error handling from structs
-pub use super::Result;
-/// Verify trait gets the Region and Team
-pub use super::{Region, Team};
 /// Verify traits sometimes need to cross reference stuff from other manifests
 pub use super::Manifest;
+/// Allow normal error handling from structs
+pub use super::{ErrorKind, Result, ResultExt};
+/// Verify trait gets the Region and Team
+pub use super::{Region, Team};
 
 // Structs that exist in the manifest
 
@@ -17,18 +17,18 @@ pub use self::worker::Worker;
 
 /// Kong configs
 pub mod kong;
-pub use self::kong::{Kong, Cors, BabylonAuthHeader, Authentication};
+pub use self::kong::{Authentication, BabylonAuthHeader, Cors, Kong};
 
 pub mod authorization;
-pub use self::authorization::{Authorization};
+pub use self::authorization::Authorization;
 
 /// Gate configs
 pub mod gate;
-pub use self::gate::{Gate};
+pub use self::gate::Gate;
 
 /// Kongfig configs
 pub mod kongfig;
-pub use self::kongfig::{Api, Consumer, Plugin, Upstream, Certificate};
+pub use self::kongfig::{Api, Certificate, Consumer, Plugin, Upstream};
 
 /// Kafka configs
 pub mod kafka;
@@ -50,8 +50,8 @@ pub use self::env::EnvVars;
 // translations - these are typically inlined in templates as yaml
 /// Kubernetes resource structs
 pub mod resources;
-pub use self::resources::ResourceRequirements;
 pub use self::resources::parse_memory;
+pub use self::resources::ResourceRequirements;
 /// Kubernetes volumes
 pub mod volume;
 pub use self::volume::{Volume, VolumeMount};
@@ -66,15 +66,14 @@ pub mod rollingupdate;
 pub use self::rollingupdate::RollingUpdate;
 /// Kubernetes horizontal pod autoscaler
 pub mod autoscaling;
-/// Kuberneter tolerations
-pub mod tolerations;
 /// Kubernetes container lifecycle events
 mod lifecycle;
+/// Kuberneter tolerations
+pub mod tolerations;
 pub use self::lifecycle::{LifeCycle, LifeCycleHandler};
 
-mod metadata;
-pub use self::metadata::{Metadata, Contact, SlackChannel};
-
+pub mod metadata;
+pub use self::metadata::{Contact, Metadata, SlackChannel};
 
 /// Security related structs
 pub mod security;
@@ -100,3 +99,7 @@ pub use self::rbac::Rbac;
 // PersistentVolume
 mod persistentvolume;
 pub use self::persistentvolume::PersistentVolume;
+
+pub mod newrelic;
+
+pub mod sentry;
