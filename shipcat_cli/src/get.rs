@@ -253,7 +253,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
                 params.publiclyAccessible = g.public;
                 params.websockets = g.websockets;
             }
-            services.insert(svc.base.name.clone(), params);
+            services.insert(k.name, params);
         }
     }
 
