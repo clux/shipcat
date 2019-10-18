@@ -1,9 +1,28 @@
+use std::collections::BTreeMap;
+
 use merge::Merge;
 use shipcat_definitions::Result;
 
 use super::Build;
 
 /// Enabled wraps a struct and adds an `enabled` field.
+///
+/// ```yaml
+/// foo:
+///     value: 3
+/// bar:
+///     enabled: false
+///     value: 4
+/// ```
+///
+/// is equivalent to
+///
+/// ```yaml
+/// foo:
+///     enabled: true
+///     value: 3
+/// bar: ~
+/// ```
 #[derive(Deserialize, Default, Clone, PartialEq, Merge)]
 #[cfg_attr(test, derive(Debug, Copy))]
 #[serde(default, deny_unknown_fields)]
@@ -24,14 +43,74 @@ impl<S: Build<B, P> + Merge, B, P> Build<Option<B>, P> for Enabled<S> {
     }
 }
 
+/// EnabledMap is a map where each value is wrapped in an Enabled.
+///
+/// It can be built into a map which flattens the Enabled wrappers, so disabled values are excluded.
+#[derive(Deserialize, Default, Clone, PartialEq)]
+#[cfg_attr(test, derive(Debug))]
+pub struct EnabledMap<K: Clone + std::hash::Hash + Ord, V: Clone + Default + Merge>(BTreeMap<K, Enabled<V>>);
+
+impl<K: Clone + std::hash::Hash + Ord, V: Clone + Default + Merge> EnabledMap<K, V> {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl<K: Clone + std::hash::Hash + Ord, V: Clone + Default + Merge> IntoIterator for EnabledMap<K, V> {
+    type Item = (K, Enabled<V>);
+    type IntoIter = std::collections::btree_map::IntoIter<K, Enabled<V>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<K, VS, VB, P> Build<BTreeMap<K, VB>, P> for EnabledMap<K, VS> where
+    K: Clone + std::hash::Hash + Ord,
+    VS: Build<VB, P> + Clone + Default + Merge {
+
+    fn build(self, params: &P) -> Result<BTreeMap<K, VB>> {
+        let mut built = BTreeMap::new();
+        for (k, vs) in self.0 {
+            if let Some(vb) = vs.build(params)? {
+                built.insert(k, vb);
+            }
+        }
+        Ok(built)
+    }
+}
+
+
+impl<K, V> Merge for EnabledMap<K, V> where
+    K: Clone + std::hash::Hash + Ord,
+    V: Clone + Default + Merge {
+
+    fn merge(self, other: Self) -> Self {
+        let Self(mut merged) = self;
+        for (k, v) in other.0 {
+            let m = if let Some(s) = merged.remove(&k) {
+                s.merge(v)
+            } else {
+                v
+            };
+            merged.insert(k, m);
+        }
+        Self(merged)
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
+    use maplit::btreemap;
+
+    use std::collections::BTreeMap;
     use merge::Merge;
     use shipcat_definitions::Result;
 
-    use super::{Build, Enabled};
+    use super::{Build, Enabled, EnabledMap};
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Default, Clone)]
     struct Item(&'static str);
 
     impl Build<String, u32> for Item {
@@ -65,6 +144,29 @@ mod tests {
             item: Item("blort"),
         };
         assert_eq!(source.build(&3).unwrap(), None);
+    }
+
+    #[test]
+    fn build_map() {
+        let mut source = BTreeMap::new();
+        source.insert("a", Enabled {
+            enabled: None,
+            item: Item("foo"),
+        });
+        source.insert("b", Enabled {
+            enabled: Some(true),
+            item: Item("bar"),
+        });
+        source.insert("c", Enabled {
+            enabled: Some(false),
+            item: Item("blort"),
+        });
+        let source = EnabledMap(source);
+
+        assert_eq!(source.build(&1).unwrap(), btreemap!{
+            "a" => "foo/1".into(),
+            "b" => "bar/1".into(),
+        });
     }
 
     #[test]
@@ -122,5 +224,65 @@ mod tests {
             enabled: Some(false),
             item: Some(4),
         });
+    }
+
+    #[test]
+    fn merge_map() {
+        let full = EnabledMap(btreemap!{
+            "foo" => Enabled {
+                enabled: Some(false),
+                item: Some(1),
+            },
+            "bar" => Enabled {
+                enabled: Some(true),
+                item: Some(2),
+            },
+            "blort" => Enabled {
+                enabled: Some(true),
+                item: Some(3),
+            }
+        });
+        let partial1 = EnabledMap(btreemap!{
+            "foo" => Enabled::<Option<u32>> {
+                enabled: Some(true),
+                item: None,
+            },
+            "bar" => Enabled {
+                enabled: Some(false),
+                item: Some(20),
+            },
+        });
+        let empty = EnabledMap(BTreeMap::new());
+
+        // x.merge(x) == x
+        assert_eq!(full.clone().merge(full.clone()), full);
+        assert_eq!(partial1.clone().merge(partial1.clone()), partial1);
+        assert_eq!(empty.clone().merge(empty.clone()), empty);
+
+        // empty.merge(x) == x
+        assert_eq!(empty.clone().merge(full.clone()), full);
+        assert_eq!(empty.clone().merge(partial1.clone()), partial1);
+
+        // x.merge(empty) == x
+        assert_eq!(full.clone().merge(empty.clone()), full);
+        assert_eq!(partial1.clone().merge(empty.clone()), partial1);
+
+        // x.merge(full) == full
+        assert_eq!(partial1.clone().merge(full.clone()), full);
+
+        assert_eq!(full.clone().merge(partial1.clone()), EnabledMap(btreemap!{
+            "foo" => Enabled {
+                enabled: Some(true), // from partial
+                item: Some(1), // from full
+            },
+            "bar" => Enabled {
+                enabled: Some(false), // from partial
+                item: Some(20), // from partial
+            },
+            "blort" => Enabled {
+                enabled: Some(true),
+                item: Some(3),
+            },
+        }))
     }
 }

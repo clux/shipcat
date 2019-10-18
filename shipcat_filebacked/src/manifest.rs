@@ -12,7 +12,7 @@ use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result};
 
 use super::{SimpleManifest};
 use super::container::{ContainerBuildParams, CronJobSource, SidecarSource, InitContainerSource, EnvVarsSource, WorkerSource, ResourceRequirementsSource, ImageNameSource, ImageTagSource, PortSource};
-use super::kong::{KongSource, KongBuildParams};
+use super::kong::{KongApisSource, KongApisBuildParams, KongSource};
 use super::util::{Build, Enabled, RelaxedString, Require};
 
 /// Main manifest, deserialized from `manifest.yml`
@@ -82,6 +82,8 @@ pub struct ManifestDefaults {
     pub chart: Option<String>,
     pub replica_count: Option<u32>,
     pub env: EnvVarsSource,
+    pub kong_apis: KongApisSource,
+    // TODO: Migrate to kong_apis
     pub kong: Enabled<KongSource>,
 }
 
@@ -169,11 +171,13 @@ impl ManifestSource {
 
         let overrides = self.overrides.clone();
         let defaults = overrides.defaults;
-        let kong_apis = if region.kong.is_some() {
-            defaults.kong.build(&KongBuildParams {
+        let kong_apis = if let Some(k) = &region.kong {
+            defaults.kong_apis.build(&KongApisBuildParams {
                 service: base.name.to_string(),
                 region: region.clone(),
-            })?.unwrap_or_default().map(|k| vec![k]).unwrap_or_default()
+                kong: k.clone(),
+                single_api: defaults.kong,
+            })?
         } else {
             // NB: this drops kong entries on the floor if region.kong is None
             vec![]
@@ -359,7 +363,7 @@ mod tests {
                 env.insert("b", "default-b");
                 env.into()
             },
-            kong: Default::default(),
+            ..Default::default()
         };
         let b = ManifestDefaults {
             image_prefix: Option::Some("beta".into()),
@@ -371,7 +375,7 @@ mod tests {
                 env.insert("c", "override-c");
                 env.into()
             },
-            kong: Default::default(),
+            ..Default::default()
         };
         let merged = a.merge(b);
         assert_eq!(merged.image_prefix, Option::Some("beta".into()));

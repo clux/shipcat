@@ -2,10 +2,84 @@ use merge::Merge;
 use std::collections::BTreeMap;
 
 use shipcat_definitions::structs::{Authentication, Authorization, BabylonAuthHeader, Cors, Kong};
-use shipcat_definitions::{Region, Result};
+use shipcat_definitions::{Region, KongConfig, Result};
 
 use super::authorization::AuthorizationSource;
-use super::util::{Build, Enabled};
+use super::util::{Build, Enabled, EnabledMap};
+
+#[derive(Deserialize, Default, Merge, Clone)]
+#[serde(default)]
+pub struct KongApisSource {
+    /// Default values to merge into every API
+    pub defaults: KongSource,
+
+    #[serde(flatten)]
+    pub apis: EnabledMap<String, KongSource>,
+}
+
+pub struct KongApisBuildParams {
+    pub service: String,
+    pub region: Region,
+    pub kong: KongConfig,
+    // TODO: Remove Manifest.kong
+    pub single_api: Enabled<KongSource>,
+}
+
+impl Build<Vec<Kong>, KongApisBuildParams> for KongApisSource {
+    fn build(self, params: &KongApisBuildParams) -> Result<Vec<Kong>> {
+        let defaults = Enabled { enabled: None, item: self.defaults };
+
+        if let Some(k) = KongApisSource::build_single_api(&defaults, params)? {
+            debug!("Using single Kong API for {}", params.service);
+            if !self.apis.is_empty() {
+                bail!(".kong and .kong_apis properties are mutually exclusive")
+            }
+            return Ok(vec![k])
+        }
+
+        let mut built = Vec::new();
+        for (name, k) in self.apis {
+            debug!("Building Kong API {}", &name);
+            if name != params.service && !name.starts_with(&format!("{}-", &params.service)) {
+                // TODO: Duplicate Kong's name validation
+                bail!("Kong API name must be '${SERVICE_NAME}' or '${SERVICE_NAME}-*'")
+            }
+            let merged = defaults.clone().merge(k);
+            let maybe = merged.build(&KongBuildParams {
+                name,
+                service: params.service.clone(),
+                region: params.region.clone(),
+                kong: params.kong.clone(),
+            })?;
+            if let Some(api) = maybe {
+                built.push(api);
+            }
+        }
+        Ok(built)
+    }
+}
+
+impl KongApisSource {
+    fn build_single_api(defaults: &Enabled<KongSource>, params: &KongApisBuildParams) -> Result<Option<Kong>> {
+        let Enabled { enabled, item: merged } = defaults.clone().merge(params.single_api.clone());
+        if let Some(false) = enabled {
+            return Ok(None)
+        }
+
+        // For backwards compatibility, { uris: null, hosts: [], ... } is equivalent to { enabled: false, ... }
+        if merged.hosts.clone().unwrap_or_default().is_empty() && merged.uris.is_none() {
+            return Ok(None);
+        }
+
+        Ok(Some(merged.build(&KongBuildParams {
+            name: params.service.clone(),
+            service: params.service.clone(),
+            region: params.region.clone(),
+            kong: params.kong.clone(),
+        })?))
+    }
+}
+
 
 #[derive(Deserialize, Default, Merge, Clone)]
 #[serde(default, deny_unknown_fields)]
@@ -31,55 +105,54 @@ pub struct KongSource {
     pub add_headers: BTreeMap<String, String>,
 }
 
-pub struct KongBuildParams {
+struct KongBuildParams {
+    pub name: String,
     pub service: String,
     pub region: Region,
+    pub kong: KongConfig,
 }
 
-impl Build<Option<Kong>, KongBuildParams> for KongSource {
+impl Build<Kong, KongBuildParams> for KongSource {
     /// Build a Kong from a KongSource, validating and mutating properties.
-    fn build(self, params: &KongBuildParams) -> Result<Option<Kong>> {
-        let KongBuildParams { region, service } = params;
-        if let Some(k) = &region.kong {
-            let hosts = self.build_hosts(&k.base_url)?;
+    fn build(self, params: &KongBuildParams) -> Result<Kong> {
+        let KongBuildParams { region, service, name, kong } = params;
+        debug!("Building Kong API {} for {}", &name, &service);
 
-            if hosts.is_empty() && self.uris.is_none() {
-                return Ok(None);
-            }
-
-            let upstream_url = self.build_upstream_url(&service, &region.namespace);
-            let (auth, authorization) = KongSource::build_auth(self.auth, self.authorization)?;
-
-            let preserve_host = self.preserve_host.unwrap_or(true);
-
-            Ok(Some(Kong {
-                name: service.to_string(),
-                upstream_url: upstream_url,
-                upstream_service: if preserve_host {
-                    Some(service.to_string())
-                } else {
-                    None
-                },
-                internal: self.internal.unwrap_or_default(),
-                publiclyAccessible: self.publicly_accessible.unwrap_or_default(),
-                uris: self.uris,
-                hosts,
-                authorization,
-                strip_uri: self.strip_uri.unwrap_or_default(),
-                preserve_host,
-                cors: self.cors,
-                additional_internal_ips: self.additional_internal_ips.unwrap_or_default(),
-                babylon_auth_header: self.babylon_auth_header,
-                upstream_connect_timeout: self.upstream_connect_timeout,
-                upstream_send_timeout: self.upstream_send_timeout,
-                upstream_read_timeout: self.upstream_read_timeout,
-                add_headers: self.add_headers,
-                // Legacy authorization
-                auth,
-            }))
-        } else {
-            Ok(None)
+        let hosts = self.build_hosts(&kong.base_url)?;
+        if hosts.is_empty() && self.uris.is_none() {
+            bail!("At least one of hosts or uris must be set on a Kong API")
         }
+
+        let upstream_url = self.build_upstream_url(&service, &region.namespace);
+        let (auth, authorization) = KongSource::build_auth(self.auth, self.authorization)?;
+
+        let preserve_host = self.preserve_host.unwrap_or(true);
+
+        Ok(Kong {
+            name: name.to_string(),
+            upstream_url: upstream_url,
+            upstream_service: if preserve_host {
+                Some(service.to_string())
+            } else {
+                None
+            },
+            internal: self.internal.unwrap_or_default(),
+            publiclyAccessible: self.publicly_accessible.unwrap_or_default(),
+            uris: self.uris,
+            hosts,
+            authorization,
+            strip_uri: self.strip_uri.unwrap_or_default(),
+            preserve_host,
+            cors: self.cors,
+            additional_internal_ips: self.additional_internal_ips.unwrap_or_default(),
+            babylon_auth_header: self.babylon_auth_header,
+            upstream_connect_timeout: self.upstream_connect_timeout,
+            upstream_send_timeout: self.upstream_send_timeout,
+            upstream_read_timeout: self.upstream_read_timeout,
+            add_headers: self.add_headers,
+            // Legacy authorization
+            auth,
+        })
     }
 }
 

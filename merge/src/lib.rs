@@ -14,13 +14,10 @@ impl<T> Merge for Option<T> {
     }
 }
 
-// TODO: Merge values if defined in both?
+// If you want deep merge behaviour, you should probably use EnabledMap
 impl<K: std::hash::Hash + Ord, V> Merge for BTreeMap<K, V> {
     fn merge(self, other: Self) -> Self {
-        let mut merged = BTreeMap::new();
-        for (k, v) in self.into_iter() {
-            merged.insert(k, v);
-        }
+        let mut merged = self;
         for (k, v) in other.into_iter() {
             merged.insert(k, v);
         }

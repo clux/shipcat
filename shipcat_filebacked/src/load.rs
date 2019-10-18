@@ -118,7 +118,7 @@ impl ManifestDefaults {
         let mut defs = Self::default();
         defs.env = reg.env.clone().into();
         if let Some(authz) = reg.defaults.kong.authorization.clone() {
-            defs.kong.item.authorization = Enabled {
+            defs.kong_apis.defaults.authorization = Enabled {
                 enabled: None,
                 item: AuthorizationSource {
                     allow_anonymous: Some(authz.allow_anonymous),
