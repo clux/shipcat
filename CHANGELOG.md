@@ -1,3 +1,24 @@
+0.133.0 / 2019-10-18
+====================
+  * introductory syntax for `newRelic` and `sentry`
+  * kong: supporting multiple kong apis per service
+  * `jobs` syntax removed
+  * version warning now always present, but ignored unless --strict-version-check set
+  * `shipcat restart {service}` subcommand added
+  * `shipcat diff` improvements
+  * `shipcat port-forward` improvements
+  * better error messages for missing executable dependencies
+
+0.132.0 / 2019-10-08
+====================
+  * `.rbac` key in manifests now support arbitrary verbs and nouns
+  * better error messages for `teams.yml` errors
+  * readiness / liveness probes support timeout properly
+
+0.131.0 / 2019-10-07
+====================
+  * kong: json cookie header deprecated parameters removed
+
 0.130.0 / 2019-10-01
 ====================
   * `shipcat` accepts team owners in `teams.yml`
