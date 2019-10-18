@@ -2,6 +2,6 @@ name: out-of-region
 metadata:
   team: someteam
   contacts: []
-  repo: https://github.com/Babylonpartners/shipcat
+  repo: https://github.com/babylonhealth/shipcat
 regions:
 - dev-ops

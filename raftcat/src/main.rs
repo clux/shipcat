@@ -96,7 +96,7 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
         };
         let (support, supportlink) = (md.support.clone(), md.support.unwrap().link(&cfg.slack));
         // TODO: org in config
-        let circlelink = format!("https://circleci.com/gh/Babylonpartners/{}", mf.name);
+        let circlelink = format!("https://circleci.com/gh/babylonhealth/{}", mf.name);
         let quaylink = format!("https://{}/?tab=tags", mf.image.clone().unwrap());
 
         let (team, teamlink) = (md.team.clone(), format!("/raftcat/teams/{}", team_slug(&md.team)));

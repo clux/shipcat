@@ -136,7 +136,7 @@ fn get_codeowners() {
     let cos = get::codeowners(&conf).unwrap();
 
     assert_eq!(cos.len(), 1); // serivces with team admins get a listing
-    assert_eq!(cos[0], "services/fake-ask/* @babylonpartners/devops");
+    assert_eq!(cos[0], "services/fake-ask/* @babylonhealth/devops");
 }
 
 #[test]

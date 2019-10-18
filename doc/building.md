@@ -20,7 +20,7 @@ git pull && cargo build
 from the shipcat source repo.
 
 ## Github releases
-Availble from [shipcat releases](https://github.com/Babylonpartners/shipcat/releases).
+Availble from [shipcat releases](https://github.com/babylonhealth/shipcat/releases).
 
 These tarballs can be extracted into `/usr/local` directly (or any directory on your `$PATH`), and requires you to add bash completion normally. Typically:
 
@@ -36,7 +36,7 @@ echo "source <(shipcat completions bash)" >> ~/.bash_completion
 as a one time step.
 
 ## Homebrew tap
-Available via [homebrew-babylon](https://github.com/Babylonpartners/homebrew-babylon) for Babylon Employees. Directions therein. This automates the github release system.
+Available via [homebrew-babylon](https://github.com/babylonhealth/homebrew-babylon) for Babylon Employees. Directions therein. This automates the github release system.
 
 ## Docker only
 This is typically only used by CI that needs to lock down versions of `kubectl`, `helm` and helm plugins. See the [reconciliation doc](./reconciliation.md) for instruction on using the `kubecat` image.

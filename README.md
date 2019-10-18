@@ -1,7 +1,7 @@
 # shipcat
 ![Shipcat logo](logo/shipcat_logo.png "Shipcat")
 
-[![CircleCI](https://circleci.com/gh/Babylonpartners/shipcat.svg?style=shield)](https://circleci.com/gh/Babylonpartners/shipcat)
+[![CircleCI](https://circleci.com/gh/babylonhealth/shipcat.svg?style=shield)](https://circleci.com/gh/babylonhealth/shipcat)
 [![Docker Repository on Quay](https://quay.io/repository/babylonhealth/kubecat/status "Docker Repository on Quay")](https://quay.io/repository/babylonhealth/kubecat?tab=tags)
 
 A standardisation tool and security layer on top of `kubernetes` to config manage microservices. Developers write manifests:
@@ -37,23 +37,23 @@ Secrets are managed by [Vault](https://www.vaultproject.io/) and resolved by `sh
 ## Documentation
 Browse the API documentation, or the setup guides available at:
 
-- [Introduction to shipcat](https://github.com/Babylonpartners/shipcat/blob/master/doc/intro.md)
-- [Shipcat Definitions](https://babylonpartners.github.io/shipcat/shipcat_definitions/index.html)
-- [Setup for operations](./doc/reconciliation-secrets.md)
-- [Building](https://github.com/Babylonpartners/shipcat/blob/master/doc/building.md)
-- [Clusters & Regions](https://github.com/Babylonpartners/shipcat/blob/master/doc/clusters.md)
-- [Extending shipcat](https://github.com/Babylonpartners/shipcat/blob/master/doc/extending.md)
-- [Templates](https://github.com/Babylonpartners/shipcat/blob/master/doc/templates.md)
-- [Vault](https://github.com/Babylonpartners/shipcat/blob/master/doc/vault.md)
-- [Error handling](https://github.com/Babylonpartners/shipcat/blob/master/doc/errors.md)
+- [Introduction to shipcat](https://github.com/babylonhealth/shipcat/blob/master/doc/intro.md)
+- [Shipcat Definitions](https://babylonhealth.github.io/shipcat/shipcat_definitions/index.html)
+- [Setup for operations](./doc/reconcile-ci.md)
+- [Building](https://github.com/babylonhealth/shipcat/blob/master/doc/building.md)
+- [Clusters & Regions](https://github.com/babylonhealth/shipcat/blob/master/doc/clusters.md)
+- [Extending shipcat](https://github.com/babylonhealth/shipcat/blob/master/doc/extending.md)
+- [Templates](https://github.com/babylonhealth/shipcat/blob/master/doc/templates.md)
+- [Vault](https://github.com/babylonhealth/shipcat/blob/master/doc/vault.md)
+- [Error handling](https://github.com/babylonhealth/shipcat/blob/master/doc/errors.md)
 - [Nautical terminology](https://en.wikipedia.org/wiki/Ship%27s_cat)
 
 ## Components
 Shipcat is made up of three main components:
 
-- [shipcat_definitions](https://babylonpartners.github.io/shipcat/shipcat_definitions/index.html) - allowed syntax in our kube clusters - `manifest.yml` + `shipcat.conf`
-- [shipcat](https://github.com/Babylonpartners/shipcat/tree/master/shipcat_cli) - the pipeline cli and validator useable by developers and CI
-- [raftcat](https://github.com/Babylonpartners/shipcat/tree/master/raftcat) - an kubernetes api/watcher that reads the `shipcatmanifests` custom resource
+- [shipcat_definitions](https://babylonhealth.github.io/shipcat/shipcat_definitions/index.html) - allowed syntax in our kube clusters - `manifest.yml` + `shipcat.conf`
+- [shipcat](https://github.com/babylonhealth/shipcat/tree/master/shipcat_cli) - the pipeline cli and validator useable by developers and CI
+- [raftcat](https://github.com/babylonhealth/shipcat/tree/master/raftcat) - an kubernetes api/watcher that reads the `shipcatmanifests` custom resource
 
 ## Integrations
 While shipcat mainly deals with kubernetes, there are extensive and optional integrations with:
@@ -67,14 +67,14 @@ and some minor convenience integrations from common technologies like: [Grafana]
 
 ## CLI installation
 
-- Mac/Linux users can install from the [releases page](https://github.com/Babylonpartners/shipcat/releases)
+- Mac/Linux users can install from the [releases page](https://github.com/babylonhealth/shipcat/releases)
 - Users with [rust](https://rustup.rs/) installed can use `git pull && cargo build`
 - Babylon employees can `brew install shipcat` or `brew update && brew upgrade shipcat` via the internal brew tap
 
-See the [building guide](https://github.com/Babylonpartners/shipcat/blob/master/doc/building.md), for setting up auto-complete, and being able to use from outside a manifests repo.
+See the [building guide](https://github.com/babylonhealth/shipcat/blob/master/doc/building.md), for setting up auto-complete, and being able to use from outside a manifests repo.
 
 ## CLI Usage
-Define your `manifest.yml` file in a [manifests repo](https://github.com/Babylonpartners/shipcat/blob/master/examples), make sure `shipcat validate` passes.
+Define your `manifest.yml` file in a [manifests repo](https://github.com/babylonhealth/shipcat/blob/master/examples), make sure `shipcat validate` passes.
 
 You either need to have a `~/.kube/config` whose `current-context` is set to the shipcat region you wish to validate, or pass the shipcat region in explicitly with `-r region`.
 

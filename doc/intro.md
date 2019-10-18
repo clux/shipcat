@@ -1,6 +1,6 @@
 # Introduction
 
-shipcat is an automation tool that works with `manifest.yml` manifest files. These files are our simplified automation interface to [Kubernetes](https://kubernetes.io/), [Helm](https://docs.helm.sh/), [Vault](https://www.vaultproject.io/), [kong](https://konghq.com/), [Prometheus](https://prometheus.io/), and more.
+shipcat is an automation tool that works with `manifest.yml` manifest files. These files are our simplified automation interface to [Kubernetes](https://kubernetes.io/), [Vault](https://www.vaultproject.io/), [kong](https://konghq.com/), and various monitoring tools. It produces kubernetes yaml via the [helm templates](https://docs.helm.sh/), and applies the result directly without the reliance on `tiller`.
 
 The `shipcat` binary is meant to work on a `manifests` repo from CI runners, or from users themselves.
 
@@ -32,7 +32,7 @@ A **completed** shipcat manifest, is the manifest that is loaded from a service 
 To see the end result of these merges, you can run `shipcat values storage-provider` to get the completed manifest with all values for a `storage-provider` service.
 
 ## YAML Abstractions
-To avoid having all the developers know the complexity of kubernetes and others, the values available in a manifest are [whitelisted by types encoded in shipcat](https://github.com/Babylonpartners/shipcat/tree/master/shipcat_definitions/src/structs), and checked by struct validators therein.
+To avoid having all the developers know the complexity of kubernetes and others, the values available in a manifest are [whitelisted by types encoded in shipcat](https://github.com/babylonhealth/shipcat/tree/master/shipcat_definitions/src/structs), and checked by struct validators therein.
 
 Some manifest values are abstractions on top of kubernetes (like `configs` on top of `ConfigMap`, while others are straight kubernetes yaml (such as `autoScaling` which is a literal `HorizontalPodAutoscaler` config).
 
@@ -46,7 +46,7 @@ metadata:
   - name: "Eirik"
     slack: "@clux"
   team: Platform
-  repo: https://github.com/Babylonpartners/shipcat
+  repo: https://github.com/babylonhealth/shipcat
   language: rust
 
 # kubernetes resources
@@ -89,12 +89,14 @@ configs:
 
 This example shows a small hypothetical service running with 2 replicas in the `dev-uk` kube region, listening on port 8080, with a couple of auth secrets fetched from vault, and a templated `env.yml` mounted into `/config/`.
 
-For a list of what's available in the API please consult the API documentation for [shipcat::Manifest](https://babylonpartners.github.io/shipcat/shipcat/manifest/manifest/struct.Manifest.html)
+For a list of what's available in the API please consult the API documentation for [shipcat::Manifest](https://babylonhealth.github.io/shipcat/shipcat/manifest/manifest/struct.Manifest.html)
 
 ## Kubernetes Templates
 The completed manifest (from `shipcat values`) is currently passed to the configured helm chart (by default; the `base` chart) that also lives in the manifests repository.
 
-To see your completed kube yaml you can `shipcat template storage-provider`, which willl complete the manifest, then pass it to `helm template charts/base`
+To see your completed kube yaml you can `shipcat template storage-provider`, which willl complete the manifest, then pass it to `helm template charts/base`.
+
+Charts are expected to all have owner references back to our `shipcatmanifests` crd and not rely on the `.Release` object in helm templates (see the [example chart](https://github.com/babylonhealth/shipcat/tree/master/examples/charts/base)).
 
 ## Upgrade strategies
-All manifests in the repo are continually reconciled on merge using `shipcat cluster` commands. `shipcat apply {service} -t {imageversion}` can also be run locally.
+All manifests in the repo are continually reconciled on merge using `shipcat cluster` commands. `shipcat apply {service} -t {imageversion}` can also be to perform individual upgrades.

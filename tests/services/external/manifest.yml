@@ -2,7 +2,7 @@ name: external
 metadata:
   team: someteam
   contacts: []
-  repo: https://github.com/Babylonpartners/shipcat
+  repo: https://github.com/babylonhealth/shipcat
 external: true
 regions:
 - dev-uk

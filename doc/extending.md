@@ -4,10 +4,10 @@ Our `shipcat` CLI aims to provide a declarative interface to complex services vi
 The [shipcat manifests guide](https://engineering.ops.babylontech.co.uk/docs/cicd-shipcat-manifests/) has an introduction, and explanations of the data currently supported.
 
 # Extending the manifests
-The procedure for adding syntax to `shipcat` is to write a little bit of `rust` in the following way:
+The procedure for adding syntax to `shipcat` is to to define the `rust` structs, and then using [`serde` attributes](https://serde.rs/attributes.html) to ensure we don't make more breaking changes than planned.
 
 ## 1. Define Structs
-This is done in shipcat's [structs directory](https://github.com/Babylonpartners/shipcat/tree/master/shipcat_definitions/src/structs) in `shipcat_definitions`. Here's the `Dependency` struct (which was used to add `graph` functionality later on).
+This is done in shipcat's [structs directory](https://github.com/babylonhealth/shipcat/tree/master/shipcat_definitions/src/structs) in `shipcat_definitions`. Here's the `Dependency` struct (which was used to add `graph` functionality later on).
 
 ```rust
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -15,17 +15,18 @@ pub struct Dependency {
     /// Name of service relied upon (used to goto dependent manifest)
     pub name: String,
     /// API version relied upon (v1 default)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api: Option<String>,
     /// Contract name for dependency
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub contract: Option<String>,
     /// Protocol/message passing service used to depend on a service
     #[serde(default)]
     pub protocol: DependencyProtocol,
     /// Intent behind dependency - for manifest level descriptiveness
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub intent: Option<String>,
 }
-
-
 ```
 
 This auto derives serialisation capabilities, default values (helping out where an empty default is not helpful), and otherwise defines all the data, and docstrings used by `cargo doc`.
@@ -55,7 +56,7 @@ impl Dependency {
 
 This example verifies some internal mechanics of optionals, and that the api format is correct. It also checks that any named dependencies exist in the services folder.
 
-Normally, you should not need to do file-system access within a verifier because there are more efficient [multi-validators in shipcat verify](https://github.com/Babylonpartners/shipcat/blob/master/shipcat_cli/src/validate.rs).
+Normally, you should not need to do file-system access within a verifier because there are more efficient [multi-validators in shipcat verify](https://github.com/babylonhealth/shipcat/blob/master/shipcat_cli/src/validate.rs).
 
 ## 3. Export it
 Add two lines to `mod.rs`:
@@ -72,7 +73,7 @@ use crate::structs::dependency::Dependency:
 ```
 
 ## 4. Attach it to the manifest
-Attach it to the main [Manifest struct](https://github.com/Babylonpartners/shipcat/blob/master/src/manifest.rs):
+Attach it to the main [Manifest struct](https://github.com/babylonhealth/shipcat//blob/master/shipcat_definitions/src/manifest.rs):
 
 ```rust
 
@@ -100,13 +101,15 @@ make sure you call its verifier from master `verify` in the same file:
         }
 ```
 
+NB: You also need to add like two lines for it in [`ManifestOverrides`](https://github.com/babylonhealth/shipcat/blob/master/shipcat_filebacked/src/manifest.rs) until the compiler stops shouting at you.
+
 ## 5. Code review
-If everyone's happy in code review, then we can run `./scripts/bump_version.sh OLDVER NEWVER` and commit to the branch (use semver). After merge there will be a new version of `shipcat` available to use in the [manifests repository](https://github.com/Babylonpartners/manifests).
+If everyone's happy in code review, then we can run `./scripts/bump_version.sh OLDVER NEWVER` and commit to the branch (use semver). After merge there will be a new version of `shipcat` available to use in the [manifests repository](https://github.com/babylonhealth/manifests).
 
-That's it. You can start to **capture** new information from the manifests. However, this is not immediately useful unless you plan on using the values in your `helm` charts. Otherwise, you might want to implement a new generator. The second part of this document details how to to the latter.
+You can start to **capture** new information from the manifests. However, this might not be immediately useful unless you plan on using the values in your `helm` charts. Otherwise, you might want to implement a new reducer. The second part of this document details how to to the latter.
 
-# Generating new resources
-If you want to use shipcat to generate new resources, you need a new CLI interface to it. Here is the general steps along with how `graph.rs` was created (as an example - because we showed how to generate the data for it above).
+# Reducing resources
+If you want to use shipcat to reduce information about manifests, you need a new CLI interface to it. Generally, small reducers go in [`get.rs`](https://github.com/babylonhealth/shipcat/blob/master/shipcat_cli/src/get.rs), but here we show how `graph.rs` was created (because we showed how to generate the data for it above).
 
 ## 1. Define a module
 A single line in `lib.rs`:
@@ -168,16 +171,13 @@ then defer to your new interface from `main.rs`:
     }
 ```
 
-## 5. Autocomplete
-Try to extend the various arrays in `shipcat.complete.sh` with your new subcommand if you can grok it. Otherwise, don't worry, it's not essential. This is becoming more automatic with clap 3.
-
-## 6. Bump the version
+## 5. Bump the version
 Bump a minor in all three `Cargo.toml` files. The versions all stay in sync. This should be done with `./scripts/bump_version.sh OLDVER NEWVER` using semver versions.
 
-## 7. Code review
+## 6. Code review
 If everyone's happy in code review, then, after merge there will be a new version of `shipcat` available.
 
 # Success
 Congratulations, you have contributed to `shipcat` :triumph:
 
-You can start using the new version in the [manifests repository](https://github.com/Babylonpartners/manifests) straight after bumping the dependency pins ([1](https://github.com/Babylonpartners/manifests/blob/9abe98091fc6375e9ecbdfbabd88c368d9a0e211/.circleci/config.yml#L6), [2](https://github.com/Babylonpartners/manifests/blob/9abe98091fc6375e9ecbdfbabd88c368d9a0e211/Makefile#L5)) if necessary.
+You can start using the new version in the [babylon manifests repository](https://github.com/babylonhealth/manifests) straight after bumping the dependency pins for [circleci](https://github.com/babylonhealth/manifests/blob/9abe98091fc6375e9ecbdfbabd88c368d9a0e211/.circleci/config.yml#L6), and the bottom of [shipcat.conf](https://github.com/babylonhealth/manifests/blob/master/shipcat.conf).

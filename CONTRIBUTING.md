@@ -13,7 +13,7 @@ Please note we have a code of conduct, please follow it in all your interactions
 
 ## Early Days Warning
 
-Because this software plays a role in infrastructure migrations at Babylon Health, radical changes are unlikely to make it through as of yet. Please follow our [issue tracker](https://github.com/Babylonpartners/shipcat/issues/) for future plans on how `shipcat` evolves to become more general.
+Because this software plays a role in infrastructure migrations at Babylon Health, radical changes are unlikely to make it through as of yet. Please follow our [issue tracker](https://github.com/babylonhealth/shipcat/issues/) for future plans on how `shipcat` evolves to become more general.
 
 ## Code of Conduct
 

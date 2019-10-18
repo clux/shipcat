@@ -82,7 +82,7 @@ volumes:
         - key: file
           path: combined-secret2.yaml
 metadata:
-  repo: https://github.com/Babylonpartners/shipcat
+  repo: https://github.com/babylonhealth/shipcat
   contacts: []
   team: someteam
   support: "#dev-platform-override"

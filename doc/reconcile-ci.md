@@ -39,7 +39,7 @@ fi
 Current setup requires secrets for `docker`, `vault` (via github), `slack`, and `kubectl`.
 
 ### Docker
-We use quay.io and our [kubecat image](https://github.com/Babylonpartners/shipcat/blob/master/Dockerfile) - which is [publically available](https://quay.io/repository/babylonhealth/kubecat?tab=tags), but you can easily build the `Dockerfile` at the root of this repository and `docker push` it to private repo.
+We use quay.io and our [kubecat image](https://github.com/babylonhealth/shipcat/blob/master/Dockerfile) - which is [publically available](https://quay.io/repository/babylonhealth/kubecat?tab=tags), but you can easily build the `Dockerfile` at the root of this repository and `docker push` it to private repo.
 
 ### Kubernetes
 Requires a way to generate an ephemeral `~/.kube/config` for the job runner. We do this via a `KUBE_TOKEN` and a `KUBE_CERT` evar that's extracted from a service account with elevated rbac priveleges. Here's an easy way to extract the two from an elevated kube `ServiceAccount`:

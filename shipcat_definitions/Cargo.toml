@@ -14,7 +14,7 @@ version = "0.132.3"
 categories = ["configuration"]
 keywords = ["kubernetes", "helm", "deployment", "standardisation", "validation"]
 license-file = "LICENSE"
-homepage = "https://github.com/Babylonpartners/shipcat"
+homepage = "https://github.com/babylonhealth/shipcat"
 edition = "2018"
 
 [lib]

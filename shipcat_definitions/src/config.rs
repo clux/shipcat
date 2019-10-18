@@ -302,8 +302,8 @@ impl Config {
     fn verify_version(ver: &Version) -> Result<()> {
         let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
         if *ver > current {
-            let url = "https://github.com/Babylonpartners/shipcat/releases";
-            let brewurl = "https://github.com/Babylonpartners/homebrew-babylon";
+            let url = "https://github.com/babylonhealth/shipcat/releases";
+            let brewurl = "https://github.com/babylonhealth/homebrew-babylon";
             let s1 = format!("Precompiled releases available at {}", url);
             let s2 = format!("Homebrew releases available via {}", brewurl);
 

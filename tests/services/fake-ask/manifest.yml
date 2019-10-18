@@ -18,7 +18,7 @@ metadata:
   contacts:
   - name: "Eirik Override"
     slack: "@U82SKDQD9"
-  repo: https://github.com/Babylonpartners/shipcat
+  repo: https://github.com/babylonhealth/shipcat
   gitTagTemplate: "prefix-{{ version }}-suffix"
   extraDocumentation: http://example.com
 sidecars:

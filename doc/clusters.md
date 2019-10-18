@@ -7,6 +7,7 @@ Sample config:
 clusters:
   platformus-green:
     api: https://api.platformus-green.kube.domain.invalid
+    teleport: https://FUFUFUFU.bl2.eu-west-2.eks.amazonaws.com
     regions:
     - platform-us
   kops-uk:

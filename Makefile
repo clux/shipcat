@@ -75,7 +75,7 @@ push-docs:
 	cargo doc --lib -p shipcat
 	echo "<meta http-equiv=refresh content=0;url=shipcat/index.html>" > target/doc/index.html
 	ghp-import -n target/doc
-	git push -qf "git@github.com:Babylonpartners/shipcat.git" gh-pages
+	git push -qf "git@github.com:babylonhealth/shipcat.git" gh-pages
 
 # Package up all built artifacts for ghr to release
 #
