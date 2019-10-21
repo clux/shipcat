@@ -1,6 +1,6 @@
 FROM circleci/python:3.7.4-node
 
-ENV KUBEVER=1.14.6 \
+ENV KUBEVER=1.15.5 \
     HELMVER=2.13.0 \
     HELMDIFFVER="2.11.0%2B3" \
     KUBEVALVER=0.12.0 \
