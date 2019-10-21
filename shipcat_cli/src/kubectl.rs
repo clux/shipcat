@@ -31,6 +31,20 @@ fn kout(args: Vec<String>) -> Result<(String, bool)> {
     Ok((out, s.status.success()))
 }
 
+fn kani(mf: &Manifest, verb: String, resource: String) -> Result<bool> {
+    let args = vec![
+        format!("-n={}", mf.namespace),
+        "auth".into(),
+        "can-i".into(),
+        verb,
+        resource,
+    ];
+    use std::process::Command;
+    debug!("kubectl {}", args.join(" "));
+    let s = Command::new("kubectl").args(&args).output()?;
+    Ok(s.status.success())
+}
+
 /// CLI way to resolve kube context
 ///
 /// Should only be used from main.
@@ -456,6 +470,10 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
 ///
 /// Useful because we have autocomplete on manifest names in shipcat
 pub fn port_forward(mf: &Manifest) -> Result<()> {
+    if kani(mf, "create".into(), "pods/portforward".into())? != true {
+        bail!("Current token does not have authorization to port-forward")
+    };
+
     // TODO: kubectl auth can-i create pods/portforward first
     let port_offset = 7777;
     let mut ps: Vec<_> = mf.ports.iter().map(|mp| mp.port).collect();
@@ -486,7 +504,7 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
     for (port, localport) in ports {
         pfargs.push(format!("{}:{}", localport, port));
     };
-    
+
     kexec(pfargs)?;
     Ok(())
 }
