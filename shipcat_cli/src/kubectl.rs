@@ -457,26 +457,36 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
 /// Useful because we have autocomplete on manifest names in shipcat
 pub fn port_forward(mf: &Manifest) -> Result<()> {
     // TODO: kubectl auth can-i create pods/portforward first
-    let port = if let Some(p) = mf.httpPort {
-        p
-    } else if let Some(p) = mf.ports.iter().find(|p| p.name == "http") {
-        p.port
-    } else if let Some(p) = mf.ports.iter().find(|p| p.name == "grpc") {
-        p.port
-    } else {
-        bail!("{} does not expose an http/grpc port to port-forward to", mf.name)
-    };
-    // first 1024 ports need sudo so avoid that
-    let localport = if port <= 1024 { 7777 } else { port };
+    let port_offset = 7777;
+    let mut ps: Vec<_> = mf.ports.iter().map(|mp| mp.port).collect();
 
-    debug!("Port forwarding kube deployment {} to localhost:{}", mf.name, localport);
+    if let Some(p) = mf.httpPort {
+        if ps.iter().find(|&&mp| mp == p).is_none() {
+            ps.push(p);
+        }
+    };
+
+    if ps.len() == 0 {
+        bail!("{} does not expose any port to port-forward to", mf.name)
+    };
+
+    let ports = ps.iter().enumerate().map(|(i, &port)| {
+        let localport: u32 = if port <= 1024 { port_offset + i as u32 } else { port };
+        debug!("Port forwarding kube deployment {}:{} to localhost:{}", mf.name, port, localport);
+        (port, localport)
+    });
+
     //kubectl port-forward deployment/${name} localport:httpPort
-    let pfargs = vec![
+    let mut pfargs = vec![
         format!("-n={}", mf.namespace),
         "port-forward".into(),
         format!("deployment/{}", mf.name),
-        format!("{}:{}", port, port)
     ];
+
+    for (port, localport) in ports {
+        pfargs.push(format!("{}:{}", localport, port));
+    };
+    
     kexec(pfargs)?;
     Ok(())
 }
