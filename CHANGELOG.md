@@ -1,3 +1,9 @@
+0.134.1 / 2019-10-23
+====================
+  * Speculative `shipcat self-upgrade`
+  * Can be invoked automatically with `SHIPCAT_AUTOUPGRADE=1` evar.
+  * Can avoid rate limiting with `SHIPCAT_AUTOUPGRADE_TOKEN` to github token with `repo:read` scope.
+
 0.133.0 / 2019-10-18
 ====================
   * introductory syntax for `newRelic` and `sentry`

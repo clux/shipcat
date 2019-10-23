@@ -87,7 +87,7 @@ pub fn self_upgrade(ver: Option<Version>) -> Result<()> {
     let rel = if let Some(v) = &ver {
         releases.into_iter().find(|r| Version::parse(&r.tag) == Ok(v.clone()))
     } else { // pick latest if upgrading opportunistically
-        releases.first().cloned()
+        releases.into_iter().find(|r| !r.assets.is_empty())
     };
 
     let release = match rel {
