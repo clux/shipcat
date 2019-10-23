@@ -470,7 +470,7 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
 ///
 /// Useful because we have autocomplete on manifest names in shipcat
 pub fn port_forward(mf: &Manifest) -> Result<()> {
-    if kani(mf, "create".into(), "pods/portforward".into())? != true {
+    if ! kani(mf, "create".into(), "pods/portforward".into())? {
         bail!("Current token does not have authorization to port-forward")
     };
 
@@ -484,7 +484,7 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
         }
     };
 
-    if ps.len() == 0 {
+    if ps.is_empty() {
         bail!("{} does not expose any port to port-forward to", mf.name)
     };
 

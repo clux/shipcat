@@ -26,6 +26,7 @@ error_chain! {
         Reqe(reqwest::Error);
         Time(::std::time::SystemTimeError);
         Chrono(chrono::format::ParseError);
+        SelfUpdate(self_update::errors::Error);
     }
     errors {
         MissingSlackUrl {
@@ -143,6 +144,9 @@ pub mod show;
 
 /// Cluster auth
 pub mod auth;
+
+/// Shipcat self upgrade
+pub mod upgrade;
 
 /// Smart initialiser with safety
 ///

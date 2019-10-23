@@ -402,8 +402,15 @@ fn build_cli() -> App<'static, 'static> {
             .arg(Arg::with_name("force")
                 .long("force")
                 .short("f")
-                .help("Remove the old tsh state file to force a login"))
-            )
+                .help("Remove the old tsh state file to force a login")))
+
+        .subcommand(SubCommand::with_name("self-upgrade")
+            .about("Upgrade shipcat using github releases")
+            .arg(Arg::with_name("tag")
+                .long("tag")
+                .short("t")
+                .takes_value(true)
+                .help("Tag to upgrade to (otherwise will use latest semver)")))
 }
 
 fn main() {
@@ -464,6 +471,13 @@ fn resolve_config(args: &ArgMatches, ct: ConfigType) -> Result<(Config, Region)>
     if let Err(e) = res.0.verify_version_pin(&res.1.environment) {
         if args.is_present("strict-version-check") {
             return Err(e.into())
+        } else if std::env::var("SHIPCAT_AUTOUPGRADE").is_ok() {
+            warn!("shipcat version less than pinned minimum - autoupgrading");
+            let pin = res.0.get_appropriate_version_pin(&res.1.environment).ok();
+            shipcat::upgrade::self_upgrade(pin)?;
+            // we could potentially shell out to new shipcat with args here
+            // but the args were just consumed by clap, so..
+            info!("Please retry your command");
         } else {
             warn!("shipcat version less than pinned minimum - results may vary");
             warn!("{}", e);
@@ -500,6 +514,12 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("login") {
         let (conf, region) = resolve_config(a, ConfigType::Base)?;
         return shipcat::auth::login(&conf, &region, a.is_present("force"));
+    }
+    else if let Some(a) = args.subcommand_matches("self-upgrade") {
+        let tag = if let Some(v) = a.value_of("tag") {
+            Some(semver::Version::parse(v).expect("tag must be valid semver"))
+        } else { None };
+        return shipcat::upgrade::self_upgrade(tag);
     }
     // getters
     else if let Some(a) = args.subcommand_matches("get") {

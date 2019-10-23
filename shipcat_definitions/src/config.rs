@@ -291,28 +291,32 @@ impl Config {
     }
     #[cfg(feature = "filesystem")]
     pub fn verify_version_pin(&self, env: &Environment) -> Result<()> {
+        let pin = self.get_appropriate_version_pin(env)?;
+        debug!("Verifying version pin: {} for {}", pin, env.to_string());
+        Config::verify_version(&pin)
+    }
+    #[cfg(feature = "filesystem")]
+    pub fn get_appropriate_version_pin(&self, env: &Environment) -> Result<Version> {
         let pin = self.versions.get(&env).unwrap_or_else(|| {
             // NB: this fails in unpinned envs - still doing verification
             debug!("No version pin for environment {:?} - assuming maximum", env);
             self.versions.values().max().expect("a version pin exists in shipcat.conf")
         });
-        Config::verify_version(&pin)
+        Ok(pin.clone())
     }
 
-    fn verify_version(ver: &Version) -> Result<()> {
+    #[cfg(feature = "filesystem")]
+    fn verify_version(pin: &Version) -> Result<()> {
         let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-        if *ver > current {
+        if *pin > current {
             let url = "https://github.com/babylonhealth/shipcat/releases";
             let brewurl = "https://github.com/babylonhealth/homebrew-babylon";
             let s1 = format!("Precompiled releases available at {}", url);
             let s2 = format!("Homebrew releases available via {}", brewurl);
-
-            bail!("Your shipcat is out of date ({} < {})\n\t{}\n\t{}", current, ver, s1, s2)
+            bail!("Your shipcat is out of date ({} < {})\n\t{}\n\t{}", current, pin, s1, s2)
         }
         Ok(())
     }
-
-
 
     /// Print Config to stdout
     pub fn print(&self) -> Result<()> {
