@@ -57,8 +57,7 @@ env:
   ENDPOINTS_ENABLED: true
   FAKE_SECRET: "IN_VAULT"
   CORE_URL: "{{ base_urls.services }}/somesvc"
-  CLIENT_ID: "{{ kong.consumers['fake-ask'].oauth_client_id }}"
-  CLIENT_SECRET: "{{ kong.consumers['fake-ask'].oauth_client_secret | as_secret }}"
+  CLIENT_ID: FAKEASKID
 configs:
   mount: /config/
   files:

@@ -170,8 +170,6 @@ pub struct KongConfig {
     /// TCP logging options
     pub tcp_log: KongTcpLogConfig,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub consumers: BTreeMap<String, KongOauthConsumer>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub jwt_consumers: BTreeMap<String, KongJwtConsumer>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub internal_ips_whitelist: Vec<String>,
@@ -242,42 +240,9 @@ pub struct KongJwtConsumer {
 
 impl KongConfig {
     fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
-        for (svc, data) in &mut self.consumers {
-            if data.oauth_client_id == "IN_VAULT" {
-                let vkey = format!("{}/kong/consumers/{}_oauth_client_id", region, svc);
-                data.oauth_client_id = vault.read(&vkey)?;
-            }
-            if data.oauth_client_secret == "IN_VAULT" {
-                let vkey = format!("{}/kong/consumers/{}_oauth_client_secret", region, svc);
-                data.oauth_client_secret = vault.read(&vkey)?;
-            }
-        }
         if self.oauth_provision_key == "IN_VAULT" {
             let vkey = format!("{}/kong/oauth_provision_key", region);
             self.oauth_provision_key = vault.read(&vkey)?;
-        }
-        Ok(())
-    }
-    fn verify_secrets_exist(&self, vault: &Vault, region: &str) -> Result<()> {
-        let mut expected = vec![];
-        for (svc, data) in &self.consumers {
-            if data.oauth_client_id == "IN_VAULT" {
-                expected.push(format!("{}_oauth_client_id", svc));
-            }
-            if data.oauth_client_secret == "IN_VAULT" {
-                expected.push(format!("{}_oauth_client_secret", svc));
-            }
-        }
-        if expected.is_empty() {
-            return Ok(()); // no point trying to cross reference
-        }
-        let secpth = format!("{}/kong/consumers", region);
-        let found = vault.list(&secpth)?;
-        debug!("Found kong secrets {:?} for {}", found, region);
-        for v in expected {
-            if !found.contains(&v) {
-                bail!("Kong secret {} not found in {} vault", v, region);
-            }
         }
         Ok(())
     }
@@ -585,10 +550,6 @@ impl Region {
     // Entry point for region verifier
     pub fn verify_secrets_exist(&self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
-        if let Some(kong) = &self.kong {
-            debug!("Validating kong secrets for {}", self.name);
-            kong.verify_secrets_exist(&v, &self.name)?;
-        }
         for wh in &self.webhooks {
             wh.verify_secrets_exist(&v, &self.name)?;
         }

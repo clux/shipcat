@@ -35,28 +35,19 @@ fn kong_test() {
 
     assert_eq!(output.host, "admin.dev.something.domain.com");
 
-    assert_eq!(output.consumers.len(), 3);
-    assert_eq!(output.consumers[0].username, "fake-ask");
-    assert_eq!(output.consumers[0].credentials.len(), 1);
-    if let ConsumerCredentials::OAuth2(attrs) = &output.consumers[0].credentials[0] {
-        assert_eq!(attrs.client_id, "FAKEASKID");
-        assert_eq!(attrs.client_secret, "FAKEASKSECRET");
-    } else {
-        panic!("Not an OAuth2 credential")
-    }
+    assert_eq!(output.consumers.len(), 2);
 
-    assert_eq!(output.consumers[1].username, "my-idp");
-    assert_eq!(output.consumers[1].credentials.len(), 1);
-    if let ConsumerCredentials::Jwt(attrs) = &output.consumers[1].credentials[0] {
-        assert_eq!(attrs.key, "https://my-issuer/");
-        assert_eq!(attrs.algorithm, "RS256");
-        assert_eq!(attrs.rsa_public_key, "-----BEGIN PUBLIC KEY-----\nmy-key\n-----END PUBLIC KEY-----");
-    } else {
-        panic!("Not a JWT credential")
-    }
+    let consumer = &output.consumers[0];
+    assert_eq!(consumer.username, "my-idp");
+    assert_eq!(consumer.credentials.len(), 1);
+    let ConsumerCredentials::Jwt(attrs) = &consumer.credentials[0];
+    assert_eq!(attrs.key, "https://my-issuer/");
+    assert_eq!(attrs.algorithm, "RS256");
+    assert_eq!(attrs.rsa_public_key, "-----BEGIN PUBLIC KEY-----\nmy-key\n-----END PUBLIC KEY-----");
 
-    assert_eq!(output.consumers[2].username, "anonymous");
-    assert!(output.consumers[2].credentials.is_empty());
+    let consumer = &output.consumers[1];
+    assert_eq!(consumer.username, "anonymous");
+    assert!(consumer.credentials.is_empty());
 
 
     assert_eq!(output.apis.len(), 2);

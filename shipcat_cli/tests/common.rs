@@ -171,11 +171,10 @@ fn templating_test() {
     assert_eq!(&env["CORE_URL"], "https://woot.com/somesvc");
     // check values from Config - one plain, one as_secret
     assert_eq!(&env["CLIENT_ID"], "FAKEASKID");
-    assert!(env.get("CLIENT_SECRET").is_none()); // moved to secret
 
     assert_eq!(
         mf.env.secrets,
-        btree_set!["CLIENT_SECRET".to_string(), "FAKE_SECRET".to_string()]
+        btree_set!["FAKE_SECRET".to_string()]
     );
 
     // verify environment defaults
@@ -208,7 +207,6 @@ fn templating_test() {
 
     // verify secrets
     let sec = mf.secrets;
-    assert_eq!(&sec["CLIENT_SECRET"], "FAKEASKSECRET"); // via reg.kong consumers
     assert_eq!(&sec["FAKE_SECRET"], "hello"); // NB: ACTUALLY IN_VAULT
     assert_eq!(&sec["FAKE_NUMBER"], "-2"); // NB: ACTUALLY IN_VAULT
 

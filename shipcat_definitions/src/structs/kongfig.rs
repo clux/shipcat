@@ -510,20 +510,8 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
 }
 
 pub fn kongfig_consumers(k: KongConfig) -> Vec<Consumer> {
-    let mut consumers: Vec<Consumer> = k.consumers.into_iter().map(|(k,v)| {
-        Consumer {
-            username: k.to_string(),
-            acls: vec![],
-            credentials: vec![ConsumerCredentials::OAuth2(OAuth2CredentialsAttributes {
-                name: v.username,
-                client_id: v.oauth_client_id,
-                client_secret: v.oauth_client_secret,
-                redirect_uri: vec!["http://example.com/unused".into()]
-            })],
-        }
-    }).collect();
 
-    k.jwt_consumers.into_iter().map(|(k,v)| {
+    let mut consumers: Vec<Consumer> = k.jwt_consumers.into_iter().map(|(k,v)| {
         Consumer {
             username: k.to_string(),
             acls: vec![],
@@ -533,7 +521,7 @@ pub fn kongfig_consumers(k: KongConfig) -> Vec<Consumer> {
                 rsa_public_key: v.public_key,
             })]
         }
-    }).for_each(|c| consumers.push(c));
+    }).collect();
 
     // Add the anonymous customer as well
     consumers.push(Consumer {
@@ -555,17 +543,7 @@ pub struct Consumer {
 #[derive(Serialize, Clone)]
 #[serde(tag = "name", content = "attributes", rename_all="kebab-case")]
 pub enum ConsumerCredentials {
-    #[serde(rename = "oauth2")]
-    OAuth2(OAuth2CredentialsAttributes),
     Jwt(JwtCredentialsAttributes),
-}
-
-#[derive(Serialize, Clone)]
-pub struct OAuth2CredentialsAttributes {
-    pub client_id: String,
-    pub redirect_uri: Vec<String>,
-    pub name: String,
-    pub client_secret: String,
 }
 
 #[derive(Serialize, Clone)]

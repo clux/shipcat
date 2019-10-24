@@ -21,8 +21,6 @@ use std::mem;
 ///
 ///   # templated evars:
 ///   INTERNAL_AUTH_URL: "{{ base_urls.services }}/auth/internal"
-///   AUTH_ID: "{{ kong.consumers['webapp'].oauth_client_id }}"
-///   AUTH_SECRET: "{{ kong.consumers['webapp'].oauth_client_secret | as_secret }}"
 /// ```
 ///
 /// The vault lookup will GET from the region specific path for vault, in the
