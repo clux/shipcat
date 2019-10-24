@@ -169,8 +169,6 @@ pub struct KongConfig {
     pub oauth_provision_key: String,
     /// TCP logging options
     pub tcp_log: KongTcpLogConfig,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub anonymous_consumers: Option<KongAnonymousConsumers>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub consumers: BTreeMap<String, KongOauthConsumer>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
