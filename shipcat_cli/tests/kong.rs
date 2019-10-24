@@ -70,8 +70,6 @@ fn kong_test() {
     let attr = plugin_attributes!("TcpLog", api.plugins.remove(0), ApiPlugin::TcpLog);
     assert_eq!(attr.enabled, true);
 
-    assert_plugin_removed!("Oauth2", api.plugins.remove(0), ApiPlugin::Oauth2);
-
     let attr = plugin_attributes!("Jwt", api.plugins.remove(0), ApiPlugin::Jwt);
     assert_eq!(attr.enabled, true);
     assert_eq!(attr.config.uri_param_names, Vec::<String>::new());
@@ -117,8 +115,6 @@ fn kong_test() {
 
     let attr = plugin_attributes!("TcpLog", api.plugins.remove(0), ApiPlugin::TcpLog);
     assert_eq!(attr.enabled, true);
-
-    assert_plugin_removed!("Oauth2", api.plugins.remove(0), ApiPlugin::Oauth2);
 
     let attr = plugin_attributes!("Jwt", api.plugins.remove(0), ApiPlugin::Jwt);
     assert_eq!(attr.enabled, true);

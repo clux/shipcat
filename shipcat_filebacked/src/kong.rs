@@ -165,20 +165,12 @@ impl KongSource {
         }
     }
 
-    fn build_auth(auth: Option<Authentication>, authz: Enabled<AuthorizationSource>) -> Result<(Authentication, Option<Authorization>)> {
-        match (
-            auth,
-            authz.build(&())?,
-        ) {
-            // authorization is enabled
-            (None, Some(a)) | (Some(Authentication::Jwt), Some(a)) => {
-                Ok((Authentication::Jwt, Some(a)))
-            }
-            (Some(_), Some(_)) => bail!("auth must be unset or JWT if authorization is enabled"),
-            // otherwise
-            (Some(x), _) => Ok((x.clone(), None)),
-            (None, _) => Ok((Authentication::default(), None)),
-        }
+    fn build_auth(auth: Option<Authentication>, authz: Enabled<AuthorizationSource>) -> Result<(Option<Authentication>, Option<Authorization>)> {
+        Ok(match (auth, authz.build(&())?) {
+            (Some(_), Some(_)) => bail!("auth and authorization.enabled are mutually exclusive"),
+            (Some(Authentication::None), None) => (None, None),
+            x => x,
+        })
     }
 
     fn build_hosts(&self, base_url: &str) -> Result<Vec<String>> {

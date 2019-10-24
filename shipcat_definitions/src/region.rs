@@ -166,7 +166,8 @@ pub struct KongConfig {
     pub config_url: String,
     /// Kong token expiration time (in seconds)
     pub kong_token_expiration: u32,
-    pub oauth_provision_key: String,
+    #[deprecated(since = "0.135.0", note = "Kept temporarily to avoid breaking change")]
+    pub oauth_provision_key: Option<String>,
     /// TCP logging options
     pub tcp_log: KongTcpLogConfig,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -236,16 +237,6 @@ pub struct KongOauthConsumer {
 pub struct KongJwtConsumer {
     pub kid: String,
     pub public_key: String,
-}
-
-impl KongConfig {
-    fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
-        if self.oauth_provision_key == "IN_VAULT" {
-            let vkey = format!("{}/kong/oauth_provision_key", region);
-            self.oauth_provision_key = vault.read(&vkey)?;
-        }
-        Ok(())
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -538,9 +529,6 @@ impl Region {
     // Internal secret populator for Config::new
     pub fn secrets(&mut self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
-        if let Some(ref mut kong) = &mut self.kong {
-            kong.secrets(&v, &self.name)?;
-        }
         for wh in self.webhooks.iter_mut() {
             wh.secrets(&v, &self.name)?;
         }

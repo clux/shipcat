@@ -1141,11 +1141,11 @@ dependencies = [
 
 [[package]]
 name = "merge"
-version = "0.134.1"
+version = "0.135.0"
 
 [[package]]
 name = "merge_derive"
-version = "0.134.1"
+version = "0.135.0"
 dependencies = [
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1534,7 +1534,7 @@ dependencies = [
 
 [[package]]
 name = "raftcat"
-version = "0.134.1"
+version = "0.135.0"
 dependencies = [
  "actix 0.7.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "actix-web 0.7.19 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1553,7 +1553,7 @@ dependencies = [
  "serde_derive 1.0.99 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.40 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_yaml 0.8.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "shipcat_definitions 0.134.1",
+ "shipcat_definitions 0.135.0",
  "tera 0.11.20 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2072,7 +2072,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "shipcat"
-version = "0.134.1"
+version = "0.135.0"
 dependencies = [
  "chrono 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2094,8 +2094,8 @@ dependencies = [
  "serde_derive 1.0.99 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.40 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_yaml 0.8.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "shipcat_definitions 0.134.1",
- "shipcat_filebacked 0.134.1",
+ "shipcat_definitions 0.135.0",
+ "shipcat_filebacked 0.135.0",
  "slack-hook 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "threadpool 1.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2105,7 +2105,7 @@ dependencies = [
 
 [[package]]
 name = "shipcat_definitions"
-version = "0.134.1"
+version = "0.135.0"
 dependencies = [
  "base64 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2128,18 +2128,18 @@ dependencies = [
 
 [[package]]
 name = "shipcat_filebacked"
-version = "0.134.1"
+version = "0.135.0"
 dependencies = [
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "maplit 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "merge 0.134.1",
- "merge_derive 0.134.1",
+ "merge 0.135.0",
+ "merge_derive 0.135.0",
  "regex 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.99 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.99 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_yaml 0.8.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "shipcat_definitions 0.134.1",
+ "shipcat_definitions 0.135.0",
  "walkdir 2.2.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 

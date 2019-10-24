@@ -171,42 +171,6 @@ impl TcpLogPluginConfig {
 }
 
 #[derive(Serialize, Clone, Default)]
-pub struct Oauth2PluginConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub anonymous_username: Option<String>,
-    pub enable_client_credentials: bool,
-    pub mandatory_scope: bool,
-    pub hide_credentials: bool,
-    pub enable_implicit_grant: bool,
-    pub global_credentials: bool,
-    pub provision_key: String,
-    pub enable_password_grant: bool,
-    pub enable_authorization_code: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub anonymous: Option<String>,
-    pub token_expiration: u32,
-    pub accept_http_if_already_terminated: bool,
-}
-
-impl Oauth2PluginConfig {
-    fn new(kong_token_expiration: u32, oauth_provision_key: &str, anonymous_consumer: Option<String>) -> Self {
-        Oauth2PluginConfig {
-            anonymous: match anonymous_consumer.clone() {
-                Some(_s) => None,
-                None     => Some("".into()),
-            },
-            anonymous_username: anonymous_consumer.map(|_| "anonymous".into()),
-            global_credentials: true,
-            provision_key: oauth_provision_key.into(),
-            enable_password_grant: true,
-            enable_authorization_code: true,
-            token_expiration: kong_token_expiration,
-            ..Oauth2PluginConfig::default()
-        }
-    }
-}
-
-#[derive(Serialize, Clone, Default)]
 pub struct JwtPluginConfig {
     pub key_claim_name: String,
     #[serde(serialize_with = "empty_as_brackets")]
@@ -332,7 +296,6 @@ impl Default for CorrelationIdPluginConfig {
 #[serde(tag = "name", rename_all = "kebab-case")]
 pub enum ApiPlugin {
     TcpLog(PluginBase<TcpLogPluginConfig>),
-    Oauth2(PluginBase<Oauth2PluginConfig>),
     Jwt(PluginBase<JwtPluginConfig>),
     JwtValidator(PluginBase<JwtValidatorPluginConfig>),
     Cors(PluginBase<CorsPluginConfig>),
@@ -407,7 +370,6 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
         }
 
         if let Some(a) = v.authorization {
-            plugins.push(ApiPlugin::Oauth2(PluginBase::removed()));
             plugins.push(ApiPlugin::Jwt(PluginBase::new(JwtPluginConfig::new(if a.allow_anonymous {
                 Some("anonymous".to_string())
             } else {
@@ -434,18 +396,9 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
                 plugins.push(ApiPlugin::JsonCookiesCsrf(PluginBase::removed()));
             }
         } else {
-            // OAuth2 plugins
-            plugins.push(ApiPlugin::Oauth2(match v.auth {
-                Authentication::OAuth2 => PluginBase::new(Oauth2PluginConfig::new(
-                    config.kong_token_expiration,
-                    &config.oauth_provision_key,
-                    None)),
-                _ => PluginBase::removed(),
-            }));
-
             // JWT plugin
             plugins.push(ApiPlugin::Jwt(match v.auth {
-                Authentication::Jwt => PluginBase::new(JwtPluginConfig::new(
+                Some(Authentication::Jwt) => PluginBase::new(JwtPluginConfig::new(
                     None,
                 )),
                 _ => PluginBase::removed(),
