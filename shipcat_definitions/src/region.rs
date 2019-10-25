@@ -166,8 +166,6 @@ pub struct KongConfig {
     pub config_url: String,
     /// Kong token expiration time (in seconds)
     pub kong_token_expiration: u32,
-    #[deprecated(since = "0.135.0", note = "Kept temporarily to avoid breaking change")]
-    pub oauth_provision_key: Option<String>,
     /// TCP logging options
     pub tcp_log: KongTcpLogConfig,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
