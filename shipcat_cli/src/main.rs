@@ -775,17 +775,15 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
 
     else if let Some(a) = args.subcommand_matches("kong") {
+        let (conf, region) = resolve_config(a, ConfigType::Base)?;
         return if let Some(_b) = a.subcommand_matches("config-url") {
-            let (_conf, region) = resolve_config(a, ConfigType::Base)?;
             shipcat::kong::config_url(&region)
         } else {
-            let (conf, region) = resolve_config(a, ConfigType::Filtered)?;
             let mode = if a.is_present("crd") {
                 kong::KongOutputMode::Crd
             } else {
                 kong::KongOutputMode::Kongfig
             };
-            assert!(conf.has_secrets()); // sanity on cluster disruptive commands
             shipcat::kong::output(&conf, &region, mode)
         };
     }
