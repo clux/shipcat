@@ -293,7 +293,7 @@ impl Config {
     pub fn verify_version_pin(&self, env: &Environment) -> Result<()> {
         let pin = self.get_appropriate_version_pin(env)?;
         debug!("Verifying version pin: {} for {}", pin, env.to_string());
-        Config::verify_version(&pin)
+        Config::bail_on_version_older_than(&pin)
     }
     #[cfg(feature = "filesystem")]
     pub fn get_appropriate_version_pin(&self, env: &Environment) -> Result<Version> {
@@ -306,14 +306,21 @@ impl Config {
     }
 
     #[cfg(feature = "filesystem")]
-    fn verify_version(pin: &Version) -> Result<()> {
+    pub fn bail_on_version_older_than(pin: &Version) -> Result<()> {
         let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
         if *pin > current {
-            let url = "https://github.com/babylonhealth/shipcat/releases";
+            let releasesurl = "https://github.com/babylonhealth/shipcat/releases";
             let brewurl = "https://github.com/babylonhealth/homebrew-babylon";
-            let s1 = format!("Precompiled releases available at {}", url);
-            let s2 = format!("Homebrew releases available via {}", brewurl);
-            bail!("Your shipcat is out of date ({} < {})\n\t{}\n\t{}", current, pin, s1, s2)
+            let install = format!("Precompiled releases for mac/linux from {} installeable via:
+\tshipcat self-upgrade
+", releasesurl);
+
+            // Babylon convenience
+            let brewinstall = format!("Homebrew managed mac releases from {} installeable via:
+\tbrew update && brew upgrade shipcat
+", brewurl); // brew update technically only necessary for ssh based taps
+
+           bail!("Your shipcat is out of date ({} < {})\n{}\n{}", current, pin, install, brewinstall)
         }
         Ok(())
     }
@@ -430,6 +437,54 @@ impl Config {
     }
 }
 
+
+/// Simplified config with version information only
+///
+/// The part of shipcat.conf you never get to break the format of.
+#[derive(Deserialize)]
+pub struct ConfigFallback {
+    pub versions: BTreeMap<Environment, Version>,
+}
+
+impl ConfigFallback {
+    /// Read the fallback version of the Config to decide if upgrade needed
+    fn read() -> Result<ConfigFallback> {
+        use std::fs;
+        let pwd = Path::new(".");
+        let mpath = pwd.join("shipcat.conf");
+        let data = fs::read_to_string(&mpath)?;
+        let vc : ConfigFallback = serde_yaml::from_str(&data)?;
+        Ok(vc)
+    }
+
+    /// Safety path when shipcat.conf is unreadeable due to schema changes
+    ///
+    /// Allows main to identify an upgrade path without a working Config
+    pub fn find_upgradeable_version() -> Result<Option<Version>> {
+        // We should always be able to read fallback ConfigFallback:
+        let fb = match Self::read() {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                error!("shipcat.conf versions unreadable - manifests out of date?");
+                bail!("shipcat.conf could not be read even in fallback mode: {}", e);
+            },
+        };
+        // If only fallback ok, a schema change probably caused it.
+        // Check if our shipcat is out of date:
+        match fb.versions.values().min() {
+            None => bail!("Failed to understand version pin in shipcat.conf - needs at least one pin"),
+            Some(lowest) => {
+                let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+                if *lowest > current {
+                    return Ok(Some(lowest.to_owned()))
+                }
+                // otherwise.. we are up to date - unfortunately.
+            }
+        }
+        Ok(None)
+    }
+}
+
 /// Filesystem accessors for Config
 ///
 /// These must live in here because they use private methods herein.
@@ -439,7 +494,7 @@ impl Config {
     ///
     /// Pass this a region request via argument or a current context
     pub fn new(kind: ConfigType, context: &str) -> Result<(Config, Region)> {
-        let mut conf = Config::read()?;
+        let mut conf = Self::read()?;
         let region = if let Some(r) = conf.resolve_context(context.to_string()) {
             r
         } else {
@@ -469,38 +524,8 @@ impl Config {
             bail!("Config file {} does not exist", mpath.display())
         }
         let data = fs::read_to_string(&mpath)?;
-        let res = serde_yaml::from_str(&data);
-        match res {
-            Err(e) => {
-                // failed to parse the config common causes:
-
-                // 1. version change caused their config to be out of date
-                // try to parse it as simplified yaml (need at least that to pass)
-                #[derive(Deserialize)]
-                struct VersionConfig {
-                    versions: BTreeMap<Environment, Version>,
-                }
-                let vc : VersionConfig = serde_yaml::from_str(&data)?;
-                debug!("Got version requirements: {:?}", vc.versions);
-                // verify that we at least have the lowest version
-                if let Some(lowest) = vc.versions.values().min() {
-                    let res2 = Config::verify_version(&lowest);
-                    if let Err(e2) = res2 {
-                        return Err(Error::from(e).chain_err(|| e2));
-                    }
-                }
-                else {
-                    bail!("Failed to understand version pin in shipcat.conf - needs at least one pin");
-                }
-
-                // 2. manifests out of date, but shipcat up to date (can happen with brew)
-                warn!("Invalid shipcat.conf - either genuine error, or your manifests dir is out of date locally");
-
-                // 3. genuine mistake in config additions/removals
-                Err(e.into()) // propagate normal error
-            }
-            Ok(d) => Ok(d)
-        }
+        let res = serde_yaml::from_str(&data)?;
+        Ok(res)
     }
 
     /// Read a config in pwd and leave placeholders

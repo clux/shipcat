@@ -467,23 +467,47 @@ fn resolve_config(args: &ArgMatches, ct: ConfigType) -> Result<(Config, Region)>
     } else {
         kubectl::current_context()?
     };
-    let res = Config::new(ct, &regionguess)?;
-    if let Err(e) = res.0.verify_version_pin(&res.1.environment) {
+    let (cfg, reg) = match Config::new(ct, &regionguess) {
+        Ok((c, r)) => (c, r),
+        // Safety-path to ensure people aren't locked to older versions:
+        Err(e) => {
+            if let Some(v) = ConfigFallback::find_upgradeable_version()? {
+                // Attempt an auto-upgrade if set
+                if std::env::var("SHIPCAT_AUTOUPGRADE").is_ok() {
+                    warn!("shipcat.conf read in fallback mode - version < {} - upgrading", v.to_string());
+                    if let Err(e2) = shipcat::upgrade::self_upgrade(Some(v)) {
+                        return Err(Error::from(e).chain_err(|| Error::from(e2)));
+                    }
+                    std::process::exit(0);
+                } else {
+                    // no auto-upgrade, just tell people what to do as usual.
+                    let e2 = Config::bail_on_version_older_than(&v).unwrap_err();
+                    return Err(Error::from(e).chain_err(|| Error::from(e2)));
+                }
+            }
+            // still here? we are up to date, but have an invalid config.
+            return Err(e.into());
+        }
+    };
+    // Here? Config valid. Run usual safety checks.
+    if let Err(e) = cfg.verify_version_pin(&reg.environment) {
         if args.is_present("strict-version-check") {
             return Err(e.into())
         } else if std::env::var("SHIPCAT_AUTOUPGRADE").is_ok() {
-            warn!("shipcat version less than pinned minimum - autoupgrading");
-            let pin = res.0.get_appropriate_version_pin(&res.1.environment).ok();
+            let pin = cfg.get_appropriate_version_pin(&reg.environment).ok();
+            warn!("shipcat out of date - autoupgrading"); // potentially to latest
             shipcat::upgrade::self_upgrade(pin)?;
             // we could potentially shell out to new shipcat with args here
             // but the args were just consumed by clap, so..
             info!("Please retry your command");
+            std::process::exit(0);
         } else {
             warn!("shipcat version less than pinned minimum - results may vary");
             warn!("{}", e);
+            // Continue anyway ╚═[ ˵✖‿✖˵ ]═╝
         }
     }
-    Ok(res)
+    Ok((cfg, reg))
 }
 
 fn void<T>(_x: T) {} // helper so that dispatch_commands can return Result<()>
