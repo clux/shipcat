@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 
 use merge::Merge;
 use shipcat_definitions::structs::metadata::SlackChannel;
-use shipcat_definitions::structs::newrelic::{Newrelic, NewrelicAlert};
+use shipcat_definitions::structs::newrelic::{Newrelic, NewrelicAlert, NewrelicIncidentPreference};
 use shipcat_definitions::{Result, ResultExt};
 
 use crate::util::Build;
@@ -13,6 +13,7 @@ use crate::util::Build;
 /// ```yaml
 /// newrelic:
 ///   slack: C12ABYZ78
+///   incidentPreference: PER_POLICY
 ///   alerts:
 ///     my_alert_name_foo:
 ///       template: apdex
@@ -27,9 +28,10 @@ use crate::util::Build;
 #[cfg_attr(test, derive(PartialEq))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct NewrelicSource {
-    /// we might want to route all the alerts to some particular channel in bulk
-    /// without having to mention each alert explicitly
+    /// we might want to re-route all the alerts to some particular channel in bulk
     pub slack: Option<SlackChannel>,
+    #[serde(default)]
+    pub incident_preference: Option<NewrelicIncidentPreference>,
     #[serde(default)]
     pub alerts: BTreeMap<String, Option<NewrelicAlertSource>>,
 }
@@ -51,14 +53,20 @@ impl Build<Option<Newrelic>, SlackChannel> for NewrelicSource {
             .filter_map(|(name, opt_alert_source)| {
                 opt_alert_source.map(|alert_source| {
                     alert_source
-                        .build(&(name.clone(), slack.clone()))
+                        .build(&name.clone())
                         .map(|alert| (name.clone(), alert))
                         .chain_err(|| format!("Error at Newrelic Alert `{}`", &name))
                 })
             })
             .collect();
 
-        Ok(Some(Newrelic { alerts: alerts_res? }))
+        let incident_preference = self.incident_preference.unwrap_or_default();
+
+        Ok(Some(Newrelic {
+            slack,
+            incident_preference,
+            alerts: alerts_res?
+        }))
     }
 }
 
@@ -67,19 +75,12 @@ impl Build<Option<Newrelic>, SlackChannel> for NewrelicSource {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct NewrelicAlertSource {
     pub template: Option<String>,
-    pub slack: Option<SlackChannel>,
     #[serde(default)]
     pub params: BTreeMap<String, String>,
 }
 
-impl Build<NewrelicAlert, (String, SlackChannel)> for NewrelicAlertSource {
-    fn build(self, name_slack: &(String, SlackChannel)) -> Result<NewrelicAlert> {
-        let (name, default_channel) = name_slack;
-        let slack = self
-            .slack
-            .map(|s| s.verify().map(|_| s))
-            .unwrap_or_else(|| Ok(default_channel.clone()))?;
-
+impl Build<NewrelicAlert, String> for NewrelicAlertSource {
+    fn build(self, name: &String) -> Result<NewrelicAlert> {
         let name_re = Regex::new(r"^[0-9a-zA-Z _\-]{1,50}$").unwrap();
         if !name_re.is_match(name) {
             bail!(
@@ -103,7 +104,6 @@ impl Build<NewrelicAlert, (String, SlackChannel)> for NewrelicAlertSource {
         Ok(NewrelicAlert {
             name: name.to_string(),
             template,
-            slack,
             params: self.params,
         })
     }
@@ -161,7 +161,6 @@ newrelic:
     allParamsAreDefault:
       template: Default
     thisOneHasSlackDefinedAndWontPropagate:
-      slack: COVERRIDE
       template: Default"###.into(),
             env_yml: "{}".into(),
             default_channel: "CDEFTEAM8".into(),
@@ -171,13 +170,13 @@ newrelic:
     allParamsAreDefault:
       name: allParamsAreDefault
       template: Default
-      slack: CDEFTEAM8
       params: {}
     thisOneHasSlackDefinedAndWontPropagate:
       name: thisOneHasSlackDefinedAndWontPropagate
       template: Default
-      slack: COVERRIDE
-      params: {}"###.into(),
+      params: {}
+  incidentPreference: PER_POLICY
+  slack: CDEFTEAM8"###.into(),
         })
     }
 
@@ -190,7 +189,6 @@ newrelic:
     allParamsAreDefault:
       template: Default
     thisOneHasSlackDefinedAndWontChange:
-      slack: COVERRIDE
       template: Default"###.into(),
             env_yml: r###"---
 newrelic:
@@ -202,13 +200,13 @@ newrelic:
     allParamsAreDefault:
       name: allParamsAreDefault
       template: Default
-      slack: CREGION78
       params: {}
     thisOneHasSlackDefinedAndWontChange:
       name: thisOneHasSlackDefinedAndWontChange
       template: Default
-      slack: COVERRIDE
-      params: {}"###.into(),
+      params: {}
+  incidentPreference: PER_POLICY
+  slack: CREGION78"###.into(),
         })
     }
 
@@ -230,6 +228,8 @@ newrelic:
         priority: warning"###.into(),
             env_yml: r###"---
 newrelic:
+  slack: COVERRIDE
+  incidentPreference: PER_CONDITION_AND_TARGET
   alerts:
     myApdex: # you have to specify the full alert body, as it's merged as a whole
       template: SimpleApdex
@@ -237,7 +237,6 @@ newrelic:
         threshold: "0.98"
         priority: warning
     myErrorRate:
-      slack: COVERRIDE
       template: SimpleErrorRate
       params:
         threshold: "0.05"
@@ -249,17 +248,17 @@ newrelic:
     myApdex:
       name: myApdex
       template: SimpleApdex
-      slack: CDEFTEAM8
       params:
         priority: warning
         threshold: "0.98"
     myErrorRate:
       name: myErrorRate
       template: SimpleErrorRate
-      slack: COVERRIDE
       params:
         priority: critical
-        threshold: "0.05""###.into(),
+        threshold: "0.05"
+  incidentPreference: PER_CONDITION_AND_TARGET
+  slack: COVERRIDE"###.into(),
         })
     }
 
@@ -290,10 +289,11 @@ newrelic:
     myApdex:
       name: myApdex
       template: SimpleApdex
-      slack: CDEFTEAM8
       params:
         priority: warning
-        threshold: "0.8""###.into(),
+        threshold: "0.8"
+  incidentPreference: PER_POLICY
+  slack: CDEFTEAM8"###.into(),
         })
     }
 

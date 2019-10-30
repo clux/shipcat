@@ -148,7 +148,7 @@ fn build_cli() -> App<'static, 'static> {
               .subcommand(SubCommand::with_name("images")
                 .help("Reduce encoded image info"))
               .subcommand(SubCommand::with_name("resources")
-                .help("Reduce encoded resouce requests and limits"))
+                .help("Reduce encoded resource requests and limits"))
               .subcommand(SubCommand::with_name("apistatus")
                 .help("Reduce encoded API info"))
               .subcommand(SubCommand::with_name("codeowners")

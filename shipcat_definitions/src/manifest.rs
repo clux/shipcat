@@ -678,10 +678,11 @@ pub struct Manifest {
     ///     alert_name_foo:
     ///       name: alert_name_foo:
     ///       template: appdex
-    ///       slack: C12ABYZ78
     ///       params:
     ///         threshold: "0.5"
     ///         priority: critical
+    ///   incidentPreference: PER_POLICY
+    ///   slack: C12ABYZ78
     /// ```
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub newrelic: Option<Newrelic>,
@@ -692,7 +693,6 @@ pub struct Manifest {
     /// sentry:
     ///   slack: C12ABYZ78
     ///   silent: false
-    ///   dsnEnvName: MY_CUSTOM_DSN
     /// ```
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sentry: Option<Sentry>,

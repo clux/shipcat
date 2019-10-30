@@ -1,5 +1,3 @@
-use regex::Regex;
-
 use shipcat_definitions::structs::metadata::SlackChannel;
 use shipcat_definitions::structs::sentry::Sentry;
 use shipcat_definitions::Result;
@@ -14,14 +12,11 @@ use crate::util::Build;
 ///   slack: C12ABYZ78
 /// if you find sentry too noisy you are able to mute it with true
 ///   silent: true
-///   # optional, default to `SENTRY_DSN`
-///   dsnEnvName: MY_CUSTOM_DSN
 /// ```
 #[derive(Debug, Default, Clone, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct SentrySource {
-    pub dsn_env_name: Option<String>,
     /// if you find sentry too noisy you are able to mute it with true
     #[serde(default)]
     pub silent: bool,
@@ -38,13 +33,7 @@ impl Build<Sentry, SlackChannel> for SentrySource {
 
         let silent = self.silent;
 
-        let dsn_env_name = self.dsn_env_name.unwrap_or("SENTRY_DSN".to_string());
-        let dsn_env_name_re = Regex::new(r"^([A-Z]+_)*[A-Z]+$").unwrap();
-        if !dsn_env_name_re.is_match(&dsn_env_name) {
-            bail!("Please use a valid env var name for DSN, not `{}`", dsn_env_name);
-        }
-
-        Ok(Sentry { slack, silent, dsn_env_name })
+        Ok(Sentry { slack, silent })
     }
 }
 
@@ -99,8 +88,7 @@ mod tests {
             crd_expected: r###"---
 sentry:
   slack: CDEFTEAM8
-  silent: false
-  dsnEnvName: SENTRY_DSN"###.into(),
+  silent: false"###.into(),
         })
     }
 
@@ -109,20 +97,17 @@ sentry:
         test_parse_and_merge(TestSet {
             manifest_yml: r###"---
 sentry:
-  dsnEnvName: CUSTOM_DSN_VAULT_KEY"###.into(),
+  silent: false"###.into(),
             env_yml: r###"---
 sentry:
-  # you have to state non-default DSN explicitly - the whole sentry section is merged
-  # also, it's not possible to turn sentry off if defined in the service manifest
+  # it's not possible to turn sentry off if defined in the service manifest
   silent: true
-  dsnEnvName: CUSTOM_DSN_VAULT_KEY
   slack: COVERRIDE"###.into(),
             default_channel: "CDEFTEAM8".into(),
             crd_expected: r###"---
 sentry:
   slack: COVERRIDE
-  silent: true
-  dsnEnvName: CUSTOM_DSN_VAULT_KEY"###.into(),
+  silent: true"###.into(),
         })
     }
 
