@@ -98,6 +98,12 @@ fn kong_test() {
 
     assert_upstream_header_transform(api.plugins.remove(0), "fake-ask");
 
+
+    let attr = plugin_attributes!("PiiRegionHeader", api.plugins.remove(0), ApiPlugin::PiiRegionHeader);
+    assert_eq!(attr.enabled, true);
+    assert_eq!(attr.config.enabled, true);
+    assert_eq!(attr.config.region_service_uri, "fake-region-service.svc.cluster.local");
+
     assert!(api.plugins.is_empty());
 
     // fake-storage API

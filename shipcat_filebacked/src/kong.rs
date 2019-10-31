@@ -1,7 +1,7 @@
 use merge::Merge;
 use std::collections::BTreeMap;
 
-use shipcat_definitions::structs::{Authentication, Authorization, BabylonAuthHeader, Cors, Kong};
+use shipcat_definitions::structs::{Authentication, Authorization, BabylonAuthHeader, Cors, Kong, PiiRegionHeader};
 use shipcat_definitions::{Region, KongConfig, Result};
 
 use super::authorization::AuthorizationSource;
@@ -98,6 +98,7 @@ pub struct KongSource {
     pub auth: Option<Authentication>,
     pub babylon_auth_header: Option<BabylonAuthHeader>,
     pub authorization: Enabled<AuthorizationSource>,
+    pub pii_region_header: Option<PiiRegionHeader>,
 
     pub upstream_connect_timeout: Option<u32>,
     pub upstream_send_timeout: Option<u32>,
@@ -141,6 +142,7 @@ impl Build<Kong, KongBuildParams> for KongSource {
             uris: self.uris,
             hosts,
             authorization,
+            pii_region_header: self.pii_region_header,
             strip_uri: self.strip_uri.unwrap_or_default(),
             preserve_host,
             cors: self.cors,

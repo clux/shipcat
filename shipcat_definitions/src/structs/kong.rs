@@ -65,6 +65,10 @@ pub struct Kong {
     #[serde(default = "preserve_host_default")]
     pub preserve_host: bool,
 
+    /// Configuration parameters for Pii region header plugin
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pii_region_header: Option<PiiRegionHeader>,
+
     /// Configuration parameters for Cross Origin Resource Sharing plugin
     ///
     /// When set, the plugin is used.
@@ -138,6 +142,15 @@ pub struct BabylonAuthHeader {
     pub enabled: bool,
     pub http_timeout_msec: u32,
 }
+
+/// Babylon Auth Header plugin data
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
+pub struct PiiRegionHeader {
+    pub region_service_uri: String,
+    pub enabled: bool,
+}
+
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
