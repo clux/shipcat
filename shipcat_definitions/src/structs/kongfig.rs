@@ -237,24 +237,13 @@ pub struct JsonCookiesToHeadersPluginConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cookie_max_age_sec: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cookie_domain: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enable_refresh_expired_access_tokens: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub http_timeout_msec: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub renew_before_expiry_sec: Option<u32>,
-}
-
-impl Default for JsonCookiesToHeadersPluginConfig {
-    fn default() -> Self {
-        JsonCookiesToHeadersPluginConfig {
-            auth_service: None,
-            body_refresh_token_key: None,
-            cookie_max_age_sec: None,
-            enable_refresh_expired_access_tokens: Some(false),
-            http_timeout_msec: None,
-            renew_before_expiry_sec: None,
-        }
-    }
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -393,6 +382,7 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
                     auth_service: a.refresh_auth_service,
                     body_refresh_token_key: a.refresh_body_refresh_token_key,
                     cookie_max_age_sec: a.refresh_max_age_sec,
+                    cookie_domain: a.refresh_cookie_domain,
                     enable_refresh_expired_access_tokens: Some(a.enable_cookie_refresh),
                     http_timeout_msec: a.refresh_http_timeout_msec,
                     renew_before_expiry_sec: a.refresh_renew_before_expiry_sec,

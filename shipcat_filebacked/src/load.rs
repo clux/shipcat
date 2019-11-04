@@ -129,6 +129,7 @@ impl ManifestDefaults {
                     enable_cookie_refresh: Some(authz.enable_cookie_refresh),
                     refresh_auth_service: authz.refresh_auth_service,
                     refresh_body_refresh_token_key: authz.refresh_body_refresh_token_key,
+                    refresh_cookie_domain: authz.refresh_cookie_domain,
                     refresh_max_age_sec: authz.refresh_max_age_sec,
                     refresh_http_timeout_msec: authz.refresh_http_timeout_msec,
                     refresh_renew_before_expiry_sec: authz.refresh_renew_before_expiry_sec,

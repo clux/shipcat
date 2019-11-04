@@ -42,6 +42,8 @@ pub struct Authorization {
     //  Defines the max_age parameter of the new HTTP cookie
     pub refresh_max_age_sec: Option<u32>,
 
+    pub refresh_cookie_domain: Option<String>,
+
     /// HTTP timeout for cookie refresh in msec
     pub refresh_http_timeout_msec: Option<u32>,
 
