@@ -404,6 +404,20 @@ fn build_cli() -> App<'static, 'static> {
                 .short("f")
                 .help("Remove the old tsh state file to force a login")))
 
+        .subcommand(SubCommand::with_name("top")
+            .about("Show top requests from manifests on disk")
+            .arg(Arg::with_name("upper")
+                .short("u")
+                .long("upper-bounds")
+                .help("Use the upper bounds of autoscaling policies"))
+            .arg(Arg::with_name("order")
+                .takes_value(true)
+                .possible_values(&["cpu", "memory"])
+                .default_value("cpu")
+                .long("order")
+                .short("o")
+                .help("Resource type to sort by")))
+
         .subcommand(SubCommand::with_name("self-upgrade")
             .about("Upgrade shipcat using github releases")
             .arg(Arg::with_name("tag")
@@ -586,6 +600,12 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         if let Some(_) = a.subcommand_matches("apistatus") {
             return shipcat::get::apistatus(&conf, &region);
         }
+    }
+    else if let Some(a) = args.subcommand_matches("top") {
+        let order = ResourceOrder::from_str(a.value_of("order").unwrap())?;
+        let upper_bounds = a.is_present("upper");
+        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        return shipcat::top::resources(order, upper_bounds, &conf, &region).map(void);
     }
     // product
     else if let Some(_a) = args.subcommand_matches("product") {

@@ -127,6 +127,11 @@ pub mod graph;
 /// Various simple reducers
 pub mod get;
 
+/// Top resource use
+pub mod top;
+pub use top::ResourceOrder;
+
+
 /// Diffing module for values
 pub mod diff;
 
