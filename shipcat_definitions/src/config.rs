@@ -540,6 +540,15 @@ impl Config {
         self.kind == ConfigType::File
     }
 
+    /// Region retriever for global reducers
+    ///
+    /// Assumes you have not filtered a config in main accidentally.
+    pub fn get_region_unchecked(&self, region: &str) -> Option<&Region> {
+        assert!(self.has_all_regions());
+        self.regions.iter().find(|r| r.name == region)
+    }
+
+
     /// Filter a file based config for a known to exist region
     fn remove_redundant_regions(&mut self, region: &str) -> Result<()> {
         assert_eq!(self.kind, ConfigType::File);

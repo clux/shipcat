@@ -410,6 +410,9 @@ fn build_cli() -> App<'static, 'static> {
                 .short("u")
                 .long("upper-bounds")
                 .help("Use the upper bounds of autoscaling policies"))
+            .arg(Arg::with_name("world")
+                .long("world")
+                .help("Show resource requests across all regions"))
             .arg(Arg::with_name("order")
                 .takes_value(true)
                 .possible_values(&["cpu", "memory"])
@@ -604,8 +607,13 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("top") {
         let order = ResourceOrder::from_str(a.value_of("order").unwrap())?;
         let upper_bounds = a.is_present("upper");
-        let (conf, region) = resolve_config(a, ConfigType::Base)?;
-        return shipcat::top::resources(order, upper_bounds, &conf, &region).map(void);
+        return if a.is_present("world") {
+            let rawconf = Config::read()?;
+            shipcat::top::world_requests(order, upper_bounds, &rawconf).map(void)
+        } else {
+            let (conf, region) = resolve_config(a, ConfigType::Base)?;
+            shipcat::top::region_requests(order, upper_bounds, &conf, &region).map(void)
+        };
     }
     // product
     else if let Some(_a) = args.subcommand_matches("product") {
