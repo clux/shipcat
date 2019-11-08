@@ -1,9 +1,33 @@
-use super::{Result, Manifest};
+use super::{Result, Manifest, ErrorKind};
 use shipcat_definitions::Crd;
 use serde::Serialize;
 use regex::Regex;
 use serde_yaml;
+use serde_json::json;
 use chrono::{Utc, DateTime};
+
+use kube::{
+    api::{RawApi, PostParams, Object, TypeMeta, ObjectMeta},
+    client::APIClient,
+    config::load_kube_config,
+};
+
+use k8s_openapi::api::authorization::v1::{
+    ResourceRule,
+    ResourceAttributes,
+    NonResourceAttributes,
+    SelfSubjectRulesReviewSpec,
+    SubjectRulesReviewStatus,
+    SelfSubjectAccessReviewSpec,
+    SubjectAccessReviewStatus,
+};
+
+struct AccessReviewRequest{
+    namespace: String,
+    verb: String,
+    resource: String,
+    subresource: Option<String>,
+}
 
 pub fn kexec(args: Vec<String>) -> Result<()> {
     use std::process::Command;
@@ -31,18 +55,75 @@ fn kout(args: Vec<String>) -> Result<(String, bool)> {
     Ok((out, s.status.success()))
 }
 
-fn kani(mf: &Manifest, verb: String, resource: String) -> Result<bool> {
-    let args = vec![
-        format!("-n={}", mf.namespace),
-        "auth".into(),
-        "can-i".into(),
-        verb,
-        resource,
-    ];
-    use std::process::Command;
-    debug!("kubectl {}", args.join(" "));
-    let s = Command::new("kubectl").args(&args).output()?;
-    Ok(s.status.success())
+fn get_kube_permissions(namespace: String) -> Result<Vec<ResourceRule>> {
+    let config = load_kube_config().expect("config failed to load");
+    let client = APIClient::new(config);
+
+    let ssrr = RawApi::customResource("selfsubjectrulesreviews").group("authorization.k8s.io").version("v1");
+
+    let pp = PostParams::default();
+
+    let auth_req = Object{
+        types: TypeMeta{
+            kind: Some("SelfSubjectRulesReview".into()),
+            apiVersion: Some("authorization.k8s.io/v1".into()),
+        },
+        metadata: ObjectMeta::default(),
+        spec: SelfSubjectRulesReviewSpec{
+            namespace: Some(namespace),
+        },
+        status: Some(SubjectRulesReviewStatus::default()),
+    };
+
+    let req = ssrr.create(&pp, serde_json::to_vec(&auth_req)?).expect("failed to create request");
+    let o = client.request::<Object<SelfSubjectRulesReviewSpec, SubjectRulesReviewStatus>>(req).map_err(ErrorKind::KubeError)?;
+
+    debug!("spec: {:?}", o.spec);
+    debug!("status: {:?}", o.status);
+    Ok(o.status.expect("expected rules").resource_rules)
+}
+
+fn kani(rr: AccessReviewRequest) -> Result<bool> {
+    let config = load_kube_config().expect("config failed to load");
+    let client = APIClient::new(config);
+
+    let ssrr = RawApi::customResource("selfsubjectaccessreviews").group("authorization.k8s.io").version("v1");
+
+    let pp = PostParams::default();
+
+    let auth_req = Object{
+        types: TypeMeta{
+            kind: Some("SelfSubjectAccessReview".into()),
+            apiVersion: Some("authorization.k8s.io/v1".into()),
+        },
+        metadata: ObjectMeta::default(),
+        spec: SelfSubjectAccessReviewSpec{
+            resource_attributes: Some(ResourceAttributes{
+                namespace: Some(rr.namespace),
+                verb: Some(rr.verb),
+                resource: Some(rr.resource),
+                subresource: rr.subresource,
+                group: None,
+                name: None,
+                version: None,
+            }),
+            non_resource_attributes: None,
+        },
+        status: Some(SubjectAccessReviewStatus::default()),
+    };
+
+    let req = ssrr.create(&pp, serde_json::to_vec(&auth_req)?).expect("failed to create request");
+    let o = client.request::<Object<SelfSubjectAccessReviewSpec, SubjectAccessReviewStatus>>(req).map_err(ErrorKind::KubeError)?;
+
+    debug!("spec: {:?}", o.spec);
+    debug!("status: {:?}", o.status);
+
+    let status = o.status.expect("expected status");
+
+    if let Some(reason) = status.reason {
+        debug!("reason: {}", reason);
+    }
+    Ok(status.allowed)
 }
 
 /// CLI way to resolve kube context
@@ -470,7 +551,14 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
 ///
 /// Useful because we have autocomplete on manifest names in shipcat
 pub fn port_forward(mf: &Manifest) -> Result<()> {
-    if ! kani(mf, "create".into(), "pods/portforward".into())? {
+    let access_request = AccessReviewRequest{
+        namespace: mf.namespace.clone(),
+        verb: "create".into(),
+        resource: "pods".into(),
+        subresource: Some("portforward".into()),
+    };
+
+    if !kani(access_request)? {
         bail!("Current token does not have authorization to port-forward")
     };
 
