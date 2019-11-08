@@ -129,7 +129,7 @@ pub mod get;
 
 /// Top resource use
 pub mod top;
-pub use top::ResourceOrder;
+pub use top::{ResourceOrder, OutputFormat};
 
 
 /// Diffing module for values

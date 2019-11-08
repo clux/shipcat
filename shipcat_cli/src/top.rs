@@ -39,7 +39,7 @@ impl ResourceOrder {
 /// It does NOT talk to kubernetes.
 ///
 /// It works out ResourceTotals based on Manifest properties analytically.
-pub fn world_requests(order: ResourceOrder, upper_bounds: bool, conf: &Config)
+pub fn world_requests(order: ResourceOrder, upper_bounds: bool, fmt: OutputFormat, conf: &Config)
     -> Result<Vec<(Manifest, ResourceTotals)>>
 {
     let all = shipcat_filebacked::all(conf)?;
@@ -70,7 +70,7 @@ pub fn world_requests(order: ResourceOrder, upper_bounds: bool, conf: &Config)
         })
         .collect();
     let mfs : Vec<(Manifest, ResourceTotals)> = mfs_res?.into_iter().filter_map(|x| x).collect();
-    let mfs = sort_and_print_resources(mfs, order, upper_bounds)?;
+    let mfs = sort_and_print_resources(mfs, order, fmt, upper_bounds)?;
     Ok(mfs)
 }
 
@@ -81,7 +81,7 @@ pub fn world_requests(order: ResourceOrder, upper_bounds: bool, conf: &Config)
 /// It does NOT talk to kubernetes.
 ///
 /// It works out ResourceTotals based on Manifest properties analytically.
-pub fn region_requests(order: ResourceOrder, upper_bounds: bool, conf: &Config, reg: &Region)
+pub fn region_requests(order: ResourceOrder, upper_bounds: bool, fmt: OutputFormat, conf: &Config, reg: &Region)
     -> Result<Vec<(Manifest, ResourceTotals)>>
 {
     let available = shipcat_filebacked::available(conf, &reg)?;
@@ -94,15 +94,40 @@ pub fn region_requests(order: ResourceOrder, upper_bounds: bool, conf: &Config, 
             Ok((mf, res))
         })
         .collect();
-    let mfs = sort_and_print_resources(mfs_res?, order, upper_bounds)?;
+    let mfs = sort_and_print_resources(mfs_res?, order, fmt, upper_bounds)?;
     Ok(mfs)
 }
 
+/// How to format numbers
+pub enum OutputFormat {
+    /// Human readable table using size-formatter
+    Table,
+    /// Yaml output with raw numbers in milli-cores and Bytes
+    Yaml,
+}
+impl OutputFormat {
+    pub fn from_str(input: &str) -> Result<Self> {
+        match input {
+            "table" => Ok(Self::Table),
+            "yaml" => Ok(Self::Yaml),
+            _ => bail!("Resource type must be table or yaml"),
+        }
+    }
+}
+impl Default for OutputFormat {
+    fn default() -> Self {
+        Self::Table
+    }
+}
 
-fn sort_and_print_resources(mfs_: Vec<(Manifest, ResourceTotals)>, order: ResourceOrder, upper_bounds: bool)
+fn sort_and_print_resources(
+    mut mfs: Vec<(Manifest, ResourceTotals)>,
+    order: ResourceOrder,
+    formatting: OutputFormat,
+    upper_bounds: bool
+)
     -> Result<Vec<(Manifest, ResourceTotals)>>
 {
-    let mut mfs = mfs_;
     match order {
         ResourceOrder::Cpu => {
             mfs.sort_by(|(_, r1), (_, r2)| {
@@ -125,29 +150,47 @@ fn sort_and_print_resources(mfs_: Vec<(Manifest, ResourceTotals)>, order: Resour
             });
         }
     }
-    println!("{0:<50} {1:<8} {2:<8} {3:40}", "SERVICE", "CPU", "MEMORY", "TEAM");
-    mfs.iter().for_each(|(mf, r)| {
-        debug!("{}: cpu {} + {}, mem: {} + {}", mf.name, r.base.requests.cpu,
-            r.extra.requests.cpu, r.base.requests.memory, r.extra.requests.memory);
-        if upper_bounds {
+    // Convert the sorted data into a printable structure.
+    #[derive(Serialize)]
+    struct YamlOutput {
+        name: String,
+        team: String,
+        cpu: u64,
+        memory: u64,
+    }
+    let output = mfs.iter().map(|(mf, r)| {
+        // Convert to Millicores and Bytes
+        let (cpu, memory) = if upper_bounds {
             let ub_cpu = (1000.0*(r.base.requests.cpu + r.extra.requests.cpu)) as u64;
             let ub_memory = (r.base.requests.memory + r.extra.requests.memory) as u64;
-            println!("{0:<50} {1:width$} {2:width$} {3:<40}", mf.name,
-                format!("{:.0}", SizeFormatter::<u64, Millicores, PointSeparated>::new(ub_cpu)),
-                format!("{:.0}B", SizeFormatterBinary::new(ub_memory)),
-                mf.metadata.as_ref().unwrap().team,
-                width = 8,
-            );
+            (ub_cpu, ub_memory)
         } else {
             let lb_cpu = (1000.0*r.base.requests.cpu) as u64;
             let lb_memory = r.base.requests.memory as u64;
-            println!("{0:<50} {1:width$} {2:width$} {3:<40}", mf.name,
-                format!("{:.0}", SizeFormatter::<u64, Millicores, PointSeparated>::new(lb_cpu)),
-                format!("{:.0}B", SizeFormatterBinary::new(lb_memory)),
-                mf.metadata.as_ref().unwrap().team,
-                width = 8,
-            );
+            (lb_cpu, lb_memory)
+        };
+        YamlOutput {
+            memory, cpu,
+            name: mf.name.clone(),
+            team: mf.metadata.as_ref().unwrap().team.clone(),
         }
-    });
+    }).collect::<Vec<_>>();
+
+    match formatting {
+        OutputFormat::Table => {
+            println!("{0:<50} {1:<8} {2:<8} {3:40}", "SERVICE", "CPU", "MEMORY", "TEAM");
+            output.into_iter().for_each(|o| {
+                println!("{0:<50} {1:width$} {2:width$} {3:<40}", o.name,
+                    format!("{:.0}", SizeFormatter::<u64, Millicores, PointSeparated>::new(o.cpu)),
+                    format!("{:.0}", SizeFormatterBinary::new(o.memory)),
+                    o.team,
+                    width = 8,
+                );
+            });
+        },
+        OutputFormat::Yaml => {
+            println!("{}", serde_yaml::to_string(&output)?);
+        }
+    }
     Ok(mfs)
 }

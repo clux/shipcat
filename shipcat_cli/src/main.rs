@@ -410,15 +410,22 @@ fn build_cli() -> App<'static, 'static> {
                 .short("u")
                 .long("upper-bounds")
                 .help("Use the upper bounds of autoscaling policies"))
+            .arg(Arg::with_name("output")
+                .takes_value(true)
+                .default_value("table")
+                .possible_values(&["table", "yaml"])
+                .long("output")
+                .short("o")
+                .help("Output format to print. Yaml contains machine parseable numbers."))
             .arg(Arg::with_name("world")
                 .long("world")
                 .help("Show resource requests across all regions"))
-            .arg(Arg::with_name("order")
+            .arg(Arg::with_name("sort")
                 .takes_value(true)
                 .possible_values(&["cpu", "memory"])
                 .default_value("cpu")
-                .long("order")
-                .short("o")
+                .long("sort")
+                .short("s")
                 .help("Resource type to sort by")))
 
         .subcommand(SubCommand::with_name("self-upgrade")
@@ -605,14 +612,15 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         }
     }
     else if let Some(a) = args.subcommand_matches("top") {
-        let order = ResourceOrder::from_str(a.value_of("order").unwrap())?;
+        let sort = top::ResourceOrder::from_str(a.value_of("sort").unwrap())?;
+        let fmt = top::OutputFormat::from_str(a.value_of("output").unwrap())?;
         let upper_bounds = a.is_present("upper");
         return if a.is_present("world") {
             let rawconf = Config::read()?;
-            shipcat::top::world_requests(order, upper_bounds, &rawconf).map(void)
+            shipcat::top::world_requests(sort, upper_bounds, fmt, &rawconf).map(void)
         } else {
             let (conf, region) = resolve_config(a, ConfigType::Base)?;
-            shipcat::top::region_requests(order, upper_bounds, &conf, &region).map(void)
+            shipcat::top::region_requests(sort, upper_bounds, fmt, &conf, &region).map(void)
         };
     }
     // product
