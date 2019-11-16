@@ -1,6 +1,6 @@
 name: external
 metadata:
-  team: someteam
+  team: observability
   contacts: []
   repo: https://github.com/babylonhealth/shipcat
 external: true

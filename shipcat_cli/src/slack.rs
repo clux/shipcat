@@ -65,13 +65,13 @@ pub fn have_credentials() -> Result<()> {
 }
 
 /// Send a message based on a upgrade event
-pub fn send(msg: Message, conf: &Config, env: &Environment) -> Result<()> {
+pub fn send(msg: Message) -> Result<()> {
     let hook_chan : String = env_channel()?;
-    send_internal(msg.clone(), hook_chan, &conf, &env)?;
+    send_internal(msg.clone(), hook_chan)?;
     let md = &msg.metadata;
     if let Some(chan) = &md.notifications {
         let c = chan.clone();
-        send_internal(msg, c.to_string(), &conf, &env)?;
+        send_internal(msg, c.to_string())?;
     }
     Ok(())
 }
@@ -121,7 +121,7 @@ pub fn send_dumb(msg: DumbMessage) -> Result<()> {
 }
 
 /// Send a `Message` to a configured slack destination
-fn send_internal(msg: Message, chan: String, conf: &Config, env: &Environment) -> Result<()> {
+fn send_internal(msg: Message, chan: String) -> Result<()> {
     let hook_url : &str = &env_hook_url()?;
     let hook_user : String = env_username();
     let md = &msg.metadata;
@@ -172,11 +172,12 @@ fn send_internal(msg: Message, chan: String, conf: &Config, env: &Environment) -
     // Automatic CI originator link
     texts.push(infer_ci_links());
 
-    let notificationMode = if let Some(team) = conf.teams.iter().find(|t| t.name == md.team) {
-        team.slackSettings.get(&env).unwrap_or(&NotificationMode::NotifyMaintainers)
-    } else {
-        &NotificationMode::NotifyMaintainers
-    };
+    //let notificationMode = if let Some(team) = conf.teams.iter().find(|t| t.name == md.team) {
+    //    team.slackSettings.get(&env).unwrap_or(&NotificationMode::NotifyMaintainers)
+    //} else {
+    //    &NotificationMode::NotifyMaintainers
+    //};
+    let notificationMode = &NotificationMode::NotifyMaintainers; // TODO- reintroduce policy
 
     // Auto cc users
     if let NotificationMode::NotifyMaintainers = notificationMode {

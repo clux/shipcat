@@ -188,24 +188,12 @@ pub fn mass_vault(conf: &Config, reg: &Region, n_workers: usize) -> Result<()> {
 }
 
 fn vault_reconcile(mfs: Vec<BaseManifest>, conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
-    let n_jobs = conf.teams.len() + conf.owners.squads.len();
+    let n_jobs = conf.owners.squads.len();
     let pool = ThreadPool::new(n_workers);
     info!("Starting {} parallel vault jobs using {} workers", n_jobs, n_workers);
 
     // then parallel apply the remaining ones
     let (tx, rx) = channel();
-    for t in conf.teams.clone() {
-        let mfs = mfs.clone();
-        let reg = region.clone();
-        let admins = t.githubAdmins.clone();
-
-        let tx = tx.clone(); // tx channel reused in each thread
-        pool.execute(move || {
-            debug!("Running vault reconcile for {}", t.name);
-            let res = vault_reconcile_worker(mfs, &t.name, admins, reg);
-            tx.send(res).expect("channel will be there waiting for the pool");
-        });
-    }
     for (name, squad) in conf.owners.clone().squads {
         let mfs = mfs.clone();
         let reg = region.clone();

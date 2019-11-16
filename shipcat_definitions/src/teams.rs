@@ -23,6 +23,9 @@ pub struct Squad {
     pub name: String,
     /// List of lowercase, dot-separated members of the squad
     pub members: Vec<String>,
+    /// List of lowercase, dot-separated owners of the squad
+    #[serde(default)]
+    pub owners: Vec<String>,
     /// Github team references for the squad
     pub github: GithubTeams,
     /// Slack channels for the squad
@@ -111,19 +114,4 @@ pub struct GithubTeams {
     pub team: String,
     /// Team on github with elevated permissions. Lowercase, dash-separated form.
     pub admins: Option<String>,
-}
-
-/// How service ownership is validated
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ServiceOwnership {
-    /// A valid squad must be entered into metadata.team in manifests
-    Squads,
-    /// A valid squad or an old style deprecated teams entry
-    SquadsOrLegacyTeam,
-}
-
-impl Default for ServiceOwnership {
-    fn default() -> Self {
-        Self::SquadsOrLegacyTeam
-    }
 }

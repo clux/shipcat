@@ -5,7 +5,7 @@ pub use super::Manifest;
 /// Allow normal error handling from structs
 pub use super::{ErrorKind, Result, ResultExt};
 /// Verify trait gets the Region and Team
-pub use super::{Region, Team};
+pub use super::{Region};
 
 // Structs that exist in the manifest
 

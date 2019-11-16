@@ -6,12 +6,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[allow(unused_imports)]
 use std::path::{Path, PathBuf};
-use crate::structs::SlackChannel;
 use crate::teams;
 
 #[allow(unused_imports)]
 use super::{Result, Error};
-use super::structs::{Contact};
 use crate::states::ConfigType;
 use crate::region::{Region, Environment};
 
@@ -61,65 +59,6 @@ pub struct Cluster {
     pub teleport: Option<String>,
     /// What regions this cluster control (perhaps not exclusively)
     pub regions: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
-pub struct Team {
-    /// Team name
-    pub name: String,
-
-    /// Code owners for this team
-    ///
-    /// Used to generate CODEOWNERS merge policies.
-    #[serde(default)]
-    pub owners: Vec<Contact>,
-
-    /// Admin team on github for policies
-    ///
-    /// Used for vault policies, codeowners
-    pub githubAdmins: Option<String>,
-
-    /// Default support channel - human interaction
-    pub support: Option<SlackChannel>,
-    /// Default notifications channel - automated messages
-    #[serde(default)]
-    pub notifications: Option<SlackChannel>,
-
-    /// Extra property for external visualization
-    #[serde(default)]
-    color: Option<String>,
-
-    /// Slack notification levels for each environment
-    #[serde(default)]
-    pub slackSettings: BTreeMap<Environment, NotificationMode>,
-}
-
-impl Team {
-    pub fn verify(&self) -> Result<()> {
-        for o in &self.owners {
-            o.verify()?; // not very strict
-            // verify optionals filled in for owners:
-            if o.github.is_none() {
-                bail!("Every owner must have a github id attached");
-            }
-        }
-        if self.support.is_none() {
-            bail!("Every team must have a default support channel declared");
-        }
-        if self.notifications.is_none() {
-            bail!("Every team must have a default notifications channel declared");
-        }
-        if let Some(va) = &self.githubAdmins {
-            use regex::Regex;
-            let re = Regex::new(r"^[a-z\-]{1,30}$").unwrap();
-            if !re.is_match(&va) {
-                bail!("Valid github admin team names are lower case alpha with dashes only.");
-            }
-        }
-
-        Ok(())
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -185,10 +124,6 @@ pub struct Config {
     /// Gihub parameters
     pub github: GithubParameters,
 
-    /// Team definitions
-    #[serde(default)]
-    pub teams: Vec<Team>,
-
     /// Allowed labels
     #[serde(default)]
     pub allowedLabels: Vec<String>,
@@ -204,10 +139,6 @@ pub struct Config {
     /// Populated from teams.yml
     #[serde(default)]
     pub owners: teams::Owners,
-
-    /// What part of owners are used for service ownership
-    #[serde(default)]
-    pub serviceOwnership: teams::ServiceOwnership,
 
     // Internal state of the config
     #[serde(default, skip_serializing, skip_deserializing)]
@@ -275,16 +206,6 @@ impl Config {
                     bail!("Cannot reuse kong config urls for {} across regions", r.name);
                 }
                 used_kong_urls.push(kong.config_url.clone());
-            }
-        }
-        let mut vteams = vec![];
-        for t in &self.teams {
-            t.verify()?;
-            if let Some(vt) = &t.githubAdmins {
-                if vteams.contains(&vt) {
-                    bail!("The github admins team {} can only be mapped to a single policy", vt);
-                }
-                vteams.push(&vt)
             }
         }
         Ok(())

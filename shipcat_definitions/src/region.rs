@@ -8,7 +8,7 @@ use url::Url;
 use uuid::Uuid;
 
 #[allow(unused_imports)]
-use super::{Vault, Result, BaseManifest, ConfigType, Team};
+use super::{Vault, Result, BaseManifest, ConfigType};
 
 use super::structs::{Authorization};
 

@@ -14,7 +14,7 @@ health:
   wait: 30
 httpPort: 8080
 metadata:
-  team: devops
+  team: observability
   contacts:
   - name: "Eirik Override"
     slack: "@U82SKDQD9"

@@ -82,7 +82,7 @@ pub use crate::region::{
 };
 /// Master config with cross-region data
 pub mod config;
-pub use crate::config::{Config, ConfigFallback, Cluster, Team, ManifestDefaults};
+pub use crate::config::{Config, ConfigFallback, Cluster, ManifestDefaults};
 
 
 /// Structs for the manifest

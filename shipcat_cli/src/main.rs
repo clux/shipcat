@@ -147,8 +147,6 @@ fn build_cli() -> App<'static, 'static> {
               .about("Reduce encoded info")
               .subcommand(SubCommand::with_name("images")
                 .help("Reduce encoded image info"))
-              .subcommand(SubCommand::with_name("resources")
-                .help("Reduce encoded resource requests and limits"))
               .subcommand(SubCommand::with_name("apistatus")
                 .help("Reduce encoded API info"))
               .subcommand(SubCommand::with_name("codeowners")
@@ -420,6 +418,14 @@ fn build_cli() -> App<'static, 'static> {
             .arg(Arg::with_name("world")
                 .long("world")
                 .help("Show resource requests across all regions"))
+            .arg(Arg::with_name("squads")
+                .long("squads")
+                .conflicts_with("tribes")
+                .help("Aggregate services by squad ownership"))
+            .arg(Arg::with_name("tribes")
+                .long("tribes")
+                .conflicts_with("squads")
+                .help("Aggregate services by tribe ownership"))
             .arg(Arg::with_name("sort")
                 .takes_value(true)
                 .possible_values(&["cpu", "memory"])
@@ -571,15 +577,6 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     }
     // getters
     else if let Some(a) = args.subcommand_matches("get") {
-        if let Some(_) = a.subcommand_matches("resources") {
-            if a.is_present("region") {
-                let (conf, region) = resolve_config(a, ConfigType::Base)?;
-                return shipcat::get::resources(&conf, &region);
-            } else {
-                let rawconf = Config::read()?;
-                return shipcat::get::totalresources(&rawconf);
-            }
-        }
         if let Some(_) = a.subcommand_matches("clusterinfo") {
             let rawconf = Config::read()?;
             assert!(a.is_present("region"), "explicit context needed for clusterinfo");
@@ -614,13 +611,25 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("top") {
         let sort = top::ResourceOrder::from_str(a.value_of("sort").unwrap())?;
         let fmt = top::OutputFormat::from_str(a.value_of("output").unwrap())?;
-        let upper_bounds = a.is_present("upper");
+        let ub = a.is_present("upper");
         return if a.is_present("world") {
             let rawconf = Config::read()?;
-            shipcat::top::world_requests(sort, upper_bounds, fmt, &rawconf).map(void)
+            if a.is_present("squads") {
+                shipcat::top::world_squad_requests(sort, ub, fmt, &rawconf).map(void)
+            } else if a.is_present("tribes") {
+                shipcat::top::world_tribe_requests(sort, ub, fmt, &rawconf).map(void)
+            } else {
+                shipcat::top::world_requests(sort, ub, fmt, &rawconf).map(void)
+            }
         } else {
             let (conf, region) = resolve_config(a, ConfigType::Base)?;
-            shipcat::top::region_requests(sort, upper_bounds, fmt, &conf, &region).map(void)
+            if a.is_present("squads") {
+                shipcat::top::region_squad_requests(sort, ub, fmt, &conf, &region).map(void)
+            } else if a.is_present("tribes") {
+                shipcat::top::region_tribe_requests(sort, ub, fmt, &conf, &region).map(void)
+            } else {
+                shipcat::top::region_requests(sort, ub, fmt, &conf, &region).map(void)
+            }
         };
     }
     // product

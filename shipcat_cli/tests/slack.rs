@@ -26,7 +26,7 @@ fn slack_test() {
             code: Some(format!("Pod changed:
 -  image: \"blah:e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19\"
 +  image: \"blah:d4f01f5143643e75d9cc2d5e3221e82a9e1c12e5\"")),
-        }, &conf, &reg.environment).unwrap();
+        }).unwrap();
 
       // this is not just a three line diff, so
       send(Message {
@@ -38,6 +38,6 @@ fn slack_test() {
 -  value: \"somedeletedvar\"
 -  image: \"blah:abc12345678\"
 +  image: \"blah:abc23456789\"")),
-        }, &conf, &reg.environment).unwrap();
+        }).unwrap();
     }
 }

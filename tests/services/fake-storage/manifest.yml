@@ -84,7 +84,7 @@ volumes:
 metadata:
   repo: https://github.com/babylonhealth/shipcat
   contacts: []
-  team: someteam
+  team: observability
   support: "#dev-platform-override"
   notifications: "#dev-platform-notif-override"
 kong:

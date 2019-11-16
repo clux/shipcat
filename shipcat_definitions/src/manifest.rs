@@ -799,9 +799,8 @@ impl Manifest {
         }
 
         if let Some(ref md) = self.metadata {
-            md.verify(&conf.teams,
+            md.verify(
                 &conf.owners,
-                &conf.serviceOwnership,
                 &conf.allowedCustomMetadata)?;
         } else {
             bail!("Missing metadata for {}", self.name);

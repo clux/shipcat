@@ -7,7 +7,6 @@ use shipcat_definitions::structs::{
     Kafka, LifeCycle, Metadata, PersistentVolume, Probe, Rbac,
     RollingUpdate, VaultOpts, VolumeMount,
 };
-use shipcat_definitions::teams::{ServiceOwnership};
 use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result};
 
 use super::{SimpleManifest};
@@ -240,48 +239,22 @@ impl ManifestSource {
     fn build_metadata(&self, conf: &Config) -> Result<Metadata> {
         let name = self.name.as_ref().expect("manifest name");
         let mut md = self.metadata.clone().require("metadata")?;
-        match conf.serviceOwnership {
-            // Deprecated dual mode
-            ServiceOwnership::SquadsOrLegacyTeam => {
-                 if let Some(s) = conf.owners.squads.get(&md.team) {
-                    md.squad = Some(s.name.clone());
-                    md.tribe = conf.owners.tribes.values()
-                        .find(|t| t.squads.contains(&md.team))
-                        .map(|t| t.name.clone());
-                    if md.support.is_none() {
-                        md.support = s.slack.support.as_ref().map(Clone::clone);
-                    }
-                    if md.notifications.is_none() {
-                        md.notifications = s.slack.notifications.as_ref().map(Clone::clone);
-                    }
-                } else if let Some(t) = conf.teams.iter().find(|t| t.name == md.team) {
-                    if md.support.is_none() {
-                        md.support = t.support.clone();
-                    }
-                    if md.notifications.is_none() {
-                        md.notifications = t.notifications.clone();
-                    }
-                } else {
-                    bail!("{}: metadata.team '{}' must match a squad in teams.yml", name, md.team);
-                };
-            },
-            ServiceOwnership::Squads => {
-                if let Some(s) = conf.owners.squads.get(&md.team) {
-                    md.squad = Some(s.name.clone());
-                    md.tribe = conf.owners.tribes.values()
-                        .find(|t| t.squads.contains(&md.team))
-                        .map(|t| t.name.clone());
-                    if md.support.is_none() {
-                        md.support = s.slack.support.as_ref().map(Clone::clone);
-                    }
-                    if md.notifications.is_none() {
-                        md.notifications = s.slack.notifications.as_ref().map(Clone::clone);
-                    }
-                } else {
-                    bail!("{}: metadata.team '{}' must match a squad in teams.yml", name, md.team)
-                }
+
+        if let Some(s) = conf.owners.squads.get(&md.team) {
+            md.squad = Some(s.name.clone());
+            md.tribe = conf.owners.tribes.values()
+                .find(|t| t.squads.contains(&md.team))
+                .map(|t| t.name.clone());
+            if md.support.is_none() {
+                md.support = s.slack.support.as_ref().map(Clone::clone);
             }
+            if md.notifications.is_none() {
+                md.notifications = s.slack.notifications.as_ref().map(Clone::clone);
+            }
+        } else {
+            bail!("{}: metadata.team '{}' must match a squad in teams.yml", name, md.team)
         }
+
         // teams.yml needs to have these specified
         if md.notifications.is_none() || md.support.is_none() {
             bail!("Need a notification and support channel for {}", md.team);

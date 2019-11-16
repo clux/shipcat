@@ -70,11 +70,11 @@ fn config_defaults_test() {
 
     // -- Slack channels --
 
-    // fake-ask gets default for 'devops'
+    // fake-ask gets default for 'observability'
     let mfdefault = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg).unwrap().complete(&reg).unwrap();
     let metadata = mfdefault.metadata.unwrap();
-    assert_eq!(*metadata.support.unwrap(), "#devops-support");
-    assert_eq!(*metadata.notifications.unwrap(), "#devops-notifications");
+    assert_eq!(*metadata.support.unwrap(), "CA04UJ8S0"); // from teams.yml
+    assert_eq!(*metadata.notifications.unwrap(), "CA04UJ8S0");
 
     // fake-storage overrides for 'someteam'
     let mfoverride = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg).unwrap().complete(&reg).unwrap();
@@ -135,8 +135,8 @@ fn get_codeowners() {
     let conf = Config::read().unwrap();
     let cos = get::codeowners(&conf).unwrap();
 
-    assert_eq!(cos.len(), 1); // serivces with team admins get a listing
-    assert_eq!(cos[0], "services/fake-ask/* @babylonhealth/devops");
+    assert_eq!(cos.len(), 4); // serivces with team admins get a listing
+    assert_eq!(cos[1], "services/fake-ask/* @babylonhealth/o11y @clux");
 }
 
 #[test]
@@ -224,9 +224,9 @@ fn templating_test() {
 fn vault_policy_test() {
     setup();
     let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
-    let policy = shipcat::get::vaultpolicy(&conf, &reg, "devops").unwrap();
+    let policy = shipcat::get::vaultpolicy(&conf, &reg, "observability").unwrap();
 
-    println!("got dev policy for devops as {}", policy);
+    println!("got dev policy for observability as {}", policy);
     let expected_deny = r#"path "sys/*" {
   policy = "deny"
 }"#;
@@ -244,7 +244,7 @@ fn vault_policy_test() {
     // prod should be stricter:
     let mut fakereg = reg.clone();
     fakereg.environment = Environment::Prod;
-    let strict_policy = shipcat::get::vaultpolicy(&conf, &fakereg, "devops").unwrap();
+    let strict_policy = shipcat::get::vaultpolicy(&conf, &fakereg, "observability").unwrap();
 
     let expected_strict_access = r#"path "secret/dev-uk/fake-ask/*" {
   capabilities = ["create", "list"]

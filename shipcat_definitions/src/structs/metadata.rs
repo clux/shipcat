@@ -1,10 +1,10 @@
-use crate::teams::{Owners, ServiceOwnership};
+use crate::teams::Owners;
 use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::{Deref, DerefMut};
 
 use super::Result;
-use crate::config::{Team, SlackParameters};
+use crate::config::{SlackParameters};
 
 /// Contact data
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -185,28 +185,11 @@ impl Metadata {
 
 impl Metadata {
     pub fn verify(&self,
-        teams: &[Team],
         owners: &Owners,
-        ownership: &ServiceOwnership,
         allowedCustomMetadata: &BTreeSet<String>)
     -> Result<()> {
-        match ownership {
-            // Deprecated dual mode:
-            ServiceOwnership::SquadsOrLegacyTeam => {
-                if !owners.squads.contains_key(&self.team) {
-                    warn!("Team name {} does not match a squad in teams.yml", self.team);
-                    // fallback legacy
-                    let ts = teams.to_vec().into_iter().map(|t| t.name).collect::<Vec<_>>();
-                    if !ts.contains(&self.team) {
-                        bail!("Illegal team name {} not found in the config", self.team);
-                    }
-                }
-            },
-            ServiceOwnership::Squads => {
-                if !owners.squads.contains_key(&self.team) {
-                    bail!("Team name {} does not match a squad in teams.yml", self.team);
-                }
-            },
+        if !owners.squads.contains_key(&self.team) {
+            bail!("Team name {} does not match a squad in teams.yml", self.team);
         }
         for cc in &self.contacts {
             cc.verify()?;

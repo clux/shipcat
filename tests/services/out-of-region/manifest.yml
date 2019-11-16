@@ -1,6 +1,6 @@
 name: out-of-region
 metadata:
-  team: someteam
+  team: observability
   contacts: []
   repo: https://github.com/babylonhealth/shipcat
 regions:

@@ -2,9 +2,8 @@
 use std::collections::BTreeMap;
 use semver::Version;
 use shipcat_definitions::Environment;
-use shipcat_definitions::teams::ServiceOwnership;
 
-use super::{Config, Team, Region, Result};
+use super::{Config, Region, Result};
 
 
 // ----------------------------------------------------------------------------
@@ -50,52 +49,23 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
     for mf in shipcat_filebacked::all(conf)? {
         let md = mf.metadata;
         let mut ghids = vec![];
-        match conf.serviceOwnership {
-            // Deprecated dual mode:
-            ServiceOwnership::SquadsOrLegacyTeam => {
-                if let Some(s) = conf.owners.squads.get(&md.team) {
-                    // Check teams.yml for squads first:
-                    if let Some(gha) = &s.github.admins {
-                        ghids.push(format!("@{}/{}", org.to_lowercase(), gha));
-                    }
-                    // Add all squad members. Helpful because github codeowners are bad for teams
-                    // (Teams need to be added explicitly to the repo...)
-                    // Can perhaps be removed in the future
-                    for o in &s.members {
-                        if let Some(p) = conf.owners.people.get(o) {
-                            ghids.push(format!("@{}", p.github));
-                        }
-                    }
-                } else if let Some(t) = &conf.teams.iter().find(|t| t.name == md.team) {
-                    // Otherwise legacy team mode
-                    if let Some(gha) = &t.githubAdmins {
-                        ghids.push(format!("@{}/{}", org.to_lowercase(), gha));
-                    }
-                    for o in t.owners.clone() {
-                        ghids.push(format!("@{}", o.github.unwrap()));
-                    }
-                } else {
-                    warn!("No team found for {} in shipcat.conf - ignoring {}", md.team, mf.name);
+
+        if let Some(s) = conf.owners.squads.get(&md.team) {
+            if let Some(gha) = &s.github.admins {
+                ghids.push(format!("@{}/{}", org.to_lowercase(), gha));
+            }
+            // Add all squad members. Helpful because github codeowners are bad for teams
+            // (Teams need to be added explicitly to the repo...)
+            // Can perhaps be removed in the future
+            for o in &s.members {
+                if let Some(p) = conf.owners.people.get(o) {
+                    ghids.push(format!("@{}", p.github));
                 }
             }
-            ServiceOwnership::Squads => {
-                if let Some(s) = conf.owners.squads.get(&md.team) {
-                    if let Some(gha) = &s.github.admins {
-                        ghids.push(format!("@{}/{}", org.to_lowercase(), gha));
-                    }
-                    // Add all squad members. Helpful because github codeowners are bad for teams
-                    // (Teams need to be added explicitly to the repo...)
-                    // Can perhaps be removed in the future
-                    for o in &s.members {
-                        if let Some(p) = conf.owners.people.get(o) {
-                            ghids.push(format!("@{}", p.github));
-                        }
-                    }
-                } else {
-                    warn!("No squad found for {} in teams.yml - ignoring {}", md.team, mf.name);
-                }
-            },
+        } else {
+            warn!("No squad found for {} in teams.yml - ignoring {}", md.team, mf.name);
         }
+
         if !ghids.is_empty() {
             output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
         }
@@ -119,34 +89,13 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
 /// vault write auth/github/config organization={GithubOrganisation}
 pub fn vaultpolicy(conf: &Config, region: &Region, team_name: &str) -> Result<String> {
     let mfs = shipcat_filebacked::all(conf)?;
-    let team = match conf.serviceOwnership {
-        ServiceOwnership::SquadsOrLegacyTeam => {
-            if let Some(s) = conf.owners.squads.get(team_name) {
-                if s.github.admins.is_none() {
-                    warn!("Squad '{}' does not define a github.admins team in teams.yml", s.name);
-                }
-                s.name.clone()
-            }
-            else if let Some(t) = conf.teams.iter().find(|t| t.name == team_name) {
-                // fallback to legacy teams
-                if t.githubAdmins.is_none() {
-                    warn!("Team '{}' does not define a githubAdmins team in shipcat.conf", t.name);
-                }
-                t.name.clone()
-            } else {
-                bail!("Team '{}' does not exist in shipcat.conf", team_name);
-            }
-        },
-        ServiceOwnership::Squads => {
-            if let Some(s) = conf.owners.squads.get(team_name) {
-                if s.github.admins.is_none() {
-                    warn!("Squad '{}' does not define a github.admins team in teams.yml", s.name);
-                }
-                s.name.clone()
-            } else {
-                bail!("Squad '{}' does not exist in teams.yml", team_name)
-            }
+    let team = if let Some(s) = conf.owners.squads.get(team_name) {
+        if s.github.admins.is_none() {
+            warn!("Squad '{}' does not define a github.admins team in teams.yml", s.name);
         }
+        s.name.clone()
+    } else {
+        bail!("Squad '{}' does not exist in teams.yml", team_name)
     };
     let output = region.vault.make_policy(mfs, &team, region.environment.clone())?;
     println!("{}", output);
@@ -273,99 +222,5 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
 
     let output = APIStatusOutput{region, services};
     println!("{}", serde_json::to_string_pretty(&output)?);
-    Ok(())
-}
-
-// ----------------------------------------------------------------------------
-
-
-use super::structs::ResourceRequirements;
-use shipcat_definitions::math::ResourceTotals;
-
-/// Complete breakdown of resource usage in total, and split by team.
-///
-/// Normally this is computed by `Manifest::resources` for a region-wide total.
-/// Looping over all regions is possible in the CLI.
-#[derive(Serialize)]
-pub struct ResourceBreakdown {
-    /// Total totals
-    pub totals: ResourceTotals,
-    /// A partition of totals info teams
-    pub teams: BTreeMap<String, ResourceTotals>,
-}
-
-impl ResourceBreakdown {
-    /// Constructor to ensure all valid teams are filled in
-    pub fn new(tx: Vec<Team>) -> ResourceBreakdown {
-        let mut teams = BTreeMap::new();
-        for t in tx {
-            teams.insert(t.name, ResourceTotals::default());
-        }
-        ResourceBreakdown { teams, totals: ResourceTotals::default() }
-    }
-
-    /// Round all numbers to gigs and full cores (for all teams)
-    pub fn normalise(mut self) -> Self {
-        for tt in &mut self.teams.values_mut() {
-            tt.base.round();
-            tt.extra.round();
-        }
-        self.totals.base.round();
-        self.totals.extra.round();
-        self
-    }
-}
-
-
-/// Compute resource usage for all available manifests in a region.
-fn resources_region(conf: &Config, region: &Region) -> Result<ResourceBreakdown> {
-    let mut bd = ResourceBreakdown::new(conf.teams.clone()); // zero for all the things
-
-    let mut sum : ResourceRequirements<f64> = Default::default();
-    let mut extra : ResourceRequirements<f64> = Default::default(); // autoscaling limits
-
-    for svc in shipcat_filebacked::available(conf, region)? {
-        let mf = shipcat_filebacked::load_manifest(&svc.base.name, conf, region)?;
-        if let Some(ref md) = mf.metadata {
-            let ResourceTotals { base: sb, extra: se } = mf.compute_resource_totals()?;
-            sum += sb.clone();
-            extra += se.clone();
-            let e = bd.teams.get_mut(&md.team).unwrap(); // exists by ResourceBreakdown::new
-            e.base += sb.clone();
-            e.extra += se.clone();
-        } else {
-            bail!("{} service does not have resources specification and metadata", mf.name)
-        }
-    }
-    bd.totals.base = sum;
-    bd.totals.extra = extra;
-    Ok(bd)
-}
-
-
-/// Resource use for a single region
-pub fn resources(conf: &Config, region: &Region) -> Result<()> {
-    let bd = resources_region(&conf, region)?.normalise();
-    println!("{}", serde_json::to_string_pretty(&bd)?);
-    Ok(())
-}
-
-/// ResourceRequirements for all regions
-pub fn totalresources(conf: &Config) -> Result<()> {
-    let mut bd = ResourceBreakdown::new(conf.teams.clone()); // zero for all the things
-    for r in conf.list_regions() {
-        let reg = conf.get_region(&r)?;
-        let res = resources_region(&conf, &reg)?;
-        bd.totals.base += res.totals.base;
-        bd.totals.extra += res.totals.extra;
-        for t in &conf.teams {
-            let rhs = &res.teams[&t.name];
-            let e = bd.teams.get_mut(&t.name).unwrap(); // exists by ResourceBreakdown::new
-            e.base += rhs.base.clone();
-            e.extra += rhs.extra.clone();
-        }
-    }
-    bd = bd.normalise();
-    println!("{}", serde_json::to_string_pretty(&bd)?);
     Ok(())
 }

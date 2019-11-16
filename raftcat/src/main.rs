@@ -9,14 +9,9 @@ use std::env;
 
 pub use raftcat::*;
 
-// some slug helpers
-fn team_slug(name: &str) -> String {
-    name.to_lowercase().replace("/", "-").replace(" ", "_")
+fn find_team(owners: &Owners, slug: &str) -> Option<Squad> {
+    owners.squads.get(slug).cloned()
 }
-fn find_team(cfg: &Config, slug: &str) -> Option<Team> {
-    cfg.teams.iter().find(|t| team_slug(&t.name) == slug).cloned()
-}
-
 
 // ----------------------------------------------------------------------------------
 // Web server interface
@@ -51,7 +46,7 @@ fn get_resource_usage(req: &HttpRequest<State>) -> Result<HttpResponse> {
 fn get_manifests_for_team(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
     let cfg = req.state().get_config()?;
-    if let Some(t) = find_team(&cfg, name) {
+    if let Some(t) = find_team(&cfg.owners, name) {
         let mfs = req.state().get_manifests_for(&t.name)?.clone();
         Ok(HttpResponse::Ok().json(mfs))
     } else {
@@ -60,7 +55,7 @@ fn get_manifests_for_team(req: &HttpRequest<State>) -> Result<HttpResponse> {
 }
 fn get_teams(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let cfg = req.state().get_config()?;
-    Ok(HttpResponse::Ok().json(cfg.teams.clone()))
+    Ok(HttpResponse::Ok().json(cfg.owners.squads.clone()))
 }
 
 fn get_versions(req: &HttpRequest<State>) -> Result<HttpResponse> {
@@ -99,7 +94,7 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
         let circlelink = format!("https://circleci.com/gh/babylonhealth/{}", mf.name);
         let quaylink = format!("https://{}/?tab=tags", mf.image.clone().unwrap());
 
-        let (team, teamlink) = (md.team.clone(), format!("/raftcat/teams/{}", team_slug(&md.team)));
+        let (team, teamlink) = (md.team.clone(), format!("/raftcat/teams/{}", &md.team));
         // TODO: runbook
 
         let mut ctx = tera::Context::new();
