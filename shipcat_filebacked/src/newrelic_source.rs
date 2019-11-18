@@ -81,10 +81,10 @@ pub struct NewrelicAlertSource {
 
 impl Build<NewrelicAlert, String> for NewrelicAlertSource {
     fn build(self, name: &String) -> Result<NewrelicAlert> {
-        let name_re = Regex::new(r"^[0-9a-zA-Z _\-]{1,50}$").unwrap();
+        let name_re = Regex::new(r"^[0-9a-zA-Z _/\-]{1,50}$").unwrap();
         if !name_re.is_match(name) {
             bail!(
-                "Alnums, dashes, underscores and spaces only for alert name, which is `{}`",
+                "Only alnums, '_', '/', '-' allowed for alert name, which is `{}`",
                 name
             );
         }
@@ -185,7 +185,7 @@ newrelic:
             manifest_yml: r###"---
 newrelic:
   alerts:
-    allParamsAreDefault: {}
+    allPara/msAreDefault: {}
     thisOneHasTemplateDefinedAndWontPropagate:
       template: some/subfolder/default"###
                 .into(),
@@ -194,9 +194,9 @@ newrelic:
             crd_expected: r###"---
 newrelic:
   alerts:
-    allParamsAreDefault:
-      name: allParamsAreDefault
-      template: allParamsAreDefault
+    allPara/msAreDefault:
+      name: allPara/msAreDefault
+      template: allPara/msAreDefault
       params: {}
     thisOneHasTemplateDefinedAndWontPropagate:
       name: thisOneHasTemplateDefinedAndWontPropagate
