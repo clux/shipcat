@@ -65,7 +65,7 @@ impl Build<Option<Newrelic>, SlackChannel> for NewrelicSource {
         Ok(Some(Newrelic {
             slack,
             incident_preference,
-            alerts: alerts_res?
+            alerts: alerts_res?,
         }))
     }
 }
@@ -89,13 +89,11 @@ impl Build<NewrelicAlert, String> for NewrelicAlertSource {
             );
         }
 
-        let template = self
-            .template
-            .ok_or(format!("Template name for alert `{}` must be provided", name))?;
-        let template_re = Regex::new(r"^[0-9a-zA-Z_\-]{1,50}$").unwrap();
+        let template = self.template.unwrap_or(name.to_string());
+        let template_re = Regex::new(r"^[0-9a-zA-Z_/\-]{1,50}$").unwrap();
         if !template_re.is_match(&template) {
             bail!(
-                "Alnums, dashes, underscores only for template name, which is `{}` for alert `{}`",
+                "Only alnums, '_', '/', '-' allowed for template name, which is `{}` for alert `{}`",
                 template,
                 name
             );
@@ -146,8 +144,7 @@ mod tests {
             manifest_yml: "{}".into(),
             env_yml: "{}".into(),
             default_channel: "CDEFTEAM8".into(),
-            crd_expected: r###"---
-{}"###.into(),
+            crd_expected: "---\n{}".into(),
         })
     }
 
@@ -159,9 +156,10 @@ mod tests {
 newrelic:
   alerts:
     allParamsAreDefault:
-      template: Default
+      template: default
     thisOneHasSlackDefinedAndWontPropagate:
-      template: Default"###.into(),
+      template: default"###
+                .into(),
             env_yml: "{}".into(),
             default_channel: "CDEFTEAM8".into(),
             crd_expected: r###"---
@@ -169,14 +167,44 @@ newrelic:
   alerts:
     allParamsAreDefault:
       name: allParamsAreDefault
-      template: Default
+      template: default
       params: {}
     thisOneHasSlackDefinedAndWontPropagate:
       name: thisOneHasSlackDefinedAndWontPropagate
-      template: Default
+      template: default
       params: {}
   incidentPreference: PER_POLICY
-  slack: CDEFTEAM8"###.into(),
+  slack: CDEFTEAM8"###
+                .into(),
+        })
+    }
+
+    #[test]
+    fn test_template_name_defaults_to_alert_name() -> Result<()> {
+        test_parse_and_merge(TestSet {
+            manifest_yml: r###"---
+newrelic:
+  alerts:
+    allParamsAreDefault: {}
+    thisOneHasTemplateDefinedAndWontPropagate:
+      template: some/subfolder/default"###
+                .into(),
+            env_yml: "{}".into(),
+            default_channel: "CDEFTEAM8".into(),
+            crd_expected: r###"---
+newrelic:
+  alerts:
+    allParamsAreDefault:
+      name: allParamsAreDefault
+      template: allParamsAreDefault
+      params: {}
+    thisOneHasTemplateDefinedAndWontPropagate:
+      name: thisOneHasTemplateDefinedAndWontPropagate
+      template: some/subfolder/default
+      params: {}
+  incidentPreference: PER_POLICY
+  slack: CDEFTEAM8"###
+                .into(),
         })
     }
 
@@ -189,10 +217,12 @@ newrelic:
     allParamsAreDefault:
       template: Default
     thisOneHasSlackDefinedAndWontChange:
-      template: Default"###.into(),
+      template: Default"###
+                .into(),
             env_yml: r###"---
 newrelic:
-  slack: CREGION78"###.into(),
+  slack: CREGION78"###
+                .into(),
             default_channel: "CDEFTEAM8".into(),
             crd_expected: r###"---
 newrelic:
@@ -206,7 +236,8 @@ newrelic:
       template: Default
       params: {}
   incidentPreference: PER_POLICY
-  slack: CREGION78"###.into(),
+  slack: CREGION78"###
+                .into(),
         })
     }
 
@@ -225,7 +256,8 @@ newrelic:
       template: SimpleErrorRate
       params:
         threshold: "0.05"
-        priority: warning"###.into(),
+        priority: warning"###
+                .into(),
             env_yml: r###"---
 newrelic:
   slack: COVERRIDE
@@ -240,7 +272,8 @@ newrelic:
       template: SimpleErrorRate
       params:
         threshold: "0.05"
-        priority: critical"###.into(),
+        priority: critical"###
+                .into(),
             default_channel: "CDEFTEAM8".into(),
             crd_expected: r###"---
 newrelic:
@@ -258,7 +291,8 @@ newrelic:
         priority: critical
         threshold: "0.05"
   incidentPreference: PER_CONDITION_AND_TARGET
-  slack: COVERRIDE"###.into(),
+  slack: COVERRIDE"###
+                .into(),
         })
     }
 
@@ -277,11 +311,13 @@ newrelic:
       template: SimpleErrorRate
       params:
         threshold: "0.05"
-        priority: warning"###.into(),
+        priority: warning"###
+                .into(),
             env_yml: r###"---
 newrelic:
   alerts:
-    myErrorRate: ~ # kill an alert by mapping it to null value"###.into(),
+    myErrorRate: ~ # kill an alert by mapping it to null value"###
+                .into(),
             default_channel: "CDEFTEAM8".into(),
             crd_expected: r###"---
 newrelic:
@@ -293,7 +329,8 @@ newrelic:
         priority: warning
         threshold: "0.8"
   incidentPreference: PER_POLICY
-  slack: CDEFTEAM8"###.into(),
+  slack: CDEFTEAM8"###
+                .into(),
         })
     }
 
