@@ -14,6 +14,7 @@ use super::structs::{
     volume::{Volume, VolumeMount},
     PersistentVolume,
     {Metadata, VaultOpts, Dependency},
+    DestinationRule,
     security::DataHandling,
     Probe,
     CronJob, EnvVars,
@@ -360,7 +361,24 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<Dependency>,
 
-    /// Worker `Deployment` objects to additinally include
+    /// Destination Rules
+    ///
+    /// The intention here is that implementations will examine requests to determine if they
+    /// satisfy this rule and if so, redirect them to alternative services as specified by 'host'.
+    ///
+    /// For an example, one could implement destination rules using an Istio virtual service
+    /// which matched on inbound request header values to determine whether to apply this rule and
+    /// redirect the request.
+    ///
+    /// ```yaml
+    /// destinationRules:
+    /// - identifier: 'USA'
+    ///   host: 'service.com'
+    /// ```
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destinationRules: Option<Vec<DestinationRule>>,
+
+    /// Worker `Deployment` objects to additionally include
     ///
     /// These are more flexible than `sidecars`, because they scale independently of
     /// the main `replicaCount`. However, they are considered separate rolling upgrades.
@@ -790,6 +808,24 @@ impl Manifest {
         Ok(self)
     }
 
+    /// Verifies the "destinationRules" manifest entries if they are configured
+    ///
+    /// It is erroneous to define destination rules without configuring the corresponding region's
+    /// destination rules host regular expression
+    pub fn verify_destination_rules(&self, region: &Region) -> Result<()> {
+        if let Some(ref _destinationRules) = &self.destinationRules {
+            if let Some(ref destinationRuleHostRegex) = &region.destinationRuleHostRegex {
+                for dr in _destinationRules {
+                    dr.verify(destinationRuleHostRegex)?;
+                }
+            } else {
+                bail!(
+                    "Cannot use `destinationRules` in a region without a `destinationRuleHostRegex`")
+            }
+        }
+        Ok(())
+    }
+
     /// Verify assumptions about manifest
     ///
     /// Assumes the manifest has been populated with `implicits`
@@ -804,6 +840,8 @@ impl Manifest {
         if self.name.ends_with('-') || self.name.starts_with('-') {
             bail!("Please use dashes to separate words only");
         }
+
+        self.verify_destination_rules(region)?;
 
         // TODO: remove?
         if let Some(ref dh) = self.dataHandling {
@@ -849,6 +887,7 @@ impl Manifest {
         for d in &self.dependencies {
             d.verify()?;
         }
+
         for ha in &self.hostAliases {
             ha.verify()?;
         }

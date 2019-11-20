@@ -15,7 +15,6 @@ use crate::region::{Region, Environment};
 
 // ----------------------------------------------------------------------------------
 
-
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct ManifestDefaults {
@@ -24,9 +23,9 @@ pub struct ManifestDefaults {
     /// Chart to defer to
     pub chart: String,
     /// Default replication counts
-    pub replicaCount: u32
-
+    pub replicaCount: u32,
 }
+
 // Allow smaller base configs
 impl Default for ManifestDefaults {
     fn default() -> Self {

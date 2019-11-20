@@ -12,6 +12,10 @@ pub use super::{Region};
 mod dependency;
 pub use self::dependency::{Dependency, DependencyProtocol};
 
+/// DestinationRule struct
+mod destinationrule;
+pub use self::destinationrule::DestinationRule;
+
 mod worker;
 pub use self::worker::Worker;
 

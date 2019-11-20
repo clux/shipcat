@@ -2,6 +2,8 @@ use crate::structs::kong::Kong;
 use std::collections::BTreeMap;
 use std::env;
 
+use regex::Regex;
+
 use semver::Version;
 
 use url::Url;
@@ -37,7 +39,6 @@ impl Default for VersionScheme {
 /// Version validator
 impl VersionScheme {
     pub fn verify(&self, ver: &str) -> Result<()> {
-        use regex::Regex;
         let gitre = Regex::new(r"^[0-9a-f\-]{40}$").unwrap();
         match *self {
             VersionScheme::GitShaOrSemver => {
@@ -521,6 +522,9 @@ pub struct Region {
     /// Default values for services
     #[serde(skip_serializing, default)]
     pub defaults: DefaultConfig,
+    /// The regular expression used to verify destination rules' regions
+    #[serde(default, skip_serializing_if = "Option::is_none", with = "serde_regex")]
+    pub destinationRuleHostRegex: Option<Regex>,
 }
 
 impl Region {

@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 
 use shipcat_definitions::structs::{
     autoscaling::AutoScaling, security::DataHandling, tolerations::Tolerations, volume::Volume,
-    ConfigMap, Dependency, Gate, HealthCheck, HostAlias,
+    ConfigMap, Dependency, DestinationRule, Gate, HealthCheck, HostAlias,
     Kafka, LifeCycle, Metadata, PersistentVolume, Probe, Rbac,
     RollingUpdate, VaultOpts, VolumeMount, NotificationMode,
 };
@@ -49,6 +49,7 @@ pub struct ManifestOverrides {
     pub external_port: Option<u32>,
     pub health: Option<HealthCheck>,
     pub dependencies: Option<Vec<Dependency>>,
+    pub destination_rules: Option<Vec<DestinationRule>>,
     pub workers: Option<Vec<WorkerSource>>,
     pub sidecars: Option<Vec<SidecarSource>>,
     pub readiness_probe: Option<Probe>,
@@ -145,6 +146,7 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             externalPort: overrides.external_port,
             health: overrides.health,
             dependencies: overrides.dependencies.unwrap_or_default(),
+            destinationRules: overrides.destination_rules,
             workers: overrides.workers.unwrap_or_default().build(&container_build_params)?,
             sidecars: overrides.sidecars.unwrap_or_default().build(&container_build_params)?,
             readinessProbe: overrides.readiness_probe,
