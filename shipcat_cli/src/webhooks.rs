@@ -50,7 +50,7 @@ pub fn reconcile_event(us: UpgradeState, reg: &Region) {
 /// Throw events to configured webhooks
 ///
 /// This is the new version for shipcat apply module
-pub fn apply_event(us: UpgradeState, info: &UpgradeInfo, reg: &Region, _conf: &Config) {
+pub fn apply_event(us: UpgradeState, info: &UpgradeInfo, reg: &Region, conf: &Config) {
     // Webhooks defined in shipcat.conf for the region:
     debug!("Apply event: {:?}", info);
     for wh in &reg.webhooks {
@@ -93,8 +93,9 @@ pub fn apply_event(us: UpgradeState, info: &UpgradeInfo, reg: &Region, _conf: &C
                 code: info.diff.clone(),
                 color: Some(String::from(color)),
                 version: Some(info.version.clone()),
+                mode: info.slackMode.clone(),
                 metadata: info.metadata.clone(),
-            });
+            }, &conf.owners);
         }
         _ => {},
     }

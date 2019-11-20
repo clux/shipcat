@@ -5,7 +5,7 @@ use shipcat_definitions::structs::{
     autoscaling::AutoScaling, security::DataHandling, tolerations::Tolerations, volume::Volume,
     ConfigMap, Dependency, Gate, HealthCheck, HostAlias,
     Kafka, LifeCycle, Metadata, PersistentVolume, Probe, Rbac,
-    RollingUpdate, VaultOpts, VolumeMount,
+    RollingUpdate, VaultOpts, VolumeMount, NotificationMode,
 };
 use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result};
 
@@ -74,6 +74,7 @@ pub struct ManifestOverrides {
     //  to have this section merge alerts sub-field deeply
     //      we have to avoid using Option
     pub newrelic: NewrelicSource,
+    pub upgradeNotifications: Option<NotificationMode>,
 
     #[serde(flatten)]
     pub defaults: ManifestDefaults,
@@ -170,6 +171,7 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             sentry: overrides.sentry
                 .map(|sentry| sentry.build(&team_notifications))
                 .transpose()?,
+            upgradeNotifications: Default::default(),
             region: region.name.clone(),
             environment: region.environment.to_string(),
             namespace: region.namespace.clone(),

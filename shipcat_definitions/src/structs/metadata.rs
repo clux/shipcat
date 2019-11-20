@@ -6,7 +6,9 @@ use std::ops::{Deref, DerefMut};
 use super::Result;
 use crate::config::{SlackParameters};
 
-/// Contact data
+/// Legacy contact data
+///
+/// This property is being phased out in favour of .maintainer
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Contact {
     /// Free text name
@@ -113,10 +115,7 @@ pub enum Language {
 pub struct Metadata {
     /// Git repository
     pub repo: String,
-    /// Owning team/squad/tribe
-    ///
-    /// What this string is allowed to be depends on serviceOwnership setting
-    /// This is configured in shipcat.conf
+    /// Owning squad
     pub team: String,
 
     /// Squad output parameter - not deserialized
@@ -135,9 +134,15 @@ pub struct Metadata {
     /// Monorepos that have multiple tags can use "{{ version }}-app"
     #[serde(default = "default_format_string")]
     pub gitTagTemplate: String,
-    /// Contact person
+
+    /// Contact person (legacy)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub contacts: Vec<Contact>,
+
+    /// Maintainers - names of people in teams.yml
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub maintainers: Vec<String>,
+
     /// Support channel - human interaction
     #[serde(default)]
     pub support: Option<SlackChannel>,
@@ -193,6 +198,11 @@ impl Metadata {
         }
         for cc in &self.contacts {
             cc.verify()?;
+        }
+        for m in &self.maintainers {
+            if !owners.people.contains_key(m) {
+                bail!("Person {} does not match a person in teams.yml", m)
+            }
         }
         let re = Regex::new(r"[a-z0-9\-\.\{\}]").unwrap();
         if !re.is_match(&self.gitTagTemplate) {

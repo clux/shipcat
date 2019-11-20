@@ -4,7 +4,7 @@ use std::path::Path;
 use shipcat_definitions::{
     Manifest, Config, Region,
     ReconciliationMode,
-    structs::Metadata,
+    structs::{Metadata, NotificationMode},
 };
 use crate::{
     helm,
@@ -26,6 +26,8 @@ pub struct UpgradeInfo {
     pub name: String,
     /// Metadata for service
     pub metadata: Metadata,
+    /// Slack NotificationMode for the service
+    pub slackMode: NotificationMode,
     /// Validated version string
     pub version: String,
     /// Chart the service is using
@@ -47,6 +49,7 @@ impl UpgradeInfo {
             name: mf.name.clone(),
             version: mf.version.clone().expect("version must be set before calling UpgradeInfo::new"),
             metadata: mf.metadata.clone().expect("metadata must exist on every manifest"),
+            slackMode: mf.upgradeNotifications.clone().unwrap_or_default(),
             chart: mf.chart.clone().expect("must have a chart for a manifest"),
             region: mf.region.clone(),
             namespace: mf.namespace.clone(),

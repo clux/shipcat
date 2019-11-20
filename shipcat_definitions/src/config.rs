@@ -38,14 +38,6 @@ impl Default for ManifestDefaults {
     }
 }
 
-/// Modes for slack notification
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum NotificationMode {
-    NotifyMaintainers,
-    MessageOnly,
-    Silent,
-}
-
 /// Kubernetes cluster information
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
@@ -77,7 +69,7 @@ pub struct Location {
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct GithubParameters {
-    /// Location name
+    /// Organisation name
     pub organisation: String,
 }
 
@@ -85,7 +77,7 @@ pub struct GithubParameters {
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct SlackParameters {
-    /// Location name
+    /// Team name (T...)
     pub team: String,
 }
 

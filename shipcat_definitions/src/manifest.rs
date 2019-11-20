@@ -19,6 +19,7 @@ use super::structs::{
     CronJob, EnvVars,
     {Gate, Kafka, Kong, Rbac},
     RollingUpdate,
+    NotificationMode,
     autoscaling::AutoScaling,
     tolerations::Tolerations,
     LifeCycle,
@@ -629,6 +630,9 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub kongApis: Vec<Kong>,
 
+    ///  Deprecated Gate config
+    ///
+    /// Do not use.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gate: Option<Gate>,
 
@@ -696,6 +700,14 @@ pub struct Manifest {
     /// ```
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sentry: Option<Sentry>,
+
+    /// Slack upgrade notification settings
+    ///
+    /// ```yaml
+    /// upgradeNotifications: Silent
+    /// ```
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upgradeNotifications: Option<NotificationMode>,
 
     // ------------------------------------------------------------------------
     // Output variables

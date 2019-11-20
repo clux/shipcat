@@ -103,3 +103,6 @@ pub use self::persistentvolume::PersistentVolume;
 pub mod newrelic;
 
 pub mod sentry;
+
+mod notifications;
+pub use notifications::NotificationMode;

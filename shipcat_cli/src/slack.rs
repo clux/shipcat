@@ -1,13 +1,15 @@
+use std::collections::BTreeMap;
 use slack_hook::{Slack, PayloadBuilder, SlackLink, SlackText, SlackUserLink, AttachmentBuilder};
 use slack_hook::SlackTextContent::{self, Text, Link, User};
 use std::env;
 use semver::Version;
 
-use shipcat_definitions::structs::{Contact, Metadata};
-use shipcat_definitions::config::NotificationMode;
-use shipcat_definitions::region::{Environment};
+use shipcat_definitions::{
+    teams::{Owners, Person},
+    structs::{Contact, NotificationMode, Metadata},
+};
 use crate::diff;
-use super::{Config, Result, ErrorKind, ResultExt};
+use super::{Result, ErrorKind, ResultExt};
 
 /// Slack message options we support
 ///
@@ -20,6 +22,9 @@ pub struct Message {
 
     /// Metadata from Manifest
     pub metadata: Metadata,
+
+    /// Notification Mode from Manifest
+    pub mode: NotificationMode,
 
     /// Optional color for the attachment API
     pub color: Option<String>,
@@ -65,13 +70,13 @@ pub fn have_credentials() -> Result<()> {
 }
 
 /// Send a message based on a upgrade event
-pub fn send(msg: Message) -> Result<()> {
+pub fn send(msg: Message, owners: &Owners) -> Result<()> {
     let hook_chan : String = env_channel()?;
-    send_internal(msg.clone(), hook_chan)?;
+    send_internal(msg.clone(), hook_chan, owners)?;
     let md = &msg.metadata;
     if let Some(chan) = &md.notifications {
         let c = chan.clone();
-        send_internal(msg, c.to_string())?;
+        send_internal(msg, c.to_string(), owners)?;
     }
     Ok(())
 }
@@ -121,7 +126,7 @@ pub fn send_dumb(msg: DumbMessage) -> Result<()> {
 }
 
 /// Send a `Message` to a configured slack destination
-fn send_internal(msg: Message, chan: String) -> Result<()> {
+fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()> {
     let hook_url : &str = &env_hook_url()?;
     let hook_user : String = env_username();
     let md = &msg.metadata;
@@ -172,17 +177,17 @@ fn send_internal(msg: Message, chan: String) -> Result<()> {
     // Automatic CI originator link
     texts.push(infer_ci_links());
 
-    //let notificationMode = if let Some(team) = conf.teams.iter().find(|t| t.name == md.team) {
-    //    team.slackSettings.get(&env).unwrap_or(&NotificationMode::NotifyMaintainers)
-    //} else {
-    //    &NotificationMode::NotifyMaintainers
-    //};
-    let notificationMode = &NotificationMode::NotifyMaintainers; // TODO- reintroduce policy
-
     // Auto cc users
-    if let NotificationMode::NotifyMaintainers = notificationMode {
-        if !md.contacts.is_empty() {
+    if let NotificationMode::NotifyMaintainers = msg.mode {
+        if !md.contacts.is_empty() || !md.maintainers.is_empty() {
             texts.push(Text("<- ".to_string().into()));
+        }
+        // maintainer strings via people in teams.yml
+        if !md.maintainers.is_empty() {
+            texts.extend(maintainers_to_text_content(&md.maintainers, &owners.people))
+        }
+        // legacy contacts:
+        if !md.contacts.is_empty() {
             texts.extend(contacts_to_text_content(&md.contacts));
         }
     }
@@ -200,7 +205,7 @@ fn send_internal(msg: Message, chan: String) -> Result<()> {
     p = p.attachments(ax);
 
     // Send everything. Phew.
-    if notificationMode != &NotificationMode::Silent {
+    if msg.mode != NotificationMode::Silent {
         slack.send(&p.build()?).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
     }
 
@@ -235,6 +240,13 @@ fn create_github_compare_url(md: &Metadata, vers: (&str, &str)) -> SlackTextCont
 
 fn contacts_to_text_content(contacts: &[Contact]) -> Vec<SlackTextContent> {
     contacts.iter().map(|cc| { User(SlackUserLink::new(&cc.slack)) }).collect()
+}
+
+fn maintainers_to_text_content(maintainers: &[String], people: &BTreeMap<String, Person>) -> Vec<SlackTextContent> {
+    maintainers.iter()
+        .filter_map(|m| people.get(m))
+        .map(|p| User(SlackUserLink::new(&format!("@{}", &p.slack))))
+        .collect()
 }
 
 /// Infer originator of a message
