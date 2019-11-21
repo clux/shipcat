@@ -3,7 +3,6 @@ use shipcat_definitions::Crd;
 use serde::Serialize;
 use regex::Regex;
 use serde_yaml;
-use serde_json::json;
 use chrono::{Utc, DateTime};
 
 use kube::{
@@ -13,11 +12,10 @@ use kube::{
 };
 
 use k8s_openapi::api::authorization::v1::{
-    ResourceRule,
+    //ResourceRule,
     ResourceAttributes,
-    NonResourceAttributes,
-    SelfSubjectRulesReviewSpec,
-    SubjectRulesReviewStatus,
+    //SelfSubjectRulesReviewSpec,
+    //SubjectRulesReviewStatus,
     SelfSubjectAccessReviewSpec,
     SubjectAccessReviewStatus,
 };
@@ -54,7 +52,7 @@ fn kout(args: Vec<String>) -> Result<(String, bool)> {
     }
     Ok((out, s.status.success()))
 }
-
+/*
 fn get_kube_permissions(namespace: String) -> Result<Vec<ResourceRule>> {
     let config = load_kube_config().expect("config failed to load");
     let client = APIClient::new(config);
@@ -82,7 +80,7 @@ fn get_kube_permissions(namespace: String) -> Result<Vec<ResourceRule>> {
     debug!("status: {:?}", o.status);
     Ok(o.status.expect("expected rules").resource_rules)
 }
-
+*/
 fn kani(rr: AccessReviewRequest) -> Result<bool> {
     let config = load_kube_config().expect("config failed to load");
     let client = APIClient::new(config);

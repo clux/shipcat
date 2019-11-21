@@ -48,7 +48,7 @@ pub fn login(conf: &Config, region: &Region, force: bool) -> Result<()> {
                     .join(".tsh")
                     .join(format!("{}.yaml", teleport));
                 debug!("Removing {}", tsh_state_file.display());
-                std::fs::remove_file(tsh_state_file)?;
+                let _ = std::fs::remove_file(tsh_state_file); // don't care if the file is missing
             }
             if needs_login || force {
                 let tsh_args = vec![
