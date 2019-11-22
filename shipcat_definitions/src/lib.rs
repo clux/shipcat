@@ -117,9 +117,6 @@ pub mod math;
 /// Used for small app configs that are inlined in the completed manifests.
 pub mod template;
 
-//pub mod product;
-//pub use product::Product;
-
 /// A Hashicorp Vault HTTP client using `reqwest`
 pub mod vault;
 pub use crate::vault::Vault;

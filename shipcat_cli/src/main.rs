@@ -217,12 +217,6 @@ fn build_cli() -> App<'static, 'static> {
         .subcommand(SubCommand::with_name("list-services")
             .setting(AppSettings::Hidden)
             .about("list supported services for a specified"))
-        .subcommand(SubCommand::with_name("list-products")
-            .setting(AppSettings::Hidden)
-            .arg(Arg::with_name("location")
-                .required(true)
-                .help("Location to filter on"))
-            .about("list supported products"))
 
         // new service subcommands (absorbing some service manifest responsibility from helm/validate cmds)
         .subcommand(SubCommand::with_name("status")
@@ -370,30 +364,6 @@ fn build_cli() -> App<'static, 'static> {
                 .about("Show the config in crd form for a region"))
             .subcommand(SubCommand::with_name("verify")
                 .about("Verify the parsed config")))
-
-        // products
-        .subcommand(SubCommand::with_name("product")
-            .setting(AppSettings::SubcommandRequiredElseHelp)
-            .about("Run product interactions across manifests")
-            .subcommand(SubCommand::with_name("show")
-                .arg(Arg::with_name("product")
-                    .required(true)
-                    .help("Product name"))
-                .arg(Arg::with_name("location")
-                    .required(true)
-                    .help("Location name"))
-                .about("Show product information"))
-            .subcommand(SubCommand::with_name("verify")
-                .arg(Arg::with_name("products")
-                    .required(true)
-                    .help("Product names"))
-                .arg(Arg::with_name("location")
-                    .long("location")
-                    .short("l")
-                    .takes_value(true)
-                    .required(false)
-                    .help("Location name"))
-                .about("Verify product manifests")))
 
         .subcommand(SubCommand::with_name("login")
             .about("Login to a region (using teleport if possible)")
@@ -561,10 +531,6 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let (conf , region) = resolve_config(a, ConfigType::Base)?;
         return shipcat::list::services(&conf, &region);
     }
-    //if let Some(a) = args.subcommand_matches("list-products") {
-    //    let l = a.value_of("location").unwrap().into();
-    //    return shipcat::list::products(&conf, l);
-    //}
     else if let Some(a) = args.subcommand_matches("login") {
         let (conf, region) = resolve_config(a, ConfigType::Base)?;
         return shipcat::auth::login(&conf, &region, a.is_present("force"));
@@ -631,21 +597,6 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
                 shipcat::top::region_requests(sort, ub, fmt, &conf, &region).map(void)
             }
         };
-    }
-    // product
-    else if let Some(_a) = args.subcommand_matches("product") {
-        // TODO: handle more like the other commands
-        unimplemented!();
-/*        if let Some(b) = a.subcommand_matches("verify") {
-            let location = b.value_of("location");
-            let products  = b.values_of("products").unwrap().map(String::from).collect::<Vec<_>>();
-            return shipcat::product::validate(products, &conf, location.map(String::from));
-        }
-        else if let Some(b) = a.subcommand_matches("show") {
-            let product  = b.value_of("product").map(String::from);
-            let location = b.value_of("location");
-            return shipcat::product::show(product, &conf, location.unwrap());
-        }*/
     }
     else if let Some(a) = args.subcommand_matches("config") {
         if let Some(_) = a.subcommand_matches("crd") {

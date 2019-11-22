@@ -1,5 +1,5 @@
 /// This file contains all the hidden `shipcat list-*` subcommands
-use super::{Result, Region, Config}; //Product
+use super::{Result, Region, Config};
 
 /// Print the supported regions
 pub fn regions(conf: &Config) -> Result<()> {
@@ -16,23 +16,6 @@ pub fn locations(conf: &Config) -> Result<()> {
     }
     Ok(())
 }
-
-/// Print supported products in a location
-//pub fn products(conf: &Config, location: String) -> Result<()> {
-//    for product in Product::available()? {
-//        match Product::completed(&product, conf, &location) {
-//            Ok(p) => {
-//                if p.locations.contains(&location) {
-//                    println!("{}", product);
-//                }
-//            }
-//            Err(e) => {
-//                bail!("Failed to examine product {}: {}", product, e)
-//            }
-//        }
-//    }
-//    Ok(())
-//}
 
 /// Print supported services in a region
 /// TODO: this one needs to do the guess outside in main!

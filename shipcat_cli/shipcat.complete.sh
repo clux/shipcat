@@ -15,12 +15,12 @@ _shipcat()
     fi
 
     local -r subcommands="help validate shell port-forward get graph cluster gdpr
-                          kong debug product list-regions list-services list-products
+                          kong debug list-regions list-services
                           apply template values status config crd diff login version"
 
     local has_sub
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(help|validate|port-forward|diff|debug|get|config|product|version|status|statuscake|shell|graph|cluster|gdpr|kong|list-services|list-products|apply|template|values|status|crd) ]]; then
+        if [[ ${words[i]} == @(help|validate|port-forward|diff|debug|get|config|version|status|statuscake|shell|graph|cluster|gdpr|kong|list-services|apply|template|values|status|crd) ]]; then
             has_sub=1
         fi
     done
@@ -39,7 +39,7 @@ _shipcat()
     # special subcommand completions
     local special i
     for (( i=0; i < ${#words[@]}-1; i++ )); do
-        if [[ ${words[i]} == @(list-services|list-products|validate|version|config|shell|product|port-forward|diff|debug|graph|get|cluster|gdpr|apply|template|values|status|crd) ]]; then
+        if [[ ${words[i]} == @(list-services|validate|version|config|shell|port-forward|diff|debug|graph|get|cluster|gdpr|apply|template|values|status|crd) ]]; then
             special=${words[i]}
             break
         fi
@@ -88,23 +88,7 @@ _shipcat()
             config)
                 COMPREPLY=($(compgen -W "show verify crd" -- "$cur"))
                 ;;
-            product)
-                local prod_sub i
-                for (( i=2; i < ${#words[@]}-1; i++ )); do
-                    if [[ ${words[i]} = @(show|verify) ]]; then
-                        prod_sub=${words[i]}
-                    fi
-                done
-                local -r region="$(kubectl config current-context)"
-                local -r prods="$(shipcat list-products "$region")"
-                if [[ $prod_sub = @(show|verify) ]]; then
-                    # suggest products
-                    COMPREPLY=($(compgen -W "$prods" -- "$cur"))
-                else
-                    COMPREPLY=($(compgen -W "show verify" -- "$cur"))
-                fi
-                ;;
-            list-services|list-products)
+            list-services)
                 local -r regions="$(shipcat list-regions)"
                 if [[ $prev == @(-r|--region) ]]; then
                     COMPREPLY=($(compgen -W "$region" -- "$cur"))

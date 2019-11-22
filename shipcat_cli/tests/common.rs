@@ -83,16 +83,6 @@ fn config_defaults_test() {
     assert_eq!(*metadata.notifications.unwrap(), "#dev-platform-notif-override");
 }
 
-/*#[test]
-fn product_test() {
-    setup();
-    let conf = Config::read().unwrap();
-    let p = Product::completed("triage", &conf, "uk").unwrap();
-    let res = p.verify(&conf);
-    assert!(res.is_ok(), "verified product");
-}
-*/
-
 use shipcat::get;
 #[test]
 fn getters() {
