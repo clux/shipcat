@@ -164,7 +164,8 @@ fn sort_and_print_resources(
     #[derive(Serialize)]
     struct YamlOutput {
         name: String,
-        team: String,
+        squad: String,
+        tribe: Option<String>,
         cpu: u64,
         memory: u64,
     }
@@ -182,18 +183,20 @@ fn sort_and_print_resources(
         YamlOutput {
             memory, cpu,
             name: mf.name.clone(),
-            team: mf.metadata.as_ref().unwrap().team.clone(),
+            squad: mf.metadata.as_ref().unwrap().team.clone(),
+            tribe: mf.metadata.as_ref().unwrap().tribe.clone(),
         }
     }).collect::<Vec<_>>();
 
     match formatting {
         OutputFormat::Table => {
-            println!("{0:<50} {1:<8} {2:<8} {3:40}", "SERVICE", "CPU", "MEMORY", "TEAM");
+            println!("{0:<50} {1:<8} {2:<8} {3:40} {4:40}", "SERVICE", "CPU", "MEMORY", "SQUAD", "TRIBE");
             output.into_iter().for_each(|o| {
-                println!("{0:<50} {1:width$} {2:width$} {3:<40}", o.name,
+                println!("{0:<50} {1:width$} {2:width$} {3:<40} {4:<40}", o.name,
                     format!("{:.0}", SizeFormatter::<u64, Millicores, PointSeparated>::new(o.cpu)),
                     format!("{:.0}", SizeFormatterBinary::new(o.memory)),
-                    o.team,
+                    o.squad,
+                    o.tribe.unwrap_or("".to_string()),
                     width = 8,
                 );
             });
