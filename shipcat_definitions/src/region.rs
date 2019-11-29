@@ -432,20 +432,20 @@ pub enum ReconciliationMode {
     /// Tiller owned, CRD based decision, versioned, forceable, with .status
     ///
     /// Requires kubernetes 1.12 or newer.
-    /// A stop gap before CrdOwned
+    /// A stop gap before CrdOwned.
+    /// Deprecated. Will be removed soon.
     CrdStatus,
 
     /// Shipcat owned, CRD based decision
     ///
-    /// Requires kubernetes 1.13
+    /// Requires kubernetes 1.13 and above (default).
     /// If CRD was configured, kube apply chart with owner references
-    /// Not implemented yet.
     CrdOwned,
 }
 
 impl Default for ReconciliationMode {
     fn default() -> Self {
-        ReconciliationMode::CrdStatus
+        ReconciliationMode::CrdOwned
     }
 }
 

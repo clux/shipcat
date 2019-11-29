@@ -1,3 +1,8 @@
+0.142.0 / 2019-11-XX
+====================
+  * ReconciliationMode::CrdOwned new default
+  * Tiller support fully deprecated and will be removed soon
+
 0.134.1 / 2019-10-23
 ====================
   * Speculative `shipcat self-upgrade`
