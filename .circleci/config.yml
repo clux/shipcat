@@ -87,7 +87,9 @@ jobs:
       - run: cargo test --all --no-run
       - run: cargo test --all -- --nocapture
       # Tests within shipcat_definitions do not get run with features
-      - run: cargo test -p shipcat_definitions --features=filesystem -- --nocapture
+      - run: |
+            cd shipcat_definitions
+            cargo test --features=filesystem -- --nocapture
       - run: cargo doc --no-deps --lib --all
       - save_cache:
           paths:

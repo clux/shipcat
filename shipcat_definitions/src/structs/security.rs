@@ -1,4 +1,5 @@
 use std::path::Path;
+use regex::Regex;
 use super::Result;
 
 /// What sensitive data is managed and how
@@ -79,68 +80,13 @@ impl DataStore {
     }
 }
 
-/// Canonical names for data fields
-///
-/// This is to indicate the canonical data type, not the actual field names.
-/// TODO: into Config!
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum DataFieldType {
-    FullName,
-    HomeAddress,
-    DateOfBirth,
-    EmailAddress,
-    BabylonUserId,
-    FacebookUserId,
-    FacebookAuthToken,
-    PaymentDetails,
-    PrescriptionHistory,
-    AppointmentHistory,
-    TransactionHistory,
-    ReferralHistory,
-    ChatHistory,
-    FutureAppointments,
-    ConsultationNotes,
-    ConsultationVideoRecordings,
-    ConsultationAudioRecordings,
-    ChatbotRawUserString,
-    DeviceHistory,
-    PhoneNumber,
-    PgmFlowOutcomes,
-    CheckbaseFlowOutcomes,
-    /// Internal babylon health check metric
-    HealthCheck,
-}
-
-// https://engineering.ops.babylontech.co.uk/docs/principles-security/#what-is-sensitive-personally-identifiable-information
-impl DataFieldType {
-    fn is_pii(&self) -> bool {
-        // Matching by exclusion by default
-        match self {
-            DataFieldType::HealthCheck => false,
-            _ => true
-        }
-    }
-    fn is_spii(&self) -> bool {
-        match self {
-            DataFieldType::FullName => false,
-            DataFieldType::HomeAddress => false,
-            DataFieldType::DateOfBirth => false,
-            DataFieldType::BabylonUserId => false,
-            // Otherwise fall back to the weaker PII
-            // because: not PII implies not SPII
-            // slightly more sensible default than just `true`
-            _ => self.is_pii()
-        }
-    }
-}
-
 
 /// Data storage information and encryption information
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct DataField {
     /// Canonical name of the data field
-    pub name: DataFieldType,
+    pub name: String,
 
     // same encryption params as in DataStore
     // TODO: #[serde(flatten)] when we can
@@ -162,28 +108,28 @@ pub struct DataField {
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct DataProcess {
     /// Canonical field name
-    pub field: DataFieldType,
+    pub field: String,
     /// Service source service for this information
     pub source: String,
 }
 
 impl DataHandling {
     pub fn verify(&self) -> Result<()> {
+        // field names must be PascalCase
+        let re = Regex::new(r"^[A-Z][[:alpha:]\d]+$").unwrap();
+        let mut fields = vec![];
         for s in &self.stores {
             for f in &s.fields {
-                let enc = f.encrypted.unwrap(); // filled by implicits
-                // can't block on this yet - so just warn a lot
-                if f.name.is_spii() && !enc {
-                    debug!("{} stores SPII ({:?}) without encryption", s.backend, f.name)
+                if !re.is_match(&f.name) {
+                    bail!("The field {} is not valid PascalCase, or starts with a number", f.name);
                 }
-                // weaker warning
-                else if f.name.is_pii() && !enc {
-                    debug!("{} stores PII ({:?}) without encryption", s.backend, f.name)
-                }
-
+                fields.push(f.name.clone());
             }
         }
         for p in &self.processes {
+            if !fields.contains(&p.field) {
+                bail!("The field {} is defined in processes, but not in fields", p.field);
+            }
             let sourcepth = Path::new(".").join("services").join(&p.source);
             if !sourcepth.is_dir() {
                 bail!("Service {} does not exist in services/", p.source);
