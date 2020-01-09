@@ -117,19 +117,14 @@ impl DataHandling {
     pub fn verify(&self) -> Result<()> {
         // field names must be PascalCase
         let re = Regex::new(r"^[A-Z][[:alpha:]\d]+$").unwrap();
-        let mut fields = vec![];
         for s in &self.stores {
             for f in &s.fields {
                 if !re.is_match(&f.name) {
                     bail!("The field {} is not valid PascalCase, or starts with a number", f.name);
                 }
-                fields.push(f.name.clone());
             }
         }
         for p in &self.processes {
-            if !fields.contains(&p.field) {
-                bail!("The field {} is defined in processes, but not in fields", p.field);
-            }
             let sourcepth = Path::new(".").join("services").join(&p.source);
             if !sourcepth.is_dir() {
                 bail!("Service {} does not exist in services/", p.source);
