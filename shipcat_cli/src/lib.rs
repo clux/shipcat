@@ -90,8 +90,6 @@ pub use shipcat_definitions::region::{Region, VersionScheme, KongConfig, Webhook
 pub mod list;
 /// A post interface to slack using `slack_hook`
 pub mod slack;
-/// A REST interface to grafana using `reqwest`
-pub mod grafana;
 /// Audit objects and API caller
 pub mod audit;
 /// Cluster level operations

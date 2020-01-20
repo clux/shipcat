@@ -1,6 +1,5 @@
 use crate::{
     audit,
-    grafana,
     slack,
     Result
 };
@@ -96,20 +95,6 @@ pub fn apply_event(us: UpgradeState, info: &UpgradeInfo, reg: &Region, conf: &Co
                 mode: info.slackMode.clone(),
                 metadata: info.metadata.clone(),
             }, &conf.owners);
-        }
-        _ => {},
-    }
-
-    // grafana annotations:
-    match us {
-        UpgradeState::Completed | UpgradeState::Failed => {
-            let _ = grafana::create(grafana::Annotation {
-                event: grafana::Event::Upgrade,
-                service: info.name.clone(),
-                version: info.version.clone(),
-                region: info.region.clone(),
-                time: grafana::TimeSpec::Now,
-            });
         }
         _ => {},
     }
