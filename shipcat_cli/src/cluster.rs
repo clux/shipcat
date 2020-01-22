@@ -6,7 +6,7 @@ use shipcat_filebacked::{SimpleManifest};
 
 use rayon::{iter::Either, prelude::*};
 use crate::apply;
-use crate::helm; // temporary
+use crate::helm;
 use crate::{status, diff};
 use super::kubectl;
 use crate::webhooks::{self, UpgradeState};
@@ -66,6 +66,40 @@ pub fn mass_diff(conf: &Config, reg: &Region) -> Result<()> {
             }
         }
         bail!("Failed to diff {} manifests", errs.len());
+    }
+    Ok(())
+}
+
+
+/// Verifies all populated templates for all services in a region
+///
+/// Helper that shells out to helm template in parallel.
+pub fn mass_template_verify(conf: &Config, reg: &Region) -> Result<()> {
+    let svcs = shipcat_filebacked::available(conf, reg)?;
+    assert!(conf.has_secrets());
+
+    let (errs, passed) : (Vec<Error>, Vec<_>) = svcs.par_iter()
+        .map(|mf| {
+            let mut mf = shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?
+                .stub(&reg)?;
+            mf.version = mf.version.or(Some("latest".to_string()));
+            mf.uid = Some("FAKE-GUID".to_string());
+
+            info!("verifying template for {}", mf.name);
+            let tpl = helm::template(&mf, None)?;
+            helm::template_check(&mf, reg, &tpl)?;
+            Ok(mf.name)
+        })
+        .partition_map(Either::from);
+    for n in passed {
+        info!("{} verified", n)
+    }
+    if !errs.is_empty() {
+        for e in &errs {
+            error!("{}", e);
+            debug!("{:?}", e);
+        }
+        bail!("Failed to verify templates for {} manifest", errs.len());
     }
     Ok(())
 }
@@ -160,9 +194,6 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>,
 
     // Otherwise we're good
     webhooks::reconcile_event(UpgradeState::Completed, &region_sec);
-
-    // temporary sanity help - to clean out stragglers
-    let _ = helm::find_redundant_services(&region_sec.namespace, &svc_names);
     Ok(())
 }
 

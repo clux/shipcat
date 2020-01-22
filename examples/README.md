@@ -115,8 +115,8 @@ Ensure the current commands are run before merging into a repository like this f
 
 ```sh
 shipcat config verify
-shipcat verify -r minikube
+shipcat verify
+shipcat cluster check -r minikube
 shipcat secret verify-region -r minikube --changed=blog,webapp
-shipcat template webapp -c
 shipcat template webapp | kubeval -v 1.13.8 --strict
 ```

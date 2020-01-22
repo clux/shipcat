@@ -1,4 +1,10 @@
-0.142.0 / 2019-11-XX
+0.143.0 / 2020-01-XX
+====================
+  * Tiller support removed
+  * `shipcat template -c MYSVC` properly validates template labels
+  * `shipcat cluster check` is a region-wide variant of `shipcat template -c`
+
+0.142.0 / 2020-01-07
 ====================
   * ReconciliationMode::CrdOwned new default
   * Tiller support fully deprecated and will be removed soon

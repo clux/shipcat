@@ -191,6 +191,9 @@ fn build_cli() -> App<'static, 'static> {
             .subcommand(SubCommand::with_name("diff")
                 // Use RAYON_NUM_THREADS to parallelize
                 .about("Diff all services against the a region"))
+            .subcommand(SubCommand::with_name("check")
+                // Use RAYON_NUM_THREADS to parallelize
+                .about("Check all service templates for a region"))
             .subcommand(SubCommand::with_name("crd")
                 .arg(Arg::with_name("num-jobs")
                     .short("j")
@@ -315,14 +318,7 @@ fn build_cli() -> App<'static, 'static> {
                 .takes_value(true)
                 .conflicts_with("git")
                 .conflicts_with("crd")
-                .conflicts_with("helm")
                 .help("Comparing with the same service in a different region"))
-              .arg(Arg::with_name("helm")
-                .long("helm")
-                .global(true)
-                .conflicts_with("git")
-                .conflicts_with("crd")
-                .help("Comparing using helm-diff plugin"))
               .arg(Arg::with_name("tag")
                 .long("tag")
                 .short("t")
@@ -774,11 +770,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
                 mf.uid = Some("FAKE-GUID".to_string());
                 mf.version = mf.version.or(Some("latest".to_string()));
             }
-            let diff = if a.is_present("helm") {
-                shipcat::diff::helm_diff(&mf)?
-            } else {
-                shipcat::diff::template_vs_kubectl(&mf)?
-            };
+            let diff = shipcat::diff::template_vs_kubectl(&mf)?;
             if let Some(mut out) = diff {
                 if a.is_present("obfuscate") {
                     out = shipcat::diff::obfuscate_secrets(out, mf.get_secrets())
@@ -852,6 +844,11 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             let (conf, region) = resolve_config(args, ConfigType::Filtered)?;
             return shipcat::cluster::mass_diff(&conf, &region);
         }
+        if let Some(_b) = a.subcommand_matches("check") {
+            let (conf, region) = resolve_config(args, ConfigType::Filtered)?;
+            return shipcat::cluster::mass_template_verify(&conf, &region);
+        }
+
         if let Some(b) = a.subcommand_matches("vault-policy") {
             let (conf, region) = resolve_config(args, ConfigType::Base)?;
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();

@@ -106,16 +106,14 @@ pub fn template_check(mf: &Manifest, reg: &Region, tpl: &str) -> Result<()> {
             warn!("Missing apiVersion in object: {}", kind);
         }
 
+        let tiller_ok = check_no_tiller_refs(&kind, &obj)?;
         let ok = match reg.reconciliationMode {
             ReconciliationMode::CrdOwned => {
                 let owner_ok = check_owner_refs(mf, &kind, &obj)?;
                 let labels_ok = check_labels(mf, &kind, &obj)?;
                 labels_ok && owner_ok
             },
-            ReconciliationMode::CrdStatus | ReconciliationMode::CrdVersioned => {
-                check_tiller_refs(mf, &kind, &obj)?
-            },
-        };
+        } && tiller_ok;
         if !ok {
             invalids.push(format!("{} {{ {} }}", kind, name));
         }
@@ -170,21 +168,26 @@ fn check_labels(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool> {
             warn!("{}: missing app.kubernetes.io/managed-by label", kind);
         }
     };
-    if let Some(v) = &mf.version {
-        match labels.get("app.kubernetes.io/version") {
-            Some(n) => {
-                if n == v {
-                    debug!("{}: valid app.kubernetes.io/version label {}", kind, n)
-                } else {
+    // If the object doesn't get injected into the Deployment automatically
+    // then it ought to have the standard version property.
+    // If it changes, we should not lie about it changing (Secret + CM didn't really change)
+    if !["Secret", "ConfigMap"].contains(&kind) {
+        if let Some(v) = &mf.version {
+            match labels.get("app.kubernetes.io/version") {
+                Some(n) => {
+                    if n == v {
+                        debug!("{}: valid app.kubernetes.io/version label {}", kind, n)
+                    } else {
+                        success = false;
+                        warn!("{}: invalid app.kubernetes.io/version label {}", kind, n)
+                    }
+                },
+                None => {
                     success = false;
-                    warn!("{}: invalid app.kubernetes.io/version label {}", kind, n)
+                    warn!("{}: missing app.kubernetes.io/version label", kind);
                 }
-            },
-            None => {
-                success = false;
-                warn!("{}: missing app.kubernetes.io/version label", kind);
-            }
-        };
+            };
+        }
     }
     Ok(success)
 }
@@ -219,102 +222,20 @@ fn check_owner_refs(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool>
     Ok(success)
 }
 
-// pre-migration helper to ensure chart consistency
-//
-// will be removed with CrdStatus
-fn check_tiller_refs(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool> {
+// charts should not reference tiller
+fn check_no_tiller_refs(kind: &str, obj: &MetaObject) -> Result<bool> {
     let mut success = true;
-    // Should not have ownerReferences when using tiller
-    match obj.metadata.ownerReferences.first() {
-        Some(or) => {
-            success = false;
-            warn!("{}: unexpeceted ownerReference for {}", kind, serde_yaml::to_string(or)?);
-        },
-        None => {
-            debug!("{}: ownerReferences unset", kind);
-        },
-    };
     let labels = &obj.metadata.labels;
-    match labels.get("chart") {
-        Some(n) => {
-            if n.starts_with(&mf.name) {
-                debug!("{}: valid chart label {}", kind, n);
-            } else {
+    for key in ["chart", "heritage", "release"].into_iter() {
+        match labels.get(&key.to_string()) {
+            Some(n) => {
                 success = false;
-                warn!("{}: invalid chart label {}", kind, n);
-            }
-        },
-        None => {
-            success = false;
-            warn!("{}: missing chart label", kind);
-        },
-    };
-    match labels.get("heritage") {
-        Some(n) => {
-            // tiller internal name
-            if n == "Tiller" {
-                debug!("{}: valid heritage label {}", kind, n);
-            } else {
-                success = false;
-                warn!("{}: invalid heritage label {}", kind, n);
-            }
-        },
-        None => {
-            success = false;
-            warn!("{}: missing heritage label", kind);
-        },
-    };
-    match labels.get("release") {
-        Some(n) => {
-            if n == &mf.name {
-                debug!("{}: valid release label {}", kind, n);
-            } else {
-                success = false;
-                warn!("{}: invalid release label {}", kind, n);
-            }
-        },
-        None => {
-            success = false;
-            warn!("{}: missing release label", kind);
-        },
-    };
+                warn!("{}: {} label {} for tiller not supported", kind, key, n);
+            },
+            None => {
+                debug!("{}: {} label unset", kind, key);
+            },
+        };
+    }
     Ok(success)
 }
-
-
-use std::collections::HashSet;
-/// Find all services in a given namespace
-///
-/// Used to warn (for now) when services run that are not in Manifest::available()
-/// This is an experimental warning only function.
-/// It is possible that `helm ls -q` is still unreliable.
-pub fn find_redundant_services(ns: &str, svcs: &[String]) -> Result<Vec<String>> {
-    let requested: HashSet<_> = svcs.iter().cloned().collect();
-
-    let lsargs = vec![
-        format!("--tiller-namespace={}", ns),
-        "ls".into(),
-        "-q".into()
-    ];
-    debug!("helm {}", lsargs.join(" "));
-    let found : HashSet<_> = match hout(lsargs.clone()) {
-        Ok((vout, verr, true)) => {
-            if !verr.is_empty() {
-                warn!("helm {} stderr: {}",  lsargs.join(" "), verr);
-            }
-            // we should have a helm ls -q output:
-            vout.lines().map(String::from).collect()
-        }
-        _ => {
-            bail!("No services found in {} tiller", ns)
-        }
-    };
-    let excess : HashSet<_> = found.difference(&requested).collect();
-    if !excess.is_empty() {
-        warn!("Found extraneous helm services: {:?}", excess);
-    } else {
-        debug!("No excess manifests found");
-    }
-    Ok(excess.into_iter().cloned().collect())
-}
-

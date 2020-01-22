@@ -2,7 +2,6 @@ use regex::Regex;
 use shipcat_definitions::Crd;
 use crate::kubectl;
 use crate::helm;
-use crate::apply;
 use crate::git;
 use super::{Config, Region, Manifest, Result};
 use std::process::Command;
@@ -106,24 +105,6 @@ pub fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool
     fs::remove_file(afterpth)?;
     Ok(s.success())
 }
-
-/// Temporary helm diff wrapper for shipcat::diff
-///
-/// This will be removed once tiller dependency is removed and 1.13 is everywhere.
-pub fn helm_diff(mf: &Manifest) -> Result<Option<String>> {
-    let hfile = format!("{}.helm.gen.yml", mf.name);
-    helm::values(&mf, &hfile)?;
-    let diff = match apply::diff_helm(&mf, &hfile) {
-        Ok(hdiff) => hdiff,
-        Err(e) => {
-            warn!("Unable to diff against {}: {}", mf.name, e);
-            None
-        },
-    };
-    let _ = fs::remove_file(&hfile); // try to remove temporary file
-    Ok(diff)
-}
-
 
 use std::path::Path;
 use std::fs::{self, File};

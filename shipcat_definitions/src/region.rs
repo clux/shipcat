@@ -422,20 +422,6 @@ impl ToString for Environment {
 /// Environments are well defined strings
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum ReconciliationMode {
-    /// Tiller owned, CRD based decision, versioned, forceable
-    ///
-    /// Deprecated. For kubernetes 1.10 and 1.11.
-    /// Will be removed soon.
-    /// A stop gap between CrdOwned
-    CrdVersioned,
-
-    /// Tiller owned, CRD based decision, versioned, forceable, with .status
-    ///
-    /// Requires kubernetes 1.12 or newer.
-    /// A stop gap before CrdOwned.
-    /// Deprecated. Will be removed soon.
-    CrdStatus,
-
     /// Shipcat owned, CRD based decision
     ///
     /// Requires kubernetes 1.13 and above (default).

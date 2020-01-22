@@ -2,7 +2,6 @@ FROM alpine:3.7
 
 ENV KUBEVER=1.15.5 \
     HELMVER=2.13.0 \
-    HELMDIFFVER="2.11.0%2B3" \
     KUBEVALVER=0.14.0 \
     VAULTVER=0.11.1 \
     HOME=/config \
@@ -28,16 +27,9 @@ RUN adduser kubectl -Du 1000 -h /config && \
     \
     # Basic check it works.
     kubectl version --client && \
-    helm version -c && \
+    helm version -c && helm init -c && \
     kubeval --version
 
-# Setup helm and plugins
-# Currently the version pinning mechanism in helm plugin does not work for tags with + in them
-# See https://github.com/databus23/helm-diff/issues/50
-# Also cannot sanity check installation because it tries to talk to the cluster
-RUN set -x && \
-    helm init -c && \
-    curl -sSL https://github.com/databus23/helm-diff/releases/download/v${HELMDIFFVER}/helm-diff-linux.tgz | tar xvz -C $(helm home)/plugins
 
 # Add core dependencies of validation
 RUN apk add --no-cache --virtual virtualbuild libffi-dev g++ python3-dev openssl-dev && \
