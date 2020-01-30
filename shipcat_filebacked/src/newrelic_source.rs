@@ -38,7 +38,7 @@ pub struct NewrelicSource {
 
 impl Build<Option<Newrelic>, SlackChannel> for NewrelicSource {
     fn build(self, default_channel: &SlackChannel) -> Result<Option<Newrelic>> {
-        let slack = self
+        let slack: SlackChannel = self
             .slack
             .map(|s| s.verify().map(|_| s))
             .unwrap_or_else(|| Ok(default_channel.clone()))?;
@@ -60,12 +60,21 @@ impl Build<Option<Newrelic>, SlackChannel> for NewrelicSource {
             })
             .collect();
 
+        let alerts: BTreeMap<String, NewrelicAlert> = alerts_res?;
+
+        if alerts.len() > 0 && !slack.starts_with("C") {
+            bail!(
+                "Private/personal channel {} is NOT supported as NewRelic target",
+                *slack
+            );
+        }
+
         let incident_preference = self.incident_preference.unwrap_or_default();
 
         Ok(Some(Newrelic {
             slack,
             incident_preference,
-            alerts: alerts_res?,
+            alerts,
         }))
     }
 }

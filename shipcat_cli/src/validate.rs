@@ -1,8 +1,8 @@
 use super::{Config, Region};
-use super::{Result, Error};
-use rayon::{iter::Either, prelude::*};
+use super::{Error, Result};
+use crate::error_chain::ChainedError;
 use crate::git;
-
+use rayon::{iter::Either, prelude::*};
 
 /// Validate all manifests in a service directory for a region
 ///
@@ -11,18 +11,18 @@ use crate::git;
 pub fn regional_manifests(conf: &Config, reg: &Region) -> Result<()> {
     let available = shipcat_filebacked::available(conf, &reg)?;
 
-    let (errs, _mfs) : (Vec<Error>, Vec<_>) = available.par_iter()
+    let (errs, _mfs): (Vec<Error>, Vec<_>) = available
+        .par_iter()
         .map(|mf| {
-            let mf = shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?
-                .stub(&reg)?;
+            let mf = shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?.stub(&reg)?;
             mf.verify(&conf, &reg)?;
             Ok(mf)
         })
         .partition_map(Either::from);
     if !errs.is_empty() {
         for e in &errs {
-            error!("{}", e);
-            debug!("{:?}", e);
+            error!("{}", e.display_chain());
+            debug!("{:?}", e.display_chain());
         }
         bail!("Invalid shipcat data in {} files", errs.len());
     }
@@ -38,7 +38,8 @@ pub fn all_manifests() -> Result<()> {
     use crate::ConfigType;
     let regions = Config::read()?.list_regions();
 
-    let errs = regions.par_iter()
+    let errs = regions
+        .par_iter()
         .map(|r| {
             let (conf, region) = Config::new(ConfigType::Base, &r)?;
             regional_manifests(&conf, &region)?;
@@ -49,14 +50,13 @@ pub fn all_manifests() -> Result<()> {
 
     if !errs.is_empty() {
         for e in &errs {
-            error!("{}", e);
-            debug!("{:?}", e);
+            error!("{}", e.display_chain());
+            debug!("{:?}", e.display_chain());
         }
         bail!("Invalid shipcat data in {} files", errs.len());
     }
     Ok(())
 }
-
 
 /// Validate the manifest of a service in the services directory
 ///
@@ -161,7 +161,6 @@ pub fn config(conf: Config) -> Result<()> {
     conf.verify()?;
     Ok(())
 }
-
 
 // Dumb git diff helper that matches normal service files:
 //

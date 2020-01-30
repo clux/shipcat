@@ -67,6 +67,10 @@ error_chain! {
             description("secret could not be reached or accessed")
             display("secret '{}'", &key)
         }
+        FailedToBuildManifest(service_name: String, region_name: String) {
+            description("failed to build manifest")
+            display("failed to build manifest for {} in {}", &service_name, &region_name)
+        }
     }
 }
 

@@ -31,6 +31,13 @@ impl Build<Sentry, SlackChannel> for SentrySource {
             .map(|s| s.verify().map(|_| s))
             .unwrap_or_else(|| Ok(default_channel.clone()))?;
 
+        if !slack.starts_with("C") {
+            bail!(
+                "Private/personal channel {} is NOT supported as Sentry target",
+                *slack
+            );
+        }
+
         let silent = self.silent;
 
         Ok(Sentry { slack, silent })
@@ -75,7 +82,8 @@ mod tests {
             env_yml: "{}".into(),
             default_channel: "CDEFTEAM8".into(),
             crd_expected: r###"---
-{}"###.into(),
+{}"###
+                .into(),
         })
     }
 
@@ -88,7 +96,8 @@ mod tests {
             crd_expected: r###"---
 sentry:
   slack: CDEFTEAM8
-  silent: false"###.into(),
+  silent: false"###
+                .into(),
         })
     }
 
@@ -97,17 +106,20 @@ sentry:
         test_parse_and_merge(TestSet {
             manifest_yml: r###"---
 sentry:
-  silent: false"###.into(),
+  silent: false"###
+                .into(),
             env_yml: r###"---
 sentry:
   # it's not possible to turn sentry off if defined in the service manifest
   silent: true
-  slack: COVERRIDE"###.into(),
+  slack: COVERRIDE"###
+                .into(),
             default_channel: "CDEFTEAM8".into(),
             crd_expected: r###"---
 sentry:
   slack: COVERRIDE
-  silent: true"###.into(),
+  silent: true"###
+                .into(),
         })
     }
 

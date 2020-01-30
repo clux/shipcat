@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use merge::Merge;
 use serde::de::DeserializeOwned;
-use shipcat_definitions::{Config, Manifest, Region, Result};
+use shipcat_definitions::{Config, ErrorKind, Manifest, Region, Result, ResultExt};
 use walkdir::WalkDir;
 
 use crate::manifest::{ManifestDefaults, ManifestOverrides, ManifestSource};
@@ -13,8 +13,12 @@ use super::util::{Build, Enabled};
 
 impl ManifestSource {
     pub fn load_manifest(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
-        let manifest = ManifestSource::load_merged(service, conf, reg)?;
-        manifest.build(&(conf.clone(), reg.clone()))
+        let reg_name = reg.clone().name;
+        let service_name = service.clone();
+
+        ManifestSource::load_merged(service, conf, reg)
+            .and_then(|manifest| manifest.build(&(conf.clone(), reg.clone())))
+            .chain_err(|| ErrorKind::FailedToBuildManifest(service_name.to_string(), reg_name.to_string()))
     }
 
     pub fn load_metadata(service: &str, conf: &Config, reg: &Region) -> Result<SimpleManifest> {
