@@ -80,7 +80,7 @@ error_chain! {
     }
 }
 
-pub use shipcat_definitions::{Manifest, ConfigType};
+pub use shipcat_definitions::{Manifest, ConfigState};
 pub use shipcat_definitions::structs;
 pub use shipcat_definitions::config::{self, ConfigFallback, Config};
 pub use shipcat_definitions::region::{Region, VersionScheme, KongConfig, Webhook, AuditWebhook};

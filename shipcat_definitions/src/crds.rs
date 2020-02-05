@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use crate::config::{Config};
 
 use super::{Manifest};
-use crate::states::{ManifestType};
+use crate::states::{ManifestState};
 
 const KUBE_API_VERSION: &str = "apiextensions.k8s.io/v1beta1";
 const DOMAIN: &str = "babylontech.co.uk";
@@ -137,7 +137,7 @@ impl From<Manifest> for Crd<Manifest> {
     fn from(mf: Manifest) -> Crd<Manifest> {
         // we assume the manifest has all it needs to fill in the pieces
         // but no secrets!
-        assert_eq!(mf.kind, ManifestType::Base);
+        assert_eq!(mf.state, ManifestState::Base);
         Crd {
             apiVersion: format!("{}/{}", DOMAIN, VERSION),
             kind: SHIPCATMANIFEST_KIND.into(),

@@ -254,10 +254,9 @@ fn build_cli() -> App<'static, 'static> {
                 .short("s")
                 .long("secrets")
                 .help("Use actual secrets from vault"))
-              .arg(Arg::with_name("current")
-                .short("k")
-                .long("current")
-                .help("Use uids and versions from the current kubernetes shipcatmanifest"))
+              .arg(Arg::with_name("mock")
+                .long("mock")
+                .help("Mock uids and versions rather than fetching from the kubernetes shipcatmanifest"))
               .arg(Arg::with_name("check")
                 .short("c")
                 .long("check")
@@ -330,10 +329,9 @@ fn build_cli() -> App<'static, 'static> {
               .arg(Arg::with_name("crd")
                 .long("crd")
                 .help("Compare the shipcatmanifest crd output instead of the full kube yaml"))
-              .arg(Arg::with_name("current")
-                .short("k")
-                .long("current")
-                .help("Use uids and versions from the current kubernetes shipcatmanifest"))
+              .arg(Arg::with_name("mock")
+                .long("mock")
+                .help("Mock uids and versions rather than fetching from the kubernetes shipcatmanifest"))
               .arg(Arg::with_name("minify")
                 .short("m")
                 .long("minify")
@@ -457,7 +455,7 @@ fn run(args: &ArgMatches) -> Result<()> {
 /// Resolves an optional "region" Arg or falls back to kube context.
 /// This is the ONLY user of kubectl::current_context for sanity.
 /// If the CLI entrypoint does not need a region-wide config, do not use this.
-fn resolve_config(args: &ArgMatches, ct: ConfigType) -> Result<(Config, Region)> {
+fn resolve_config(args: &ArgMatches, ct: ConfigState) -> Result<(Config, Region)> {
     let regionguess = if let Some(r) = args.value_of("region") {
         r.into()
     } else {
@@ -524,11 +522,11 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         return shipcat::list::locations(&rawconf);
     }
     else if let Some(a) = args.subcommand_matches("list-services") {
-        let (conf , region) = resolve_config(a, ConfigType::Base)?;
+        let (conf , region) = resolve_config(a, ConfigState::Base)?;
         return shipcat::list::services(&conf, &region);
     }
     else if let Some(a) = args.subcommand_matches("login") {
-        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        let (conf, region) = resolve_config(a, ConfigState::Base)?;
         return shipcat::auth::login(&conf, &region, a.is_present("force"));
     }
     else if let Some(a) = args.subcommand_matches("self-upgrade") {
@@ -549,7 +547,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         }
 
         // resolve region from kube context here if unspecified
-        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        let (conf, region) = resolve_config(a, ConfigState::Base)?;
         if let Some(_) = a.subcommand_matches("versions") {
             return shipcat::get::versions(&conf, &region).map(void);
         }
@@ -584,7 +582,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
                 shipcat::top::world_requests(sort, ub, fmt, &rawconf).map(void)
             }
         } else {
-            let (conf, region) = resolve_config(a, ConfigType::Base)?;
+            let (conf, region) = resolve_config(a, ConfigState::Base)?;
             if a.is_present("squads") {
                 shipcat::top::region_squad_requests(sort, ub, fmt, &conf, &region).map(void)
             } else if a.is_present("tribes") {
@@ -596,14 +594,14 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     }
     else if let Some(a) = args.subcommand_matches("config") {
         if let Some(_) = a.subcommand_matches("crd") {
-            let (conf, _region) = resolve_config(a, ConfigType::Base)?;
+            let (conf, _region) = resolve_config(a, ConfigState::Base)?;
             // this only works with a given region
             return shipcat::show::config_crd(conf);
         }
         // The others make sense without a region
         // Want to be able to verify full config when no kube context given!
         let conf = if a.is_present("region") {
-            resolve_config(a, ConfigType::Base)?.0
+            resolve_config(a, ConfigState::Base)?.0
         } else {
             Config::read()?
         };
@@ -638,12 +636,12 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
     else if let Some(a) = args.subcommand_matches("status") {
         let svc = a.value_of("service").map(String::from).unwrap();
-        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        let (conf, region) = resolve_config(a, ConfigState::Base)?;
         return shipcat::status::show(&svc, &conf, &region)
     }
     else if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");
-        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        let (conf, region) = resolve_config(a, ConfigState::Base)?;
         return if let Some(svc) = a.value_of("service") {
             if a.is_present("reverse") {
                 shipcat::graph::reverse(svc, &conf, &region).map(void)
@@ -657,13 +655,13 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("validate") {
         let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
         // this only needs a kube context if you don't specify it
-        let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
+        let ss = if a.is_present("secrets") { ConfigState::Filtered } else { ConfigState::Base };
         let (conf, region) = resolve_config(a, ss)?;
         return shipcat::validate::manifest(services, &conf, &region, a.is_present("secrets"));
     }
     else if let Some(a) = args.subcommand_matches("verify") {
         return if a.value_of("region").is_some() {
-            let (conf, region) = resolve_config(a, ConfigType::Base)?;
+            let (conf, region) = resolve_config(a, ConfigState::Base)?;
             shipcat::validate::regional_manifests(&conf, &region)
         } else {
             shipcat::validate::all_manifests()
@@ -672,7 +670,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("values") {
         let svc = a.value_of("service").map(String::from).unwrap();
 
-        let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
+        let ss = if a.is_present("secrets") { ConfigState::Filtered } else { ConfigState::Base };
         let (conf, region) = resolve_config(a, ss)?;
 
         let mf = if a.is_present("secrets") {
@@ -686,7 +684,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("template") {
         let svc = a.value_of("service").map(String::from).unwrap();
 
-        let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
+        let ss = if a.is_present("secrets") { ConfigState::Filtered } else { ConfigState::Base };
         let (conf, region) = resolve_config(a, ss)?;
         let ver = a.value_of("tag").map(String::from);
 
@@ -696,7 +694,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             shipcat_filebacked::load_manifest(&svc, &conf, &region)?.stub(&region)?
         };
         mf.version = mf.version.or(ver);
-        if a.is_present("current") {
+        if !a.is_present("mock") {
             let s = status::Status::new(&mf)?;
             let crd = s.get()?;
             mf.version = mf.version.or(crd.spec.version);
@@ -717,13 +715,13 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("crd") {
         let svc = a.value_of("service").map(String::from).unwrap();
 
-        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        let (conf, region) = resolve_config(a, ConfigState::Base)?;
         return shipcat::show::manifest_crd(&svc, &conf, &region);
     }
 
     else if let Some(a) = args.subcommand_matches("env") {
         let svc = a.value_of("service").map(String::from).unwrap();
-        let (conf, region) = resolve_config(a, ConfigType::Filtered)?;
+        let (conf, region) = resolve_config(a, ConfigState::Filtered)?;
         let mock = !a.is_present("secrets");
         return shipcat::env::print_bash(&svc, &conf, &region, mock);
     }
@@ -732,7 +730,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         let svc = a.value_of("service").map(String::from).unwrap();
         let diff_exit = if a.is_present("crd") {
             // NB: no secrets in CRD
-            let (conf, region) = resolve_config(a, ConfigType::Base)?;
+            let (conf, region) = resolve_config(a, ConfigState::Base)?;
             if a.is_present("git") {
                 shipcat::diff::values_vs_git(&svc, &conf, &region)?
             } else {
@@ -741,17 +739,17 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         } else if a.is_present("git") {
             // special - serial git diff
             // does not support mocking (but also has no secrets)
-            let (conf, region) = resolve_config(a, ConfigType::Base)?;
+            let (conf, region) = resolve_config(a, ConfigState::Base)?;
             shipcat::diff::template_vs_git(&svc, &conf, &region)?
         } else if a.is_present("with-region") {
             // special - diff between two regions
             // does not support mocking (but also has no secrets)
-            let (conf, region) = resolve_config(a, ConfigType::Base)?;
+            let (conf, region) = resolve_config(a, ConfigState::Base)?;
             let with_region = a.value_of("with-region").unwrap();
-            let (_ref_conf, ref_region) = Config::new(ConfigType::Base, with_region)?;
+            let (_ref_conf, ref_region) = Config::new(ConfigState::Base, with_region)?;
             shipcat::diff::values_vs_region(&svc, &conf, &region, &ref_region)?
         } else {
-            let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
+            let ss = if a.is_present("secrets") { ConfigState::Filtered } else { ConfigState::Base };
             let (conf, region) = resolve_config(a, ss)?;
             let mut mf = if !a.is_present("secrets") {
                 shipcat_filebacked::load_manifest(&svc, &conf, &region)?.stub(&region)?
@@ -760,7 +758,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             };
             let ver = a.value_of("tag").map(String::from);
             mf.version = mf.version.or(ver);
-            if a.is_present("current") {
+            if !a.is_present("mock") {
                 let s = status::Status::new(&mf)?;
                 let crd = s.get()?;
                 mf.version = mf.version.or(crd.spec.version);
@@ -787,7 +785,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
 
     else if let Some(a) = args.subcommand_matches("kong") {
-        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        let (conf, region) = resolve_config(a, ConfigState::Base)?;
         return if let Some(_b) = a.subcommand_matches("config-url") {
             shipcat::kong::config_url(&region)
         } else {
@@ -801,7 +799,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     }
 
     else if let Some(a) = args.subcommand_matches("statuscake") {
-        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        let (conf, region) = resolve_config(a, ConfigState::Base)?;
         return shipcat::statuscake::output(&conf, &region);
     }
 
@@ -811,7 +809,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("apply") {
         let svc = a.value_of("service").map(String::from).unwrap();
         // this absolutely needs secrets..
-        let (conf, region) = resolve_config(a, ConfigType::Filtered)?;
+        let (conf, region) = resolve_config(a, ConfigState::Filtered)?;
         let wait = !a.is_present("no-wait");
         let force = a.is_present("force");
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
@@ -821,7 +819,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
     else if let Some(a) = args.subcommand_matches("restart") {
         let svc = a.value_of("service").map(String::from).unwrap();
-        let (conf, region) = resolve_config(a, ConfigType::Base)?;
+        let (conf, region) = resolve_config(a, ConfigState::Base)?;
         let mf = shipcat_filebacked::load_manifest(&svc, &conf, &region)?;
         let wait = !a.is_present("no-wait");
         return shipcat::apply::restart(&mf, wait).map(void);
@@ -833,24 +831,24 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             // This reconcile is special. It needs two config types:
             // - Base (without secrets) for putting config crd in cluster
             // - Filtered (with secrets) for actually upgrading when crds changed
-            let (conf_sec, _region_sec) = resolve_config(args, ConfigType::Filtered)?;
-            let (conf_base, region_base) = resolve_config(args, ConfigType::Base)?;
+            let (conf_sec, _region_sec) = resolve_config(args, ConfigState::Filtered)?;
+            let (conf_base, region_base) = resolve_config(args, ConfigState::Base)?;
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("reconcile") {
                 return shipcat::cluster::mass_crd(&conf_sec, &conf_base, &region_base, jobs);
             }
         }
         if let Some(_b) = a.subcommand_matches("diff") {
-            let (conf, region) = resolve_config(args, ConfigType::Filtered)?;
+            let (conf, region) = resolve_config(args, ConfigState::Filtered)?;
             return shipcat::cluster::mass_diff(&conf, &region);
         }
         if let Some(_b) = a.subcommand_matches("check") {
-            let (conf, region) = resolve_config(args, ConfigType::Filtered)?;
+            let (conf, region) = resolve_config(args, ConfigState::Filtered)?;
             return shipcat::cluster::mass_template_verify(&conf, &region);
         }
 
         if let Some(b) = a.subcommand_matches("vault-policy") {
-            let (conf, region) = resolve_config(args, ConfigType::Base)?;
+            let (conf, region) = resolve_config(args, ConfigState::Base)?;
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("reconcile") {
                 return shipcat::cluster::mass_vault(&conf, &region, jobs);
@@ -865,7 +863,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
     // super kube specific ones:
     else if let Some(a) = args.subcommand_matches("shell") {
-         let (conf, region) = resolve_config(args, ConfigType::Base)?;
+         let (conf, region) = resolve_config(args, ConfigState::Base)?;
         let service = a.value_of("service").unwrap();
         let pod = value_t!(a.value_of("pod"), usize).ok();
 
@@ -879,19 +877,19 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     }
     else if let Some(a) = args.subcommand_matches("version") {
         let svc = a.value_of("service").map(String::from).unwrap();
-        let (_conf, region) = resolve_config(a, ConfigType::Base)?;
+        let (_conf, region) = resolve_config(a, ConfigState::Base)?;
         let res = shipcat::kubectl::get_running_version(&svc, &region.namespace)?;
         println!("{}", res);
         return Ok(())
     }
     else if let Some(a) = args.subcommand_matches("port-forward") {
-        let (conf, region) = resolve_config(args, ConfigType::Base)?;
+        let (conf, region) = resolve_config(args, ConfigState::Base)?;
         let service = a.value_of("service").unwrap();
         let mf = shipcat_filebacked::load_manifest(service, &conf, &region)?.stub(&region)?;
         return shipcat::kubectl::port_forward(&mf);
     }
     else if let Some(a) = args.subcommand_matches("debug") {
-        let (conf, region) = resolve_config(args, ConfigType::Base)?;
+        let (conf, region) = resolve_config(args, ConfigState::Base)?;
         let service = a.value_of("service").unwrap();
         let mf = shipcat_filebacked::load_manifest(service, &conf, &region)?.stub(&region)?;
         return shipcat::kubectl::debug(&mf);
@@ -906,7 +904,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         return shipcat::slack::send_dumb(msg);
     }
     else if let Some(a) = args.subcommand_matches("gdpr") {
-        let (conf, region) = resolve_config(args, ConfigType::Base)?;
+        let (conf, region) = resolve_config(args, ConfigState::Base)?;
         let svc = a.value_of("service").map(String::from);
         return shipcat::gdpr::show(svc, &conf, &region);
     }

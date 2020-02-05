@@ -4,7 +4,7 @@ use crate::common::setup;
 use shipcat::kong::{KongfigOutput, generate_kong_output};
 use shipcat_definitions::structs::kongfig::{ConsumerCredentials, PluginBase, ApiPlugin, HeadersQueryBody};
 use shipcat_definitions::Config;
-use shipcat_definitions::ConfigType;
+use shipcat_definitions::ConfigState;
 
 macro_rules! plugin_attributes {
     ( $name:expr, $plugin:expr, $type:path ) => {
@@ -29,7 +29,7 @@ macro_rules! assert_plugin_removed {
 #[test]
 fn kong_test() {
     setup();
-    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
     let kongrs = generate_kong_output(&conf, &reg).unwrap(); // kong exists in region
     let mut output = KongfigOutput::new(kongrs, &reg);
 

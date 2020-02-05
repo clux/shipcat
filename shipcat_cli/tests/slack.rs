@@ -1,7 +1,7 @@
 mod common;
 use crate::common::setup;
 use shipcat_definitions::{
-  Config, ConfigType,
+  Config, ConfigState,
   structs::NotificationMode,
 };
 use shipcat::slack::{send, send_dumb, Message, DumbMessage, env_channel};
@@ -12,7 +12,7 @@ use shipcat::slack::{send, send_dumb, Message, DumbMessage, env_channel};
 fn slack_test() {
     setup();
 
-    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
     let mf = shipcat_filebacked::load_metadata("fake-ask", &conf, &reg).unwrap();
 
     let chan = env_channel().unwrap();

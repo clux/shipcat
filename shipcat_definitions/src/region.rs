@@ -10,7 +10,7 @@ use url::Url;
 use uuid::Uuid;
 
 #[allow(unused_imports)]
-use super::{Vault, Result, BaseManifest, ConfigType};
+use super::{Vault, Result, BaseManifest, ConfigState};
 
 use super::structs::{Authorization};
 
@@ -152,7 +152,7 @@ pub struct AuditWebhook {
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct CRSettings {
     #[serde(rename = "config")]
-    pub shipcatConfig: ConfigType,
+    pub shipcatConfig: ConfigState,
 }
 
 // ----------------------------------------------------------------------------------

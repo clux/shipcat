@@ -111,7 +111,7 @@ pub use status::ManifestStatus;
 
 /// Internal classifications and states
 mod states;
-pub use crate::states::{ConfigType};
+pub use crate::states::{ConfigState, PrimaryWorkload};
 
 /// Computational helpers
 pub mod math;

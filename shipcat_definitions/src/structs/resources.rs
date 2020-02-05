@@ -139,7 +139,11 @@ impl ResourceRequirements<String> {
 
 
 
-// Parse normal k8s memory resource value into floats
+/// Parse normal k8s memory/disk resource value into floats
+///
+/// Note that kubernetes insists on using upper case K for kilo against SI conventions:
+/// > You can express memory as a plain integer or as a fixed-point integer using one of these suffixes: E, P, T, G, M, K. You can also use the power-of-two equivalents: Ei, Pi, Ti, Gi, Mi, Ki.
+/// https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#meaning-of-memory
 pub fn parse_memory(s: &str) -> Result<f64> {
     let digits = s.chars().take_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
     let unit = s.chars().skip_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
@@ -151,12 +155,20 @@ pub fn parse_memory(s: &str) -> Result<f64> {
         res *= 1024.0*1024.0;
     } else if unit == "Gi" {
         res *= 1024.0*1024.0*1024.0;
-    } else if unit == "k" {
+    } else if unit == "Ti" {
+        res *= 1024.0*1024.0*1024.0*1024.0;
+    } else if unit == "Pi" {
+        res *= 1024.0*1024.0*1024.0*1024.0*1024.0;
+    } else if unit == "K" {
         res *= 1000.0;
     } else if unit == "M" {
         res *= 1000.0*1000.0;
     } else if unit == "G" {
         res *= 1000.0*1000.0*1000.0;
+    } else if unit == "T" {
+        res *= 1000.0*1000.0*1000.0*1000.0;
+    } else if unit == "P" {
+        res *= 1000.0*1000.0*1000.0*1000.0*1000.0;
     } else if unit != "" {
         bail!("Unknown unit {}", unit);
     }

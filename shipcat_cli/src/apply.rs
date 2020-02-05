@@ -377,7 +377,7 @@ pub fn restart(mf: &Manifest, wait: bool) -> Result<()> {
         "rollout".into(),
         format!("-n={}", mf.namespace),
         "restart".into(),
-        format!("deployment/{}", mf.name),
+        format!("{}/{}", mf.workload.to_string(), mf.name),
         //  TODO: workers
     ];
     info!("kubectl {}", restartvec.join(" "));
@@ -385,12 +385,12 @@ pub fn restart(mf: &Manifest, wait: bool) -> Result<()> {
         ErrorKind::KubectlApplyFailure(mf.name.clone()))?;
 
     if !wait {
-        info!("successfully triggered a restart of deployment/{}", mf.name);
+        info!("successfully triggered a restart of {}/{}", mf.workload.to_string(), mf.name);
         return Ok(());
     }
 
     if kubectl::await_rollout_status(&mf)? {
-        info!("successfully restarted deployment/{}", &mf.name);
+        info!("successfully restarted {}/{}", mf.workload.to_string(), &mf.name);
         Ok(())
     } else {
         let time = mf.estimate_wait_time();

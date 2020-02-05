@@ -5,9 +5,9 @@ use shipcat_definitions::structs::{
     autoscaling::AutoScaling, security::DataHandling, tolerations::Tolerations, volume::Volume,
     ConfigMap, Dependency, DestinationRule, Gate, HealthCheck, HostAlias,
     Kafka, LifeCycle, Metadata, PersistentVolume, Probe, Rbac,
-    RollingUpdate, VaultOpts, VolumeMount, NotificationMode,
+    RollingUpdate, VaultOpts, VolumeMount, NotificationMode
 };
-use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result};
+use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result, PrimaryWorkload};
 
 use super::{SimpleManifest};
 use super::container::{ContainerBuildParams, CronJobSource, SidecarSource, InitContainerSource, EnvVarsSource, WorkerSource, ResourceRequirementsSource, ImageNameSource, ImageTagSource, PortSource};
@@ -34,6 +34,7 @@ pub struct ManifestSource {
 #[derive(Deserialize, Default, Merge, Clone)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct ManifestOverrides {
+    pub workload: Option<PrimaryWorkload>,
     pub publicly_accessible: Option<bool>,
     pub image: Option<ImageNameSource>,
     pub image_size: Option<u32>,
@@ -179,7 +180,8 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             namespace: region.namespace.clone(),
             uid: Default::default(),
             secrets: Default::default(),
-            kind: Default::default(),
+            state: Default::default(),
+            workload: overrides.workload.unwrap_or_default(),
         })
     }
 }

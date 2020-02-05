@@ -1,12 +1,12 @@
 mod common;
 use crate::common::setup;
-use shipcat_definitions::{Config, ConfigType};
+use shipcat_definitions::{Config, ConfigState};
 use shipcat::graph::{generate, nodeidx_from_name};
 
 #[test]
 fn graph_generate() {
     setup();
-    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
     let graph = generate("fake-ask", &conf, &reg, true).unwrap();
     assert!(graph.edge_count() > 0);
     print!("got struct: \n{:?}\n", serde_yaml::to_string(&graph));

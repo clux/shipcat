@@ -4,7 +4,7 @@ use regex::Regex;
 
 use crate::config::{Config};
 use crate::region::{VaultConfig, Region};
-use crate::states::ManifestType;
+use crate::states::{ManifestState, PrimaryWorkload};
 use super::Result;
 
 // All structs come from the structs directory
@@ -547,7 +547,7 @@ pub struct Manifest {
     ///     items:
     ///     - key: file
     ///       path: google-cloud-creds.json
-    ///       mode: 292
+    ///       mode: 0o777
     /// ```
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub volumes: Vec<Volume>,
@@ -566,17 +566,15 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub volumeMounts: Vec<VolumeMount>,
 
-    /// PersistentVolume injected in helm chart
+    /// PersistentVolumes for the deployment
     ///
     /// Exposed from shipcat, but not overrideable.
-    /// Straight from [kubernetes volumes](https://kubernetes.io/docs/concepts/storage/volumes/)
+    /// Mostly straight from [kubernetes persistent volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes).
     ///
     /// ```yaml
     /// persistentVolumes:
-    /// - name: data
-    ///   claim: mysql
-    ///   storageClass: "gp2"
-    ///   accessMode: ReadWriteOnce
+    /// - name: svc-cache-space
+    ///   mountPath: /root/.scratch
     ///   size: 10Gi
     /// ```
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -776,12 +774,22 @@ pub struct Manifest {
     #[serde(default, skip_deserializing, skip_serializing_if = "BTreeMap::is_empty")]
     pub secrets: BTreeMap<String, String>,
 
-    /// Internal kind of the manifest
+    /// Internal state of the manifest
     ///
     /// A manifest goes through different stages of serialization, templating,
     /// config loading, secret injection. This property keeps track of it.
     #[serde(default, skip_deserializing, skip_serializing)]
-    pub kind: ManifestType,
+    pub state: ManifestState,
+
+    /// The default workload associated with a Manifest
+    ///
+    /// Defaults to Deployment
+    ///
+    /// ```yaml
+    /// workload: Statefulset
+    /// ```
+    #[serde(default)]
+    pub workload: PrimaryWorkload,
 }
 
 impl Manifest {
@@ -1031,7 +1039,12 @@ impl Manifest {
     ///
     /// Useful for obfuscation mechanisms so it knows what to obfuscate.
     pub fn get_secrets(&self) -> Vec<String> {
-        self.secrets.values().cloned().collect()
+        let mut secrets = vec![];
+        for s in self.secrets.values() {
+            secrets.push(s.clone());
+            secrets.push(base64::encode(s));
+        }
+        secrets
     }
 
     pub fn verify_secrets_exist(&self, vc: &VaultConfig) -> Result<()> {

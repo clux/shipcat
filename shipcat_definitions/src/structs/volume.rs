@@ -14,7 +14,7 @@ pub struct VolumeSecretItem {
     pub mode: u32,
 }
 fn volume_key() -> String { "value".into() }
-fn volume_default_mode() -> u32 { 420 } // 0644
+fn volume_default_mode() -> u32 { 420 } // 0o644
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct VolumeSecretDetail {
@@ -94,7 +94,6 @@ pub struct VolumeMount {
     pub mountPath: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subPath: Option<String>,
-    #[serde(default = "volume_mount_read_only")]
+    #[serde(default)]
     pub readOnly: bool,
 }
-fn volume_mount_read_only() -> bool { false }

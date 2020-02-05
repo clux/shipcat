@@ -1,12 +1,28 @@
 use super::{Result, Manifest, Region};
 use super::vault::Vault;
 
+/// Type of primary workload that is associated with the Manifest
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum PrimaryWorkload {
+    Deployment,
+    Statefulset,
+}
 
-/// Various states a manifest can exist in depending on resolution.
+impl ToString for PrimaryWorkload {
+    fn to_string(&self) -> String {
+        format!("{:?}", self).to_lowercase()
+    }
+}
+
+impl Default for PrimaryWorkload {
+    fn default() -> Self { Self::Deployment }
+}
+
+/// Various internal states a manifest can exist in depending on resolution.
 ///
 /// This only matters within shipcat and is used to optimize speed of accessors.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
-pub enum ManifestType {
+pub enum ManifestState {
     /// A completed manifest
     ///
     /// The version that is fully ready to pass to `helm template`, i.e.:
@@ -53,8 +69,8 @@ pub enum ManifestType {
 /// Default is the feature-specified base type to force constructors into chosing.
 ///
 /// This relies on serde default to populate on deserialize from disk/crd.
-impl Default for ManifestType {
-    fn default() -> Self { ManifestType::Base }
+impl Default for ManifestState {
+    fn default() -> Self { ManifestState::Base }
 }
 
 /// This library defines the way to upgrade a manifest from Base
@@ -63,11 +79,11 @@ impl Default for ManifestType {
 /// - creating a base manifest from its backing
 impl Manifest {
     /// Upgrade a `Base` manifest to either a Complete or a Stubbed one
-    fn upgrade(mut self, reg: &Region, kind: ManifestType) -> Result<Self> {
-        assert_eq!(self.kind, ManifestType::Base); // sanity
-        let v = match kind {
-            ManifestType::Completed => Vault::regional(&reg.vault)?,
-            ManifestType::Stubbed => Vault::mocked(&reg.vault)?,
+    fn upgrade(mut self, reg: &Region, state: ManifestState) -> Result<Self> {
+        assert_eq!(self.state, ManifestState::Base); // sanity
+        let v = match state {
+            ManifestState::Completed => Vault::regional(&reg.vault)?,
+            ManifestState::Stubbed => Vault::mocked(&reg.vault)?,
             _ => bail!("Can only upgrade a Base manifest to Completed or Stubbed"),
         };
         // replace one-off templates in evar strings with values
@@ -79,23 +95,23 @@ impl Manifest {
 
         // templates last
         self.template_configs(reg)?;
-        self.kind = kind;
+        self.state = state;
         Ok(self)
     }
 
     /// Complete a Base manifest with stub secrets
     pub fn stub(self, reg: &Region) -> Result<Self> {
-        self.upgrade(reg, ManifestType::Stubbed)
+        self.upgrade(reg, ManifestState::Stubbed)
     }
 
     /// Complete a Base manifest with actual secrets
     pub fn complete(self, reg: &Region) -> Result<Self> {
-        self.upgrade(reg, ManifestType::Completed)
+        self.upgrade(reg, ManifestState::Completed)
     }
 
     /// Check to see we are using the right types of manifests internally
     pub fn is_base(&self) -> bool {
-        self.kind == ManifestType::Base
+        self.state == ManifestState::Base
     }
 }
 
@@ -104,7 +120,7 @@ impl Manifest {
 ///
 /// Within shipcat, this is used to optimize speed of accessors.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
-pub enum ConfigType {
+pub enum ConfigState {
     /// A filtered config for a specific region, with resolved secrets
     Filtered,
 
@@ -127,9 +143,9 @@ pub enum ConfigType {
 /// Default is the feature-specified base type to force constructors into chosing.
 ///
 /// This relies on serde default to populate on deserialize from disk/crd.
-impl Default for ConfigType {
+impl Default for ConfigState {
     #[cfg(feature = "filesystem")]
-    fn default() -> Self { ConfigType::File }
+    fn default() -> Self { ConfigState::File }
     #[cfg(not(feature = "filesystem"))]
-    fn default() -> Self { ConfigType::Base }
+    fn default() -> Self { ConfigState::Base }
 }

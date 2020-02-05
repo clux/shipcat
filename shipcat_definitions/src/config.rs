@@ -10,7 +10,7 @@ use crate::teams;
 
 #[allow(unused_imports)]
 use super::{Result, Error};
-use crate::states::ConfigType;
+use crate::states::ConfigState;
 use crate::region::{Region, Environment};
 
 // ----------------------------------------------------------------------------------
@@ -133,7 +133,7 @@ pub struct Config {
 
     // Internal state of the config
     #[serde(default, skip_serializing, skip_deserializing)]
-    kind: ConfigType,
+    state: ConfigState,
 }
 
 impl Config {
@@ -157,7 +157,7 @@ impl Config {
             // can't actually verify this in a smaller manifest..
             #[cfg(feature = "filesystem")]
             for r in &clst.regions {
-                if !self.has_region(r) && self.kind == ConfigType::File {
+                if !self.has_region(r) && self.state == ConfigState::File {
                     bail!("cluster {} defines undefined region {}", cname, r);
                 }
             }
@@ -253,9 +253,9 @@ impl Config {
     /// This will use the HTTP api of Vault using the configuration parameters.
     #[cfg(feature = "filesystem")]
     fn secrets(&mut self, region: &str) -> Result<()> {
-        assert_eq!(self.kind, ConfigType::Base);
+        assert_eq!(self.state, ConfigState::Base);
         assert_eq!(self.regions.len(), 1);
-        self.kind = ConfigType::Filtered;
+        self.state = ConfigState::Filtered;
         if let Some(idx) = self.regions.iter().position(|r| r.name == region) {
             self.regions[idx].secrets()?;
         } else {
@@ -296,7 +296,7 @@ impl Config {
     }
 
     pub fn has_secrets(&self) -> bool {
-        self.kind == ConfigType::Filtered
+        self.state == ConfigState::Filtered
     }
 
     /// Retrieve region name using either a region name, or a context as a fallback
@@ -405,7 +405,7 @@ impl Config {
     /// Main constructor for CLI
     ///
     /// Pass this a region request via argument or a current context
-    pub fn new(kind: ConfigType, context: &str) -> Result<(Config, Region)> {
+    pub fn new(state: ConfigState, context: &str) -> Result<(Config, Region)> {
         let mut conf = Self::read()?;
         let region = if let Some(r) = conf.resolve_context(context.to_string()) {
             r
@@ -414,13 +414,13 @@ impl Config {
             bail!("The current kube context ('{}') is not defined in shipcat.conf", context);
         };
 
-        if kind == ConfigType::Filtered || kind == ConfigType::Base {
+        if state == ConfigState::Filtered || state == ConfigState::Base {
             conf.remove_redundant_regions(&region)?;
-        } else if kind != ConfigType::UnionisedBase {
+        } else if state != ConfigState::UnionisedBase {
             bail!("Config::new only supports Filtered, Base and UnionisedBase types");
         }
 
-        if kind == ConfigType::Filtered {
+        if state == ConfigState::Filtered {
             conf.secrets(&region)?;
         }
         let reg = conf.get_region(&region)?;
@@ -449,7 +449,7 @@ impl Config {
     }
 
     pub fn has_all_regions(&self) -> bool {
-        self.kind == ConfigType::File
+        self.state == ConfigState::File
     }
 
     /// Region retriever for global reducers
@@ -463,14 +463,14 @@ impl Config {
 
     /// Filter a file based config for a known to exist region
     fn remove_redundant_regions(&mut self, region: &str) -> Result<()> {
-        assert_eq!(self.kind, ConfigType::File);
+        assert_eq!(self.state, ConfigState::File);
         assert!(self.has_region(region));
         let r = region.to_string();
         // filter out cluster and aliases as well so we don't have to special case verify
         self.clusters = self.clusters.clone().into_iter().filter(|(_, c)| c.regions.contains(&r)).collect();
         self.contextAliases = self.contextAliases.clone().into_iter().filter(|(_, v)| v == region).collect();
         self.regions = self.regions.clone().into_iter().filter(|r| r.name == region).collect();
-        self.kind = ConfigType::Base;
+        self.state = ConfigState::Base;
         Ok(())
     }
 }

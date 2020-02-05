@@ -1,4 +1,11 @@
-0.143.0 / 2020-01-XX
+0.145.0 / 2020-02-05
+====================
+  * shipcat diff `-k` or `--current` removed (now default)
+  * shipcat template `-k` or `--current` removed (now default)
+  * diff or template use without `--current` can be done with `--mock`
+  * `workload` new property on `Manifest` (to support Deployment/Statefulset switches)
+
+0.143.0 / 2020-01-31
 ====================
   * Tiller support removed
   * `shipcat template -c MYSVC` properly validates template labels

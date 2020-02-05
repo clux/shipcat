@@ -40,16 +40,16 @@ pub fn setup() {
 }
 
 use shipcat_definitions::{Config, Environment}; // Product
-use shipcat_definitions::ConfigType;
+use shipcat_definitions::ConfigState;
 
 #[test]
 fn config_test() {
     setup();
     assert!(Config::read().is_ok());
-    assert!(Config::new(ConfigType::Base, "dev-uk").is_ok());
-    let filteredcfg = Config::new(ConfigType::Filtered, "dev-uk");
+    assert!(Config::new(ConfigState::Base, "dev-uk").is_ok());
+    let filteredcfg = Config::new(ConfigState::Filtered, "dev-uk");
     let (conf, _region) = filteredcfg.unwrap(); // better to unwrap and get full trace
-    assert!(Config::new(ConfigType::File, "dev-uk").is_err());
+    assert!(Config::new(ConfigState::File, "dev-uk").is_err());
     assert!(conf.print().is_ok());
 }
 
@@ -57,8 +57,8 @@ fn config_test() {
 fn config_cr_settings_test() {
     setup();
     Config::read().unwrap(); // iof assert!(Config::read().is_ok());
-    Config::new(ConfigType::Base, "dev-ops").unwrap();
-    let gbcfg = Config::new(ConfigType::UnionisedBase, "dev-ops");
+    Config::new(ConfigState::Base, "dev-ops").unwrap();
+    let gbcfg = Config::new(ConfigState::UnionisedBase, "dev-ops");
     let (conf, _region) = gbcfg.unwrap();
     assert!(conf.print().is_ok());
 }
@@ -66,7 +66,7 @@ fn config_cr_settings_test() {
 #[test]
 fn config_defaults_test() {
     setup();
-    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
 
     // -- Slack channels --
 
@@ -87,7 +87,7 @@ use shipcat::get;
 #[test]
 fn getters() {
     setup();
-    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
     let vers = get::versions(&conf, &reg).unwrap();
     assert_eq!(vers.len(), 1); // only one of the services has a version
     assert_eq!(vers["fake-ask"], Version::new(1, 6, 0));
@@ -132,7 +132,7 @@ fn get_codeowners() {
 #[test]
 fn manifest_test() {
     setup();
-    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
     let mfread = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg);
     assert!(mfread.is_ok());
     let mfbase = mfread.unwrap();
@@ -153,7 +153,7 @@ fn manifest_test() {
 #[test]
 fn templating_test() {
     setup();
-    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
     let mf = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg).unwrap().complete(&reg).unwrap();
 
     // verify templating
@@ -213,7 +213,7 @@ fn templating_test() {
 #[test]
 fn vault_policy_test() {
     setup();
-    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
     let policy = shipcat::get::vaultpolicy(&conf, &reg, "observability").unwrap();
 
     println!("got dev policy for observability as {}", policy);

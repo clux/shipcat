@@ -35,13 +35,13 @@ pub fn regional_manifests(conf: &Config, reg: &Region) -> Result<()> {
 /// This is meant to replace a for loop over shipcat list-regions
 /// This does not check secrets
 pub fn all_manifests() -> Result<()> {
-    use crate::ConfigType;
+    use crate::ConfigState;
     let regions = Config::read()?.list_regions();
 
     let errs = regions
         .par_iter()
         .map(|r| {
-            let (conf, region) = Config::new(ConfigType::Base, &r)?;
+            let (conf, region) = Config::new(ConfigState::Base, &r)?;
             regional_manifests(&conf, &region)?;
             Ok(())
         })

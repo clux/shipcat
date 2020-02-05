@@ -1,5 +1,5 @@
 use super::{Result, Manifest, ErrorKind};
-use shipcat_definitions::Crd;
+use shipcat_definitions::{Crd, PrimaryWorkload};
 use serde::Serialize;
 use regex::Regex;
 use serde_yaml;
@@ -168,13 +168,13 @@ fn rollout_status(mf: &Manifest) -> Result<bool> {
     let statusvec = vec![
         "rollout".into(),
         "status".into(),
-        format!("deployment/{}", mf.name.clone()), // always one deployment with same name
+        format!("{}/{}", mf.workload.to_string(), mf.name.clone()), // always one deployment with same name
         format!("-n={}", mf.namespace),
         "--watch=false".into(), // always just print current status
     ];
     let (rollres, _) = kout(statusvec)?;
     debug!("{}", rollres);
-    if rollres.contains("successfully rolled out") {
+    if rollres.contains("successfully rolled out") || rollres.contains("roll out complete") {
         Ok(true)
     } else {
         // TODO: check if any of the new pods have restarts in them
@@ -326,7 +326,10 @@ pub fn debug(mf: &Manifest) -> Result<()> {
         }
     }
     // ignore errors from here atm - it's mostly here as a best effort helper
-    let _ = debug_active_replicasets(mf);
+    let _ = match mf.workload {
+        PrimaryWorkload::Deployment => debug_active_replicasets(mf),
+        PrimaryWorkload::Statefulset => Ok(()), // TODO: make replacement
+    };
     Ok(())
 }
 
@@ -389,7 +392,7 @@ fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
     // NB: not returned via `k get deploy {name} -oyaml` - have to scrape describe..
     let descvec = vec![
         "describe".into(),
-        "deploy".into(),
+        mf.workload.to_string(), // NB: won't work for statefulset!
         mf.name.clone(),
         format!("-n={}", mf.namespace),
     ];
@@ -584,7 +587,7 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
     let mut pfargs = vec![
         format!("-n={}", mf.namespace),
         "port-forward".into(),
-        format!("deployment/{}", mf.name),
+        format!("{}/{}", mf.workload.to_string(), mf.name)
     ];
 
     for (port, localport) in ports {

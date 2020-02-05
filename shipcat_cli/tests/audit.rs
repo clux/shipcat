@@ -15,7 +15,7 @@ use crate::mockito::mock;
 
 use crate::shipcat::{audit, webhooks, AuditWebhook};
 use crate::shipcat::apply::UpgradeInfo;
-use shipcat_definitions::{ConfigType, Config};
+use shipcat_definitions::{ConfigState, Config};
 
 #[test]
 fn audit_does_audit_deployment() {
@@ -30,7 +30,7 @@ fn audit_does_audit_deployment() {
         token: "1234auth".into(),
     };
 
-    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
     let mf = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg)
         .unwrap().version("1.0.0".into());
 

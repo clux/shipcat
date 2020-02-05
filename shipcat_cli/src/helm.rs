@@ -226,7 +226,7 @@ fn check_owner_refs(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool>
 fn check_no_tiller_refs(kind: &str, obj: &MetaObject) -> Result<bool> {
     let mut success = true;
     let labels = &obj.metadata.labels;
-    for key in ["chart", "heritage", "release"].into_iter() {
+    for key in ["chart", "heritage", "release"].iter() {
         match labels.get(&key.to_string()) {
             Some(n) => {
                 success = false;

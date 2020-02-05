@@ -1,6 +1,6 @@
 mod common;
 use crate::common::setup;
-use shipcat_definitions::{Config, ConfigType};
+use shipcat_definitions::{Config, ConfigState};
 use shipcat::helm;
 use shipcat::Result;
 
@@ -8,7 +8,7 @@ use shipcat::Result;
 #[ignore] // This test requires helm cli - not on circle
 fn helm_template() -> Result<()> {
     setup();
-    let (conf, reg) = Config::new(ConfigType::Base, "dev-uk")?;
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk")?;
     let mf = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg)?.stub(&reg)?;
 
     let res = helm::template(&mf, None)?;
