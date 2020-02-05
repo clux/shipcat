@@ -254,9 +254,10 @@ fn build_cli() -> App<'static, 'static> {
                 .short("s")
                 .long("secrets")
                 .help("Use actual secrets from vault"))
-              .arg(Arg::with_name("mock")
-                .long("mock")
-                .help("Mock uids and versions rather than fetching from the kubernetes shipcatmanifest"))
+              .arg(Arg::with_name("current")
+                .long("current")
+                .short("k")
+                .help("Use existing uids and versions rather than fetching from the kubernetes shipcatmanifest"))
               .arg(Arg::with_name("check")
                 .short("c")
                 .long("check")
@@ -694,7 +695,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             shipcat_filebacked::load_manifest(&svc, &conf, &region)?.stub(&region)?
         };
         mf.version = mf.version.or(ver);
-        if !a.is_present("mock") {
+        if a.is_present("current") {
             let s = status::Status::new(&mf)?;
             let crd = s.get()?;
             mf.version = mf.version.or(crd.spec.version);
