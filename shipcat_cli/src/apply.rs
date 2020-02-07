@@ -3,6 +3,7 @@ use std::path::Path;
 
 use shipcat_definitions::{
     Manifest, Config, Region,
+    PrimaryWorkload,
     ReconciliationMode,
     structs::{Metadata, NotificationMode},
 };
@@ -368,24 +369,29 @@ pub fn diff_kubectl(mf: &Manifest, tfile: &str) -> Result<Option<String>> {
     })
 }
 
+/// Restart the workloads associated with a shipcatmanifest
+///
+/// Optionally wait for the main resource
 pub fn restart(mf: &Manifest, wait: bool) -> Result<()> {
-    // upgrade it using the same command
-    let restartvec = vec![
-        "rollout".into(),
-        format!("-n={}", mf.namespace),
-        "restart".into(),
-        format!("{}/{}", mf.workload.to_string(), mf.name),
-        //  TODO: workers
-    ];
-    info!("kubectl {}", restartvec.join(" "));
-    kubectl::kexec(restartvec).chain_err(||
-        ErrorKind::KubectlApplyFailure(mf.name.clone()))?;
-
+    for w in &mf.workers {
+        let r = Restartable {
+            name: w.container.name.clone(),
+            namespace: mf.namespace.clone(),
+            workload: PrimaryWorkload::Deployment
+        };
+        trigger_rollout_restart(r)?; // fire-and-forget for subresources
+    }
+    let main = Restartable {
+        name: mf.name.clone(),
+        namespace: mf.namespace.clone(),
+        workload: mf.workload.clone()
+    };
+    trigger_rollout_restart(main)?;
     if !wait {
         info!("successfully triggered a restart of {}/{}", mf.workload.to_string(), mf.name);
         return Ok(());
     }
-
+    // wait for primary if we are waiting
     if kubectl::await_rollout_status(&mf)? {
         info!("successfully restarted {}/{}", mf.workload.to_string(), &mf.name);
         Ok(())
@@ -400,6 +406,28 @@ pub fn restart(mf: &Manifest, wait: bool) -> Result<()> {
     }
 }
 
+struct Restartable {
+    name: String,
+    workload: PrimaryWorkload,
+    namespace: String,
+}
+fn trigger_rollout_restart(r: Restartable) -> Result<()> {
+    let restartvec = vec![
+        "rollout".into(),
+        format!("-n={}", r.namespace),
+        "restart".into(),
+        format!("{}/{}", r.workload.to_string(), r.name),
+    ];
+    info!("kubectl {}", restartvec.join(" "));
+    kubectl::kexec(restartvec).chain_err(||
+        ErrorKind::KubectlApplyFailure(r.name))
+}
+
+/// Uninstall a service
+///
+/// Not meant to be called if the manifest is still installed in the region
+/// shipcat::cluster module is responsible for calling this,
+/// when (and only when) a service disappears from disk.
 pub fn delete(svc: &str, reg: &Region, conf: &Config) -> Result<()> {
     let s = ShipKube::new_within(&svc, &reg.namespace)?;
     match s.get() {
