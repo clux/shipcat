@@ -230,7 +230,7 @@ impl ShipKube {
         self.patch(&data)
     }
 
-    pub fn update_rollout_true(&self) -> Result<ManifestK> {
+    pub fn update_rollout_true(&self, version: &str) -> Result<ManifestK> {
         debug!("Setting rolledout true");
         let now = make_date();
         let cond = Condition::ok(&self.applier);
@@ -244,6 +244,7 @@ impl ShipKube {
                     "lastSuccessfulRollout": now,
                     "lastFailureReason": null,
                     "lastAction": "Rollout",
+                    "lastSuccessfulRolloutVersion": version,
                 }
             }
         });
@@ -292,7 +293,24 @@ pub fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
     let term_version = format!("\x1B]8;;{}\x07{}\x1B]8;;\x07", link, ver);
     let slack_link = format!("\x1B]8;;{}\x07{}\x1B]8;;\x07", support.link(&conf.slack), *support);
 
-    println!("==> {} is running {}", term_repo, term_version);
+    let mut printed = false;
+    if let Some(stat) = &crd.status {
+        if let Some(summary) = &stat.summary {
+            if let Some(successver) = &summary.last_successful_rollout_version {
+                if successver != &ver {
+                    print!("==> {} is requesting {}", term_repo, term_version);
+                    print!(" but last successful deploy used {}", successver);
+                    print!("\n");
+                } else {
+                    println!("==> {} is running {}", term_repo, term_version);
+                }
+                printed = true;
+            }
+        }
+    }
+    if !printed {
+        println!("==> {} is requesting {}", term_repo, term_version);
+    }
     println!("{}", slack_link);
     println!();
 

@@ -186,7 +186,7 @@ fn apply_kubectl(svc: &str,
     region.versioningScheme.verify(&actual_version)?;
 
     // Complete and apply the CRD
-    let mfcrd = mfbase.version(actual_version);
+    let mfcrd = mfbase.version(actual_version.clone());
     let crd_changed = s.apply(mfcrd.clone())?;
     // Cheap reconcile ends here if !changed && !force
     if crd_changed {
@@ -290,7 +290,7 @@ fn apply_kubectl(svc: &str,
                     Ok(true) => {
                         info!("successfully rolled out {}", &ui.name);
                         webhooks::apply_event(UpgradeState::Completed, &ui, &region, &conf);
-                        s.update_rollout_true()?;
+                        s.update_rollout_true(&actual_version)?;
                     },
                     Ok(false) => {
                         let time = mf.estimate_wait_time();

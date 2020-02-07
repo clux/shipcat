@@ -91,6 +91,10 @@ pub struct ConditionSummary {
     /// Best effort reason for why an apply was triggered
     #[serde(default)]
     last_apply_reason: Option<String>,
+
+    /// Last version that was successfully rolled out
+    #[serde(default)]
+    pub last_successful_rollout_version: Option<String>,
 }
 
 /// Condition
