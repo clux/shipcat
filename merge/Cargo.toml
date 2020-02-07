@@ -1,6 +1,6 @@
 [package]
 name = "merge"
-version = "0.144.1"
+version = "0.145.0"
 authors = ["Jay Anslow <jay@anslow.me.uk>"]
 edition = "2018"
 

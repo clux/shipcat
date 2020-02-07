@@ -1,3 +1,9 @@
+0.145.0 / 2020-02-07
+====================
+  * service deletion now gets a slack warning
+  * `shipcat restart` now also restarts worker deployments
+  * `shipcatmanifest` crd status object now contains a `lastSuccessfulRolloutVersion`
+
 0.144.1 / 2020-02-05
 ====================
   * shipcat diff `-k` or `--current` removed (now default)
