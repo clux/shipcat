@@ -31,12 +31,12 @@ pub fn ensure_requirements(reg: &Region) -> Result<()> {
 
 /// Throw events to configured webhooks - warning on delivery errors
 ///
-/// Http errors are NOT propagated from here
+/// Http errors SHOULD NOT be propagated from here
 pub fn reconcile_event(us: UpgradeState, reg: &Region) {
     for wh in &reg.webhooks {
         if let Ok(whc) = wh.get_configuration() {
             let res = match wh {
-                Webhook::Audit(h) => audit::audit_reconciliation(&us, &reg.name, &h, whc)
+                Webhook::Audit(h) => audit::reconciliation(&us, &reg.name, &h, whc)
             };
             if let Err(e) = res {
                 warn!("Failed to notify about reconciliation event: {}", e)
@@ -47,8 +47,6 @@ pub fn reconcile_event(us: UpgradeState, reg: &Region) {
 
 
 /// Throw events to configured webhooks
-///
-/// This is the new version for shipcat apply module
 pub fn apply_event(us: UpgradeState, info: &UpgradeInfo, reg: &Region, conf: &Config) {
     // Webhooks defined in shipcat.conf for the region:
     debug!("Apply event: {:?}", info);
@@ -59,7 +57,7 @@ pub fn apply_event(us: UpgradeState, info: &UpgradeInfo, reg: &Region, conf: &Co
                     match us {
                         UpgradeState::Started |
                         UpgradeState::Completed |
-                        UpgradeState::Failed => audit::audit_apply(&us, &info, &h, whc),
+                        UpgradeState::Failed => audit::apply(&us, &info, &h, whc),
                         _ => Ok(()), // audit only sends Started / Failed / Completed
                     }
                 }
@@ -98,4 +96,38 @@ pub fn apply_event(us: UpgradeState, info: &UpgradeInfo, reg: &Region, conf: &Co
         }
         _ => {},
     }
+}
+
+/// Throw events to configured webhooks
+///
+/// This is the new version for shipcat apply module
+pub fn delete_event(us: &UpgradeState, info: &UpgradeInfo, reg: &Region, conf: &Config) {
+    // Webhooks defined in shipcat.conf for the region:
+    debug!("Delete event: {:?}", info);
+    for wh in &reg.webhooks {
+        if let Ok(whc) = wh.get_configuration() {
+            let res = match wh {
+                Webhook::Audit(h) => audit::deletion(&us, &info, &h, whc),
+            };
+            if let Err(e) = res {
+                warn!("Failed to notify about delete event: {}", e)
+            }
+        }
+    }
+    // slack notifies when we start the deletion only
+    match us {
+        UpgradeState::Started => {
+            let color = "warning";
+            let text = format!("deleting `{}` in `{}`", info.name, reg.name);
+            let _ = slack::send(slack::Message {
+                text,
+                code: info.diff.clone(),
+                color: Some(String::from(color)),
+                version: Some(info.version.clone()),
+                mode: info.slackMode.clone(),
+                metadata: info.metadata.clone(),
+            }, &conf.owners);
+        },
+        _ => {}
+    };
 }

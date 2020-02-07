@@ -37,14 +37,6 @@ error_chain! {
             description("SLACK_SHIPCAT_CHANNEL not specified")
             display("SLACK_SHIPCAT_CHANNEL not specified")
         }
-        MissingGrafanaUrl {
-            description("GRAFANA_SHIPCAT_HOOK_URL not specified")
-            display("GRAFANA_SHIPCAT_HOOK_URL not specified")
-        }
-        MissingGrafanaToken {
-            description("GRAFANA_SHIPCAT_TOKEN not specified")
-            display("GRAFANA_SHIPCAT_TOKEN not specified")
-        }
         Url(url: reqwest::Url) {
             description("could not access URL")
             display("could not access URL '{}'", &url)
@@ -141,6 +133,7 @@ pub mod env;
 
 /// Webhook mux/demux
 pub mod webhooks;
+pub use webhooks::UpgradeState;
 
 /// Simple printers
 pub mod show;

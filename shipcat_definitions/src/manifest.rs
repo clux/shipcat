@@ -1090,3 +1090,27 @@ impl Manifest {
         Ok(())
     }
 }
+
+// Cross-crate test manifest creator
+impl Manifest {
+    pub fn test(name: &str) -> Manifest {
+        use serde_json::json;
+        let mut mf : Manifest = serde_json::from_value(json!({
+            "name": name,
+            "version": "1.0.0",
+            "regions": ["dev-uk"],
+            // and it has defaults from filebacked:
+            "chart": "base",
+            // plus some mandatory properties normally not needed in tests
+            "metadata": {
+                "team": "doves",
+                "repo": "https://github.com/babylonhealth/shipcat"
+            },
+        })).expect("minimal manifest format is parseable");
+        // fill some defaults normally done when loading it
+        mf.namespace = "apps".into();
+        mf.region = "dev-uk".into();
+        mf.environment = "dev".into();
+        mf
+    }
+}

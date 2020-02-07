@@ -7,7 +7,7 @@ use shipcat_filebacked::{SimpleManifest};
 use rayon::{iter::Either, prelude::*};
 use crate::apply;
 use crate::helm;
-use crate::{status, diff};
+use crate::{status::ShipKube, diff};
 use super::kubectl;
 use crate::webhooks::{self, UpgradeState};
 use super::{Result, Error, ErrorKind};
@@ -24,7 +24,7 @@ pub fn mass_diff(conf: &Config, reg: &Region) -> Result<()> {
             let mut mf = shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?
                 .complete(&reg)?;
             // complete with version and uid from crd
-            let s = status::Status::new(&mf)?;
+            let s = ShipKube::new(&mf)?;
             let crd = s.get()?;
             mf.version = mf.version.or(crd.spec.version);
             mf.uid = crd.metadata.uid;
@@ -145,7 +145,13 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>,
 
     // Single instruction kubectl delete shipcat manifests .... of excess ones
     let svc_names = svcs.iter().map(|x| x.base.name.to_string()).collect::<Vec<_>>();
-    kubectl::remove_redundant_manifests(&region_sec.namespace, &svc_names)?;
+    let excess = kubectl::find_redundant_manifests(&region_sec.namespace, &svc_names)?;
+    if !excess.is_empty() {
+        info!("Will remove excess manifests: {:?}", excess);
+    }
+    for svc in excess { // NB: doing deletion sequentially...
+        apply::delete(&svc, &region_sec, &config_sec)?;
+    }
 
     let n_jobs = svcs.len();
     let pool = ThreadPool::new(n_workers);

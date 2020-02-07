@@ -76,7 +76,7 @@ pub struct ManifestOverrides {
     //  to have this section merge alerts sub-field deeply
     //      we have to avoid using Option
     pub newrelic: NewrelicSource,
-    pub upgradeNotifications: Option<NotificationMode>,
+    pub upgrade_notifications: Option<NotificationMode>,
 
     #[serde(flatten)]
     pub defaults: ManifestDefaults,

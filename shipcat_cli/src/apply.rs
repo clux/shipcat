@@ -9,7 +9,7 @@ use shipcat_definitions::{
 use crate::{
     helm,
     kubectl,
-    status,
+    status::ShipKube,
     diff,
     webhooks::{self, UpgradeState}
 };
@@ -30,8 +30,6 @@ pub struct UpgradeInfo {
     pub slackMode: NotificationMode,
     /// Validated version string
     pub version: String,
-    /// Chart the service is using
-    chart: String,
     /// Validated region requested for installation
     pub region: String,
     /// Validated namespace inferred from region
@@ -50,7 +48,6 @@ impl UpgradeInfo {
             version: mf.version.clone().expect("version must be set before calling UpgradeInfo::new"),
             metadata: mf.metadata.clone().expect("metadata must exist on every manifest"),
             slackMode: mf.upgradeNotifications.clone().unwrap_or_default(),
-            chart: mf.chart.clone().expect("must have a chart for a manifest"),
             region: mf.region.clone(),
             namespace: mf.namespace.clone(),
             diff: None,
@@ -144,7 +141,7 @@ fn apply_kubectl(svc: &str,
     // - if the service has been installed before (negates the need for a diff)
     // - if we need to apply a new crd (so we have an atomic change)
     // - if we need to interact with secret-manager TODO: do
-    let s = status::Status::new(&mfbase)?;
+    let s = ShipKube::new(&mfbase)?;
 
     // Next large batch is working out the reason for the upgrade (if any)
     let mut reason = None;
@@ -400,5 +397,34 @@ pub fn restart(mf: &Manifest, wait: bool) -> Result<()> {
         warn!("failed to roll out {}", &mf.name);
         warn!("{}", reason);
         Err(ErrorKind::UpgradeTimeout(mf.name.clone(), time).into())
+    }
+}
+
+pub fn delete(svc: &str, reg: &Region, conf: &Config) -> Result<()> {
+    let s = ShipKube::new_within(&svc, &reg.namespace)?;
+    match s.get() {
+        // audit all events if it's possible to deserialize current crd
+        Ok(mfk) => {
+            let info = UpgradeInfo::new(&mfk.spec);
+            // We notify before we start, because this is potentially a "panic" type notification.
+            webhooks::delete_event(&UpgradeState::Started, &info, &reg, &conf);
+            return match s.delete() {
+                Ok(_) => {
+                    // NB: we say completed when the api is "done"
+                    // This might still trigger finalizers ATM...
+                    webhooks::delete_event(&UpgradeState::Completed, &info, &reg, &conf);
+                    Ok(())
+                },
+                Err(e) => {
+                    webhooks::delete_event(&UpgradeState::Failed, &info, &reg, &conf);
+                    Err(e)
+                },
+            };
+        },
+        // otherwise, just fire and forget...
+        Err(e) => {
+            warn!("Unable to notify about service deletion: {}", e);
+            s.delete() // this Result is more important
+        }
     }
 }

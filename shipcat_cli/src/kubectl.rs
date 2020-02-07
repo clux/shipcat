@@ -682,29 +682,12 @@ pub fn diff(pth: PathBuf, ns: &str) -> Result<(String, String, bool)> {
     Ok((out, err, s.status.success()))
 }
 
-use std::collections::HashSet;
-pub fn remove_redundant_manifests(ns: &str, svcs: &[String]) -> Result<Vec<String>> {
+pub fn find_redundant_manifests(ns: &str, svcs: &[String]) -> Result<Vec<String>> {
+    use std::collections::HashSet;
     let requested: HashSet<_> = svcs.iter().cloned().collect();
     let found: HashSet<_> = find_all_manifest_crds(ns)?.iter().cloned().collect();
     debug!("Found manifests: {:?}", found);
-
-    let excess : HashSet<_> = found.difference(&requested).collect();
-    info!("Will remove excess manifests: {:?}", excess);
-     let mut delargs = vec![
-        "delete".into(),
-        format!("-n={}", ns),
-        "shipcatmanifests".into(),
-    ];
-    for x in &excess {
-        delargs.push(x.to_string());
-    }
-    if !excess.is_empty() {
-        kexec(delargs)?;
-    } else {
-        debug!("No excess manifests found");
-    }
-    let exvec = excess.into_iter().cloned().collect();
-    Ok(exvec)
+    Ok(found.difference(&requested).cloned().collect())
 }
 
 // Get a version of a service from the current shipcatmanifest crd

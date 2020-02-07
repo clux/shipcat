@@ -2,7 +2,7 @@ use crate::{Result, ErrorKind, Manifest};
 use serde_json::json;
 
 use kube::{
-    api::{Api, Object, PatchParams},
+    api::{Api, Object, PatchParams, DeleteParams},
     client::APIClient,
 };
 
@@ -33,8 +33,8 @@ pub struct MinimalManifest {
     pub version: String,
 }
 
-/// Interface for dealing with status
-pub struct Status {
+/// Interface for dealing with kubernetes shipcatmanifests
+pub struct ShipKube {
     scm: Api<ManifestK>,
     scm_minimal: Api<ManifestMinimalK>,
     applier: Applier,
@@ -42,22 +42,25 @@ pub struct Status {
 }
 
 /// Entry points for shipcat::apply
-impl Status {
-    pub fn new(mf: &Manifest) -> Result<Self> {
+impl ShipKube {
+    pub fn new_within(svc: &str, ns: &str) -> Result<Self> {
         // hide the client in here -> Api resource for now (not needed elsewhere)
         let client = make_client()?;
         let scm : Api<ManifestK> = Api::customResource(client.clone(), "shipcatmanifests")
             .group("babylontech.co.uk")
-            .within(&mf.namespace);
+            .within(ns);
         let scm_minimal : Api<ManifestMinimalK> = Api::customResource(client, "shipcatmanifests")
             .group("babylontech.co.uk")
-            .within(&mf.namespace);
-        Ok(Status {
-            name: mf.name.clone(),
+            .within(ns);
+        Ok(Self {
+            name: svc.to_string(),
             applier: Applier::infer(),
             scm: scm,
             scm_minimal: scm_minimal,
         })
+    }
+    pub fn new(mf: &Manifest) -> Result<Self> {
+        Self::new_within(&mf.name, &mf.namespace)
     }
 
     /// CRD applier
@@ -92,6 +95,14 @@ impl Status {
         let o = self.scm_minimal.get(&self.name).map_err(ErrorKind::KubeError)?;
         Ok(o)
     }
+
+    /// Minimal CRD deleter
+    pub fn delete(&self) -> Result<()> {
+        let dp = DeleteParams::default();
+        self.scm_minimal.delete(&self.name, &dp).map_err(ErrorKind::KubeError)?;
+        Ok(())
+    }
+
 
     // ====================================================
     // WARNING : PATCH HELL BELOW
@@ -270,7 +281,7 @@ use crate::{Config, Region};
 pub fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
     use crate::kubectl;
     let mf = shipcat_filebacked::load_manifest(svc, conf, reg)?;
-    let crd = Status::new(&mf)?.get()?;
+    let crd = ShipKube::new(&mf)?.get()?;
 
     let md = mf.metadata.clone().expect("need metadata");
     let ver = crd.spec.version.expect("need version");

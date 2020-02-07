@@ -3,6 +3,7 @@
 
 use std::str::FromStr;
 use shipcat::*;
+use shipcat::status::ShipKube;
 use clap::{Arg, App, AppSettings, SubCommand, ArgMatches, Shell};
 use std::process;
 
@@ -696,7 +697,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         };
         mf.version = mf.version.or(ver);
         if a.is_present("current") {
-            let s = status::Status::new(&mf)?;
+            let s = ShipKube::new(&mf)?;
             let crd = s.get()?;
             mf.version = mf.version.or(crd.spec.version);
             mf.uid = crd.metadata.uid;
@@ -760,7 +761,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             let ver = a.value_of("tag").map(String::from);
             mf.version = mf.version.or(ver);
             if !a.is_present("mock") {
-                let s = status::Status::new(&mf)?;
+                let s = ShipKube::new(&mf)?;
                 let crd = s.get()?;
                 mf.version = mf.version.or(crd.spec.version);
                 mf.uid = crd.metadata.uid;
