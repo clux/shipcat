@@ -1,4 +1,4 @@
-use super::{Result, Config, Region};
+use super::{Config, Region, Result};
 
 /// Print the config
 ///

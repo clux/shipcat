@@ -70,7 +70,7 @@ pub mod newrelic {
         let search = format!("({region})", region = region);
         let mut res = client
             .get("https://api.newrelic.com/v2/applications.json")
-            .query(&[("filter[name]", search.clone())])
+            .query(&[("filter[name]", search)])
             .header("X-Api-Key", api_key)
             .send()?;
 

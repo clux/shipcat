@@ -1,12 +1,12 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::fs::File;
-use std::io::Write;
+use std::{
+    fs,
+    fs::File,
+    io::Write,
+    path::{Path, PathBuf},
+};
 
-use serde_yaml;
-
-use shipcat_definitions::{Region, ReconciliationMode, Manifest};
-use super::{Result};
+use super::Result;
+use shipcat_definitions::{Manifest, ReconciliationMode, Region};
 
 pub fn hexists() -> Result<()> {
     if which::which("helm").is_err() {
@@ -30,8 +30,8 @@ pub fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
     debug!("helm {}", args.join(" "));
     hexists()?;
     let s = Command::new("helm").args(&args).output()?;
-    let out : String = String::from_utf8_lossy(&s.stdout).into();
-    let err : String = String::from_utf8_lossy(&s.stderr).into();
+    let out: String = String::from_utf8_lossy(&s.stdout).into();
+    let err: String = String::from_utf8_lossy(&s.stderr).into();
     Ok((out, err, s.status.success()))
 }
 
@@ -44,7 +44,12 @@ pub fn values(mf: &Manifest, output: &str) -> Result<()> {
     debug!("Writing helm values for {} to {}", mf.name, pth.display());
     let mut f = File::create(&pth)?;
     writeln!(f, "{}", encoded)?;
-    debug!("Wrote helm values for {} to {}: \n{}", mf.name, pth.display(), encoded);
+    debug!(
+        "Wrote helm values for {} to {}: \n{}",
+        mf.name,
+        pth.display(),
+        encoded
+    );
     Ok(())
 }
 
@@ -74,7 +79,12 @@ pub fn template(mf: &Manifest, output: Option<PathBuf>) -> Result<String> {
         debug!("Writing helm template for {} to {}", mf.name, pth.display());
         let mut f = File::create(&pth)?;
         writeln!(f, "{}", tpl)?;
-        debug!("Wrote helm template for {} to {}: \n{}", mf.name, pth.display(), tpl);
+        debug!(
+            "Wrote helm template for {} to {}: \n{}",
+            mf.name,
+            pth.display(),
+            tpl
+        );
     };
     fs::remove_file(hfile)?;
     Ok(tpl)
@@ -93,13 +103,13 @@ pub fn template_check(mf: &Manifest, reg: &Region, tpl: &str) -> Result<()> {
             Err(_) => {
                 trace!("Skipping partial without kind: {}", to);
                 continue;
-            },
+            }
             Ok(o) => {
                 debug!("Checking: {}", o.kind);
                 o.kind
-            },
+            }
         };
-        let obj : MetaObject = serde_yaml::from_str(to)?;
+        let obj: MetaObject = serde_yaml::from_str(to)?;
         let types = &obj.types;
         let name = &obj.metadata.name;
         if types.apiVersion.is_none() {
@@ -112,7 +122,7 @@ pub fn template_check(mf: &Manifest, reg: &Region, tpl: &str) -> Result<()> {
                 let owner_ok = check_owner_refs(mf, &kind, &obj)?;
                 let labels_ok = check_labels(mf, &kind, &obj)?;
                 labels_ok && owner_ok
-            },
+            }
         } && tiller_ok;
         if !ok {
             invalids.push(format!("{} {{ {} }}", kind, name));
@@ -124,7 +134,7 @@ pub fn template_check(mf: &Manifest, reg: &Region, tpl: &str) -> Result<()> {
     Ok(())
 }
 
-use kube::api::{TypeMeta, ObjectMeta};
+use kube::api::{ObjectMeta, TypeMeta};
 #[derive(Deserialize)]
 struct PartialObject {
     kind: String,
@@ -148,7 +158,7 @@ fn check_labels(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool> {
                 success = false;
                 warn!("{}: invalid app.kubernetes.io/name label {}", kind, n)
             }
-        },
+        }
         None => {
             success = false;
             warn!("{}: missing app.kubernetes.io/name label", kind);
@@ -162,7 +172,7 @@ fn check_labels(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool> {
                 success = false;
                 warn!("{}: invalid app.kubernetes.io/managed-by label {}", kind, n)
             }
-        },
+        }
         None => {
             success = false;
             warn!("{}: missing app.kubernetes.io/managed-by label", kind);
@@ -181,7 +191,7 @@ fn check_labels(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool> {
                         success = false;
                         warn!("{}: invalid app.kubernetes.io/version label {}", kind, n)
                     }
-                },
+                }
                 None => {
                     success = false;
                     warn!("{}: missing app.kubernetes.io/version label", kind);
@@ -197,13 +207,15 @@ fn check_owner_refs(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool>
     // First ownerReferences must be ShipcatManifest
     match obj.metadata.ownerReferences.first() {
         Some(or) => {
-            if or.kind == "ShipcatManifest" &&
-               !or.controller &&
-               or.name == mf.name {
+            if or.kind == "ShipcatManifest" && !or.controller && or.name == mf.name {
                 debug!("{}: valid ownerReference for {}", kind, or.kind);
             } else {
                 success = false;
-                warn!("{}: invalid ownerReference for {}", kind, serde_yaml::to_string(or)?);
+                warn!(
+                    "{}: invalid ownerReference for {}",
+                    kind,
+                    serde_yaml::to_string(or)?
+                );
             }
             if let Some(uid) = &mf.uid {
                 if uid == &or.uid {
@@ -213,11 +225,11 @@ fn check_owner_refs(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool>
                     warn!("{}: invalid uid in ownerReference for {}", kind, or.uid)
                 }
             }
-        },
+        }
         None => {
             success = false;
             warn!("{}: missing ownerReferences", kind);
-        },
+        }
     }
     Ok(success)
 }
@@ -231,10 +243,10 @@ fn check_no_tiller_refs(kind: &str, obj: &MetaObject) -> Result<bool> {
             Some(n) => {
                 success = false;
                 warn!("{}: {} label {} for tiller not supported", kind, key, n);
-            },
+            }
             None => {
                 debug!("{}: {} label unset", kind, key);
-            },
+            }
         };
     }
     Ok(success)

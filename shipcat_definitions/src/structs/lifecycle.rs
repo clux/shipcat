@@ -15,7 +15,7 @@ pub struct LifeCycle {
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct LifeCycleHandler {
-   pub exec: ExecAction,
+    pub exec: ExecAction,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

@@ -1,5 +1,5 @@
+use serde::de::{Deserialize, Deserializer, Error, Visitor};
 use std::fmt;
-use serde::de::{Visitor, Deserialize, Deserializer, Error};
 
 use super::Build;
 
@@ -44,32 +44,44 @@ macro_rules! visit_tostring {
 impl<'de> Visitor<'de> for RelaxedStringVisitor {
     type Value = RelaxedString;
 
+    // Calls `self.visit_string(v.to_string())`
+    visit_tostring!(visit_bool, bool);
+
+    visit_tostring!(visit_str, &str);
+
+    visit_tostring!(visit_i64, i64);
+
+    visit_tostring!(visit_i128, i128);
+
+    visit_tostring!(visit_u64, u64);
+
+    visit_tostring!(visit_u128, u128);
+
+    visit_tostring!(visit_f64, f64);
+
     fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("a string, number, boolean or null")
     }
 
-    fn visit_string<E>(self, v: String) -> Result<Self::Value, E> where E: Error {
+    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(RelaxedString(v))
     }
 
-    fn visit_unit<E>(self) -> Result<Self::Value, E> where E: Error {
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         // This is weird behaviour, but matches existing Shipcat functionality
         Ok(RelaxedString("~".to_string()))
     }
-
-    // Calls `self.visit_string(v.to_string())`
-    visit_tostring!(visit_bool, bool);
-    visit_tostring!(visit_str, &str);
-    visit_tostring!(visit_i64, i64);
-    visit_tostring!(visit_i128, i128);
-    visit_tostring!(visit_u64, u64);
-    visit_tostring!(visit_u128, u128);
-    visit_tostring!(visit_f64, f64);
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{RelaxedString};
+    use super::RelaxedString;
 
     #[test]
     fn deserialize_string() {

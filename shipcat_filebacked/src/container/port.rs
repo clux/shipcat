@@ -1,9 +1,11 @@
 use regex::Regex;
 
-use shipcat_definitions::Result;
-use shipcat_definitions::structs::port::{Port, PortProtocol};
+use shipcat_definitions::{
+    structs::port::{Port, PortProtocol},
+    Result,
+};
 
-use crate::util::{Build};
+use crate::util::Build;
 
 #[derive(Deserialize, Clone, Default)]
 pub struct PortName(String);

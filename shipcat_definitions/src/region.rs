@@ -1,6 +1,5 @@
 use crate::structs::kong::Kong;
-use std::collections::BTreeMap;
-use std::env;
+use std::{collections::BTreeMap, env};
 
 use regex::Regex;
 
@@ -9,10 +8,9 @@ use semver::Version;
 use url::Url;
 use uuid::Uuid;
 
-#[allow(unused_imports)]
-use super::{Vault, Result, BaseManifest, ConfigState};
+#[allow(unused_imports)] use super::{BaseManifest, ConfigState, Result, Vault};
 
-use super::structs::{Authorization};
+use super::structs::Authorization;
 
 /// Versioning Scheme used in region
 ///
@@ -45,12 +43,15 @@ impl VersionScheme {
                 if !gitre.is_match(&ver) && Version::parse(&ver).is_err() {
                     bail!("Illegal tag {} (floating tags cannot be rolled back please use 40 char git sha or semver)", ver);
                 }
-            },
+            }
             VersionScheme::Semver => {
                 if Version::parse(&ver).is_err() {
-                    bail!("Version {} is not a semver version in a region using semver versions", ver);
+                    bail!(
+                        "Version {} is not a semver version in a region using semver versions",
+                        ver
+                    );
                 }
-            },
+            }
         };
         Ok(())
     }
@@ -78,7 +79,11 @@ impl VaultConfig {
             bail!("Need to set the vault folder for {}", region);
         }
         if self.folder.contains('/') {
-            bail!("vault config folder '{}' (under {}) cannot contain slashes", self.folder, self.url);
+            bail!(
+                "vault config folder '{}' (under {}) cannot contain slashes",
+                self.folder,
+                self.url
+            );
         }
         Ok(())
     }
@@ -101,7 +106,7 @@ impl VaultConfig {
 
 //#[derive(Serialize, Deserialize, Clone, Default)]
 //#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
-//pub struct HostPort {
+// pub struct HostPort {
 //    /// Hostname || IP || FQDN
 //    pub host: String,
 //    /// Port
@@ -228,7 +233,7 @@ pub struct KongAnonymousConsumers {
 pub struct KongOauthConsumer {
     pub oauth_client_id: String,
     pub oauth_client_secret: String,
-    pub username: String
+    pub username: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -298,14 +303,17 @@ impl Webhook {
         let mut whc = BTreeMap::default();
         match self {
             Webhook::Audit(_h) => {
-                whc.insert("SHIPCAT_AUDIT_CONTEXT_ID".into(),
-                                env::var("SHIPCAT_AUDIT_CONTEXT_ID")
-                                .unwrap_or_else(|_| Uuid::new_v4().to_string()));
+                whc.insert(
+                    "SHIPCAT_AUDIT_CONTEXT_ID".into(),
+                    env::var("SHIPCAT_AUDIT_CONTEXT_ID").unwrap_or_else(|_| Uuid::new_v4().to_string()),
+                );
 
                 // if we are on jenkins
-                if let (Ok(url), Ok(revision), Ok(_)) = (env::var("BUILD_URL"),
-                                                         env::var("GIT_COMMIT"),
-                                                         env::var("BUILD_NUMBER")) {
+                if let (Ok(url), Ok(revision), Ok(_)) = (
+                    env::var("BUILD_URL"),
+                    env::var("GIT_COMMIT"),
+                    env::var("BUILD_NUMBER"),
+                ) {
                     whc.insert("SHIPCAT_AUDIT_REVISION".into(), revision);
                     whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), url);
                 }
@@ -320,7 +328,7 @@ impl Webhook {
 
                 // strict requirements
                 if !whc.contains_key("SHIPCAT_AUDIT_REVISION") {
-                    return Err("SHIPCAT_AUDIT_REVISION not specified".into())
+                    return Err("SHIPCAT_AUDIT_REVISION not specified".into());
                 }
 
                 debug!("Audit webhook config {:?}", whc);
@@ -336,15 +344,14 @@ impl Webhook {
 
 #[cfg(test)]
 mod test_webhooks {
-    use super::Webhook;
-    use super::AuditWebhook;
-    use url::Url;
+    use super::{AuditWebhook, Webhook};
     use regex::Regex;
     use std::env;
+    use url::Url;
 
     #[test]
     fn region_webhook_audit_config_jenkins_defaults() {
-        let wha = Webhook::Audit(AuditWebhook{
+        let wha = Webhook::Audit(AuditWebhook {
             url: Url::parse("http://testnoop").unwrap(),
             token: "noop".into(),
         });
@@ -536,11 +543,13 @@ impl Region {
     pub fn vault_url(&self, app: &str) -> String {
         let vault_url = self.vault.url.clone();
         let path = "/ui/vault/secrets/secret/list/";
-        format!("{vault_url}/{path}/{env}/{app}/",
+        format!(
+            "{vault_url}/{path}/{env}/{app}/",
             vault_url = vault_url.trim_matches('/'),
             path = path.trim_matches('/'),
             env = &self.name,
-            app = &app)
+            app = &app
+        )
     }
 
     pub fn grafana_url(&self, app: &str) -> Option<String> {
@@ -557,24 +566,29 @@ impl Region {
     // Get the Sentry URL for a given service slug in a cluster in this region
     pub fn sentry_url(&self, slug: &str) -> Option<String> {
         self.sentry.clone().map(|s| {
-            format!("{sentry_base_url}/sentry/{slug}",
-                    sentry_base_url = s.url, slug = slug)
+            format!(
+                "{sentry_base_url}/sentry/{slug}",
+                sentry_base_url = s.url,
+                slug = slug
+            )
         })
     }
 
     pub fn logzio_url(&self, app: &str) -> Option<String> {
         self.logzio.clone().map(|lio| {
-            format!("{logzio_url}/{app}-{env}?&switchToAccountId={account_id}",
-              logzio_url = lio.url.trim_matches('/'),
-              app = app,
-              env = self.name,
-              account_id = lio.account_id)
+            format!(
+                "{logzio_url}/{app}-{env}?&switchToAccountId={account_id}",
+                logzio_url = lio.url.trim_matches('/'),
+                app = app,
+                env = self.name,
+                account_id = lio.account_id
+            )
         })
     }
 
     pub fn raftcat_url(&self) -> Option<String> {
-        self.base_urls.get("external_services").map(|base| {
-            format!("{base}/raftcat/", base = base)
-        })
+        self.base_urls
+            .get("external_services")
+            .map(|base| format!("{base}/raftcat/", base = base))
     }
 }

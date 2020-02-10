@@ -1,8 +1,7 @@
 use super::{Config, Region};
 use std::collections::BTreeMap;
 
-use super::structs::security::DataHandling;
-use super::{Result};
+use super::{structs::security::DataHandling, Result};
 
 /// GdprOutput across manifests
 #[derive(Serialize)]

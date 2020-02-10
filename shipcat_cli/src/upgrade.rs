@@ -1,13 +1,12 @@
 //! Interface to self_update crate for auto-upgrading shipcat
 
-use std::path::{PathBuf};
+use super::Result;
 use semver::Version;
-use std::io::Read;
-use super::{Result};
+use std::{io::Read, path::PathBuf};
 
 
 fn get_target() -> Result<String> {
-    if ! cfg!(target_arch = "x86_64") {
+    if !cfg!(target_arch = "x86_64") {
         bail!("shipcat is only built for 64 bit architectures");
     }
     let arch = "x86_64";
@@ -43,7 +42,7 @@ fn find_actual_dl_url(url: &str) -> Result<String> {
 
     let mut body = String::new();
     res.read_to_string(&mut body)?;
-    let ghi : GithubReleaseInfo = serde_json::from_str(&body)?;
+    let ghi: GithubReleaseInfo = serde_json::from_str(&body)?;
     Ok(ghi.browser_download_url)
 }
 
@@ -58,9 +57,9 @@ fn identify_exe() -> Result<ExeInfo> {
     let pth = std::env::current_exe()?;
     trace!("shipcat at {}", pth.display());
     Ok(ExeInfo {
-       path: pth.clone(),
-       base: pth.parent().expect("current_exe has a parent dir").to_path_buf(),
-   })
+        path: pth.clone(),
+        base: pth.parent().expect("current_exe has a parent dir").to_path_buf(),
+    })
 }
 
 /// Attempt to upgrade shipcat
@@ -73,20 +72,25 @@ pub fn self_upgrade(ver: Option<Version>) -> Result<()> {
             .repo_owner("babylonhealth")
             .repo_name("shipcat")
             .auth_token(&token)
-            .build()?.fetch()?
+            .build()?
+            .fetch()?
     } else {
         self_update::backends::github::ReleaseList::configure()
             .repo_owner("babylonhealth")
             .repo_name("shipcat")
-            .build()?.fetch()?
+            .build()?
+            .fetch()?
     };
     trace!("found releases:");
     trace!("{:#?}\n", releases);
 
     // If using a requested version, we have to find that
     let rel = if let Some(v) = &ver {
-        releases.into_iter().find(|r| Version::parse(&r.tag) == Ok(v.clone()))
-    } else { // pick latest if upgrading opportunistically
+        releases
+            .into_iter()
+            .find(|r| Version::parse(&r.tag) == Ok(v.clone()))
+    } else {
+        // pick latest if upgrading opportunistically
         releases.into_iter().find(|r| !r.assets.is_empty())
     };
 
@@ -94,7 +98,9 @@ pub fn self_upgrade(ver: Option<Version>) -> Result<()> {
         Some(r) => r,
         None => bail!("No matching shipcat release found for version: {:?}", ver),
     };
-    let asset = release.asset_for(&get_target()?).expect("Asset for valid target exists");
+    let asset = release
+        .asset_for(&get_target()?)
+        .expect("Asset for valid target exists");
     debug!("selected {:?}", asset);
     if Version::parse(&release.tag) == Version::parse(env!("CARGO_PKG_VERSION")) {
         // NB: Config::verify_version checks for >=, allow non-noop upgrades here

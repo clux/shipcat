@@ -62,7 +62,7 @@ tag-latest-circleci:
 
 clippy:
 	touch shipcat_definitions/src/lib.rs
-	cargo clippy -p shipcat -- --allow clippy::or_fun_call --allow clippy::redundant_pattern_matching --allow clippy::redundant_field_names
+	cargo clippy -p shipcat -- --allow clippy::or_fun_call --allow clippy::redundant_pattern_matching --allow clippy::redundant_field_names --allow clippy::inefficient_to_string
 	cargo clippy -p raftcat -- --allow clippy::or_fun_call --allow clippy::redundant_pattern_matching --allow clippy::redundant_field_names
 	ag "#\[allow\(clippy::" # Active exclusions:
 

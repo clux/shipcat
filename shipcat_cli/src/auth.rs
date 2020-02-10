@@ -1,18 +1,16 @@
-use crate::kubectl;
 use super::{Config, Region, Result};
+use crate::kubectl;
 use std::process::Command;
 
 /// Check if teleport expired
 fn need_teleport_login(url: &str) -> Result<bool> {
-    let args = vec![
-        "status".to_string(),
-    ]; // tsh status doesn't seem to have a nice filtering or yaml output :(
-    // https://github.com/gravitational/teleport/issues/2869
+    let args = vec!["status".to_string()]; // tsh status doesn't seem to have a nice filtering or yaml output :(
+                                           // https://github.com/gravitational/teleport/issues/2869
     let s = Command::new("tsh").args(&args).output()?;
     let tsh_out = String::from_utf8_lossy(&s.stdout);
     let lines = tsh_out.lines().collect::<Vec<_>>();
     if let Some(idx) = lines.iter().position(|l| l.contains(url)) {
-        let valid_ln = lines[idx+5]; // idx+5 is Valid until line
+        let valid_ln = lines[idx + 5]; // idx+5 is Valid until line
         debug!("Checking Valid line {}", valid_ln);
         Ok(valid_ln.contains("EXPIRED"))
     } else {
@@ -25,9 +23,11 @@ fn ensure_teleport() -> Result<()> {
     let s = Command::new("which").args(vec!["tsh"]).output()?;
     let out = String::from_utf8_lossy(&s.stdout);
     if out.is_empty() {
-        bail!("tsh not found. please install tsh --> https://gravitational.com/teleport/download/
+        bail!(
+            "tsh not found. please install tsh --> https://gravitational.com/teleport/download/
 Download link for MacOS --> https://get.gravitational.com/teleport-v3.2.6-darwin-amd64-bin.tar.gz
-You must install version 3.2.* and not 4.0.0");
+You must install version 3.2.* and not 4.0.0"
+        );
     }
     // TODO: pin teleport url in cluster entry?
     Ok(())
@@ -83,7 +83,10 @@ pub fn login(conf: &Config, region: &Region, force: bool) -> Result<()> {
         } else {
             // We assume there's an external way to for users to create kube contexts
             // if not teleport url is set on the owning cluster.
-            info!("Reusing {} context for non-teleport region {}", region.cluster, region.name);
+            info!(
+                "Reusing {} context for non-teleport region {}",
+                region.cluster, region.name
+            );
             kubectl::use_context(&region.cluster)?;
         }
     } else {

@@ -1,26 +1,20 @@
-use super::{Result, Manifest, ErrorKind};
-use shipcat_definitions::{Crd, PrimaryWorkload};
-use serde::Serialize;
+use super::{ErrorKind, Manifest, Result};
+use chrono::{DateTime, Utc};
 use regex::Regex;
-use serde_yaml;
-use chrono::{Utc, DateTime};
+use serde::Serialize;
+use shipcat_definitions::{Crd, PrimaryWorkload};
 
 use kube::{
-    api::{RawApi, PostParams, Object, TypeMeta, ObjectMeta},
+    api::{Object, ObjectMeta, PostParams, RawApi, TypeMeta},
     client::APIClient,
     config::load_kube_config,
 };
 
 use k8s_openapi::api::authorization::v1::{
-    //ResourceRule,
-    ResourceAttributes,
-    //SelfSubjectRulesReviewSpec,
-    //SubjectRulesReviewStatus,
-    SelfSubjectAccessReviewSpec,
-    SubjectAccessReviewStatus,
+    ResourceAttributes, SelfSubjectAccessReviewSpec, SubjectAccessReviewStatus,
 };
 
-struct AccessReviewRequest{
+struct AccessReviewRequest {
     namespace: String,
     verb: String,
     resource: String,
@@ -40,8 +34,8 @@ fn kout(args: Vec<String>) -> Result<(String, bool)> {
     use std::process::Command;
     debug!("kubectl {}", args.join(" "));
     let s = Command::new("kubectl").args(&args).output()?;
-    let out : String = String::from_utf8_lossy(&s.stdout).into();
-    let err : String = String::from_utf8_lossy(&s.stderr).to_string().trim().into();
+    let out: String = String::from_utf8_lossy(&s.stdout).into();
+    let err: String = String::from_utf8_lossy(&s.stderr).to_string().trim().into();
     if !err.is_empty() {
         warn!("kubectl {} stderr: {}", args.join(" "), err);
     }
@@ -52,51 +46,51 @@ fn kout(args: Vec<String>) -> Result<(String, bool)> {
     }
     Ok((out, s.status.success()))
 }
-/*
-fn get_kube_permissions(namespace: String) -> Result<Vec<ResourceRule>> {
-    let config = load_kube_config().expect("config failed to load");
-    let client = APIClient::new(config);
-
-    let ssrr = RawApi::customResource("selfsubjectrulesreviews").group("authorization.k8s.io").version("v1");
-
-    let pp = PostParams::default();
-
-    let auth_req = Object{
-        types: TypeMeta{
-            kind: Some("SelfSubjectRulesReview".into()),
-            apiVersion: Some("authorization.k8s.io/v1".into()),
-        },
-        metadata: ObjectMeta::default(),
-        spec: SelfSubjectRulesReviewSpec{
-            namespace: Some(namespace),
-        },
-        status: Some(SubjectRulesReviewStatus::default()),
-    };
-
-    let req = ssrr.create(&pp, serde_json::to_vec(&auth_req)?).expect("failed to create request");
-    let o = client.request::<Object<SelfSubjectRulesReviewSpec, SubjectRulesReviewStatus>>(req).map_err(ErrorKind::KubeError)?;
-
-    debug!("spec: {:?}", o.spec);
-    debug!("status: {:?}", o.status);
-    Ok(o.status.expect("expected rules").resource_rules)
-}
-*/
+// fn get_kube_permissions(namespace: String) -> Result<Vec<ResourceRule>> {
+// let config = load_kube_config().expect("config failed to load");
+// let client = APIClient::new(config);
+//
+// let ssrr = RawApi::customResource("selfsubjectrulesreviews").group("authorization.k8s.io").version("v1");
+//
+// let pp = PostParams::default();
+//
+// let auth_req = Object{
+// types: TypeMeta{
+// kind: Some("SelfSubjectRulesReview".into()),
+// apiVersion: Some("authorization.k8s.io/v1".into()),
+// },
+// metadata: ObjectMeta::default(),
+// spec: SelfSubjectRulesReviewSpec{
+// namespace: Some(namespace),
+// },
+// status: Some(SubjectRulesReviewStatus::default()),
+// };
+//
+// let req = ssrr.create(&pp, serde_json::to_vec(&auth_req)?).expect("failed to create request");
+// let o = client.request::<Object<SelfSubjectRulesReviewSpec, SubjectRulesReviewStatus>>(req).map_err(ErrorKind::KubeError)?;
+//
+// debug!("spec: {:?}", o.spec);
+// debug!("status: {:?}", o.status);
+// Ok(o.status.expect("expected rules").resource_rules)
+// }
 fn kani(rr: AccessReviewRequest) -> Result<bool> {
     let config = load_kube_config().expect("config failed to load");
     let client = APIClient::new(config);
 
-    let ssrr = RawApi::customResource("selfsubjectaccessreviews").group("authorization.k8s.io").version("v1");
+    let ssrr = RawApi::customResource("selfsubjectaccessreviews")
+        .group("authorization.k8s.io")
+        .version("v1");
 
     let pp = PostParams::default();
 
-    let auth_req = Object{
-        types: TypeMeta{
+    let auth_req = Object {
+        types: TypeMeta {
             kind: Some("SelfSubjectAccessReview".into()),
             apiVersion: Some("authorization.k8s.io/v1".into()),
         },
         metadata: ObjectMeta::default(),
-        spec: SelfSubjectAccessReviewSpec{
-            resource_attributes: Some(ResourceAttributes{
+        spec: SelfSubjectAccessReviewSpec {
+            resource_attributes: Some(ResourceAttributes {
                 namespace: Some(rr.namespace),
                 verb: Some(rr.verb),
                 resource: Some(rr.resource),
@@ -110,8 +104,12 @@ fn kani(rr: AccessReviewRequest) -> Result<bool> {
         status: Some(SubjectAccessReviewStatus::default()),
     };
 
-    let req = ssrr.create(&pp, serde_json::to_vec(&auth_req)?).expect("failed to create request");
-    let o = client.request::<Object<SelfSubjectAccessReviewSpec, SubjectAccessReviewStatus>>(req).map_err(ErrorKind::KubeError)?;
+    let req = ssrr
+        .create(&pp, serde_json::to_vec(&auth_req)?)
+        .expect("failed to create request");
+    let o = client
+        .request::<Object<SelfSubjectAccessReviewSpec, SubjectAccessReviewStatus>>(req)
+        .map_err(ErrorKind::KubeError)?;
 
     debug!("spec: {:?}", o.spec);
     debug!("status: {:?}", o.status);
@@ -141,7 +139,7 @@ pub fn current_context() -> Result<String> {
 
 pub fn set_context(context: &str, args: Vec<String>) -> Result<String> {
     let mut arg_list = vec!["config".into(), "set-context".into(), context.into()];
-    arg_list.append(&mut args.clone());
+    arg_list.extend_from_slice(&args);
 
     let (res, _) = kout(arg_list).map_err(|e| {
         error!("Failed to set kubectl config set-context. Is kubectl installed?");
@@ -195,18 +193,21 @@ pub fn await_rollout_status(mf: &Manifest) -> Result<bool> {
         Ok(false) => debug!("Ignoring rollout failure right after upgrade"),
         Err(e) => warn!("Ignoring rollout failure right after upgrade: {}", e),
     };
-    info!("Waiting {}s for deployment {} to rollout (not ready yet)", waittime, mf.name);
+    info!(
+        "Waiting {}s for deployment {} to rollout (not ready yet)",
+        waittime, mf.name
+    );
     for i in 1..10 {
         trace!("poll iteration {}", i);
         let mut waited = 0;
         // sleep until 1/10th of estimated upgrade time and poll for status
-        while waited < waittime/10 {
+        while waited < waittime / 10 {
             waited += 1;
             trace!("sleep 1s (waited {})", waited);
             thread::sleep(sec);
         }
         if rollout_status(&mf)? {
-            return Ok(true)
+            return Ok(true);
         }
     }
     Ok(false) // timeout
@@ -246,8 +247,7 @@ fn get_classified_pods(pc: PodClassification, mf: &Manifest) -> Result<(String, 
                 warn!("Found pod not running: {}", p);
                 broken.push(p.into());
             }
-        }
-        else if let Some(caps) = status_re.captures(l) {
+        } else if let Some(caps) = status_re.captures(l) {
             if caps["ready"] != caps["total"] {
                 if let Some(p) = l.split(' ').next() {
                     warn!("Found pod with less than necessary containers healthy: {}", p);
@@ -287,17 +287,15 @@ pub fn debug(mf: &Manifest) -> Result<()> {
             "--tail=30".into(),
         ];
         match kout(logvec) {
-            Ok((l,_)) => {
+            Ok((l, _)) => {
                 if l == "" {
                     warn!("No logs for pod {} found", pod);
                 } else {
                     warn!("Last 30 log lines:");
                     println!("{}", l);
                 }
-            },
-            Err(e) => {
-                warn!("Failed to get logs from {}: {}", pod, e)
             }
+            Err(e) => warn!("Failed to get logs from {}: {}", pod, e),
         }
     }
 
@@ -314,15 +312,12 @@ pub fn debug(mf: &Manifest) -> Result<()> {
             Ok((mut o, _)) => {
                 if let Some(idx) = o.find("Events:\n") {
                     println!("{}", o.split_off(idx))
-                }
-                else {
+                } else {
                     // Not printing in this case, tons of secrets in here
                     warn!("Unable to find events for pod {}", pod);
                 }
-            },
-            Err(e) => {
-                warn!("Failed to describe {}: {}", pod, e)
             }
+            Err(e) => warn!("Failed to describe {}: {}", pod, e),
         }
     }
     // ignore errors from here atm - it's mostly here as a best effort helper
@@ -397,7 +392,8 @@ fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
         format!("-n={}", mf.namespace),
     ];
     // Finding the affected replicasets:
-    let rs_re = Regex::new(r"(Old|New)ReplicaSets?:\s+(?P<rs>\S+)\s+\((?P<running>\d+)/(?P<total>\d+)").unwrap();
+    let rs_re =
+        Regex::new(r"(Old|New)ReplicaSets?:\s+(?P<rs>\S+)\s+\((?P<running>\d+)/(?P<total>\d+)").unwrap();
     let (deployres, _) = kout(descvec)?;
     let mut sets = vec![];
     for l in deployres.lines() {
@@ -421,13 +417,13 @@ fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
             "-oyaml".into(),
         ];
         let (getres, _) = kout(getvec)?;
-        let rv : ReplicaSetVal = serde_yaml::from_str(&getres)?;
+        let rv: ReplicaSetVal = serde_yaml::from_str(&getres)?;
         let ri = rv.status;
         let res = ReplicaSet {
             name: rs.name,
             available: ri.availableReplicas,
             total: ri.replicas,
-            created: rv.metadata.creationTimestamp
+            created: rv.metadata.creationTimestamp,
         };
         completesets.push(res);
     }
@@ -444,9 +440,11 @@ fn debug_active_replicasets(mf: &Manifest) -> Result<()> {
         info!("Latest {:?}", latest);
         if latest.available > 0 && latest.available < latest.total {
             warn!("Some replicas successfully rolled out - maybe a higher timeout would help?");
-        }
-        else if latest.available == 0 {
-            warn!("No replicas were rolled out fast enough ({} secs)", mf.estimate_wait_time());
+        } else if latest.available == 0 {
+            warn!(
+                "No replicas were rolled out fast enough ({} secs)",
+                mf.estimate_wait_time()
+            );
             warn!("Your application might be crashing, or fail to respond to healthchecks in time");
             warn!("Current health check is set to {:?}", mf.health);
         }
@@ -460,12 +458,12 @@ fn debug_active_replicasets(mf: &Manifest) -> Result<()> {
 pub fn debug_rollout_status(mf: &Manifest) -> Result<()> {
     let mut sets = find_active_replicasets(mf)?;
     if sets.len() == 2 {
-        sets.sort_unstable_by(|x,y| x.created.timestamp().cmp(&y.created.timestamp()));
+        sets.sort_unstable_by(|x, y| x.created.timestamp().cmp(&y.created.timestamp()));
         let old = sets.first().unwrap();
         let new = sets.last().unwrap();
-        info!("{} upgrade status: old {}/{} -  new {}/{} ", mf.name,
-            old.available, old.total,
-            new.available, new.total
+        info!(
+            "{} upgrade status: old {}/{} -  new {}/{} ",
+            mf.name, old.available, old.total, new.available, new.total
         );
     }
     Ok(())
@@ -506,7 +504,7 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
     let pnr = desiredpod.unwrap_or(0);
     if let Some(p) = pods.get(pnr) {
         debug!("Shelling into {}", p);
-        //kubectl exec -it $pod sh
+        // kubectl exec -it $pod sh
         let mut execargs = vec![
             "exec".into(),
             format!("-n={}", mf.namespace),
@@ -527,11 +525,11 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
             ];
             // kubectl exec $pod which bash
             // returns a non-zero rc if not found generally
-              let shexe = match kexec(trybash) {
+            let shexe = match kexec(trybash) {
                 Ok(o) => {
                     debug!("Got {:?}", o);
                     "bash".into()
-                },
+                }
                 Err(e) => {
                     warn!("No bash in container, falling back to `sh`");
                     debug!("Error: {}", e);
@@ -552,7 +550,7 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
 ///
 /// Useful because we have autocomplete on manifest names in shipcat
 pub fn port_forward(mf: &Manifest) -> Result<()> {
-    let access_request = AccessReviewRequest{
+    let access_request = AccessReviewRequest {
         namespace: mf.namespace.clone(),
         verb: "create".into(),
         resource: "pods".into(),
@@ -578,21 +576,28 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
     };
 
     let ports = ps.iter().enumerate().map(|(i, &port)| {
-        let localport: u32 = if port <= 1024 { port_offset + i as u32 } else { port };
-        debug!("Port forwarding kube deployment {}:{} to localhost:{}", mf.name, port, localport);
+        let localport: u32 = if port <= 1024 {
+            port_offset + i as u32
+        } else {
+            port
+        };
+        debug!(
+            "Port forwarding kube deployment {}:{} to localhost:{}",
+            mf.name, port, localport
+        );
         (port, localport)
     });
 
-    //kubectl port-forward deployment/${name} localport:httpPort
+    // kubectl port-forward deployment/${name} localport:httpPort
     let mut pfargs = vec![
         format!("-n={}", mf.namespace),
         "port-forward".into(),
-        format!("{}/{}", mf.workload.to_string(), mf.name)
+        format!("{}/{}", mf.workload.to_string(), mf.name),
     ];
 
     for (port, localport) in ports {
         pfargs.push(format!("{}:{}", localport, port));
-    };
+    }
 
     kexec(pfargs)?;
     Ok(())
@@ -604,11 +609,13 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
 /// CRDs itself, Manifest and Config typically.
 /// Returns whether or not the CRD was configured
 pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> Result<bool> {
-    use std::path::Path;
-    use std::fs::{self, File};
-    use std::io::Write;
+    use std::{
+        fs::{self, File},
+        io::Write,
+        path::Path,
+    };
     // Use trait constraint to convert it to a CRD
-    let crd : Crd<T> = data.into();
+    let crd: Crd<T> = data.into();
 
     // Write it to a temporary file:
     let crdfile = format!("{}.crd.gen.yml", name);
@@ -617,16 +624,17 @@ pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> 
     let mut f = File::create(&pth)?;
     let encoded = serde_yaml::to_string(&crd)?;
     writeln!(f, "{}", encoded)?;
-    debug!("Wrote {} CRD for {} to {}: \n{}", crd.kind, name, pth.display(), encoded);
+    debug!(
+        "Wrote {} CRD for {} to {}: \n{}",
+        crd.kind,
+        name,
+        pth.display(),
+        encoded
+    );
 
     // Apply it using kubectl apply
     debug!("Applying {} CRD for {}", crd.kind, name);
-    let applyargs = vec![
-        format!("-n={}", ns),
-        "apply".into(),
-        "-f".into(),
-        crdfile.clone(),
-    ];
+    let applyargs = vec![format!("-n={}", ns), "apply".into(), "-f".into(), crdfile.clone()];
     debug!("applying {} : {:?}", name, applyargs);
     let (out, status) = kout(applyargs.clone())?;
     print!("{}", out); // always print kube output from this
@@ -647,15 +655,16 @@ pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> 
 ///
 /// Allows us to purge manifests that are not in Manifest::available()
 fn find_all_manifest_crds(ns: &str) -> Result<Vec<String>> {
-     let getargs = vec![
+    let getargs = vec![
         "get".into(),
         format!("-n={}", ns),
         "shipcatmanifests".into(),
         "-ojsonpath='{.items[*].metadata.name}'".into(),
     ];
     let (out, _) = kout(getargs)?;
-    if out == "''" { // stupid kubectl
-        return Ok(vec![])
+    if out == "''" {
+        // stupid kubectl
+        return Ok(vec![]);
     }
     Ok(out.split(' ').map(String::from).collect())
 }
@@ -666,15 +675,15 @@ pub fn diff(pth: PathBuf, ns: &str) -> Result<(String, String, bool)> {
     let args = vec![
         "diff".into(),
         format!("-n={}", ns),
-        format!("-f={}", pth.display())
+        format!("-f={}", pth.display()),
     ];
     // need the error code here so re-implent - and discard stderr
     use std::process::Command;
     debug!("kubectl {}", args.join(" "));
 
     let s = Command::new("kubectl").args(&args).output()?;
-    let out : String = String::from_utf8_lossy(&s.stdout).into();
-    let err : String = String::from_utf8_lossy(&s.stderr).into();
+    let out: String = String::from_utf8_lossy(&s.stdout).into();
+    let err: String = String::from_utf8_lossy(&s.stderr).into();
     trace!("out: {}, err: {}", out, err);
     if err.contains("the dryRun alpha feature is disabled") {
         bail!("kubectl diff is not supported in your cluster: {}", err.trim());
@@ -692,7 +701,7 @@ pub fn find_redundant_manifests(ns: &str, svcs: &[String]) -> Result<Vec<String>
 
 // Get a version of a service from the current shipcatmanifest crd
 pub fn get_running_version(svc: &str, ns: &str) -> Result<String> {
-    //kubectl get shipcatmanifest $* -o jsonpath='{.spec.version}'
+    // kubectl get shipcatmanifest $* -o jsonpath='{.spec.version}'
     let mfargs = vec![
         "get".into(),
         "shipcatmanifest".into(),
@@ -702,15 +711,14 @@ pub fn get_running_version(svc: &str, ns: &str) -> Result<String> {
     ];
     match kout(mfargs) {
         Ok((kout, true)) => Ok(kout),
-        _ => bail!("Manifest for '{}' not found in {}", svc, ns)
+        _ => bail!("Manifest for '{}' not found in {}", svc, ns),
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::{current_context, get_running_version};
     use dirs;
-    use super::current_context;
-    use super::get_running_version;
 
     #[test]
     fn validate_ctx() {

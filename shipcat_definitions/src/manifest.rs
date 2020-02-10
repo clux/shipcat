@@ -1,35 +1,26 @@
 use crate::vault::Vault;
-use std::collections::{BTreeMap, BTreeSet};
 use regex::Regex;
+use std::collections::{BTreeMap, BTreeSet};
 
-use crate::config::{Config};
-use crate::region::{VaultConfig, Region};
-use crate::states::{ManifestState, PrimaryWorkload};
 use super::Result;
+use crate::{
+    config::Config,
+    region::{Region, VaultConfig},
+    states::{ManifestState, PrimaryWorkload},
+};
 
 // All structs come from the structs directory
 use super::structs::{
-    {HealthCheck, ConfigMap},
-    Container, ResourceRequirements, HostAlias,
-    volume::{Volume, VolumeMount},
-    PersistentVolume,
-    {Metadata, VaultOpts, Dependency},
-    DestinationRule,
-    security::DataHandling,
-    Probe,
-    CronJob, EnvVars,
-    {Gate, Kafka, Kong, Rbac, EventStream},
-    RollingUpdate,
-    NotificationMode,
     autoscaling::AutoScaling,
+    newrelic::Newrelic,
+    security::DataHandling,
+    sentry::Sentry,
     tolerations::Tolerations,
-    LifeCycle,
-    Worker,
-    Port,
+    volume::{Volume, VolumeMount},
+    ConfigMap, Container, CronJob, Dependency, DestinationRule, EnvVars, EventStream, Gate, HealthCheck,
+    HostAlias, Kafka, Kong, LifeCycle, Metadata, NotificationMode, PersistentVolume, Port, Probe, Rbac,
+    ResourceRequirements, RollingUpdate, VaultOpts, Worker,
 };
-use super::structs::newrelic::Newrelic;
-use super::structs::sentry::Sentry;
-
 
 /// Main manifest, serializable from manifest.yml or the shipcat CRD.
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -41,7 +32,6 @@ pub struct Manifest {
     // These are often not exposed to kube and marked with `skip_serializing`,
     // but more often data that is used internally and assumed global.
     // ------------------------------------------------------------------------
-
     /// Name of the service
     ///
     /// This must match the folder name in a manifests repository, and additionally;
@@ -119,8 +109,6 @@ pub struct Manifest {
     // All properties in here should be mergeable, so ensure you add merge behaviour.
     // Merge behaviour is defined in the merge module.
     // ------------------------------------------------------------------------
-
-
     /// Chart to use for the service
     ///
     /// All the properties in `Manifest` are tailored towards our `base` chart,
@@ -257,7 +245,6 @@ pub struct Manifest {
     #[serde(default)]
     pub env: EnvVars,
 
-
     /// Kubernetes Secret Files to inject
     ///
     /// These have the same special "IN_VAULT" behavior as `Manifest::env`:
@@ -274,7 +261,6 @@ pub struct Manifest {
     /// ```
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub secretFiles: BTreeMap<String, String>,
-
 
     /// Config files to inline in a kubernetes `ConfigMap`
     ///
@@ -690,16 +676,16 @@ pub struct Manifest {
     /// ```
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rbac: Vec<Rbac>,
-    
+
     /// Kafka / EventStream configuration
     ///
     /// A list of resources that will interact with the Kafka-operator CRD /
-    /// service to create kafka topics and ACLs. The Kafka-Operator is an 
+    /// service to create kafka topics and ACLs. The Kafka-Operator is an
     /// extension of the strimzi-kafka-operator project:
     /// - https://strimzi.io/
     /// - https://github.com/strimzi/strimzi-kafka-operator
     ///
-    /// 
+    ///
     /// ```yaml
     ///  eventStreams:
     ///  - name: topicA
@@ -718,10 +704,9 @@ pub struct Manifest {
     ///        retention.ms: "7200000"
     ///        segment.bytes: "1073741824"
     /// ```
-    
+
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub eventStreams: Vec<EventStream>,
-
 
     /// Monitoring section covering NewRelic configuration
     ///
@@ -765,7 +750,6 @@ pub struct Manifest {
     // if you add anything below here, you need to handle behaviour for it.
     // These must be marked with `skip_deserializing` serde attributes.
     // ------------------------------------------------------------------------
-
     /// Region injected into helm chart
     ///
     /// Exposed from shipcat, but not overrideable.
@@ -794,7 +778,10 @@ pub struct Manifest {
     ///
     /// Exposed from shipcat, but not overrideable.
     #[serde(default)]
-    #[cfg_attr(feature = "filesystem", serde(skip_deserializing, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "filesystem",
+        serde(skip_deserializing, skip_serializing_if = "Option::is_none")
+    )]
     pub uid: Option<String>,
 
     /// Raw secrets from environment variables.
@@ -860,8 +847,7 @@ impl Manifest {
                     dr.verify(destinationRuleHostRegex)?;
                 }
             } else {
-                bail!(
-                    "Cannot use `destinationRules` in a region without a `destinationRuleHostRegex`")
+                bail!("Cannot use `destinationRules` in a region without a `destinationRuleHostRegex`")
             }
         }
         Ok(())
@@ -890,9 +876,7 @@ impl Manifest {
         }
 
         if let Some(ref md) = self.metadata {
-            md.verify(
-                &conf.owners,
-                &conf.allowedCustomMetadata)?;
+            md.verify(&conf.owners, &conf.allowedCustomMetadata)?;
         } else {
             bail!("Missing metadata for {}", self.name);
         }
@@ -1036,7 +1020,10 @@ impl Manifest {
             for (k, v) in e.template_secrets() {
                 let original = template_secrets.insert(k.to_string(), v.to_string());
                 if original.iter().any(|x| x == &v) {
-                    bail!("Secret {} can not be used in multiple templates with different values", k);
+                    bail!(
+                        "Secret {} can not be used in multiple templates with different values",
+                        k
+                    );
                 }
             }
         }
@@ -1092,8 +1079,11 @@ impl Manifest {
             .filter(|(_, v)| v == "IN_VAULT")
             .map(|(k, _)| k)
             .collect::<HashSet<_>>();
-        let files = self.secretFiles.clone().into_iter()
-            .filter(|(_,v)| v == "IN_VAULT")
+        let files = self
+            .secretFiles
+            .clone()
+            .into_iter()
+            .filter(|(_, v)| v == "IN_VAULT")
             .map(|(k, _)| k)
             .collect::<HashSet<_>>();
         let expected = keys.union(&files).cloned().collect::<HashSet<_>>();
@@ -1108,17 +1098,19 @@ impl Manifest {
         // list secrets; fail immediately if folder is empty
         let found = match v.list(&secpth) {
             Ok(lst) => lst.into_iter().collect::<HashSet<_>>(),
-            Err(e) =>
-                bail!("Missing secret folder {} expected to contain {:?}: {}",
-                    secpth, expected, e),
+            Err(e) => bail!(
+                "Missing secret folder {} expected to contain {:?}: {}",
+                secpth,
+                expected,
+                e
+            ),
         };
         debug!("Found secrets {:?} for {}", found, self.name);
 
         // compare sets
         let missing = expected.difference(&found).collect::<Vec<_>>();
         if !missing.is_empty() {
-            bail!("Missing secrets: {:?} not found in vault {}",
-                missing, secpth);
+            bail!("Missing secrets: {:?} not found in vault {}", missing, secpth);
         }
         Ok(())
     }
@@ -1128,7 +1120,7 @@ impl Manifest {
 impl Manifest {
     pub fn test(name: &str) -> Manifest {
         use serde_json::json;
-        let mut mf : Manifest = serde_json::from_value(json!({
+        let mut mf: Manifest = serde_json::from_value(json!({
             "name": name,
             "version": "1.0.0",
             "regions": ["dev-uk"],
@@ -1139,7 +1131,8 @@ impl Manifest {
                 "team": "doves",
                 "repo": "https://github.com/babylonhealth/shipcat"
             },
-        })).expect("minimal manifest format is parseable");
+        }))
+        .expect("minimal manifest format is parseable");
         // fill some defaults normally done when loading it
         mf.namespace = "apps".into();
         mf.region = "dev-uk".into();

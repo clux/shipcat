@@ -13,8 +13,12 @@ pub struct VolumeSecretItem {
     #[serde(default = "volume_default_mode")]
     pub mode: u32,
 }
-fn volume_key() -> String { "value".into() }
-fn volume_default_mode() -> u32 { 420 } // 0o644
+fn volume_key() -> String {
+    "value".into()
+}
+fn volume_default_mode() -> u32 {
+    420
+} // 0o644
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct VolumeSecretDetail {

@@ -1,7 +1,7 @@
 // AutoScaling types roughly as defined in kubernetes source
 // https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/autoscaling/types.go
 
-use super::{Result};
+use super::Result;
 
 /// Configuration parameters for HorizontalPodAutoScaler
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -27,9 +27,13 @@ pub enum ScalingMetric {
 
 // dumb adjacency wrappers to get the adjacency content
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ScalingMetricResourceWrapper { resource: ScalingMetricResource }
+pub struct ScalingMetricResourceWrapper {
+    resource: ScalingMetricResource,
+}
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ScalingMetricPodWrapper { pods: ScalingMetricPod }
+pub struct ScalingMetricPodWrapper {
+    pods: ScalingMetricPod,
+}
 
 /// Native resource scaling via kube
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -61,7 +65,7 @@ pub struct ScalingMetricPod {
 }
 
 impl AutoScaling {
-     pub fn verify(&self) -> Result<()> {
+    pub fn verify(&self) -> Result<()> {
         if self.minReplicas == 0 {
             bail!("minReplicas must be at least 1");
         }
@@ -77,16 +81,16 @@ impl AutoScaling {
                     match r.resource.name {
                         ScalingMetricResourceType::CPU => {
                             assert!(r.resource.targetAverageUtilization.is_some());
-                        },
+                        }
                         ScalingMetricResourceType::Memory => {
                             assert!(r.resource.targetAverageValue.is_some());
                         }
                     }
-                },
+                }
                 ScalingMetric::Pods(_p) => {} // no validation here
             }
         }
 
         Ok(())
-     }
+    }
 }

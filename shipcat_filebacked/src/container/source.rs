@@ -1,15 +1,19 @@
 use merge::Merge;
 use regex::Regex;
 
-use shipcat_definitions::Result;
-use shipcat_definitions::structs::{Container, Probe, VolumeMount};
+use shipcat_definitions::{
+    structs::{Container, Probe, VolumeMount},
+    Result,
+};
 
 use crate::util::{Build, Require};
 
-use super::EnvVarsSource;
-use super::image::{ImageTagSource, ImageNameSource};
-use super::resources::ResourceRequirementsSource;
-use super::port::PortSource;
+use super::{
+    image::{ImageNameSource, ImageTagSource},
+    port::PortSource,
+    resources::ResourceRequirementsSource,
+    EnvVarsSource,
+};
 
 #[derive(Deserialize, Clone, Default)]
 pub struct ContainerName(String);

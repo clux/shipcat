@@ -72,20 +72,21 @@ error_chain! {
     }
 }
 
-pub use shipcat_definitions::{Manifest, ConfigState};
-pub use shipcat_definitions::structs;
-pub use shipcat_definitions::config::{self, ConfigFallback, Config};
-pub use shipcat_definitions::region::{Region, VersionScheme, KongConfig, Webhook, AuditWebhook};
-//pub use shipcat_definitions::Product;
+pub use shipcat_definitions::{
+    config::{self, Config, ConfigFallback},
+    region::{AuditWebhook, KongConfig, Region, VersionScheme, Webhook},
+    structs, ConfigState, Manifest,
+};
+// pub use shipcat_definitions::Product;
 
-/// Convenience listers
-pub mod list;
-/// A post interface to slack using `slack_hook`
-pub mod slack;
 /// Audit objects and API caller
 pub mod audit;
 /// Cluster level operations
 pub mod cluster;
+/// Convenience listers
+pub mod list;
+/// A post interface to slack using `slack_hook`
+pub mod slack;
 
 /// Validation methods of manifests post merge
 pub mod validate;
@@ -119,7 +120,7 @@ pub mod get;
 
 /// Top resource use
 pub mod top;
-pub use top::{ResourceOrder, OutputFormat};
+pub use top::{OutputFormat, ResourceOrder};
 
 
 /// Diffing module for values
@@ -148,8 +149,7 @@ pub mod upgrade;
 ///
 /// Tricks the library into reading from your manifest location.
 pub fn init() -> Result<()> {
-    use std::env;
-    use std::path::Path;
+    use std::{env, path::Path};
     openssl_probe::init_ssl_cert_env_vars(); // prerequisite for https clients
 
     // Allow shipcat calls to work from anywhere if we know where manifests are

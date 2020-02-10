@@ -2,9 +2,13 @@ use regex::Regex;
 use std::collections::BTreeMap;
 
 use merge::Merge;
-use shipcat_definitions::structs::metadata::SlackChannel;
-use shipcat_definitions::structs::newrelic::{Newrelic, NewrelicAlert, NewrelicIncidentPreference};
-use shipcat_definitions::{Result, ResultExt};
+use shipcat_definitions::{
+    structs::{
+        metadata::SlackChannel,
+        newrelic::{Newrelic, NewrelicAlert, NewrelicIncidentPreference},
+    },
+    Result, ResultExt,
+};
 
 use crate::util::Build;
 
@@ -62,11 +66,8 @@ impl Build<Option<Newrelic>, SlackChannel> for NewrelicSource {
 
         let alerts: BTreeMap<String, NewrelicAlert> = alerts_res?;
 
-        if alerts.len() > 0 && !slack.starts_with("C") {
-            bail!(
-                "Private/personal channel {} is NOT supported as NewRelic target",
-                *slack
-            );
+        if !alerts.is_empty() && !slack.starts_with('C') {
+            bail!("Private channel {} is NOT supported as NewRelic target", *slack);
         }
 
         let incident_preference = self.incident_preference.unwrap_or_default();
@@ -119,12 +120,12 @@ impl Build<NewrelicAlert, String> for NewrelicAlertSource {
 #[cfg(test)]
 mod tests {
     use merge::Merge;
-    use shipcat_definitions::structs::metadata::SlackChannel;
-    use shipcat_definitions::structs::newrelic::Newrelic;
-    use shipcat_definitions::Result;
+    use shipcat_definitions::{
+        structs::{metadata::SlackChannel, newrelic::Newrelic},
+        Result,
+    };
 
-    use super::super::util::Build;
-    use super::NewrelicSource;
+    use super::{super::util::Build, NewrelicSource};
 
     //  make sure the macros are called as they are for actual/original structs
     #[derive(Deserialize, Default, Merge, Clone, Debug)]

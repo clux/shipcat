@@ -1,12 +1,11 @@
-use regex::Regex;
 use super::Result;
+use regex::Regex;
 
 /// DestinationRule
 ///
 /// An abstraction that captures the information needed to make routing decisions.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DestinationRule {
-
     /// The identifier the incoming request must possess to be considered for forwarding
     pub identifier: String,
 
@@ -15,13 +14,14 @@ pub struct DestinationRule {
 }
 
 impl DestinationRule {
-
     const DNS_LABEL_MAX_LENGTH: u8 = 63;
     const DNS_LABEL_PATTERN: &'static str = "^(?:[A-Za-z0-9][-A-Za-z0-9_\\.]*)?[A-Za-z0-9]$";
 
     fn is_dns_label(value: &str) -> bool {
-        value.len() <= (DestinationRule::DNS_LABEL_MAX_LENGTH as usize) &&
-            Regex::new(DestinationRule::DNS_LABEL_PATTERN).unwrap().is_match(value)
+        value.len() <= (DestinationRule::DNS_LABEL_MAX_LENGTH as usize)
+            && Regex::new(DestinationRule::DNS_LABEL_PATTERN)
+                .unwrap()
+                .is_match(value)
     }
 
     pub fn verify(&self, identifierPattern: &Regex) -> Result<bool> {
@@ -47,7 +47,7 @@ impl DestinationRule {
 
 #[cfg(test)]
 mod tests {
-    use super::{DestinationRule};
+    use super::DestinationRule;
     use regex::Regex;
 
     const MATCH_ALL_PATTERN: &'static str = ".*";
@@ -59,18 +59,14 @@ mod tests {
     fn withIdentifierAndHost(host: &str) -> DestinationRule {
         let identifier = IDENTIFIER.into();
         let host = host.into();
-        DestinationRule {
-            identifier,
-            host,
-        }
+        DestinationRule { identifier, host }
     }
 
     #[test]
     fn verifies_if_all_fields_valid() {
-        assert!(
-            withIdentifierAndHost(HOST_VALID)
-                .verify(&Regex::new(MATCH_ALL_PATTERN).unwrap())
-                .unwrap());
+        assert!(withIdentifierAndHost(HOST_VALID)
+            .verify(&Regex::new(MATCH_ALL_PATTERN).unwrap())
+            .unwrap());
     }
 
     #[test]

@@ -1,8 +1,8 @@
+use crate::config::Config;
 use std::collections::BTreeMap;
-use crate::config::{Config};
 
-use super::{Manifest};
-use crate::states::{ManifestState};
+use super::Manifest;
+use crate::states::ManifestState;
 
 const KUBE_API_VERSION: &str = "apiextensions.k8s.io/v1beta1";
 const DOMAIN: &str = "babylontech.co.uk";
@@ -30,8 +30,8 @@ pub struct Metadata {
 }
 
 // TODO: replace Crd<T> + Metadata with:
-//use kube::api::{Object, Metadata, Void};
-//type Crd<T> = Object<T, Void>;
+// use kube::api::{Object, Metadata, Void};
+// type Crd<T> = Object<T, Void>;
 
 /// Literal CRD - eg for creating definitions against kube api
 #[derive(Serialize, Clone, Default)]
@@ -70,11 +70,11 @@ pub struct SubResources {
 }
 
 pub fn gen_all_crds() -> Vec<CrdSpec> {
-    let shipcatConfig = CrdSpec{
+    let shipcatConfig = CrdSpec {
         group: DOMAIN.into(),
         version: VERSION.into(),
         scope: "Namespaced".into(),
-        names: CrdNames{
+        names: CrdNames {
             plural: "shipcatconfigs".into(),
             singular: "shipcatconfig".into(),
             kind: SHIPCATCONFIG_KIND.into(),
@@ -82,7 +82,7 @@ pub fn gen_all_crds() -> Vec<CrdSpec> {
         },
         ..CrdSpec::default()
     };
-    let shipcatManifest = CrdSpec{
+    let shipcatManifest = CrdSpec {
         group: DOMAIN.into(),
         version: VERSION.into(),
         scope: "Namespaced".into(),
@@ -96,19 +96,19 @@ pub fn gen_all_crds() -> Vec<CrdSpec> {
             status: Some(BTreeMap::new()),
         }),
         additionalPrinterColumns: Some(vec![
-            CrdAdditionalPrinterColumns{
+            CrdAdditionalPrinterColumns {
                 name: "Team".into(),
                 apcType: "string".into(),
                 description: "The team which owns the service".into(),
                 JSONPath: ".spec.metadata.team".into(),
             },
-            CrdAdditionalPrinterColumns{
+            CrdAdditionalPrinterColumns {
                 name: "Version".into(),
                 apcType: "string".into(),
                 description: "The version of the service that is deployed".into(),
                 JSONPath: ".spec.version".into(),
             },
-            CrdAdditionalPrinterColumns{
+            CrdAdditionalPrinterColumns {
                 name: "Kong".into(),
                 apcType: "string".into(),
                 description: "The URI where the service is available through kong".into(),
@@ -155,11 +155,13 @@ impl From<Config> for Crd<Config> {
         let rgs = conf.list_regions();
         assert!(!conf.has_secrets()); // no secrets
         let allRegs = "unionised";
-        let rname: String = if rgs.len() == 1 { // config has been filtered
+        let rname: String = if rgs.len() == 1 {
+            // config has been filtered
             // thus, can infer the region :-)
             assert_ne!(rgs[0], allRegs); // it'd be silly to name a region like that, right?
             rgs[0].to_owned()
-        } else { // non-filtered
+        } else {
+            // non-filtered
             allRegs.to_owned()
         };
 
@@ -167,7 +169,8 @@ impl From<Config> for Crd<Config> {
             apiVersion: format!("{}/{}", DOMAIN, VERSION),
             kind: SHIPCATCONFIG_KIND.into(),
             metadata: Metadata {
-                name: rname, ..Metadata::default()
+                name: rname,
+                ..Metadata::default()
             },
             spec: conf,
         }

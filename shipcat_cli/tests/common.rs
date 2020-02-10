@@ -1,9 +1,5 @@
 use semver::Version;
-use std::collections::BTreeSet;
-use std::env;
-use std::fs;
-use std::path::Path;
-use std::sync::Once;
+use std::{collections::BTreeSet, env, fs, path::Path, sync::Once};
 
 static START: Once = Once::new();
 
@@ -27,7 +23,7 @@ pub fn setup() {
         let pwd = env::current_dir().unwrap();
         let pth = fs::canonicalize(Path::new(&pwd).join("..").join("tests")).unwrap();
         env::set_var("SHIPCAT_MANIFEST_DIR", pth.clone());
-        //loggerv::Logger::new()
+        // loggerv::Logger::new()
         //    .verbosity(1) // TODO: filter tokio/hyper and bump
         //    .module_path(true)
         //    .line_numbers(true)
@@ -39,8 +35,7 @@ pub fn setup() {
     });
 }
 
-use shipcat_definitions::{Config, Environment}; // Product
-use shipcat_definitions::ConfigState;
+use shipcat_definitions::{Config, ConfigState, Environment}; // Product
 
 #[test]
 fn config_test() {
@@ -71,13 +66,19 @@ fn config_defaults_test() {
     // -- Slack channels --
 
     // fake-ask gets default for 'observability'
-    let mfdefault = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg).unwrap().complete(&reg).unwrap();
+    let mfdefault = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg)
+        .unwrap()
+        .complete(&reg)
+        .unwrap();
     let metadata = mfdefault.metadata.unwrap();
     assert_eq!(*metadata.support.unwrap(), "CA04UJ8S0"); // from teams.yml
     assert_eq!(*metadata.notifications.unwrap(), "CA04UJ8S0");
 
     // fake-storage overrides for 'someteam'
-    let mfoverride = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg).unwrap().complete(&reg).unwrap();
+    let mfoverride = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg)
+        .unwrap()
+        .complete(&reg)
+        .unwrap();
     let metadata = mfoverride.metadata.unwrap();
     assert_eq!(*metadata.support.unwrap(), "#dev-platform-override");
     assert_eq!(*metadata.notifications.unwrap(), "#dev-platform-notif-override");
@@ -154,7 +155,10 @@ fn manifest_test() {
 fn templating_test() {
     setup();
     let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
-    let mf = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg).unwrap().complete(&reg).unwrap();
+    let mf = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg)
+        .unwrap()
+        .complete(&reg)
+        .unwrap();
 
     // verify templating
     let env = mf.env.plain;
@@ -162,10 +166,7 @@ fn templating_test() {
     // check values from Config - one plain, one as_secret
     assert_eq!(&env["CLIENT_ID"], "FAKEASKID");
 
-    assert_eq!(
-        mf.env.secrets,
-        btree_set!["FAKE_SECRET".to_string()]
-    );
+    assert_eq!(mf.env.secrets, btree_set!["FAKE_SECRET".to_string()]);
 
     // verify environment defaults
     assert_eq!(&env["GLOBAL_EVAR"], "indeed");
@@ -180,10 +181,10 @@ fn templating_test() {
         redis.env.plain["CORE_URL"],
         "https://woot.com/somesvc".to_string()
     );
-    assert_eq!(
-        redis.env.secrets,
-        btree_set!["FAKE_NUMBER".to_string(), "FAKE_SECRET".to_string()]
-    );
+    assert_eq!(redis.env.secrets, btree_set![
+        "FAKE_NUMBER".to_string(),
+        "FAKE_SECRET".to_string()
+    ]);
 
     // verify worker templating
     let w = &mf.workers[0];

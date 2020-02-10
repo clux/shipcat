@@ -1,5 +1,5 @@
-use regex::Regex;
 use super::Result;
+use regex::Regex;
 
 // HostAlias support for all pods regardless of network configuration.
 
@@ -16,7 +16,7 @@ impl HostAlias {
     pub fn verify(&self) -> Result<()> {
         // Commonly accepted hostname regex from https://stackoverflow.com/questions/106179/regular-expression-to-match-dns-hostname-or-ip-address
         let ip_re = Regex::new(r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$").unwrap();
-        if self.ip == "" || !ip_re.is_match(&self.ip){
+        if self.ip == "" || !ip_re.is_match(&self.ip) {
             bail!("The ip address for the host alias is incorrect");
         }
         if self.hostnames.is_empty() {

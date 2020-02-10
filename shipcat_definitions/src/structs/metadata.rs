@@ -1,10 +1,12 @@
 use crate::teams::Owners;
 use regex::Regex;
-use std::collections::{BTreeMap, BTreeSet};
-use std::ops::{Deref, DerefMut};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ops::{Deref, DerefMut},
+};
 
 use super::Result;
-use crate::config::{SlackParameters};
+use crate::config::SlackParameters;
 
 /// Legacy contact data
 ///
@@ -28,14 +30,17 @@ impl Contact {
             bail!("Contact name cannot be empty")
         }
         if !self.slack.starts_with('@') {
-            bail!("Contact slack handle needs to start with the slack guid '@U...' - got {}", self.slack)
+            bail!(
+                "Contact slack handle needs to start with the slack guid '@U...' - got {}",
+                self.slack
+            )
         }
         if self.slack.contains('|') {
             bail!("Contact slack user id invalid - got {}", self.slack)
         }
         if let Some(ref gh) = &self.github {
             if gh.starts_with('@') || gh.contains('/') {
-               bail!("github id must be the raw username only - got {}", gh)
+                bail!("github id must be the raw username only - got {}", gh)
             }
             // TODO: check members of org!
         }
@@ -73,6 +78,7 @@ impl SlackChannel {
 
 impl Deref for SlackChannel {
     type Target = String;
+
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -157,16 +163,17 @@ pub struct Metadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docs: Option<String>,
     // TODO: generate swagger docs url from region and service name
-
     /// Custom metadata, keys defined in the Config
     #[serde(flatten)]
     pub custom: BTreeMap<String, String>,
 }
-fn default_format_string() -> String { "{{ version }}".into() }
+fn default_format_string() -> String {
+    "{{ version }}".into()
+}
 
 impl Metadata {
     pub fn version_template(&self, ver: &str) -> Result<String> {
-        use tera::{Tera, Context};
+        use tera::{Context, Tera};
         let mut ctx = Context::new();
         ctx.insert("version", &ver.to_string());
         let res = Tera::one_off(&self.gitTagTemplate, &ctx, false).map_err(|e| {
@@ -185,14 +192,10 @@ impl Metadata {
             format!("{}/commit/{}", self.repo, ver)
         }
     }
-
 }
 
 impl Metadata {
-    pub fn verify(&self,
-        owners: &Owners,
-        allowedCustomMetadata: &BTreeSet<String>)
-    -> Result<()> {
+    pub fn verify(&self, owners: &Owners, allowedCustomMetadata: &BTreeSet<String>) -> Result<()> {
         if !owners.squads.contains_key(&self.team) {
             bail!("Team name {} does not match a squad in teams.yml", self.team);
         }
@@ -210,7 +213,10 @@ impl Metadata {
         }
         let sanityre = Regex::new(r"\{\{.?version.?\}\}").unwrap();
         if !sanityre.is_match(&self.gitTagTemplate) {
-            bail!("gitTagTemplate {} does not dereference {{ version }}", self.gitTagTemplate);
+            bail!(
+                "gitTagTemplate {} does not dereference {{ version }}",
+                self.gitTagTemplate
+            );
         }
         if let Some(channel) = &self.support {
             channel.verify()?;
@@ -234,9 +240,7 @@ impl Metadata {
 
 #[cfg(test)]
 mod tests {
-    use super::Metadata;
-    use super::SlackChannel;
-    use super::default_format_string;
+    use super::{default_format_string, Metadata, SlackChannel};
 
     #[test]
     fn version_tpl() {

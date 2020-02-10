@@ -1,8 +1,7 @@
-use std::ops::Not;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::Not};
 
-use crate::deserializers::{comma_separated_string};
-use super::{Authorization};
+use super::Authorization;
+use crate::deserializers::comma_separated_string;
 
 /// Kong setup for a service
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -44,7 +43,10 @@ pub struct Kong {
     /// A comma-separated list of domain names that point to your API.
     ///
     /// For example: example.com. At least one of hosts, uris, or methods should be specified
-    #[serde(skip_serializing_if = "Vec::is_empty", deserialize_with = "comma_separated_string")]
+    #[serde(
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "comma_separated_string"
+    )]
     pub hosts: Vec<String>,
 
     pub auth: Option<Authentication>,
@@ -117,7 +119,9 @@ pub struct Kong {
     pub upstream_service: Option<String>,
 }
 
-fn preserve_host_default() -> bool { true }
+fn preserve_host_default() -> bool {
+    true
+}
 
 /// Cors plugin data
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -130,7 +134,7 @@ pub struct Cors {
     pub max_age: String,
     pub methods: String,
     pub origin: String,
-    pub preflight_continue: bool
+    pub preflight_continue: bool,
 }
 
 /// Babylon Auth Header plugin data

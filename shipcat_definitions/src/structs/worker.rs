@@ -1,6 +1,5 @@
-use super::{Container};
+use super::{autoscaling::AutoScaling, Container};
 use std::collections::BTreeMap;
-use super::autoscaling::AutoScaling;
 
 /// Worker for a service
 ///

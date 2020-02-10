@@ -1,5 +1,4 @@
-use super::{Result, Manifest, Region};
-use super::vault::Vault;
+use super::{vault::Vault, Manifest, Region, Result};
 
 /// Type of primary workload that is associated with the Manifest
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -15,7 +14,9 @@ impl ToString for PrimaryWorkload {
 }
 
 impl Default for PrimaryWorkload {
-    fn default() -> Self { Self::Deployment }
+    fn default() -> Self {
+        Self::Deployment
+    }
 }
 
 /// Various internal states a manifest can exist in depending on resolution.
@@ -70,7 +71,9 @@ pub enum ManifestState {
 ///
 /// This relies on serde default to populate on deserialize from disk/crd.
 impl Default for ManifestState {
-    fn default() -> Self { ManifestState::Base }
+    fn default() -> Self {
+        ManifestState::Base
+    }
 }
 
 /// This library defines the way to upgrade a manifest from Base
@@ -145,7 +148,12 @@ pub enum ConfigState {
 /// This relies on serde default to populate on deserialize from disk/crd.
 impl Default for ConfigState {
     #[cfg(feature = "filesystem")]
-    fn default() -> Self { ConfigState::File }
+    fn default() -> Self {
+        ConfigState::File
+    }
+
     #[cfg(not(feature = "filesystem"))]
-    fn default() -> Self { ConfigState::Base }
+    fn default() -> Self {
+        ConfigState::Base
+    }
 }

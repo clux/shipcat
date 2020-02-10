@@ -1,8 +1,7 @@
-use shipcat_definitions::Result;
-use shipcat_definitions::structs::Container;
+use shipcat_definitions::{structs::Container, Result};
 
+use super::source::{ContainerBuildParams, ContainerSource};
 use crate::util::{Build, Require};
-use super::source::{ContainerSource, ContainerBuildParams};
 
 #[derive(Deserialize, Clone, Default)]
 pub struct InitContainerSource(ContainerSource);

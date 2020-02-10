@@ -1,5 +1,5 @@
-use std::ops::{Add, AddAssign, Mul};
 use super::Result;
+use std::ops::{Add, AddAssign, Mul};
 
 // Kubernetes resouce structs
 //
@@ -89,8 +89,14 @@ impl Mul<u32> for ResourceRequirements<f64> {
 /// Techncially this should be the std::num::Zero trait but it's unstable atm
 impl Default for ResourceRequirements<f64> {
     fn default() -> Self {
-        let requests = Resources { cpu: 0.0, memory: 0.0 };
-        let limits = Resources { memory: 0.0, cpu: 0.0 };
+        let requests = Resources {
+            cpu: 0.0,
+            memory: 0.0,
+        };
+        let limits = Resources {
+            memory: 0.0,
+            cpu: 0.0,
+        };
         ResourceRequirements { requests, limits }
     }
 }
@@ -98,10 +104,10 @@ impl Default for ResourceRequirements<f64> {
 impl ResourceRequirements<f64> {
     /// Convert to gigabytes and round to two decimals
     pub fn round(&mut self) {
-        self.limits.memory = (self.limits.memory * 100.0 / (1024.0 * 1024.0 * 1024.0)).round()/100.0;
-        self.requests.memory = (self.requests.memory * 100.0 / (1024.0 * 1024.0 * 1024.0)).round()/100.0;
-        self.limits.cpu = (self.limits.cpu * 100.0).round()/100.0;
-        self.requests.cpu = (self.requests.cpu * 100.0).round()/100.0;
+        self.limits.memory = (self.limits.memory * 100.0 / (1024.0 * 1024.0 * 1024.0)).round() / 100.0;
+        self.requests.memory = (self.requests.memory * 100.0 / (1024.0 * 1024.0 * 1024.0)).round() / 100.0;
+        self.limits.cpu = (self.limits.cpu * 100.0).round() / 100.0;
+        self.requests.cpu = (self.requests.cpu * 100.0).round() / 100.0;
     }
 }
 
@@ -124,19 +130,18 @@ impl ResourceRequirements<String> {
         if req.cpu > 36.0 {
             bail!("Requested more than 36 cores");
         }
-        if req.memory > 72.0*1024.0*1024.0*1024.0 {
+        if req.memory > 72.0 * 1024.0 * 1024.0 * 1024.0 {
             bail!("Requested more than 72 GB of memory");
         }
         if lim.cpu > 36.0 {
             bail!("CPU limit set to more than 36 cores");
         }
-        if lim.memory > 72.0*1024.0*1024.0*1024.0 {
+        if lim.memory > 72.0 * 1024.0 * 1024.0 * 1024.0 {
             bail!("Memory limit set to more than 72 GB of memory");
         }
         Ok(())
     }
 }
-
 
 
 /// Parse normal k8s memory/disk resource value into floats
@@ -145,30 +150,36 @@ impl ResourceRequirements<String> {
 /// > You can express memory as a plain integer or as a fixed-point integer using one of these suffixes: E, P, T, G, M, K. You can also use the power-of-two equivalents: Ei, Pi, Ti, Gi, Mi, Ki.
 /// https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#meaning-of-memory
 pub fn parse_memory(s: &str) -> Result<f64> {
-    let digits = s.chars().take_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
-    let unit = s.chars().skip_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
-    let mut res : f64 = digits.parse()?;
+    let digits = s
+        .chars()
+        .take_while(|ch| ch.is_digit(10) || *ch == '.')
+        .collect::<String>();
+    let unit = s
+        .chars()
+        .skip_while(|ch| ch.is_digit(10) || *ch == '.')
+        .collect::<String>();
+    let mut res: f64 = digits.parse()?;
     trace!("Parsed {} ({})", digits, unit);
     if unit == "Ki" {
         res *= 1024.0;
     } else if unit == "Mi" {
-        res *= 1024.0*1024.0;
+        res *= 1024.0 * 1024.0;
     } else if unit == "Gi" {
-        res *= 1024.0*1024.0*1024.0;
+        res *= 1024.0 * 1024.0 * 1024.0;
     } else if unit == "Ti" {
-        res *= 1024.0*1024.0*1024.0*1024.0;
+        res *= 1024.0 * 1024.0 * 1024.0 * 1024.0;
     } else if unit == "Pi" {
-        res *= 1024.0*1024.0*1024.0*1024.0*1024.0;
+        res *= 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0;
     } else if unit == "K" {
         res *= 1000.0;
     } else if unit == "M" {
-        res *= 1000.0*1000.0;
+        res *= 1000.0 * 1000.0;
     } else if unit == "G" {
-        res *= 1000.0*1000.0*1000.0;
+        res *= 1000.0 * 1000.0 * 1000.0;
     } else if unit == "T" {
-        res *= 1000.0*1000.0*1000.0*1000.0;
+        res *= 1000.0 * 1000.0 * 1000.0 * 1000.0;
     } else if unit == "P" {
-        res *= 1000.0*1000.0*1000.0*1000.0*1000.0;
+        res *= 1000.0 * 1000.0 * 1000.0 * 1000.0 * 1000.0;
     } else if unit != "" {
         bail!("Unknown unit {}", unit);
     }
@@ -179,9 +190,15 @@ pub fn parse_memory(s: &str) -> Result<f64> {
 // Parse normal k8s cpu resource values into floats
 // We don't allow power of two variants here
 fn parse_cpu(s: &str) -> Result<f64> {
-    let digits = s.chars().take_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
-    let unit = s.chars().skip_while(|ch| ch.is_digit(10) || *ch == '.').collect::<String>();
-    let mut res : f64 = digits.parse()?;
+    let digits = s
+        .chars()
+        .take_while(|ch| ch.is_digit(10) || *ch == '.')
+        .collect::<String>();
+    let unit = s
+        .chars()
+        .skip_while(|ch| ch.is_digit(10) || *ch == '.')
+        .collect::<String>();
+    let mut res: f64 = digits.parse()?;
 
     trace!("Parsed {} ({})", digits, unit);
     if unit == "m" {

@@ -4,14 +4,14 @@ use semver::Version;
 use std::collections::{BTreeMap, BTreeSet};
 
 
-#[allow(unused_imports)]
-use std::path::{Path, PathBuf};
 use crate::teams;
+#[allow(unused_imports)] use std::path::{Path, PathBuf};
 
-#[allow(unused_imports)]
-use super::{Result, Error};
-use crate::states::ConfigState;
-use crate::region::{Region, Environment};
+#[allow(unused_imports)] use super::{Error, Result};
+use crate::{
+    region::{Environment, Region},
+    states::ConfigState,
+};
 
 // ----------------------------------------------------------------------------------
 
@@ -142,7 +142,7 @@ impl Config {
         // verify default chart exists
         if cfg!(feature = "filesystem") {
             let chart = Path::new(".").join("charts").join(&defs.chart).join("Chart.yaml");
-            if ! chart.is_file() {
+            if !chart.is_file() {
                 bail!("Default chart {} does not exist", self.defaults.chart);
             }
         }
@@ -152,7 +152,10 @@ impl Config {
 
         for (cname, clst) in &self.clusters {
             if cname != &clst.name {
-                bail!("clust '{}' must have a '.name' equal to its key in clusters", cname);
+                bail!(
+                    "clust '{}' must have a '.name' equal to its key in clusters",
+                    cname
+                );
             }
             // can't actually verify this in a smaller manifest..
             #[cfg(feature = "filesystem")]
@@ -201,18 +204,23 @@ impl Config {
         }
         Ok(())
     }
+
     #[cfg(feature = "filesystem")]
     pub fn verify_version_pin(&self, env: &Environment) -> Result<()> {
         let pin = self.get_appropriate_version_pin(env)?;
         debug!("Verifying version pin: {} for {}", pin, env.to_string());
         Config::bail_on_version_older_than(&pin)
     }
+
     #[cfg(feature = "filesystem")]
     pub fn get_appropriate_version_pin(&self, env: &Environment) -> Result<Version> {
         let pin = self.versions.get(&env).unwrap_or_else(|| {
             // NB: this fails in unpinned envs - still doing verification
             debug!("No version pin for environment {:?} - assuming maximum", env);
-            self.versions.values().max().expect("a version pin exists in shipcat.conf")
+            self.versions
+                .values()
+                .max()
+                .expect("a version pin exists in shipcat.conf")
         });
         Ok(pin.clone())
     }
@@ -223,16 +231,28 @@ impl Config {
         if *pin > current {
             let releasesurl = "https://github.com/babylonhealth/shipcat/releases";
             let brewurl = "https://github.com/babylonhealth/homebrew-babylon";
-            let install = format!("Precompiled releases for mac/linux from {} installeable via:
+            let install = format!(
+                "Precompiled releases for mac/linux from {} installeable via:
 \tshipcat self-upgrade
-", releasesurl);
+",
+                releasesurl
+            );
 
             // Babylon convenience
-            let brewinstall = format!("Homebrew managed mac releases from {} installeable via:
+            let brewinstall = format!(
+                "Homebrew managed mac releases from {} installeable via:
 \tbrew update && brew upgrade shipcat
-", brewurl); // brew update technically only necessary for ssh based taps
+",
+                brewurl
+            ); // brew update technically only necessary for ssh based taps
 
-           bail!("Your shipcat is out of date ({} < {})\n{}\n{}", current, pin, install, brewinstall)
+            bail!(
+                "Your shipcat is out of date ({} < {})\n{}\n{}",
+                current,
+                pin,
+                install,
+                brewinstall
+            )
         }
         Ok(())
     }
@@ -264,7 +284,6 @@ impl Config {
         Ok(())
     }
 
-
     /// Work out the cluster from the kube config
     ///
     /// Can be done unambiguously when cluster name is specified,
@@ -286,11 +305,17 @@ impl Config {
 
         // 2. `get -r preprodca-blue`
         // Infer cluster from the one serving it (if only one)
-        let candidates = self.clusters.values().cloned().filter(|v| {
-            v.regions.contains(&reg.name)
-        }).collect::<Vec<_>>();
+        let candidates = self
+            .clusters
+            .values()
+            .cloned()
+            .filter(|v| v.regions.contains(&reg.name))
+            .collect::<Vec<_>>();
         if candidates.len() != 1 {
-            bail!("Ambiguous context {} served by more than one cluster - please specify -c cluster", ctx);
+            bail!(
+                "Ambiguous context {} served by more than one cluster - please specify -c cluster",
+                ctx
+            );
         }
         Ok((candidates[0].clone(), reg))
     }
@@ -302,8 +327,7 @@ impl Config {
     /// Retrieve region name using either a region name, or a context as a fallback
     ///
     /// This returns a a valid key in `self.regions` if Some.
-    fn resolve_context(&self, context: String) -> Option<String> {
-        let ctx = context.to_string();
+    fn resolve_context(&self, ctx: String) -> Option<String> {
         if self.has_region(&ctx) {
             Some(ctx)
         }
@@ -324,9 +348,12 @@ impl Config {
     /// Useful for small helper subcommands that do validation later.
     pub fn get_region(&self, ctx: &str) -> Result<Region> {
         if let Some(region) = self.resolve_context(ctx.to_string()) {
-            return Ok(self.regions.iter().find(|r| r.name == region).unwrap().clone())
+            return Ok(self.regions.iter().find(|r| r.name == region).unwrap().clone());
         }
-        bail!("You need to define your kube context '{}' in shipcat.conf regions first", ctx)
+        bail!(
+            "You need to define your kube context '{}' in shipcat.conf regions first",
+            ctx
+        )
     }
 
     /// Region exposer (needed in a few special cases, raftcat, crd reconcile)
@@ -365,7 +392,7 @@ impl ConfigFallback {
         let pwd = Path::new(".");
         let mpath = pwd.join("shipcat.conf");
         let data = fs::read_to_string(&mpath)?;
-        let vc : ConfigFallback = serde_yaml::from_str(&data)?;
+        let vc: ConfigFallback = serde_yaml::from_str(&data)?;
         Ok(vc)
     }
 
@@ -379,7 +406,7 @@ impl ConfigFallback {
             Err(e) => {
                 error!("shipcat.conf versions unreadable - manifests out of date?");
                 bail!("shipcat.conf could not be read even in fallback mode: {}", e);
-            },
+            }
         };
         // If only fallback ok, a schema change probably caused it.
         // Check if our shipcat is out of date:
@@ -388,7 +415,7 @@ impl ConfigFallback {
             Some(lowest) => {
                 let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
                 if *lowest > current {
-                    return Ok(Some(lowest.to_owned()))
+                    return Ok(Some(lowest.to_owned()));
                 }
                 // otherwise.. we are up to date - unfortunately.
             }
@@ -411,7 +438,10 @@ impl Config {
             r
         } else {
             error!("Please use an existing kube context or add your current context to shipcat.conf");
-            bail!("The current kube context ('{}') is not defined in shipcat.conf", context);
+            bail!(
+                "The current kube context ('{}') is not defined in shipcat.conf",
+                context
+            );
         };
 
         if state == ConfigState::Filtered || state == ConfigState::Base {
@@ -460,21 +490,34 @@ impl Config {
         self.regions.iter().find(|r| r.name == region)
     }
 
-
     /// Filter a file based config for a known to exist region
     fn remove_redundant_regions(&mut self, region: &str) -> Result<()> {
         assert_eq!(self.state, ConfigState::File);
         assert!(self.has_region(region));
         let r = region.to_string();
         // filter out cluster and aliases as well so we don't have to special case verify
-        self.clusters = self.clusters.clone().into_iter().filter(|(_, c)| c.regions.contains(&r)).collect();
-        self.contextAliases = self.contextAliases.clone().into_iter().filter(|(_, v)| v == region).collect();
-        self.regions = self.regions.clone().into_iter().filter(|r| r.name == region).collect();
+        self.clusters = self
+            .clusters
+            .clone()
+            .into_iter()
+            .filter(|(_, c)| c.regions.contains(&r))
+            .collect();
+        self.contextAliases = self
+            .contextAliases
+            .clone()
+            .into_iter()
+            .filter(|(_, v)| v == region)
+            .collect();
+        self.regions = self
+            .regions
+            .clone()
+            .into_iter()
+            .filter(|r| r.name == region)
+            .collect();
         self.state = ConfigState::Base;
         Ok(())
     }
 }
-
 
 
 #[cfg(test)]
@@ -492,6 +535,8 @@ mod tests {
 
         let svscheme = VersionScheme::Semver;
         assert!(svscheme.verify("2.3.4").is_ok());
-        assert!(svscheme.verify("e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19").is_err());
+        assert!(svscheme
+            .verify("e7c1e5dd5de74b2b5da5eef76eb5bf12bdc2ac19")
+            .is_err());
     }
 }

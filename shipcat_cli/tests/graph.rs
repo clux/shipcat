@@ -1,7 +1,7 @@
 mod common;
 use crate::common::setup;
-use shipcat_definitions::{Config, ConfigState};
 use shipcat::graph::{generate, nodeidx_from_name};
+use shipcat_definitions::{Config, ConfigState};
 
 #[test]
 fn graph_generate() {

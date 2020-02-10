@@ -1,5 +1,4 @@
-use super::Result;
-use super::resources::parse_memory;
+use super::{resources::parse_memory, Result};
 
 /// K8s Access modes for PVCs
 ///
@@ -33,7 +32,7 @@ impl PersistentVolume {
     pub fn verify(&self) -> Result<()> {
         let size = parse_memory(&self.size)?;
         // sanity number; 16TB via https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html
-        if size > 16.0*1024.0*1024.0*1024.0*1024.0 {
+        if size > 16.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0 {
             bail!("Persistent Volume request more than 16 TB")
         }
         if !self.mountPath.starts_with('/') {

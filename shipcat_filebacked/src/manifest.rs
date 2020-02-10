@@ -1,20 +1,26 @@
 use merge::Merge;
 use std::collections::BTreeMap;
 
-use shipcat_definitions::structs::{
-    autoscaling::AutoScaling, security::DataHandling, tolerations::Tolerations, volume::Volume,
-    ConfigMap, Dependency, DestinationRule, Gate, HealthCheck, HostAlias,
-    Kafka, LifeCycle, Metadata, PersistentVolume, Probe, Rbac,
-    RollingUpdate, VaultOpts, VolumeMount, NotificationMode, EventStream,
+use shipcat_definitions::{
+    structs::{
+        autoscaling::AutoScaling, security::DataHandling, tolerations::Tolerations, volume::Volume,
+        ConfigMap, Dependency, DestinationRule, EventStream, Gate, HealthCheck, HostAlias, Kafka, LifeCycle,
+        Metadata, NotificationMode, PersistentVolume, Probe, Rbac, RollingUpdate, VaultOpts, VolumeMount,
+    },
+    BaseManifest, Config, Manifest, PrimaryWorkload, Region, Result,
 };
-use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result, PrimaryWorkload};
 
-use super::{SimpleManifest};
-use super::container::{ContainerBuildParams, CronJobSource, SidecarSource, InitContainerSource, EnvVarsSource, WorkerSource, ResourceRequirementsSource, ImageNameSource, ImageTagSource, PortSource};
-use super::kong::{KongApisSource, KongApisBuildParams, KongSource};
-use super::sentry_source::SentrySource;
-use super::newrelic_source::NewrelicSource;
-use super::util::{Build, Enabled, RelaxedString, Require};
+use super::{
+    container::{
+        ContainerBuildParams, CronJobSource, EnvVarsSource, ImageNameSource, ImageTagSource,
+        InitContainerSource, PortSource, ResourceRequirementsSource, SidecarSource, WorkerSource,
+    },
+    kong::{KongApisBuildParams, KongApisSource, KongSource},
+    newrelic_source::NewrelicSource,
+    sentry_source::SentrySource,
+    util::{Build, Enabled, RelaxedString, Require},
+    SimpleManifest,
+};
 
 /// Main manifest, deserialized from `manifest.yml`
 #[derive(Deserialize, Default)]
@@ -149,8 +155,14 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             health: overrides.health,
             dependencies: overrides.dependencies.unwrap_or_default(),
             destinationRules: overrides.destination_rules,
-            workers: overrides.workers.unwrap_or_default().build(&container_build_params)?,
-            sidecars: overrides.sidecars.unwrap_or_default().build(&container_build_params)?,
+            workers: overrides
+                .workers
+                .unwrap_or_default()
+                .build(&container_build_params)?,
+            sidecars: overrides
+                .sidecars
+                .unwrap_or_default()
+                .build(&container_build_params)?,
             readinessProbe: overrides.readiness_probe,
             livenessProbe: overrides.liveness_probe,
             lifecycle: overrides.lifecycle,
@@ -158,11 +170,17 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             autoScaling: overrides.auto_scaling,
             tolerations: overrides.tolerations.unwrap_or_default(),
             hostAliases: overrides.host_aliases.unwrap_or_default(),
-            initContainers: overrides.init_containers.unwrap_or_default().build(&container_build_params)?,
+            initContainers: overrides
+                .init_containers
+                .unwrap_or_default()
+                .build(&container_build_params)?,
             volumes: overrides.volumes.unwrap_or_default(),
             volumeMounts: overrides.volume_mounts.unwrap_or_default(),
             persistentVolumes: overrides.persistent_volumes.unwrap_or_default(),
-            cronJobs: overrides.cron_jobs.unwrap_or_default().build(&container_build_params)?,
+            cronJobs: overrides
+                .cron_jobs
+                .unwrap_or_default()
+                .build(&container_build_params)?,
             serviceAnnotations: overrides.service_annotations,
             podAnnotations: overrides.pod_annotations.build(&())?,
             labels: overrides.labels.build(&())?,
@@ -172,7 +190,8 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             sourceRanges: overrides.source_ranges.unwrap_or_default(),
             rbac: overrides.rbac.unwrap_or_default(),
             newrelic: overrides.newrelic.build(&team_notifications)?,
-            sentry: overrides.sentry
+            sentry: overrides
+                .sentry
                 .map(|sentry| sentry.build(&team_notifications))
                 .transpose()?,
             eventStreams: overrides.event_streams.unwrap_or_default(),
@@ -250,7 +269,10 @@ impl ManifestSource {
 
         if let Some(s) = conf.owners.squads.get(&md.team) {
             md.squad = Some(s.name.clone());
-            md.tribe = conf.owners.tribes.values()
+            md.tribe = conf
+                .owners
+                .tribes
+                .values()
                 .find(|t| t.squads.contains(&md.team))
                 .map(|t| t.name.clone());
             if md.support.is_none() {
@@ -260,7 +282,11 @@ impl ManifestSource {
                 md.notifications = s.slack.notifications.as_ref().map(Clone::clone);
             }
         } else {
-            bail!("{}: metadata.team '{}' must match a squad in teams.yml", name, md.team)
+            bail!(
+                "{}: metadata.team '{}' must match a squad in teams.yml",
+                name,
+                md.team
+            )
         }
 
         // teams.yml needs to have these specified
@@ -268,7 +294,7 @@ impl ManifestSource {
             bail!("Need a notification and support channel for {}", md.team);
         }
 
-        Ok(md.clone())
+        Ok(md)
     }
 
     // TODO: Extract DataHandlingSource
@@ -309,8 +335,7 @@ impl ManifestSource {
 }
 
 fn read_template_file(svc: &str, tmpl: &str) -> Result<String> {
-    use std::fs;
-    use std::path::Path;
+    use std::{fs, path::Path};
     // try to read file from ./services/{svc}/{tmpl} into `tpl` sting
     let pth = Path::new(".").join("services").join(svc).join(tmpl);
     let gpth = Path::new(".").join("templates").join(tmpl);

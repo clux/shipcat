@@ -1,15 +1,17 @@
-use std::collections::BTreeMap;
-use slack_hook::{Slack, PayloadBuilder, SlackLink, SlackText, SlackUserLink, AttachmentBuilder};
-use slack_hook::SlackTextContent::{self, Text, Link, User};
-use std::env;
 use semver::Version;
-
-use shipcat_definitions::{
-    teams::{Owners, Person},
-    structs::{Contact, NotificationMode, Metadata},
+use slack_hook::{
+    AttachmentBuilder, PayloadBuilder, Slack, SlackLink, SlackText,
+    SlackTextContent::{self, Link, Text, User},
+    SlackUserLink,
 };
+use std::{collections::BTreeMap, env};
+
+use super::{ErrorKind, Result, ResultExt};
 use crate::diff;
-use super::{Result, ErrorKind, ResultExt};
+use shipcat_definitions::{
+    structs::{Contact, Metadata, NotificationMode},
+    teams::{Owners, Person},
+};
 
 /// Slack message options we support
 ///
@@ -71,7 +73,7 @@ pub fn have_credentials() -> Result<()> {
 
 /// Send a message based on a upgrade event
 pub fn send(msg: Message, owners: &Owners) -> Result<()> {
-    let hook_chan : String = env_channel()?;
+    let hook_chan: String = env_channel()?;
     send_internal(msg.clone(), hook_chan, owners)?;
     let md = &msg.metadata;
     if let Some(chan) = &md.notifications {
@@ -83,15 +85,16 @@ pub fn send(msg: Message, owners: &Owners) -> Result<()> {
 
 /// Send entry point for `shipcat slack`
 pub fn send_dumb(msg: DumbMessage) -> Result<()> {
-    let chan : String = env_channel()?;
-    let hook_url : &str = &env_hook_url()?;
-    let hook_user : String = env_username();
+    let chan: String = env_channel()?;
+    let hook_url: &str = &env_hook_url()?;
+    let hook_user: String = env_username();
 
     // if hook url is invalid, chain it so we know where it came from:
     let slack = Slack::new(hook_url).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
-    let mut p = PayloadBuilder::new().channel(chan)
-      .icon_emoji(":shipcat:")
-      .username(hook_user);
+    let mut p = PayloadBuilder::new()
+        .channel(chan)
+        .icon_emoji(":shipcat:")
+        .username(hook_user);
 
     let mut a = AttachmentBuilder::new(msg.text.clone()); // <- fallback
     if let Some(c) = msg.color {
@@ -107,8 +110,16 @@ pub fn send_dumb(msg: DumbMessage) -> Result<()> {
         if split.len() > 2 {
             bail!("Link {} not in the form of url|description", link);
         }
-        let desc = if split.len() == 2 { split[1].into() } else { link.clone() };
-        let addr = if split.len() == 2 { split[0].into() } else { link.clone() };
+        let desc = if split.len() == 2 {
+            split[1].into()
+        } else {
+            link.clone()
+        };
+        let addr = if split.len() == 2 {
+            split[0].into()
+        } else {
+            link.clone()
+        };
         texts.push(Link(SlackLink::new(&addr, &desc)));
     } else {
         // Auto link/text from originator if no ink set
@@ -121,21 +132,24 @@ pub fn send_dumb(msg: DumbMessage) -> Result<()> {
     p = p.attachments(ax);
 
     // Send everything. Phew.
-    slack.send(&p.build()?).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
+    slack
+        .send(&p.build()?)
+        .chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
     Ok(())
 }
 
 /// Send a `Message` to a configured slack destination
 fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()> {
-    let hook_url : &str = &env_hook_url()?;
-    let hook_user : String = env_username();
+    let hook_url: &str = &env_hook_url()?;
+    let hook_user: String = env_username();
     let md = &msg.metadata;
 
     // if hook url is invalid, chain it so we know where it came from:
     let slack = Slack::new(hook_url).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
-    let mut p = PayloadBuilder::new().channel(chan)
-      .icon_emoji(":shipcat:")
-      .username(hook_user);
+    let mut p = PayloadBuilder::new()
+        .channel(chan)
+        .icon_emoji(":shipcat:")
+        .username(hook_user);
 
     debug!("Got slack notify {:?}", msg);
     // NB: cannot use .link_names due to https://api.slack.com/changelog/2017-09-the-one-about-usernames
@@ -165,10 +179,12 @@ fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()> {
         };
         // is diff otherwise meaningful?
         if !is_version_only {
-            codeattach = Some(AttachmentBuilder::new(diff.clone())
-                .color("#439FE0")
-                .text(vec![Text(diff.into())].as_slice())
-                .build()?)
+            codeattach = Some(
+                AttachmentBuilder::new(diff.clone())
+                    .color("#439FE0")
+                    .text(vec![Text(diff.into())].as_slice())
+                    .build()?,
+            )
         }
     } else if let Some(v) = msg.version {
         texts.push(infer_metadata_single_link(md, v));
@@ -200,13 +216,14 @@ fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()> {
     if let Some(diffattach) = codeattach {
         ax.push(diffattach);
         // Pass attachment vector
-
     }
     p = p.attachments(ax);
 
     // Send everything. Phew.
     if msg.mode != NotificationMode::Silent {
-        slack.send(&p.build()?).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
+        slack
+            .send(&p.build()?)
+            .chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
     }
 
     Ok(())
@@ -239,11 +256,18 @@ fn create_github_compare_url(md: &Metadata, vers: (&str, &str)) -> SlackTextCont
 }
 
 fn contacts_to_text_content(contacts: &[Contact]) -> Vec<SlackTextContent> {
-    contacts.iter().map(|cc| { User(SlackUserLink::new(&cc.slack)) }).collect()
+    contacts
+        .iter()
+        .map(|cc| User(SlackUserLink::new(&cc.slack)))
+        .collect()
 }
 
-fn maintainers_to_text_content(maintainers: &[String], people: &BTreeMap<String, Person>) -> Vec<SlackTextContent> {
-    maintainers.iter()
+fn maintainers_to_text_content(
+    maintainers: &[String],
+    people: &BTreeMap<String, Person>,
+) -> Vec<SlackTextContent> {
+    maintainers
+        .iter()
         .filter_map(|m| people.get(m))
         .map(|p| User(SlackUserLink::new(&format!("@{}", &p.slack))))
         .collect()
@@ -251,14 +275,18 @@ fn maintainers_to_text_content(maintainers: &[String], people: &BTreeMap<String,
 
 /// Infer originator of a message
 fn infer_ci_links() -> SlackTextContent {
-    if let (Ok(url), Ok(name), Ok(nr)) = (env::var("BUILD_URL"),
-                                          env::var("JOB_NAME"),
-                                          env::var("BUILD_NUMBER")) {
+    if let (Ok(url), Ok(name), Ok(nr)) = (
+        env::var("BUILD_URL"),
+        env::var("JOB_NAME"),
+        env::var("BUILD_NUMBER"),
+    ) {
         // we are on jenkins
         Link(SlackLink::new(&url, &format!("{}#{}", name, nr)))
-    } else if let (Ok(url), Ok(name), Ok(nr)) = (env::var("CIRCLE_BUILD_URL"),
-                                                 env::var("CIRCLE_JOB"),
-                                                 env::var("CIRCLE_BUILD_NUM")) {
+    } else if let (Ok(url), Ok(name), Ok(nr)) = (
+        env::var("CIRCLE_BUILD_URL"),
+        env::var("CIRCLE_JOB"),
+        env::var("CIRCLE_BUILD_NUM"),
+    ) {
         // we are on circle
         Link(SlackLink::new(&url, &format!("{}#{}", name, nr)))
     } else if let Ok(user) = env::var("USER") {

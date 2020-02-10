@@ -63,7 +63,7 @@ impl State {
             .version("v1")
             .group("babylontech.co.uk")
             .within(&ns);
-        let cfgresource = Api::customResource(client.clone(), "shipcatconfigs")
+        let cfgresource = Api::customResource(client, "shipcatconfigs")
             .version("v1")
             .group("babylontech.co.uk")
             .within(&ns);
@@ -134,9 +134,8 @@ impl State {
 
     pub fn get_region(&self) -> Result<Region> {
         let cfg = self.get_config()?;
-        cfg.get_region(&self.region).map_err(|e| {
-            err_msg(format!("could not resolve cluster for {}: {}", self.region, e))
-        })
+        cfg.get_region(&self.region)
+            .map_err(|e| err_msg(format!("could not resolve cluster for {}: {}", self.region, e)))
     }
 
     pub fn get_manifest(&self, key: &str) -> Result<Option<ManifestObject>> {
@@ -150,7 +149,7 @@ impl State {
             .read()?
             .into_iter()
             .filter(|crd| crd.spec.metadata.clone().unwrap().team == team)
-            .map(|crd| crd.spec.name.clone())
+            .map(|crd| crd.spec.name)
             .collect();
         Ok(mfs)
     }

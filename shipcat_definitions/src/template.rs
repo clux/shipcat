@@ -1,20 +1,23 @@
-use std::collections::HashMap;
-use std::iter;
+use std::{collections::HashMap, iter};
 
-use tera::{self, Value, Tera, Context, try_get_value};
-use super::{Result, ErrorKind, ResultExt};
+use super::{ErrorKind, Result, ResultExt};
+use tera::{self, try_get_value, Context, Tera, Value};
 
 #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
 fn indent(v: Value, m: HashMap<String, Value>) -> tera::Result<Value> {
-    let s : String = try_get_value!("indent", "value", String, v);
+    let s: String = try_get_value!("indent", "value", String, v);
     // look up indent value or use `2` as default
-    let num_spaces : u64 = m.get("spaces").map(Value::as_u64).unwrap_or(None).unwrap_or(2);
+    let num_spaces: u64 = m.get("spaces").map(Value::as_u64).unwrap_or(None).unwrap_or(2);
     // create an indent string of `num_spaces` spaces
     let indent = iter::repeat(' ').take(num_spaces as usize).collect::<String>();
     // prefix all non-empty lines with `indent`
     let mut xs = vec![];
     for l in s.lines() {
-        xs.push(if l == "" { l.to_string() } else { format!("{}{}", indent, l) });
+        xs.push(if l == "" {
+            l.to_string()
+        } else {
+            format!("{}{}", indent, l)
+        });
     }
     Ok(serde_json::to_value(&xs.join("\n")).unwrap())
 }
@@ -36,9 +39,9 @@ pub fn render_file_data(data: String, context: &Context) -> Result<String> {
     tera.register_filter("indent", indent);
     tera.register_filter("as_secret", as_secret);
 
-    let result = tera.render("one_off", context).chain_err(|| {
-        ErrorKind::InvalidOneOffTemplate(data)
-    })?;
+    let result = tera
+        .render("one_off", context)
+        .chain_err(|| ErrorKind::InvalidOneOffTemplate(data))?;
     let mut xs = vec![];
     for l in result.lines() {
         // trim whitespace (mostly to satisfy linters)
@@ -52,9 +55,9 @@ pub fn one_off(tpl: &str, ctx: &Context) -> Result<String> {
     let mut tera = Tera::default();
     tera.add_raw_template("one_off", tpl)?;
     tera.register_filter("as_secret", as_secret);
-    let res = tera.render("one_off", ctx).chain_err(|| {
-        ErrorKind::InvalidOneOffTemplate(tpl.into())
-    })?;
+    let res = tera
+        .render("one_off", ctx)
+        .chain_err(|| ErrorKind::InvalidOneOffTemplate(tpl.into()))?;
     Ok(res)
 }
 
@@ -90,11 +93,9 @@ impl Manifest {
         if let Some(ref mut cfg) = self.configs {
             for f in &mut cfg.files {
                 if let Some(ref mut v) = f.value {
-                    let data : String = v.clone();
+                    let data: String = v.clone();
                     let svc = self.name.clone();
-                    *v = render_file_data(data, &ctx).chain_err(|| {
-                        ErrorKind::InvalidTemplate(svc)
-                    })?;
+                    *v = render_file_data(data, &ctx).chain_err(|| ErrorKind::InvalidTemplate(svc))?;
                 } else {
                     bail!("configs must be read first - missing {}", f.name); // internal error
                 }
@@ -128,8 +129,7 @@ impl EnvVars {
 /// Read an arbitrary template from manifests/{folder}/{name}.j2
 #[cfg(feature = "filesystem")]
 fn read_arbitrary_template_file(folder: &str, name: &str) -> Result<String> {
-    use std::fs;
-    use std::path::Path;
+    use std::{fs, path::Path};
 
     let pth = Path::new(".").join(folder).join(format!("{}.j2", name));
     if !pth.exists() {
@@ -141,8 +141,7 @@ fn read_arbitrary_template_file(folder: &str, name: &str) -> Result<String> {
 }
 
 // helpers for VaultConfig
-#[allow(unused_imports)]
-use super::{VaultConfig, Environment};
+#[allow(unused_imports)] use super::{Environment, VaultConfig};
 impl VaultConfig {
     // This function defines what variables are available within .j2 templates and evars
     #[cfg(feature = "filesystem")]
@@ -156,9 +155,8 @@ impl VaultConfig {
         } else {
             read_arbitrary_template_file("vault", "team-policy.hcl")?
         };
-        let res = render_file_data(tpl, &ctx).chain_err(|| {
-            ErrorKind::InvalidTemplate("vault-template".into())
-        })?;
+        let res =
+            render_file_data(tpl, &ctx).chain_err(|| ErrorKind::InvalidTemplate("vault-template".into()))?;
         Ok(res)
     }
 }

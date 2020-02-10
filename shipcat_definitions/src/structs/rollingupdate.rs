@@ -1,4 +1,4 @@
-use super::{Result};
+use super::Result;
 
 // Untagged enum to get around the weird validation
 #[derive(Serialize, Deserialize, Clone)]
@@ -16,13 +16,13 @@ impl AvailabilityPolicy {
                 if *n > maxNumber {
                     bail!("Cannot have {} set higher than replicaCount {}", name, maxNumber);
                 }
-            },
+            }
             AvailabilityPolicy::Percentage(s) => {
                 if !s.ends_with('%') {
                     bail!("{} must end with a '%' sign", name);
                 }
                 let digits = s.chars().take_while(|ch| *ch != '%').collect::<String>();
-                let res : u32 = digits.parse()?;
+                let res: u32 = digits.parse()?;
                 if res > 100 {
                     bail!("Percentage value for {} cannot exceed 100", name);
                 }
@@ -38,12 +38,10 @@ impl AvailabilityPolicy {
         match self {
             AvailabilityPolicy::Percentage(percstr) => {
                 let digits = percstr.chars().take_while(|ch| *ch != '%').collect::<String>();
-                let surgeperc : u32 = digits.parse().unwrap(); // safe due to verify ^
-                ((f64::from(replicas) * f64::from(surgeperc))/ 100.0).ceil() as u32
-            },
-            AvailabilityPolicy::Unsigned(u) => {
-                *u
+                let surgeperc: u32 = digits.parse().unwrap(); // safe due to verify ^
+                ((f64::from(replicas) * f64::from(surgeperc)) / 100.0).ceil() as u32
             }
+            AvailabilityPolicy::Unsigned(u) => *u,
         }
     }
 }
@@ -74,7 +72,7 @@ impl Default for RollingUpdate {
 
 
 impl RollingUpdate {
-     pub fn verify(&self, replicas: u32) -> Result<()> {
+    pub fn verify(&self, replicas: u32) -> Result<()> {
         if self.maxUnavailable.is_none() && self.maxSurge.is_none() {
             bail!("Need to set one of maxUnavailable or maxSurge in rollingUpdate");
         }
@@ -85,7 +83,7 @@ impl RollingUpdate {
             mu.verify("maxSurge", replicas)?;
         }
         Ok(())
-     }
+    }
 }
 
 
@@ -98,7 +96,6 @@ impl RollingUpdate {
         let surge = if let Some(surge) = self.maxSurge.clone() {
             // surge is max number/percentage
             surge.to_replicas(replicas)
-
         } else {
             // default surge percentage is 25
             (f64::from(replicas * 25) / 100.0).ceil() as u32
@@ -114,11 +111,16 @@ impl RollingUpdate {
         let mut newrs = 0;
         let mut oldrs = replicas; // keep track of for ease of following logic
         let mut iters = 0;
-        trace!("rollout iterations for {} replicas, surge={},unav={}", replicas, surge, unavail);
+        trace!(
+            "rollout iterations for {} replicas, surge={},unav={}",
+            replicas,
+            surge,
+            unavail
+        );
         while newrs < replicas {
             // kild from oldrs the difference in total if we are surging
             oldrs -= oldrs + newrs - replicas; // noop if surge == 0
-            // terminate pods so we have at least maxUnavailable
+                                               // terminate pods so we have at least maxUnavailable
             let total = newrs + oldrs;
             let unavail_safe = if total <= unavail { 0 } else { unavail };
             oldrs -= unavail_safe;
@@ -133,16 +135,17 @@ impl RollingUpdate {
         trace!("rollout iters={}", iters);
         iters
     }
+
     pub fn rollout_iterations_default(replicas: u32) -> u32 {
         // default surge percentage is 25
-        ((f64::from(replicas) * 25.0)/ 100.0).ceil() as u32
+        ((f64::from(replicas) * 25.0) / 100.0).ceil() as u32
     }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use super::{RollingUpdate, AvailabilityPolicy};
+    use super::{AvailabilityPolicy, RollingUpdate};
 
     #[test]
     fn rollout_iteration_check() {
@@ -159,7 +162,7 @@ mod tests {
             maxUnavailable: Some(AvailabilityPolicy::Percentage("25%".to_string())),
             maxSurge: Some(AvailabilityPolicy::Percentage("50%".to_string())),
         };
-        assert_eq!(rusurge.rollout_iterations(8), 2);  // 2 dn 6  up, 6  dn 2 up
+        assert_eq!(rusurge.rollout_iterations(8), 2); // 2 dn 6  up, 6  dn 2 up
         assert_eq!(rusurge.rollout_iterations(16), 2); // 4 dn 12 up, 12 dn 4 up
 
         // an example that kill almost everything immediately
@@ -167,13 +170,13 @@ mod tests {
             maxUnavailable: Some(AvailabilityPolicy::Percentage("75%".to_string())),
             maxSurge: Some(AvailabilityPolicy::Percentage("25%".to_string())),
         };
-        assert_eq!(rusurge.rollout_iterations(8), 1);  // 6 dn 8 up (then 2 down ungated)
+        assert_eq!(rusurge.rollout_iterations(8), 1); // 6 dn 8 up (then 2 down ungated)
 
         // an example with no surge
         let rusurge = RollingUpdate {
             maxUnavailable: Some(AvailabilityPolicy::Percentage("25%".to_string())),
             maxSurge: Some(AvailabilityPolicy::Percentage("0%".to_string())),
         };
-        assert_eq!(rusurge.rollout_iterations(8), 4);  // 2 dn 2 up (x4)
+        assert_eq!(rusurge.rollout_iterations(8), 4); // 2 dn 2 up (x4)
     }
 }

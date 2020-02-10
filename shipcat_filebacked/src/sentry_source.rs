@@ -1,6 +1,7 @@
-use shipcat_definitions::structs::metadata::SlackChannel;
-use shipcat_definitions::structs::sentry::Sentry;
-use shipcat_definitions::Result;
+use shipcat_definitions::{
+    structs::{metadata::SlackChannel, sentry::Sentry},
+    Result,
+};
 
 use crate::util::Build;
 
@@ -31,7 +32,7 @@ impl Build<Sentry, SlackChannel> for SentrySource {
             .map(|s| s.verify().map(|_| s))
             .unwrap_or_else(|| Ok(default_channel.clone()))?;
 
-        if !slack.starts_with("C") {
+        if !slack.starts_with('C') {
             bail!(
                 "Private/personal channel {} is NOT supported as Sentry target",
                 *slack
@@ -47,12 +48,12 @@ impl Build<Sentry, SlackChannel> for SentrySource {
 #[cfg(test)]
 mod tests {
     use merge::Merge;
-    use shipcat_definitions::structs::metadata::SlackChannel;
-    use shipcat_definitions::structs::sentry::Sentry;
-    use shipcat_definitions::Result;
+    use shipcat_definitions::{
+        structs::{metadata::SlackChannel, sentry::Sentry},
+        Result,
+    };
 
-    use super::super::util::Build;
-    use super::SentrySource;
+    use super::{super::util::Build, SentrySource};
 
     //  make sure the macros are called as they are for actual/original structs
     #[derive(Deserialize, Default, Merge, Clone, Debug)]

@@ -1,21 +1,21 @@
-use crate::{Result, ErrorKind, Manifest};
+use crate::{ErrorKind, Manifest, Result};
 use serde_json::json;
 
 use kube::{
-    api::{Api, Object, PatchParams, DeleteParams},
+    api::{Api, DeleteParams, Object, PatchParams},
     client::APIClient,
 };
 
-use shipcat_definitions::status::{make_date, ManifestStatus, Applier, Condition, /*ConditionSummary*/};
+use shipcat_definitions::status::{make_date, Applier, Condition, ManifestStatus};
 
 
 /// Client creator
 ///
 /// TODO: embed inside shipcat::apply when needed for other things
 fn make_client() -> Result<APIClient> {
-    let config = kube::config::incluster_config().or_else(|_| {
-        kube::config::load_kube_config()
-    }).map_err(ErrorKind::KubeError)?;
+    let config = kube::config::incluster_config()
+        .or_else(|_| kube::config::load_kube_config())
+        .map_err(ErrorKind::KubeError)?;
     Ok(kube::client::APIClient::new(config))
 }
 
@@ -46,10 +46,10 @@ impl ShipKube {
     pub fn new_within(svc: &str, ns: &str) -> Result<Self> {
         // hide the client in here -> Api resource for now (not needed elsewhere)
         let client = make_client()?;
-        let scm : Api<ManifestK> = Api::customResource(client.clone(), "shipcatmanifests")
+        let scm: Api<ManifestK> = Api::customResource(client.clone(), "shipcatmanifests")
             .group("babylontech.co.uk")
             .within(ns);
-        let scm_minimal : Api<ManifestMinimalK> = Api::customResource(client, "shipcatmanifests")
+        let scm_minimal: Api<ManifestMinimalK> = Api::customResource(client, "shipcatmanifests")
             .group("babylontech.co.uk")
             .within(ns);
         Ok(Self {
@@ -59,6 +59,7 @@ impl ShipKube {
             scm_minimal: scm_minimal,
         })
     }
+
     pub fn new(mf: &Manifest) -> Result<Self> {
         Self::new_within(&mf.name, &mf.namespace)
     }
@@ -68,7 +69,7 @@ impl ShipKube {
         assert!(mf.version.is_some()); // ensure crd is in right state w/o secrets
         assert!(mf.is_base());
         // TODO: use server side apply in 1.15
-        //let mfk = json!({
+        // let mfk = json!({
         //    "apiVersion": "babylontech.co.uk/v1",
         //    "kind": "ShipcatManifest",
         //    "metadata": {
@@ -99,10 +100,11 @@ impl ShipKube {
     /// Minimal CRD deleter
     pub fn delete(&self) -> Result<()> {
         let dp = DeleteParams::default();
-        self.scm_minimal.delete(&self.name, &dp).map_err(ErrorKind::KubeError)?;
+        self.scm_minimal
+            .delete(&self.name, &dp)
+            .map_err(ErrorKind::KubeError)?;
         Ok(())
     }
-
 
     // ====================================================
     // WARNING : PATCH HELL BELOW
@@ -111,7 +113,9 @@ impl ShipKube {
     // helper to send a merge patch
     fn patch(&self, data: &serde_json::Value) -> Result<ManifestK> {
         let pp = PatchParams::default();
-        let o = self.scm.patch_status(&self.name, &pp, serde_json::to_vec(data)?)
+        let o = self
+            .scm
+            .patch_status(&self.name, &pp, serde_json::to_vec(data)?)
             .map_err(ErrorKind::KubeError)?;
         debug!("Patched status: {:?}", o.status);
         Ok(o)
@@ -291,7 +295,11 @@ pub fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
     // crazy terminal hyperlink escape codes with rust format {} parts:
     let term_repo = format!("\x1B]8;;{}\x07{}\x1B]8;;\x07", md.repo, mf.name.to_uppercase());
     let term_version = format!("\x1B]8;;{}\x07{}\x1B]8;;\x07", link, ver);
-    let slack_link = format!("\x1B]8;;{}\x07{}\x1B]8;;\x07", support.link(&conf.slack), *support);
+    let slack_link = format!(
+        "\x1B]8;;{}\x07{}\x1B]8;;\x07",
+        support.link(&conf.slack),
+        *support
+    );
 
     let mut printed = false;
     if let Some(stat) = &crd.status {
@@ -300,7 +308,7 @@ pub fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
                 if successver != &ver {
                     print!("==> {} is requesting {}", term_repo, term_version);
                     print!(" but last successful deploy used {}", successver);
-                    print!("\n");
+                    println!();
                 } else {
                     println!("==> {} is running {}", term_repo, term_version);
                 }

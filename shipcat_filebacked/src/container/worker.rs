@@ -1,12 +1,13 @@
 use merge::Merge;
 
-use shipcat_definitions::Result;
-use shipcat_definitions::structs::Worker;
-use shipcat_definitions::structs::autoscaling::AutoScaling;
+use shipcat_definitions::{
+    structs::{autoscaling::AutoScaling, Worker},
+    Result,
+};
 
-use crate::util::{Build, Require, RelaxedString};
+use super::source::{ContainerBuildParams, ContainerSource};
+use crate::util::{Build, RelaxedString, Require};
 use std::collections::BTreeMap;
-use super::source::{ContainerSource, ContainerBuildParams};
 
 #[derive(Deserialize, Merge, Clone, Default)]
 #[serde(default, rename_all = "camelCase")]

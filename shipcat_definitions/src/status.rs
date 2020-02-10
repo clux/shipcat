@@ -1,6 +1,6 @@
-use chrono::{Utc, SecondsFormat};
-use serde::Serialize;
 use super::Result;
+use chrono::{SecondsFormat, Utc};
+use serde::Serialize;
 
 pub fn make_date() -> String {
     // Format == `1996-12-19T16:39:57-08:00`, but we hardcode Utc herein.
@@ -19,10 +19,9 @@ pub struct ManifestStatus {
     /// A more easily readable summary of why the conditions are what they are
     #[serde(default)]
     pub summary: Option<ConditionSummary>,
-
-    // TODO: vault secret hash
-    // MAYBE: kong status?
-    // MAYBE: canary status?
+    /* TODO: vault secret hash
+     * MAYBE: kong status?
+     * MAYBE: canary status? */
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
@@ -161,10 +160,10 @@ impl Condition {
     }
 
     pub fn format_last_transition(&self) -> Result<String> {
-        use chrono::{Duration, DateTime};
+        use chrono::{DateTime, Duration};
         let old_ts = &self.last_transition;
         let last = old_ts.parse::<DateTime<Utc>>()?;
-        let diff : Duration = Utc::now() - last;
+        let diff: Duration = Utc::now() - last;
         let days = diff.num_days();
         let hours = diff.num_hours();
         let mins = diff.num_minutes();
@@ -210,14 +209,17 @@ impl Condition {
 #[cfg(test)]
 mod tests {
     use super::{Applier, Condition};
-    use chrono::Utc;
-    use chrono::prelude::*;
+    use chrono::{prelude::*, Utc};
     #[test]
     #[ignore]
     fn check_conditions() {
-        let applier = Applier { name: "clux".into(), url: None };
+        let applier = Applier {
+            name: "clux".into(),
+            url: None,
+        };
         let mut cond = Condition::ok(&applier);
-        cond.last_transition = Utc.ymd(1996, 12, 19)
+        cond.last_transition = Utc
+            .ymd(1996, 12, 19)
             .and_hms(16, 39, 57)
             .to_rfc3339_opts(SecondsFormat::Secs, true);
         let encoded = serde_yaml::to_string(&cond).unwrap();
@@ -241,22 +243,38 @@ impl Applier {
     /// Infer originator of an apply
     pub fn infer() -> Applier {
         use std::env;
-        if let (Ok(url), Ok(name), Ok(nr)) = (env::var("BUILD_URL"),
-                                              env::var("JOB_NAME"),
-                                              env::var("BUILD_NUMBER")) {
+        if let (Ok(url), Ok(name), Ok(nr)) = (
+            env::var("BUILD_URL"),
+            env::var("JOB_NAME"),
+            env::var("BUILD_NUMBER"),
+        ) {
             // we are on jenkins
-            Applier { name: format!("{}#{}", name, nr), url: Some(url) }
-        } else if let (Ok(url), Ok(name), Ok(nr)) = (env::var("CIRCLE_BUILD_URL"),
-                                                     env::var("CIRCLE_JOB"),
-                                                     env::var("CIRCLE_BUILD_NUM")) {
+            Applier {
+                name: format!("{}#{}", name, nr),
+                url: Some(url),
+            }
+        } else if let (Ok(url), Ok(name), Ok(nr)) = (
+            env::var("CIRCLE_BUILD_URL"),
+            env::var("CIRCLE_JOB"),
+            env::var("CIRCLE_BUILD_NUM"),
+        ) {
             // we are on circle
-            Applier { name: format!("{}#{}", name, nr), url: Some(url) }
+            Applier {
+                name: format!("{}#{}", name, nr),
+                url: Some(url),
+            }
         } else if let Ok(user) = env::var("USER") {
-            Applier { name: user, url: None }
+            Applier {
+                name: user,
+                url: None,
+            }
         } else {
             warn!("Could not infer applier from this environment");
             // TODO: maybe lock down this..
-            Applier { name: "unknown origin".into(), url: None }
+            Applier {
+                name: "unknown origin".into(),
+                url: None,
+            }
         }
     }
 }

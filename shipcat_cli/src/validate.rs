@@ -1,7 +1,5 @@
-use super::{Config, Region};
-use super::{Error, Result};
-use crate::error_chain::ChainedError;
-use crate::git;
+use super::{Config, Error, Region, Result};
+use crate::{error_chain::ChainedError, git};
 use rayon::{iter::Either, prelude::*};
 
 /// Validate all manifests in a service directory for a region
@@ -135,8 +133,11 @@ pub fn secret_presence_git(conf: &Config, regions: Vec<String>) -> Result<()> {
             Err(e) => {
                 warn!("Error from git: {}", e);
                 warn!("Falling back to a full validate");
-                shipcat_filebacked::available(conf, &reg)?.into_iter().map(|s| s.base.name).collect()
-            },
+                shipcat_filebacked::available(conf, &reg)?
+                    .into_iter()
+                    .map(|s| s.base.name)
+                    .collect()
+            }
         };
         for svc in svcs {
             if let Ok(mf) = shipcat_filebacked::load_manifest(&svc, conf, &reg) {
@@ -148,7 +149,6 @@ pub fn secret_presence_git(conf: &Config, regions: Vec<String>) -> Result<()> {
                 mf.verify_secrets_exist(&reg.vault)?;
             }
         }
-
     }
     Ok(())
 }

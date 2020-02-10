@@ -12,7 +12,7 @@ pub struct ConfigMap {
     /// Container-local directory path where configs are available
     pub mount: String,
     /// Files from the config map to mount at this mountpath
-    pub files: Vec<ConfigMappedFile>
+    pub files: Vec<ConfigMappedFile>,
 }
 
 /// ConfigMapped File

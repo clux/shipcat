@@ -1,5 +1,7 @@
-use shipcat_definitions::{Result};
-use shipcat_definitions::structs::resources::{ResourceRequirements, Resources};
+use shipcat_definitions::{
+    structs::resources::{ResourceRequirements, Resources},
+    Result,
+};
 
 use crate::util::{Build, RelaxedString, Require};
 
@@ -30,7 +32,6 @@ pub struct ResourcesSource {
 
 impl Build<Resources<String>, ()> for ResourcesSource {
     fn build(self, params: &()) -> Result<Resources<String>> {
-
         Ok(Resources {
             cpu: self.cpu.require("cpu")?.build(params)?,
             memory: self.memory.require("cpu")?.build(params)?,

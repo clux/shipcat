@@ -47,7 +47,7 @@ fn get_manifests_for_team(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
     let cfg = req.state().get_config()?;
     if let Some(t) = find_team(&cfg.owners, name) {
-        let mfs = req.state().get_manifests_for(&t.name)?.clone();
+        let mfs = req.state().get_manifests_for(&t.name)?;
         Ok(HttpResponse::Ok().json(mfs))
     } else {
         Ok(HttpResponse::NotFound().finish())
@@ -55,7 +55,7 @@ fn get_manifests_for_team(req: &HttpRequest<State>) -> Result<HttpResponse> {
 }
 fn get_teams(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let cfg = req.state().get_config()?;
-    Ok(HttpResponse::Ok().json(cfg.owners.squads.clone()))
+    Ok(HttpResponse::Ok().json(cfg.owners.squads))
 }
 
 fn get_versions(req: &HttpRequest<State>) -> Result<HttpResponse> {
@@ -243,9 +243,9 @@ fn main() -> Result<()> {
     env::set_var("VAULT_TOKEN", "INVALID"); // needed because it happens super early..
 
     // Set up kube access + fetch initial state. Crashing on failure here.
-    let cfg = kube::config::incluster_config().or_else(|_| {
-        kube::config::load_kube_config()
-    }).expect("Failed to load kube config");
+    let cfg = kube::config::incluster_config()
+        .or_else(|_| kube::config::load_kube_config())
+        .expect("Failed to load kube config");
     let shared_state = state::init(cfg).unwrap(); // crash if init fails
 
     info!("Creating http server");

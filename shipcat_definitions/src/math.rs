@@ -1,6 +1,7 @@
-use super::structs::ResourceRequirements;
-use super::structs::rollingupdate::{RollingUpdate};
-use super::{Result, Manifest};
+use super::{
+    structs::{rollingupdate::RollingUpdate, ResourceRequirements},
+    Manifest, Result,
+};
 
 /// Total resource usage for a Manifest
 ///
@@ -27,17 +28,17 @@ impl ResourceTotals {
     pub fn daily_cost(&self) -> (f64, f64) {
         // instance cost is hourly cost for a resource.
         // E.g. m5.2xlarge => $0.384 per Hour, but has 31GB ram, 8vCPU
-        let icost = 0.384*24.0;
+        let icost = 0.384 * 24.0;
         let node_mem = 31.0;
         let node_cpu = 8.0;
 
         let memory_cost = (
-            (self.base.requests.memory*icost/node_mem).round(),
-            ((self.base.requests.memory + self.extra.requests.memory)*icost/node_mem).round()
+            (self.base.requests.memory * icost / node_mem).round(),
+            ((self.base.requests.memory + self.extra.requests.memory) * icost / node_mem).round(),
         );
         let cpu_cost = (
-            (self.base.requests.cpu*icost/node_cpu).round(),
-            ((self.base.requests.cpu + self.extra.requests.cpu*icost)*icost/node_cpu).round()
+            (self.base.requests.cpu * icost / node_cpu).round(),
+            ((self.base.requests.cpu + self.extra.requests.cpu * icost) * icost / node_cpu).round(),
         );
         // quick extimate at what would be more expensive
         if cpu_cost.1 > memory_cost.1 {
@@ -52,8 +53,6 @@ impl ResourceTotals {
 ///
 /// These generally assume that `verify` has passed on all manifests.
 impl Manifest {
-
-
     /// Estimate how many iterations needed in a kube rolling upgrade
     ///
     /// Used to `estimate_wait_time` for a rollout.
@@ -80,7 +79,7 @@ impl Manifest {
             // TODO: smoothen..
             let pulltimeestimate = std::cmp::max(60, ((f64::from(size) * 90.0) / 512.0) as u32);
             let rollout_iterations = self.estimate_rollout_iterations();
-            //println!("estimating wait for {} cycle rollout: size={} (est={})", rollout_iterations, size, pulltimeestimate);
+            // println!("estimating wait for {} cycle rollout: size={} (est={})", rollout_iterations, size, pulltimeestimate);
 
             // how long each iteration needs to wait due to readinessProbe params.
             let delayTimeSecs = if let Some(ref hc) = self.health {
@@ -107,16 +106,15 @@ impl Manifest {
     /// This relies on the `Mul` and `Add` implementations of `ResourceRequirements<f64>`,
     /// which allows us to do `+` and `*` on a normalised ResourceRequirements struct.
     pub fn compute_resource_totals(&self) -> Result<ResourceTotals> {
-        let mut base : ResourceRequirements<f64> = ResourceRequirements::default();
-        let mut extra : ResourceRequirements<f64> = ResourceRequirements::default(); // autoscaling limits
+        let mut base: ResourceRequirements<f64> = ResourceRequirements::default();
+        let mut extra: ResourceRequirements<f64> = ResourceRequirements::default(); // autoscaling limits
         let res = self.resources.clone().unwrap().normalised()?; // exists by verify
         if let Some(ref ascale) = self.autoScaling {
             base += res.clone() * ascale.minReplicas;
-            extra += res.clone() * (ascale.maxReplicas - ascale.minReplicas);
-        }
-        else if let Some(rc) = self.replicaCount {
+            extra += res * (ascale.maxReplicas - ascale.minReplicas);
+        } else if let Some(rc) = self.replicaCount {
             // can trust the replicaCount here
-            base += res.clone() * rc;
+            base += res * rc;
             for s in &self.sidecars {
                 if let Some(ref scrsc) = s.resources {
                     // sidecar replicaCount == main deployment replicaCount
@@ -141,18 +139,16 @@ impl Manifest {
                 }
                 // TODO: mandatory? sidecar resources when using sidecars?
             }
-
         }
         Ok(ResourceTotals { base, extra })
     }
-
 }
 
 
 #[cfg(test)]
 mod tests {
+    use super::Manifest;
     use crate::structs::HealthCheck;
-    use super::{Manifest};
 
     #[test]
     fn mf_wait_time_check() {
@@ -190,6 +186,5 @@ mod tests {
         });
         mf.replicaCount = Some(2);
         assert_eq!(mf.estimate_wait_time(), 990); // lots of leeway here just in case
-
     }
 }

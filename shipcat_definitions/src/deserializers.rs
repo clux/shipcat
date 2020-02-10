@@ -1,13 +1,8 @@
-use std::fmt;
-use std::marker::PhantomData;
-use serde::de::{Visitor, Deserialize, Deserializer, Error, SeqAccess};
-use serde::de::value::{SeqAccessDeserializer};
+use serde::de::{value::SeqAccessDeserializer, Deserialize, Deserializer, Error, SeqAccess, Visitor};
+use std::{fmt, marker::PhantomData};
 
 #[derive(Deserialize, Clone, Default)]
-pub struct CommaSeparatedString(
-    #[serde(deserialize_with="comma_separated_string")]
-    Vec<String>
-);
+pub struct CommaSeparatedString(#[serde(deserialize_with = "comma_separated_string")] Vec<String>);
 
 impl Into<Vec<String>> for CommaSeparatedString {
     fn into(self) -> Vec<String> {
@@ -17,9 +12,8 @@ impl Into<Vec<String>> for CommaSeparatedString {
 
 pub fn comma_separated_string<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
 where
-    D: Deserializer<'de>
+    D: Deserializer<'de>,
 {
-
     struct CommaSeparatedString(PhantomData<fn() -> Vec<String>>);
 
     impl<'de> Visitor<'de> for CommaSeparatedString {
@@ -48,7 +42,7 @@ where
 
 #[cfg(test)]
 mod comma_separated_string_tests {
-    use super::{CommaSeparatedString};
+    use super::CommaSeparatedString;
 
     #[test]
     fn deserialize_single_string() {

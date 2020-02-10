@@ -1,8 +1,7 @@
 mod common;
 use crate::common::setup;
+use shipcat::{helm, Result};
 use shipcat_definitions::{Config, ConfigState};
-use shipcat::helm;
-use shipcat::Result;
 
 #[test]
 #[ignore] // This test requires helm cli - not on circle

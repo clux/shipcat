@@ -56,7 +56,7 @@ fn impl_merge_struct(fields: &Fields) -> TokenStream2 {
                     #field_tokens
                 }
             }
-        },
+        }
         Fields::Unnamed(_) => {
             let mut field_tokens = TokenStream2::new();
 

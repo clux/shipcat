@@ -1,8 +1,8 @@
 mod common;
 use crate::common::setup;
 
-use shipcat_definitions::{Config, ConfigState};
 use shipcat::validate::manifest as validate;
+use shipcat_definitions::{Config, ConfigState};
 
 #[test]
 fn validate_test() {

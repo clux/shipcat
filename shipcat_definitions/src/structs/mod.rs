@@ -2,10 +2,10 @@
 
 /// Verify traits sometimes need to cross reference stuff from other manifests
 pub use super::Manifest;
+/// Verify trait gets the Region and Team
+pub use super::Region;
 /// Allow normal error handling from structs
 pub use super::{ErrorKind, Result, ResultExt};
-/// Verify trait gets the Region and Team
-pub use super::{Region};
 
 // Structs that exist in the manifest
 
@@ -54,8 +54,7 @@ pub use self::env::EnvVars;
 // translations - these are typically inlined in templates as yaml
 /// Kubernetes resource structs
 pub mod resources;
-pub use self::resources::parse_memory;
-pub use self::resources::ResourceRequirements;
+pub use self::resources::{parse_memory, ResourceRequirements};
 /// Kubernetes volumes
 pub mod volume;
 pub use self::volume::{Volume, VolumeMount};

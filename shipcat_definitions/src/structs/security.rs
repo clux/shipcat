@@ -1,6 +1,6 @@
-use std::path::Path;
-use regex::Regex;
 use super::Result;
+use regex::Regex;
+use std::path::Path;
 
 /// What sensitive data is managed and how
 ///
@@ -120,7 +120,10 @@ impl DataHandling {
         for s in &self.stores {
             for f in &s.fields {
                 if !re.is_match(&f.name) {
-                    bail!("The field {} is not valid PascalCase, or starts with a number", f.name);
+                    bail!(
+                        "The field {} is not valid PascalCase, or starts with a number",
+                        f.name
+                    );
                 }
             }
         }

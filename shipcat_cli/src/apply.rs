@@ -1,21 +1,16 @@
-use std::fs;
-use std::path::Path;
+use std::{fs, path::Path};
 
-use shipcat_definitions::{
-    Manifest, Config, Region,
-    PrimaryWorkload,
-    ReconciliationMode,
-    structs::{Metadata, NotificationMode},
-};
 use crate::{
-    helm,
-    kubectl,
+    diff, helm, kubectl,
     status::ShipKube,
-    diff,
-    webhooks::{self, UpgradeState}
+    webhooks::{self, UpgradeState},
+};
+use shipcat_definitions::{
+    structs::{Metadata, NotificationMode},
+    Config, Manifest, PrimaryWorkload, ReconciliationMode, Region,
 };
 
-use super::{Result, ResultExt, ErrorKind};
+use super::{ErrorKind, Result, ResultExt};
 
 /// Information from an upgrade
 ///
@@ -43,11 +38,17 @@ impl UpgradeInfo {
     /// Export the information needed for book-keeping
     ///
     /// Requires a valid manifest with a pre-determined version
-    pub fn new(mf: &Manifest) ->  Self {
+    pub fn new(mf: &Manifest) -> Self {
         UpgradeInfo {
             name: mf.name.clone(),
-            version: mf.version.clone().expect("version must be set before calling UpgradeInfo::new"),
-            metadata: mf.metadata.clone().expect("metadata must exist on every manifest"),
+            version: mf
+                .version
+                .clone()
+                .expect("version must be set before calling UpgradeInfo::new"),
+            metadata: mf
+                .metadata
+                .clone()
+                .expect("metadata must exist on every manifest"),
             slackMode: mf.upgradeNotifications.clone().unwrap_or_default(),
             region: mf.region.clone(),
             namespace: mf.namespace.clone(),
@@ -76,16 +77,16 @@ impl UpgradeInfo {
 /// It is also entirely responsible for sending webhooks on errors / successes.
 /// As such, it's entirely responsible for not propagating random errors here with `?`
 /// Every error cases is something that might need to be notified.
-pub fn apply(svc: &str,
-             force: bool,
-             region: &Region,
-             conf: &Config,
-             wait: bool,
-             passed_version: Option<String>) -> Result<Option<UpgradeInfo>>
-{
+pub fn apply(
+    svc: &str,
+    force: bool,
+    region: &Region,
+    conf: &Config,
+    wait: bool,
+    passed_version: Option<String>,
+) -> Result<Option<UpgradeInfo>> {
     match region.reconciliationMode {
-        ReconciliationMode::CrdOwned =>
-            apply_kubectl(svc, force, region, conf, wait, passed_version),
+        ReconciliationMode::CrdOwned => apply_kubectl(svc, force, region, conf, wait, passed_version),
     }
 }
 
@@ -118,13 +119,14 @@ impl ToString for UpgradeReason {
 /// First version of apply that does not use tiller
 ///
 /// This writes events to uses the shipcatmanifest crd
-fn apply_kubectl(svc: &str,
-             force: bool,
-             region: &Region,
-             conf: &Config,
-             wait: bool,
-             passed_version: Option<String>) -> Result<Option<UpgradeInfo>>
-{
+fn apply_kubectl(
+    svc: &str,
+    force: bool,
+    region: &Region,
+    conf: &Config,
+    wait: bool,
+    passed_version: Option<String>,
+) -> Result<Option<UpgradeInfo>> {
     if let Err(e) = webhooks::ensure_requirements(&region) {
         warn!("Could not ensure webhook requirements: {}", e);
     }
@@ -133,7 +135,10 @@ fn apply_kubectl(svc: &str,
     // A version is set EITHER via `-t SOMEVER` on CLI, or pinned in manifest
     if passed_version.is_some() && mfbase.version.is_some() && mfbase.version != passed_version {
         error!("Overriding a pinned version will be undone at next reconcile");
-        bail!("Cannot override version for '{}' because it is pinned in manifests", svc);
+        bail!(
+            "Cannot override version for '{}' because it is pinned in manifests",
+            svc
+        );
     }
     let explicit_version = mfbase.version.clone().or(passed_version);
 
@@ -158,13 +163,13 @@ fn apply_kubectl(svc: &str,
                 None => {
                     warn!("'{}' cannot be installed (no version inferable)", svc);
                     return Err(ErrorKind::MissingRollingVersion(svc.into()).into());
-                },
+                }
                 Some(v) => {
                     reason = Some(UpgradeReason::NewService);
                     (v, None)
                 }
             }
-        },
+        }
         Ok(o) => {
             debug!("existing manifest crd: {}={:?}", o.spec.name, o.status);
             let fallback = o.spec.version.clone();
@@ -178,7 +183,7 @@ fn apply_kubectl(svc: &str,
                     (v, Some(o))
                 }
             }
-         },
+        }
     };
     let can_diff = crd.is_some();
     debug!("using {}={}", svc, actual_version);
@@ -194,7 +199,7 @@ fn apply_kubectl(svc: &str,
     }
     if reason.is_none() && !force {
         info!("{} up to date (crd check)", svc);
-        return Ok(None)
+        return Ok(None);
     }
 
     // Prepare for an actual upgrade now..
@@ -203,35 +208,36 @@ fn apply_kubectl(svc: &str,
 
     // Fetch all the secrets so we can create a completed manifest
     // TODO: check scp.status.secretChecksum against secret-manager instead
-    let mut mf = match mfcrd.clone().complete(&region) {
+    let mut mf = match mfcrd.complete(&region) {
         Ok(m) => m,
         Err(e) => {
             // Fire failed events if secrets fail to resolve
             webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
             s.update_generate_false("SecretFailure", e.description().to_string())?;
             return Err(e.into());
-        },
+        }
     };
     // Should have a UID for ownerReferences now
     mf.uid = if let Some(o) = crd {
         o.metadata.uid
     } else {
-        match s.get() { // fallback to the one we just created
+        match s.get() {
+            // fallback to the one we just created
             Ok(o) => o.metadata.uid,
             Err(e) => {
                 debug!("{:?}", e);
                 // Fire failed events if crd could not be fetched after its creation
                 webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
                 s.update_generate_false("CrdFailure", e.description().to_string())?;
-                return Err(e)
-            },
+                return Err(e);
+            }
         }
     };
 
     // Create completed kubernetes yaml (via shipcat values | helm template)
     let tfile = format!("{}.kube.gen.yml", svc);
     let tpth = Path::new(".").join(tfile.clone());
-    if let Err(e) = helm::template(&mf,  Some(tpth)) {
+    if let Err(e) = helm::template(&mf, Some(tpth)) {
         // Errors here are obscure, and should not happen, but pass them up anyway
         webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
         s.update_generate_false("ResolveFailure", e.description().to_string())?;
@@ -239,19 +245,20 @@ fn apply_kubectl(svc: &str,
     }
 
     // Attach diff to UpgradeInfo if diffing is possible
-    if can_diff { // helm diff only supports diffing if already installed..
+    if can_diff {
+        // helm diff only supports diffing if already installed..
         match diff_kubectl(&mf, &tfile) {
             Ok(Some(kdiff)) => {
                 ui.diff = Some(kdiff);
                 reason = reason.or(Some(UpgradeReason::TemplateDiff));
-            },
+            }
             Ok(None) => {
                 // If we explicitly received no diff, don't try to upgrade
                 // This is a stronger diff than CRD-only if this succeeds; STOP.
                 info!("{} up to date (full diff check)", svc);
                 webhooks::apply_event(UpgradeState::Cancelled, &ui, &region, &conf);
                 s.update_generate_true()?; // every force reconcile makes one generate cond
-                return Ok(None)
+                return Ok(None);
             }
             // If diffing failed, only run the upgrade if we have to:
             Err(e) => {
@@ -260,7 +267,7 @@ fn apply_kubectl(svc: &str,
                     // pass on a diff failure
                     webhooks::apply_event(UpgradeState::Cancelled, &ui, &region, &conf);
                     s.update_generate_false("DiffFailure", e.description().to_string())?;
-                    return Ok(None) // but ultimately ignore this in fast reconciles
+                    return Ok(None); // but ultimately ignore this in fast reconciles
                 }
                 reason = reason.or(Some(UpgradeReason::Forced))
             }
@@ -279,19 +286,18 @@ fn apply_kubectl(svc: &str,
             let reason = e.description().to_string();
             s.update_apply_false(ureason.to_string(), "ApplyFailure", reason)?; // TODO: chain
             return Err(e);
-        },
+        }
         Ok(_) => {
             let _ = s.update_apply_true(ureason.to_string());
             if !wait {
                 info!("successfully applied {} (without waiting)", ui.name);
-            }
-            else {
+            } else {
                 match kubectl::await_rollout_status(&mf) {
                     Ok(true) => {
                         info!("successfully rolled out {}", &ui.name);
                         webhooks::apply_event(UpgradeState::Completed, &ui, &region, &conf);
                         s.update_rollout_true(&actual_version)?;
-                    },
+                    }
                     Ok(false) => {
                         let time = mf.estimate_wait_time();
                         let reason = format!("timed out waiting {}s for rollout", time);
@@ -302,11 +308,11 @@ fn apply_kubectl(svc: &str,
                         webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
                         s.update_rollout_false("Timeout", reason)?; // TODO: chain
                         return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), time).into());
-                    },
+                    }
                     Err(e) => {
                         webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
                         s.update_rollout_false("RolloutTrackFailure", e.description().to_string())?; // TODO: chain
-                        return Err(e)
+                        return Err(e);
                     }
                 }
             }
@@ -332,8 +338,7 @@ fn upgrade_kubectl(mf: &Manifest, tfile: &str) -> Result<()> {
         format!("-l=app.kubernetes.io/name={}", mf.name),
     ];
     info!("kubectl {}", applyvec.join(" "));
-    kubectl::kexec(applyvec).chain_err(||
-        ErrorKind::KubectlApplyFailure(mf.name.clone()))?;
+    kubectl::kexec(applyvec).chain_err(|| ErrorKind::KubectlApplyFailure(mf.name.clone()))?;
     Ok(())
 }
 
@@ -347,7 +352,7 @@ pub fn diff_kubectl(mf: &Manifest, tfile: &str) -> Result<Option<String>> {
 
     let kubediff = diff::obfuscate_secrets(
         kdiffunobfusc, // move this away quickly..
-        mf.get_secrets()
+        mf.get_secrets(),
     );
     debug!("Full diff (obfuscated): \n{}", kubediff);
 
@@ -355,7 +360,11 @@ pub fn diff_kubectl(mf: &Manifest, tfile: &str) -> Result<Option<String>> {
         let err = kdifferr.trim();
         if err != "exit status 1" {
             warn!("diff {} stderr: {}", mf.name, kdifferr.trim());
-            bail!("kubectl diff {} returned: {}", mf.name, kdifferr.lines().next().unwrap());
+            bail!(
+                "kubectl diff {} returned: {}",
+                mf.name,
+                kdifferr.lines().next().unwrap()
+            );
         }
     }
 
@@ -377,18 +386,22 @@ pub fn restart(mf: &Manifest, wait: bool) -> Result<()> {
         let r = Restartable {
             name: w.container.name.clone(),
             namespace: mf.namespace.clone(),
-            workload: PrimaryWorkload::Deployment
+            workload: PrimaryWorkload::Deployment,
         };
         trigger_rollout_restart(r)?; // fire-and-forget for subresources
     }
     let main = Restartable {
         name: mf.name.clone(),
         namespace: mf.namespace.clone(),
-        workload: mf.workload.clone()
+        workload: mf.workload.clone(),
     };
     trigger_rollout_restart(main)?;
     if !wait {
-        info!("successfully triggered a restart of {}/{}", mf.workload.to_string(), mf.name);
+        info!(
+            "successfully triggered a restart of {}/{}",
+            mf.workload.to_string(),
+            mf.name
+        );
         return Ok(());
     }
     // wait for primary if we are waiting
@@ -419,8 +432,7 @@ fn trigger_rollout_restart(r: Restartable) -> Result<()> {
         format!("{}/{}", r.workload.to_string(), r.name),
     ];
     info!("kubectl {}", restartvec.join(" "));
-    kubectl::kexec(restartvec).chain_err(||
-        ErrorKind::KubectlApplyFailure(r.name))
+    kubectl::kexec(restartvec).chain_err(|| ErrorKind::KubectlApplyFailure(r.name))
 }
 
 /// Uninstall a service
@@ -436,19 +448,19 @@ pub fn delete(svc: &str, reg: &Region, conf: &Config) -> Result<()> {
             let info = UpgradeInfo::new(&mfk.spec);
             // We notify before we start, because this is potentially a "panic" type notification.
             webhooks::delete_event(&UpgradeState::Started, &info, &reg, &conf);
-            return match s.delete() {
+            match s.delete() {
                 Ok(_) => {
                     // NB: we say completed when the api is "done"
                     // This might still trigger finalizers ATM...
                     webhooks::delete_event(&UpgradeState::Completed, &info, &reg, &conf);
                     Ok(())
-                },
+                }
                 Err(e) => {
                     webhooks::delete_event(&UpgradeState::Failed, &info, &reg, &conf);
                     Err(e)
-                },
-            };
-        },
+                }
+            }
+        }
         // otherwise, just fire and forget...
         Err(e) => {
             warn!("Unable to notify about service deletion: {}", e);

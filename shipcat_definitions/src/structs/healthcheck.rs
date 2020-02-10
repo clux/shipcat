@@ -1,4 +1,3 @@
-
 /// HealthCheck
 ///
 /// Designed for HTTP services for now
@@ -17,7 +16,11 @@ pub struct HealthCheck {
     pub wait: u32,
     /// Health check port (if different from main httpPort)
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub port: Option<u32>
+    pub port: Option<u32>,
 }
-fn health_check_url_default() -> String { "/health".into() }
-fn health_check_wait_time_default() -> u32 { 30 }
+fn health_check_url_default() -> String {
+    "/health".into()
+}
+fn health_check_wait_time_default() -> u32 {
+    30
+}

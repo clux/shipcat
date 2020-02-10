@@ -1,10 +1,11 @@
 mod common;
 use crate::common::setup;
 
-use shipcat::kong::{KongfigOutput, generate_kong_output};
-use shipcat_definitions::structs::kongfig::{ConsumerCredentials, PluginBase, ApiPlugin, HeadersQueryBody};
-use shipcat_definitions::Config;
-use shipcat_definitions::ConfigState;
+use shipcat::kong::{generate_kong_output, KongfigOutput};
+use shipcat_definitions::{
+    structs::kongfig::{ApiPlugin, ConsumerCredentials, HeadersQueryBody, PluginBase},
+    Config, ConfigState,
+};
 
 macro_rules! plugin_attributes {
     ( $name:expr, $plugin:expr, $type:path ) => {
@@ -19,7 +20,7 @@ macro_rules! plugin_attributes {
 macro_rules! assert_plugin_removed {
     ( $name:expr, $plugin:expr, $type:path ) => {
         match $plugin {
-            $type(PluginBase::Removed) => {},
+            $type(PluginBase::Removed) => {}
             $type(_) => panic!("{} plugin is not removed", $name),
             _ => panic!("plugin is not a {} plugin", $name),
         }
@@ -43,7 +44,10 @@ fn kong_test() {
     let ConsumerCredentials::Jwt(attrs) = &consumer.credentials[0];
     assert_eq!(attrs.key, "https://my-issuer/");
     assert_eq!(attrs.algorithm, "RS256");
-    assert_eq!(attrs.rsa_public_key, "-----BEGIN PUBLIC KEY-----\nmy-key\n-----END PUBLIC KEY-----");
+    assert_eq!(
+        attrs.rsa_public_key,
+        "-----BEGIN PUBLIC KEY-----\nmy-key\n-----END PUBLIC KEY-----"
+    );
 
     let consumer = &output.consumers[1];
     assert_eq!(consumer.username, "anonymous");
@@ -61,7 +65,10 @@ fn kong_test() {
         "fake.example.com".to_string(),
     ]);
     assert_eq!(api.attributes.strip_uri, false);
-    assert_eq!(api.attributes.upstream_url, "http://fake-ask.dev.svc.cluster.local");
+    assert_eq!(
+        api.attributes.upstream_url,
+        "http://fake-ask.dev.svc.cluster.local"
+    );
 
     let attr = plugin_attributes!("CorrelationId", api.plugins.remove(0), ApiPlugin::CorrelationId);
     assert_eq!(attr.enabled, true);
@@ -84,7 +91,11 @@ fn kong_test() {
     assert_eq!(attr.config.expected_scope, "internal");
     assert_eq!(attr.config.allow_invalid_tokens, false);
 
-    let attr = plugin_attributes!("JsonCookiesToHeaders", api.plugins.remove(0), ApiPlugin::JsonCookiesToHeaders);
+    let attr = plugin_attributes!(
+        "JsonCookiesToHeaders",
+        api.plugins.remove(0),
+        ApiPlugin::JsonCookiesToHeaders
+    );
     assert_eq!(attr.enabled, true);
     assert_eq!(attr.config.auth_service, Some("service".to_string()));
     assert_eq!(attr.config.body_refresh_token_key, Some("key".to_string()));
@@ -93,16 +104,27 @@ fn kong_test() {
     assert_eq!(attr.config.http_timeout_msec, Some(10000));
     assert_eq!(attr.config.renew_before_expiry_sec, Some(120));
 
-    let attr = plugin_attributes!("JsonCookiesCsrf", api.plugins.remove(0), ApiPlugin::JsonCookiesCsrf);
+    let attr = plugin_attributes!(
+        "JsonCookiesCsrf",
+        api.plugins.remove(0),
+        ApiPlugin::JsonCookiesCsrf
+    );
     assert_eq!(attr.enabled, true);
 
     assert_upstream_header_transform(api.plugins.remove(0), "fake-ask");
 
 
-    let attr = plugin_attributes!("PiiRegionHeader", api.plugins.remove(0), ApiPlugin::PiiRegionHeader);
+    let attr = plugin_attributes!(
+        "PiiRegionHeader",
+        api.plugins.remove(0),
+        ApiPlugin::PiiRegionHeader
+    );
     assert_eq!(attr.enabled, true);
     assert_eq!(attr.config.enabled, true);
-    assert_eq!(attr.config.region_service_uri, "fake-region-service.svc.cluster.local");
+    assert_eq!(
+        attr.config.region_service_uri,
+        "fake-region-service.svc.cluster.local"
+    );
 
     assert!(api.plugins.is_empty());
 
@@ -113,7 +135,10 @@ fn kong_test() {
     assert!(api.attributes.hosts.is_empty());
 
     assert_eq!(api.attributes.strip_uri, false);
-    assert_eq!(api.attributes.upstream_url, "http://fake-storage.dev.svc.cluster.local");
+    assert_eq!(
+        api.attributes.upstream_url,
+        "http://fake-storage.dev.svc.cluster.local"
+    );
 
     let attr = plugin_attributes!("CorrelationId", api.plugins.remove(0), ApiPlugin::CorrelationId);
     assert_eq!(attr.enabled, true);
@@ -136,8 +161,16 @@ fn kong_test() {
     assert_eq!(attr.config.expected_scope, "internal");
     assert_eq!(attr.config.allow_invalid_tokens, false);
 
-    assert_plugin_removed!("JsonCookiesToHeaders", api.plugins.remove(0), ApiPlugin::JsonCookiesToHeaders);
-    assert_plugin_removed!("JsonCookiesCsrf", api.plugins.remove(0), ApiPlugin::JsonCookiesCsrf);
+    assert_plugin_removed!(
+        "JsonCookiesToHeaders",
+        api.plugins.remove(0),
+        ApiPlugin::JsonCookiesToHeaders
+    );
+    assert_plugin_removed!(
+        "JsonCookiesCsrf",
+        api.plugins.remove(0),
+        ApiPlugin::JsonCookiesCsrf
+    );
 
     assert_upstream_header_transform(api.plugins.remove(0), "fake-storage");
 
@@ -154,7 +187,7 @@ fn assert_upstream_header_transform(plugin: ApiPlugin, service: &str) {
     assert_eq!(attr.config.rename, HeadersQueryBody::default());
 
     let mut expected_headers = HeadersQueryBody::default();
-    expected_headers.headers = Some(vec!(format!("Upstream-Service: {}", service)));
+    expected_headers.headers = Some(vec![format!("Upstream-Service: {}", service)]);
     assert_eq!(&attr.config.add, &expected_headers);
     assert_eq!(&attr.config.replace, &expected_headers);
 }

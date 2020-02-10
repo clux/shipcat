@@ -1,8 +1,7 @@
 use merge::Merge;
 use std::collections::BTreeMap;
 
-use shipcat_definitions::Result;
-use shipcat_definitions::structs::EnvVars;
+use shipcat_definitions::{structs::EnvVars, Result};
 
 use crate::util::{Build, RelaxedString};
 

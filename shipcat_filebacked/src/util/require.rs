@@ -1,4 +1,4 @@
-use shipcat_definitions::{Result};
+use shipcat_definitions::Result;
 
 pub trait Require<T> {
     fn require(self, name: &str) -> Result<T>;

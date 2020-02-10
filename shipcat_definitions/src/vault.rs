@@ -1,9 +1,7 @@
-use std::collections::BTreeMap;
-use std::env;
-use std::io::Read;
+use std::{collections::BTreeMap, env, io::Read};
 
-use super::{Result, ErrorKind, ResultExt, Error};
-use crate::region::{VaultConfig};
+use super::{Error, ErrorKind, Result, ResultExt};
+use crate::region::VaultConfig;
 
 fn default_addr() -> Result<String> {
     env::var("VAULT_ADDR").map_err(|_| ErrorKind::MissingVaultAddr.into())
@@ -12,7 +10,7 @@ fn default_addr() -> Result<String> {
 #[cfg(feature = "filesystem")]
 fn file_token_fallback() -> Result<String> {
     let path = dirs::home_dir()
-        .ok_or_else(|| { ErrorKind::NoHomeDirectory })?
+        .ok_or_else(|| ErrorKind::NoHomeDirectory)?
         .join(".vault-token");
 
     let token = std::fs::read_to_string(&path)?;
@@ -67,7 +65,7 @@ struct Secret {
 /// List data retrieved from Vault when listing available secrets
 #[derive(Debug, Deserialize)]
 struct ListSecrets {
-    data: BTreeMap<String, Vec<String>>
+    data: BTreeMap<String, Vec<String>>,
 }
 
 /// Vault client with cached data
@@ -94,7 +92,12 @@ pub enum Mode {
 impl Vault {
     /// Initialize using the same evars or token files that the `vault` CLI uses
     pub fn from_evars() -> Result<Vault> {
-        Vault::new(reqwest::Client::new(), &default_addr()?, default_token()?, Mode::Standard)
+        Vault::new(
+            reqwest::Client::new(),
+            &default_addr()?,
+            default_token()?,
+            Mode::Standard,
+        )
     }
 
     /// Initialize using VAULT_TOKEN evar + addr from the Region
@@ -108,11 +111,17 @@ impl Vault {
     }
 
     fn new<U, S>(client: reqwest::Client, addr: U, token: S, mode: Mode) -> Result<Vault>
-        where U: reqwest::IntoUrl,
-              S: Into<String>
+    where
+        U: reqwest::IntoUrl,
+        S: Into<String>,
     {
         let addr = addr.into_url()?;
-        Ok(Vault { client, addr, mode, token: token.into() })
+        Ok(Vault {
+            client,
+            addr,
+            mode,
+            token: token.into(),
+        })
     }
 
     pub fn mode(&self) -> Mode {
@@ -125,7 +134,9 @@ impl Vault {
         debug!("GET {}", url);
 
         let mkerr = || ErrorKind::Url(url.clone());
-        let mut res = self.client.get(url.clone())
+        let mut res = self
+            .client
+            .get(url.clone())
             .header("X-Vault-Token", self.token.clone())
             .send()
             .chain_err(&mkerr)?;
@@ -151,7 +162,9 @@ impl Vault {
         debug!("LIST {}", url);
 
         let mkerr = || ErrorKind::Url(url.clone());
-        let mut res = self.client.get(url.clone())
+        let mut res = self
+            .client
+            .get(url.clone())
             .header("X-Vault-Token", self.token.clone())
             .send()
             .chain_err(&mkerr)?;
@@ -166,17 +179,21 @@ impl Vault {
 
         let mut body = String::new();
         res.read_to_string(&mut body)?;
-        let lsec : ListSecrets = serde_json::from_str(&body)?;
+        let lsec: ListSecrets = serde_json::from_str(&body)?;
         if !lsec.data.contains_key("keys") {
-            bail!("secret list {} does not contain keys list from vault api!?: {}", url, body);
+            bail!(
+                "secret list {} does not contain keys list from vault api!?: {}",
+                url,
+                body
+            );
         }
-        let res = lsec.data["keys"].iter()
+        let res = lsec.data["keys"]
+            .iter()
             .filter(|e| !e.ends_with('/')) // skip sub folders
             .map(|e| e.to_string())
             .collect::<Vec<String>>();
         Ok(res)
     }
-
 
     /// Read secret from a Vault via an authenticated HTTP GET (or memory cache)
     pub fn read(&self, key: &str) -> Result<String> {
@@ -186,16 +203,17 @@ impl Vault {
             return Ok("aGVsbG8gd29ybGQ=".into());
         }
 
-        let secret = self.get_secret(&pth).chain_err(|| ErrorKind::SecretNotAccessible(pth.clone()))?;
+        let secret = self
+            .get_secret(&pth)
+            .chain_err(|| ErrorKind::SecretNotAccessible(pth.clone()))?;
 
         // NB: Currently assume each path in vault has a single `value`
         // Read the value key (which should exist)
-        secret.data
+        secret
+            .data
             .get("value")
-            .ok_or_else(|| { ErrorKind::InvalidSecretForm(pth).into() })
-            .map(|v| {
-                v.clone().into()
-            })
+            .ok_or_else(|| ErrorKind::InvalidSecretForm(pth).into())
+            .map(|v| v.clone().into())
     }
 }
 

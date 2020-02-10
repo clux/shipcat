@@ -20,6 +20,3 @@ pub struct EventStream {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub config: Option<BTreeMap<String, String>>,
 }
-
-
-

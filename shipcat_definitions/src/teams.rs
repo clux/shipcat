@@ -1,7 +1,9 @@
-use crate::structs::SlackChannel;
-use std::path::{Path, PathBuf};
-use std::collections::BTreeMap;
 use super::Result;
+use crate::structs::SlackChannel;
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 /// Information on one human
 #[derive(Debug, Clone, Serialize, Deserialize)]

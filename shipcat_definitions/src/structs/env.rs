@@ -1,6 +1,8 @@
 use super::Result;
-use std::collections::{BTreeMap, BTreeSet};
-use std::mem;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    mem,
+};
 
 /// Environment variables to inject
 ///
@@ -67,7 +69,7 @@ impl EnvVars {
 
     pub fn verify(&self) -> Result<()> {
         for k in self.plain.keys() {
-            if k != &k.to_uppercase()  {
+            if k != &k.to_uppercase() {
                 bail!("Env vars need to be uppercase, found: {}", k);
             }
         }

@@ -1,7 +1,7 @@
-/// This file contains the `shipcat get` subcommand
-use std::collections::BTreeMap;
 use semver::Version;
 use shipcat_definitions::Environment;
+/// This file contains the `shipcat get` subcommand
+use std::collections::BTreeMap;
 
 use super::{Config, Region, Result};
 
@@ -63,13 +63,15 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
                 }
             }
         } else {
-            warn!("No squad found for {} in teams.yml - ignoring {}", md.team, mf.name);
+            warn!(
+                "No squad found for {} in teams.yml - ignoring {}",
+                md.team, mf.name
+            );
         }
 
         if !ghids.is_empty() {
             output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
         }
-
     }
     println!("{}", output.join("\n"));
     Ok(output)
@@ -91,7 +93,10 @@ pub fn vaultpolicy(conf: &Config, region: &Region, team_name: &str) -> Result<St
     let mfs = shipcat_filebacked::all(conf)?;
     let team = if let Some(s) = conf.owners.squads.get(team_name) {
         if s.github.admins.is_none() {
-            warn!("Squad '{}' does not define a github.admins team in teams.yml", s.name);
+            warn!(
+                "Squad '{}' does not define a github.admins team in teams.yml",
+                s.name
+            );
         }
         s.name.clone()
     } else {
@@ -220,7 +225,7 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
         }
     }
 
-    let output = APIStatusOutput{region, services};
+    let output = APIStatusOutput { region, services };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }

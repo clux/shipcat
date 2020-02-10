@@ -7,7 +7,9 @@ pub enum PortProtocol {
 }
 
 impl Default for PortProtocol {
-    fn default() -> Self { PortProtocol::Tcp }
+    fn default() -> Self {
+        PortProtocol::Tcp
+    }
 }
 
 /// Port to open on a container

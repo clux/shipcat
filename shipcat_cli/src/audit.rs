@@ -1,14 +1,12 @@
 use std::collections::BTreeMap;
 
+use chrono::{SecondsFormat, Utc};
 use serde::Serialize;
 use url::Url;
 use uuid::Uuid;
-use chrono::{Utc, SecondsFormat};
 
-use crate::webhooks::UpgradeState;
-use super::{Result, ResultExt, ErrorKind};
-use super::{AuditWebhook};
-use crate::apply::UpgradeInfo;
+use super::{AuditWebhook, ErrorKind, Result, ResultExt};
+use crate::{apply::UpgradeInfo, webhooks::UpgradeState};
 
 // Webhook Configuration Map
 type WHC = BTreeMap<String, String>;
@@ -38,24 +36,33 @@ struct AuditEvent<T: Serialize + Clone> {
     payload: T,
 }
 
-impl<T> AuditEvent<T> where T: Serialize + Clone {
+impl<T> AuditEvent<T>
+where
+    T: Serialize + Clone,
+{
     fn new(at: AuditType, whc: &WHC, status: &UpgradeState, payload: T) -> Self {
-        AuditEvent{
+        AuditEvent {
             domain_type: at.to_string(),
             timestamp: Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
             status: status.clone(),
             context_id: whc["SHIPCAT_AUDIT_CONTEXT_ID"].clone(),
-            context_link: whc.get("SHIPCAT_AUDIT_CONTEXT_LINK")
-                            .and_then(|l| Url::parse(&l).ok()),
-            payload
+            context_link: whc
+                .get("SHIPCAT_AUDIT_CONTEXT_LINK")
+                .and_then(|l| Url::parse(&l).ok()),
+            payload,
         }
     }
 
     fn send(&self, audcfg: &AuditWebhook) -> Result<()> {
         let endpoint = &audcfg.url;
-        debug!("event status: {}, url: {:?}", serde_json::to_string(&self.status)?, endpoint);
+        debug!(
+            "event status: {}, url: {:?}",
+            serde_json::to_string(&self.status)?,
+            endpoint
+        );
 
-        reqwest::Client::new().post(endpoint.clone())
+        reqwest::Client::new()
+            .post(endpoint.clone())
             .bearer_auth(audcfg.token.clone())
             .json(&self)
             .send()
@@ -169,9 +176,7 @@ mod tests {
     use std::collections::BTreeMap;
     use url::Url;
 
-    use crate::{audit, AuditWebhook, UpgradeState};
-    use crate::apply::UpgradeInfo;
-    use crate::{Manifest, Result};
+    use crate::{apply::UpgradeInfo, audit, AuditWebhook, Manifest, Result, UpgradeState};
 
     #[test]
     fn audit_does_audit_deployment() -> Result<()> {
@@ -180,7 +185,7 @@ mod tests {
         whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), "http://eg.server/".into());
         whc.insert("SHIPCAT_AUDIT_REVISION".into(), "egrevision".into());
 
-        let audcfg = AuditWebhook{
+        let audcfg = AuditWebhook {
             url: Url::parse(&format!("{}/audit", mockito::server_url()))?,
             token: "1234auth".into(),
         };
@@ -220,7 +225,12 @@ mod tests {
         whc.insert("SHIPCAT_AUDIT_REVISION".into(), "egrevision".into());
 
         let arp = audit::ReconciliationPayload::new(&whc, "region_name");
-        let ae = audit::AuditEvent::new(audit::AuditType::Reconciliation, &whc, &UpgradeState::Completed, arp);
+        let ae = audit::AuditEvent::new(
+            audit::AuditType::Reconciliation,
+            &whc,
+            &UpgradeState::Completed,
+            arp,
+        );
         assert_eq!(ae.domain_type, "reconciliation");
     }
 }

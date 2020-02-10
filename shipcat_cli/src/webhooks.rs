@@ -1,10 +1,5 @@
-use crate::{
-    audit,
-    slack,
-    Result
-};
-use crate::apply::UpgradeInfo;
 use super::{Config, Region, Webhook};
+use crate::{apply::UpgradeInfo, audit, slack, Result};
 
 /// The different states an upgrade can be in
 #[derive(Serialize, PartialEq, Clone)]
@@ -36,7 +31,7 @@ pub fn reconcile_event(us: UpgradeState, reg: &Region) {
     for wh in &reg.webhooks {
         if let Ok(whc) = wh.get_configuration() {
             let res = match wh {
-                Webhook::Audit(h) => audit::reconciliation(&us, &reg.name, &h, whc)
+                Webhook::Audit(h) => audit::reconciliation(&us, &reg.name, &h, whc),
             };
             if let Err(e) = res {
                 warn!("Failed to notify about reconciliation event: {}", e)
@@ -55,9 +50,9 @@ pub fn apply_event(us: UpgradeState, info: &UpgradeInfo, reg: &Region, conf: &Co
             let res = match wh {
                 Webhook::Audit(h) => {
                     match us {
-                        UpgradeState::Started |
-                        UpgradeState::Completed |
-                        UpgradeState::Failed => audit::apply(&us, &info, &h, whc),
+                        UpgradeState::Started | UpgradeState::Completed | UpgradeState::Failed => {
+                            audit::apply(&us, &info, &h, whc)
+                        }
                         _ => Ok(()), // audit only sends Started / Failed / Completed
                     }
                 }
@@ -70,31 +65,34 @@ pub fn apply_event(us: UpgradeState, info: &UpgradeInfo, reg: &Region, conf: &Co
 
     // slack notifications:
     let (color, text) = match us {
-        UpgradeState::Completed => (
-                "good",
-                format!("applied `{}` in `{}`", info.name, info.region)
-            ),
+        UpgradeState::Completed => ("good", format!("applied `{}` in `{}`", info.name, info.region)),
         UpgradeState::Failed => (
-                "danger",
-                format!("failed to apply `{}` in `{}`", info.name, info.region)
-            ),
+            "danger",
+            format!("failed to apply `{}` in `{}`", info.name, info.region),
+        ),
         _ => (
-                "good",
-                format!("action state: {}", serde_json::to_string(&us).unwrap_or("unknown".into()))
+            "good",
+            format!(
+                "action state: {}",
+                serde_json::to_string(&us).unwrap_or("unknown".into())
             ),
+        ),
     };
     match us {
         UpgradeState::Completed | UpgradeState::Failed => {
-            let _ = slack::send(slack::Message {
-                text,
-                code: info.diff.clone(),
-                color: Some(String::from(color)),
-                version: Some(info.version.clone()),
-                mode: info.slackMode.clone(),
-                metadata: info.metadata.clone(),
-            }, &conf.owners);
+            let _ = slack::send(
+                slack::Message {
+                    text,
+                    code: info.diff.clone(),
+                    color: Some(String::from(color)),
+                    version: Some(info.version.clone()),
+                    mode: info.slackMode.clone(),
+                    metadata: info.metadata.clone(),
+                },
+                &conf.owners,
+            );
         }
-        _ => {},
+        _ => {}
     }
 }
 
@@ -115,19 +113,23 @@ pub fn delete_event(us: &UpgradeState, info: &UpgradeInfo, reg: &Region, conf: &
         }
     }
     // slack notifies when we start the deletion only
+    #[allow(clippy::single_match)] // no PartialEq for UpgradeState
     match us {
         UpgradeState::Started => {
             let color = "warning";
             let text = format!("deleting `{}` in `{}`", info.name, reg.name);
-            let _ = slack::send(slack::Message {
-                text,
-                code: info.diff.clone(),
-                color: Some(String::from(color)),
-                version: Some(info.version.clone()),
-                mode: info.slackMode.clone(),
-                metadata: info.metadata.clone(),
-            }, &conf.owners);
-        },
+            let _ = slack::send(
+                slack::Message {
+                    text,
+                    code: info.diff.clone(),
+                    color: Some(String::from(color)),
+                    version: Some(info.version.clone()),
+                    mode: info.slackMode.clone(),
+                    metadata: info.metadata.clone(),
+                },
+                &conf.owners,
+            );
+        }
         _ => {}
     };
 }

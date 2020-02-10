@@ -1,4 +1,4 @@
-use super::{Result};
+use super::Result;
 
 /// Operator for a toleraton
 #[derive(Serialize, Deserialize, Clone)]
@@ -41,18 +41,20 @@ pub struct Tolerations {
 
 
 impl Tolerations {
-     pub fn verify(&self) -> Result<()> {
+    pub fn verify(&self) -> Result<()> {
         match self.operator {
-            Operator::Exists => {
-                assert!(self.value.is_none(), "must set tolerations.value when operator is Exists")
-            },
-            Operator::Equal => {
-                assert!(self.value.is_some(), "cannot set tolerations.value when operator is Equal")
-            }
+            Operator::Exists => assert!(
+                self.value.is_none(),
+                "must set tolerations.value when operator is Exists"
+            ),
+            Operator::Equal => assert!(
+                self.value.is_some(),
+                "cannot set tolerations.value when operator is Equal"
+            ),
         }
         if self.effect != Effect::NoExecute && self.tolerationSeconds.is_some() {
             bail!("cannot set tolerations.tolerationSeconds unless effect is NoExecute");
         }
         Ok(())
-     }
+    }
 }

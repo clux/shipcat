@@ -1,4 +1,4 @@
-use super::{ResourceRequirements, EnvVars, Probe, Port, VolumeMount};
+use super::{EnvVars, Port, Probe, ResourceRequirements, VolumeMount};
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]

@@ -1,4 +1,4 @@
-use crate::region::{Region};
+use crate::region::Region;
 use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -27,7 +27,6 @@ pub struct Kafka {
     ///   sasl.enabled.mechanisms: KAKFA_SASL_ENABLED_MECHANISMS
     ///   sasl.jaas.config:        KAFKA_SASL_JAAS_CONFIG
     ///   ssl.keystore.password:   KAFKA_SSL_KEYSTORE_PASSWORD
-    ///
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub propertyEnvMapping: Option<BTreeMap<String, String>>,
 }

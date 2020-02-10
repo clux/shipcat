@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::structs::{Metadata};
+use super::structs::Metadata;
 
 /// Subset of a service manifest without any region-level defaults/overrides.
 #[derive(Clone)]

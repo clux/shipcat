@@ -1,8 +1,8 @@
 use regex::Regex;
 
-use shipcat_definitions::{Result};
+use shipcat_definitions::Result;
 
-use crate::util::{Build};
+use crate::util::Build;
 
 #[derive(Deserialize, Clone)]
 pub struct ImageNameSource(String);
@@ -45,17 +45,15 @@ impl Build<String, ()> for ImageTagSource {
 
 #[cfg(test)]
 mod tests {
-    use crate::util::{Build};
     use super::{ImageNameSource, ImageTagSource};
+    use crate::util::Build;
 
     macro_rules! assert_valid {
-        ( $source_type:path, $expected:expr ) => {
-            {
-                let source = $source_type($expected.to_string());
-                let actual = source.build(&()).unwrap();
-                assert_eq!($expected, actual);
-            }
-        };
+        ( $source_type:path, $expected:expr ) => {{
+            let source = $source_type($expected.to_string());
+            let actual = source.build(&()).unwrap();
+            assert_eq!($expected, actual);
+        }};
     }
 
     #[test]
@@ -80,7 +78,11 @@ mod tests {
         assert_valid!(ImageNameSource, "quay.io:80/foo/bar");
         assert_valid!(ImageNameSource, "quay.io:80/foo/bar/baz");
 
-        ImageNameSource("alpine:latest".to_string()).build(&()).unwrap_err();
-        ImageNameSource("foo/bar:latest".to_string()).build(&()).unwrap_err();
+        ImageNameSource("alpine:latest".to_string())
+            .build(&())
+            .unwrap_err();
+        ImageNameSource("foo/bar:latest".to_string())
+            .build(&())
+            .unwrap_err();
     }
 }

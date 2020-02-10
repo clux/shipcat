@@ -1,24 +1,28 @@
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use merge::Merge;
 use serde::de::DeserializeOwned;
 use shipcat_definitions::{Config, ErrorKind, Manifest, Region, Result, ResultExt};
 use walkdir::WalkDir;
 
+use super::{
+    authorization::AuthorizationSource,
+    util::{Build, Enabled},
+    BaseManifest, SimpleManifest,
+};
 use crate::manifest::{ManifestDefaults, ManifestOverrides, ManifestSource};
-use super::{SimpleManifest, BaseManifest};
-use super::authorization::{AuthorizationSource};
-use super::util::{Build, Enabled};
 
 impl ManifestSource {
     pub fn load_manifest(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
-        let reg_name = reg.clone().name;
-        let service_name = service.clone();
+        let reg_name = reg.name.clone();
+        let service_name = service.to_string();
 
         ManifestSource::load_merged(service, conf, reg)
             .and_then(|manifest| manifest.build(&(conf.clone(), reg.clone())))
-            .chain_err(|| ErrorKind::FailedToBuildManifest(service_name.to_string(), reg_name.to_string()))
+            .chain_err(|| ErrorKind::FailedToBuildManifest(service_name.clone(), reg_name.clone()))
     }
 
     pub fn load_metadata(service: &str, conf: &Config, reg: &Region) -> Result<SimpleManifest> {
@@ -39,20 +43,20 @@ impl ManifestSource {
 
         let source_path = Self::services_dir().join(service).join("manifest.yml");
         debug!("Loading service manifest from {:?}", source_path);
-        let source : ManifestSource = read_from(&source_path)?;
+        let source: ManifestSource = read_from(&source_path)?;
         let mut manifest = defaults.merge_source(source);
 
         let env_path = dir.join(format!("{}.yml", reg.environment.to_string()));
         if env_path.is_file() {
             debug!("Loading service overrides from {:?}", env_path);
-            let env : ManifestOverrides = read_from(&env_path)?;
+            let env: ManifestOverrides = read_from(&env_path)?;
             manifest = manifest.merge_overrides(env);
         }
 
         let region_path = dir.join(format!("{}.yml", reg.name));
         if region_path.is_file() {
             debug!("Loading service overrides from {:?}", region_path);
-            let region : ManifestOverrides = read_from(&region_path)?;
+            let region: ManifestOverrides = read_from(&region_path)?;
             manifest = manifest.merge_overrides(region);
         }
 
@@ -60,7 +64,7 @@ impl ManifestSource {
     }
 
     fn all_names() -> Vec<String> {
-        let mut res : Vec<_> = WalkDir::new(&ManifestSource::services_dir())
+        let mut res: Vec<_> = WalkDir::new(&ManifestSource::services_dir())
             .min_depth(1)
             .max_depth(1)
             .into_iter()
@@ -84,7 +88,7 @@ impl ManifestSource {
         for service in Self::all_names() {
             let source_path = Self::services_dir().join(service).join("manifest.yml");
             debug!("Loading service manifest from {:?}", source_path);
-            let source : ManifestSource = read_from(&source_path)?;
+            let source: ManifestSource = read_from(&source_path)?;
             let manifest = source.build_base(conf)?;
             all.push(manifest);
         }
@@ -108,7 +112,6 @@ impl ManifestSource {
 }
 
 impl ManifestDefaults {
-
     fn from_global(conf: &Config) -> Result<Self> {
         let mut defs = Self::default();
         defs.chart = Option::Some(conf.defaults.chart.clone());
@@ -160,12 +163,10 @@ fn read_from<T: DeserializeOwned>(path: &PathBuf) -> Result<T> {
 
 #[cfg(test)]
 mod tests {
-    use std::env;
-    use std::fs;
-    use std::path::{Path};
+    use std::{env, fs, path::Path};
 
-    use shipcat_definitions::{Config};
-    use super::{ManifestSource};
+    use super::ManifestSource;
+    use shipcat_definitions::Config;
 
     fn setup() {
         let pwd = env::current_dir().unwrap();

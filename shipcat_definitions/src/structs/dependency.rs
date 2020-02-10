@@ -1,5 +1,5 @@
-use std::path::Path;
 use super::Result;
+use std::path::Path;
 
 /// Supported dependency protocols
 ///
@@ -42,7 +42,9 @@ pub struct Dependency {
     pub intent: Option<String>,
 }
 
-fn default_api_version() -> String { "v1".into() }
+fn default_api_version() -> String {
+    "v1".into()
+}
 
 
 impl Dependency {
@@ -54,8 +56,12 @@ impl Dependency {
         }
         if self.api != "" {
             let vstr = self.api.chars().skip_while(|ch| *ch == 'v').collect::<String>();
-            let ver : usize = vstr.parse()?;
-            trace!("Parsed api version of dependency {} as {}", self.name.clone(), ver);
+            let ver: usize = vstr.parse()?;
+            trace!(
+                "Parsed api version of dependency {} as {}",
+                self.name.clone(),
+                ver
+            );
         }
         Ok(())
     }

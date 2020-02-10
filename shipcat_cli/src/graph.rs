@@ -1,23 +1,26 @@
-use petgraph::graph::{DiGraph, NodeIndex};
-use petgraph::dot;
+use petgraph::{
+    dot,
+    graph::{DiGraph, NodeIndex},
+};
 use std::fmt::{self, Debug};
 
-use super::{Manifest, Region, Config};
-use super::structs::{Dependency, DependencyProtocol};
-use super::{Result};
+use super::{
+    structs::{Dependency, DependencyProtocol},
+    Config, Manifest, Region, Result,
+};
 
 /// The node type in `CatGraph` representing a `Manifest`
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ManifestNode {
     pub name: String,
-    //pub image: String,
+    // pub image: String,
 }
 impl ManifestNode {
     fn new(mf: &Manifest) -> Self {
         ManifestNode {
             name: mf.name.clone(),
-            // image would be nice, but requires env override atm - should be global
-            //image: format!("{}", mf.image.clone().unwrap()),
+            /* image would be nice, but requires env override atm - should be global
+             * image: format!("{}", mf.image.clone().unwrap()), */
         }
     }
 }
@@ -69,7 +72,13 @@ pub fn nodeidx_from_name(name: &str, graph: &CatGraph) -> Option<NodeIndex> {
     None
 }
 
-fn recurse_manifest(idx: NodeIndex, mf: &Manifest, conf: &Config, reg: &Region, graph: &mut CatGraph) -> Result<()> {
+fn recurse_manifest(
+    idx: NodeIndex,
+    mf: &Manifest,
+    conf: &Config,
+    reg: &Region,
+    graph: &mut CatGraph,
+) -> Result<()> {
     for dep in &mf.dependencies {
         debug!("Recursing into {}", dep.name);
         // skip if node exists to avoid infinite loop
@@ -96,7 +105,7 @@ fn recurse_manifest(idx: NodeIndex, mf: &Manifest, conf: &Config, reg: &Region, 
 pub fn generate(service: &str, conf: &Config, reg: &Region, dot: bool) -> Result<CatGraph> {
     let base = shipcat_filebacked::load_manifest(service, conf, reg)?;
 
-    let mut graph : CatGraph = DiGraph::<_, _>::new();
+    let mut graph: CatGraph = DiGraph::<_, _>::new();
     let node = ManifestNode::new(&base);
     let baseidx = graph.add_node(node);
 
@@ -104,8 +113,7 @@ pub fn generate(service: &str, conf: &Config, reg: &Region, dot: bool) -> Result
 
     let out = if dot {
         format!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel]))
-    }
-    else {
+    } else {
         serde_yaml::to_string(&graph)?
     };
     println!("{}", out);
@@ -119,7 +127,7 @@ pub fn generate(service: &str, conf: &Config, reg: &Region, dot: bool) -> Result
 ///
 /// But it would require: TODO: optionally filter edges around node(s)
 pub fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
-    let mut graph : CatGraph = DiGraph::<_, _>::new();
+    let mut graph: CatGraph = DiGraph::<_, _>::new();
     for svc in shipcat_filebacked::available(conf, reg)? {
         debug!("Scanning service {:?}", svc);
 
@@ -143,8 +151,7 @@ pub fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
 
     let out = if dot {
         format!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel]))
-    }
-    else {
+    } else {
         serde_yaml::to_string(&graph)?
     };
     println!("{}", out);

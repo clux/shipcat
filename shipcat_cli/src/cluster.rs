@@ -1,16 +1,16 @@
-use threadpool::ThreadPool;
 use std::sync::mpsc::channel;
+use threadpool::ThreadPool;
 
-use shipcat_definitions::{Config, Region, BaseManifest};
-use shipcat_filebacked::{SimpleManifest};
+use shipcat_definitions::{BaseManifest, Config, Region};
+use shipcat_filebacked::SimpleManifest;
 
+use super::{kubectl, Error, ErrorKind, Result};
+use crate::{
+    apply, diff, helm,
+    status::ShipKube,
+    webhooks::{self, UpgradeState},
+};
 use rayon::{iter::Either, prelude::*};
-use crate::apply;
-use crate::helm;
-use crate::{status::ShipKube, diff};
-use super::kubectl;
-use crate::webhooks::{self, UpgradeState};
-use super::{Result, Error, ErrorKind};
 
 /// Diffs all services in a region
 ///
@@ -19,10 +19,10 @@ pub fn mass_diff(conf: &Config, reg: &Region) -> Result<()> {
     let svcs = shipcat_filebacked::available(conf, reg)?;
     assert!(conf.has_secrets());
 
-    let (errs, diffs) : (Vec<Error>, Vec<_>) = svcs.par_iter()
+    let (errs, diffs): (Vec<Error>, Vec<_>) = svcs
+        .par_iter()
         .map(|mf| {
-            let mut mf = shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?
-                .complete(&reg)?;
+            let mut mf = shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?.complete(&reg)?;
             // complete with version and uid from crd
             let s = ShipKube::new(&mf)?;
             let crd = s.get()?;
@@ -55,10 +55,10 @@ pub fn mass_diff(conf: &Config, reg: &Region) -> Result<()> {
                 Error(ErrorKind::KubeError(e2), _) => {
                     warn!("{}", e2); // probably missing service (undiffeable)
                 }
-                Error(ErrorKind::MissingRollingVersion(svc),_) => {
+                Error(ErrorKind::MissingRollingVersion(svc), _) => {
                     // This only happens in rolling envs because version is mandatory in other envs
                     warn!("ignored missing service {}: {}", svc, e.description());
-                },
+                }
                 _ => {
                     error!("{}", e);
                     debug!("{:?}", e);
@@ -78,10 +78,10 @@ pub fn mass_template_verify(conf: &Config, reg: &Region) -> Result<()> {
     let svcs = shipcat_filebacked::available(conf, reg)?;
     assert!(conf.has_secrets());
 
-    let (errs, passed) : (Vec<Error>, Vec<_>) = svcs.par_iter()
+    let (errs, passed): (Vec<Error>, Vec<_>) = svcs
+        .par_iter()
         .map(|mf| {
-            let mut mf = shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?
-                .stub(&reg)?;
+            let mut mf = shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?.stub(&reg)?;
             mf.version = mf.version.or(Some("latest".to_string()));
             mf.uid = Some("FAKE-GUID".to_string());
 
@@ -113,19 +113,31 @@ pub fn mass_crd(conf_sec: &Config, conf_base: &Config, reg: &Region, n_workers: 
     crd_reconcile(svcs, conf_sec, conf_base, &reg.name, n_workers)
 }
 
-fn crd_reconcile(svcs: Vec<SimpleManifest>,
-    config_sec: &Config, config_base: &Config,
+fn crd_reconcile(
+    svcs: Vec<SimpleManifest>,
+    config_sec: &Config,
+    config_base: &Config,
     region: &str,
-    n_workers: usize) -> Result<()>
-{
+    n_workers: usize,
+) -> Result<()> {
     // NB: This needs config_base for base crd application
     // shipcatconfig crd should not have secrets when applied
     // shipcatmanifest_crd should not have secrets when applied (fine as long as manifest is not complete())
     // but when doing the actual upgrade we need a config + region with secrets.
     assert!(config_sec.has_secrets());
     assert!(!config_base.has_secrets());
-    let region_sec = config_sec.get_regions().iter().find(|r| r.name == region).unwrap().clone();
-    let region_base = config_base.get_regions().iter().find(|r| r.name == region).unwrap().clone();
+    let region_sec = config_sec
+        .get_regions()
+        .iter()
+        .find(|r| r.name == region)
+        .unwrap()
+        .clone();
+    let region_base = config_base
+        .get_regions()
+        .iter()
+        .find(|r| r.name == region)
+        .unwrap()
+        .clone();
 
     webhooks::reconcile_event(UpgradeState::Pending, &region_sec);
     // Reconcile CRDs (definition itself)
@@ -149,13 +161,17 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>,
     if !excess.is_empty() {
         info!("Will remove excess manifests: {:?}", excess);
     }
-    for svc in excess { // NB: doing deletion sequentially...
+    for svc in excess {
+        // NB: doing deletion sequentially...
         apply::delete(&svc, &region_sec, &config_sec)?;
     }
 
     let n_jobs = svcs.len();
     let pool = ThreadPool::new(n_workers);
-    info!("Starting {} parallel kube jobs using {} workers", n_jobs, n_workers);
+    info!(
+        "Starting {} parallel kube jobs using {} workers",
+        n_jobs, n_workers
+    );
 
     webhooks::reconcile_event(UpgradeState::Started, &region_sec);
     // then parallel apply the remaining ones
@@ -175,26 +191,34 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>,
         });
     }
     // wait for threads collect errors
-    let res = rx.iter().take(n_jobs).map(|r| {
-        match r {
-            Ok(_) => {},
-            Err(ref e) => warn!("{}", e),
-        }
-        r
-    }).filter_map(Result::err).collect::<Vec<_>>();
+    let res = rx
+        .iter()
+        .take(n_jobs)
+        .map(|r| {
+            match r {
+                Ok(_) => {}
+                Err(ref e) => warn!("{}", e),
+            }
+            r
+        })
+        .filter_map(Result::err)
+        .collect::<Vec<_>>();
 
     // propagate first non-ignorable error if exists
     for e in res {
         match e {
-            Error(ErrorKind::MissingRollingVersion(svc),_) => {
+            Error(ErrorKind::MissingRollingVersion(svc), _) => {
                 // This only happens in rolling envs because version is mandatory in other envs
-                warn!("'{}' missing version for {} - please add or install", svc, region_sec.name);
-            },
+                warn!(
+                    "'{}' missing version for {} - please add or install",
+                    svc, region_sec.name
+                );
+            }
             // remaining cases not ignorable
             _ => {
                 webhooks::reconcile_event(UpgradeState::Failed, &region_sec);
-                return Err(e)
-            },
+                return Err(e);
+            }
         }
     }
 
@@ -227,7 +251,10 @@ pub fn mass_vault(conf: &Config, reg: &Region, n_workers: usize) -> Result<()> {
 fn vault_reconcile(mfs: Vec<BaseManifest>, conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
     let n_jobs = conf.owners.squads.len();
     let pool = ThreadPool::new(n_workers);
-    info!("Starting {} parallel vault jobs using {} workers", n_jobs, n_workers);
+    info!(
+        "Starting {} parallel vault jobs using {} workers",
+        n_jobs, n_workers
+    );
 
     // then parallel apply the remaining ones
     let (tx, rx) = channel();
@@ -245,17 +272,22 @@ fn vault_reconcile(mfs: Vec<BaseManifest>, conf: &Config, region: &Region, n_wor
     }
 
     // wait for threads collect errors
-    let res = rx.iter().take(n_jobs).map(|r| {
-        match r {
-            Ok(_) => {},
-            Err(ref e) => warn!("error: {}", e),
-        }
-        r
-    }).filter_map(Result::err).collect::<Vec<_>>();
+    let res = rx
+        .iter()
+        .take(n_jobs)
+        .map(|r| {
+            match r {
+                Ok(_) => {}
+                Err(ref e) => warn!("error: {}", e),
+            }
+            r
+        })
+        .filter_map(Result::err)
+        .collect::<Vec<_>>();
     // propagate first non-ignorable error if exists
     if let Some(e) = res.into_iter().next() {
         // no errors ignoreable atm
-        return Err(e)
+        return Err(e);
     }
     Ok(())
 }
@@ -264,14 +296,12 @@ fn vault_reconcile_worker(
     svcs: Vec<BaseManifest>,
     team: &str,
     admins_opt: Option<String>,
-    reg: Region) -> Result<()>
-{
-    use std::path::Path;
-    use std::fs::File;
-    use std::io::Write;
+    reg: Region,
+) -> Result<()> {
+    use std::{fs::File, io::Write, path::Path};
     if admins_opt.is_none() {
         debug!("'{}' does not have a github admins team - ignoring", team);
-        return Ok(()) // nothing to do
+        return Ok(()); // nothing to do
     };
     let admins = admins_opt.unwrap();
 
@@ -301,7 +331,10 @@ fn vault_reconcile_worker(
     }
     // vault write auth -> team
     {
-        info!("Associating vault policy for {} with github team {} in {}", team, admins, reg.name);
+        info!(
+            "Associating vault policy for {} with github team {} in {}",
+            team, admins, reg.name
+        );
         let assoc_args = vec![
             "write".into(),
             format!("auth/github/map/teams/{}", admins),

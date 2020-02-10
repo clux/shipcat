@@ -9,8 +9,8 @@ fn exec(args: &[&str]) -> Result<String> {
     if !s.status.success() {
         bail!("Subprocess failure from git: {}", s.status.code().unwrap_or(1001))
     }
-    let out : String = String::from_utf8_lossy(&s.stdout).into();
-    let err : String = String::from_utf8_lossy(&s.stderr).into();
+    let out: String = String::from_utf8_lossy(&s.stdout).into();
+    let err: String = String::from_utf8_lossy(&s.stderr).into();
     if !err.is_empty() {
         warn!("{} stderr: {}", args.join(" "), err);
     }
@@ -28,7 +28,8 @@ pub fn merge_base() -> Result<String> {
 
 // Are there local changes in the index or working copy?
 pub fn needs_stash() -> bool {
-    exec(&["diff", "--quiet", "--exit-code"]).is_err() || exec(&["diff", "--cached", "--quiet", "--exit-code"]).is_err()
+    exec(&["diff", "--quiet", "--exit-code"]).is_err()
+        || exec(&["diff", "--cached", "--quiet", "--exit-code"]).is_err()
 }
 
 

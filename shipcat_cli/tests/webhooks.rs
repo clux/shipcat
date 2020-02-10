@@ -7,8 +7,10 @@ use std::env;
 use shipcat;
 use shipcat_definitions;
 
-use crate::shipcat::webhooks;
-use crate::shipcat_definitions::{Config, ConfigState};
+use crate::{
+    shipcat::webhooks,
+    shipcat_definitions::{Config, ConfigState},
+};
 
 #[test]
 // #[serial] not available still :( so have to concatenate two tests messing with evars

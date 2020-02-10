@@ -1,9 +1,11 @@
-//use super::traits::Verify;
-use crate::structs::{Kong, Cors, BabylonAuthHeader, Authentication};
-use crate::region::{KongConfig};
-use crate::{Region};
+// use super::traits::Verify;
+use crate::{
+    region::KongConfig,
+    structs::{Authentication, BabylonAuthHeader, Cors, Kong},
+    Region,
+};
+use serde::ser::{Serialize, SerializeMap, Serializer};
 use std::collections::BTreeMap;
-use serde::ser::{Serialize, Serializer, SerializeMap};
 
 /// Kongfig structs
 /// https://github.com/mybuilder/kongfig
@@ -54,27 +56,29 @@ impl CorsPluginConfig {
             methods: splitter(cors.methods),
             origins: splitter(cors.origin),
             headers: splitter(cors.headers),
-            preflight_continue: cors.preflight_continue
+            preflight_continue: cors.preflight_continue,
         }
     }
 }
 
 /// Serialise nil as brackets, a strange kongfig idiom
 fn none_as_brackets<S, T>(t: &Option<T>, s: S) -> Result<S::Ok, S::Error>
-where T: Serialize,
-      S: Serializer
+where
+    T: Serialize,
+    S: Serializer,
 {
     match t {
         Some(ref value) => s.serialize_some(value),
-        None            => s.serialize_map(Some(0))?.end(),
+        None => s.serialize_map(Some(0))?.end(),
     }
 }
 
 /// Serialise empty as brackets.
 /// Kong represents an empty list as {}, so Kongfig expects the same to correctly diff the state to work out required changes.
 fn empty_as_brackets<S, T>(t: &[T], s: S) -> Result<S::Ok, S::Error>
-where T: Serialize,
-      S: Serializer
+where
+    T: Serialize,
+    S: Serializer,
 {
     if t.is_empty() {
         s.serialize_map(Some(0))?.end()
@@ -108,7 +112,7 @@ impl ResponseTransformerPluginConfig {
         ResponseTransformerPluginConfig {
             add: HeadersAndJson {
                 headers: Some(headers_strs),
-                json: None
+                json: None,
             },
             append: HeadersAndJson::default(),
             remove: HeadersAndJson::default(),
@@ -200,7 +204,7 @@ impl JwtPluginConfig {
 
             anonymous: match anonymous_consumer.clone() {
                 Some(_s) => None,
-                None     => Some("".into()),
+                None => Some("".into()),
             },
             anonymous_username: anonymous_consumer.map(|_| "anonymous".into()),
             secret_is_base64: false,
@@ -218,13 +222,11 @@ pub struct JwtValidatorPluginConfig {
 }
 
 #[derive(Serialize, Clone)]
-pub struct JsonCookiesCsrfPluginConfig {
-}
+pub struct JsonCookiesCsrfPluginConfig {}
 
 impl Default for JsonCookiesCsrfPluginConfig {
     fn default() -> Self {
-        JsonCookiesCsrfPluginConfig {
-        }
+        JsonCookiesCsrfPluginConfig {}
     }
 }
 
@@ -311,7 +313,9 @@ pub enum PluginBase<T> {
 }
 
 impl<T: Default> Default for PluginBase<T> {
-    fn default() -> Self { PluginBase::new(T::default()) }
+    fn default() -> Self {
+        PluginBase::new(T::default())
+    }
 }
 
 impl<T> PluginBase<T> {
@@ -321,6 +325,7 @@ impl<T> PluginBase<T> {
             config: config,
         })
     }
+
     fn removed() -> Self {
         PluginBase::Removed
     }
@@ -336,16 +341,13 @@ impl<T: Default> Default for PluginAttributes<T> {
     fn default() -> Self {
         PluginAttributes {
             enabled: true,
-            config: T::default()
+            config: T::default(),
         }
     }
 }
 
 fn splitter(value: String) -> Vec<String> {
-    value.split(',')
-        .map(|h| h.trim())
-        .map(String::from)
-        .collect()
+    value.split(',').map(|h| h.trim()).map(String::from).collect()
 }
 
 pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &Region) -> Vec<Api> {
@@ -360,33 +362,40 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
 
         // If globally enabled: TCP Logging
         if config.tcp_log.enabled {
-            plugins.push(ApiPlugin::TcpLog(PluginBase::new(
-                TcpLogPluginConfig::new(&config.tcp_log.host, config.tcp_log.port.parse().unwrap()),
-            )));
+            plugins.push(ApiPlugin::TcpLog(PluginBase::new(TcpLogPluginConfig::new(
+                &config.tcp_log.host,
+                config.tcp_log.port.parse().unwrap(),
+            ))));
         }
 
         if let Some(a) = v.authorization {
-            plugins.push(ApiPlugin::Jwt(PluginBase::new(JwtPluginConfig::new(if a.allow_anonymous {
-                Some("anonymous".to_string())
-            } else {
-                None
-            }))));
-            plugins.push(ApiPlugin::JwtValidator(PluginBase::new(JwtValidatorPluginConfig {
-                allowed_audiences: a.allowed_audiences,
-                expected_scope: a.required_scopes.get(0).map_or("".to_string(), |s| s.to_string()),
-                allow_invalid_tokens: a.allow_invalid_tokens,
-                expected_region: region.name.clone(),
-            })));
+            plugins.push(ApiPlugin::Jwt(PluginBase::new(JwtPluginConfig::new(
+                if a.allow_anonymous {
+                    Some("anonymous".to_string())
+                } else {
+                    None
+                },
+            ))));
+            plugins.push(ApiPlugin::JwtValidator(PluginBase::new(
+                JwtValidatorPluginConfig {
+                    allowed_audiences: a.allowed_audiences,
+                    expected_scope: a.required_scopes.get(0).map_or("".to_string(), |s| s.to_string()),
+                    allow_invalid_tokens: a.allow_invalid_tokens,
+                    expected_region: region.name.clone(),
+                },
+            )));
             if a.allow_cookies {
-                plugins.push(ApiPlugin::JsonCookiesToHeaders(PluginBase::new(JsonCookiesToHeadersPluginConfig {
-                    auth_service: a.refresh_auth_service,
-                    body_refresh_token_key: a.refresh_body_refresh_token_key,
-                    cookie_max_age_sec: a.refresh_max_age_sec,
-                    cookie_domain: a.refresh_cookie_domain,
-                    enable_refresh_expired_access_tokens: Some(a.enable_cookie_refresh),
-                    http_timeout_msec: a.refresh_http_timeout_msec,
-                    renew_before_expiry_sec: a.refresh_renew_before_expiry_sec,
-                })));
+                plugins.push(ApiPlugin::JsonCookiesToHeaders(PluginBase::new(
+                    JsonCookiesToHeadersPluginConfig {
+                        auth_service: a.refresh_auth_service,
+                        body_refresh_token_key: a.refresh_body_refresh_token_key,
+                        cookie_max_age_sec: a.refresh_max_age_sec,
+                        cookie_domain: a.refresh_cookie_domain,
+                        enable_refresh_expired_access_tokens: Some(a.enable_cookie_refresh),
+                        http_timeout_msec: a.refresh_http_timeout_msec,
+                        renew_before_expiry_sec: a.refresh_renew_before_expiry_sec,
+                    },
+                )));
                 plugins.push(ApiPlugin::JsonCookiesCsrf(PluginBase::default()));
             } else {
                 plugins.push(ApiPlugin::JsonCookiesToHeaders(PluginBase::removed()));
@@ -395,9 +404,7 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
         } else {
             // JWT plugin
             plugins.push(ApiPlugin::Jwt(match v.auth {
-                Some(Authentication::Jwt) => PluginBase::new(JwtPluginConfig::new(
-                    None,
-                )),
+                Some(Authentication::Jwt) => PluginBase::new(JwtPluginConfig::new(None)),
                 _ => PluginBase::removed(),
             }));
             plugins.push(ApiPlugin::JwtValidator(PluginBase::removed()));
@@ -431,9 +438,9 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
 
         if let Some(upstream_service) = v.upstream_service {
             plugins.push(ApiPlugin::RequestTransformer(PluginBase::new(
-                RequestTransformerPluginConfig::new(btreemap!{
+                RequestTransformerPluginConfig::new(btreemap! {
                     "Upstream-Service".into() => upstream_service,
-                })
+                }),
             )))
         } else {
             plugins.push(ApiPlugin::RequestTransformer(PluginBase::removed()))
@@ -441,10 +448,12 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
 
         // If enabled: PiiRegionHeader
         if let Some(pii_region_header) = v.pii_region_header {
-            plugins.push(ApiPlugin::PiiRegionHeader(PluginBase::new(PiiRegionHeaderPluginConfig {
-                region_service_uri: pii_region_header.region_service_uri,
-                enabled: pii_region_header.enabled,
-            })));
+            plugins.push(ApiPlugin::PiiRegionHeader(PluginBase::new(
+                PiiRegionHeaderPluginConfig {
+                    region_service_uri: pii_region_header.region_service_uri,
+                    enabled: pii_region_header.enabled,
+                },
+            )));
         }
 
         // Create the main API object
@@ -461,31 +470,32 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
                 upstream_send_timeout: v.upstream_send_timeout.unwrap_or(30000),
                 upstream_url: v.upstream_url,
                 ..Default::default()
-            }
+            },
         });
     }
     apis
 }
 
 pub fn kongfig_consumers(k: KongConfig) -> Vec<Consumer> {
-
-    let mut consumers: Vec<Consumer> = k.jwt_consumers.into_iter().map(|(k,v)| {
-        Consumer {
-            username: k.to_string(),
+    let mut consumers: Vec<Consumer> = k
+        .jwt_consumers
+        .into_iter()
+        .map(|(k, v)| Consumer {
+            username: k,
             acls: vec![],
             credentials: vec![ConsumerCredentials::Jwt(JwtCredentialsAttributes {
                 key: v.kid,
                 algorithm: "RS256".into(),
                 rsa_public_key: v.public_key,
-            })]
-        }
-    }).collect();
+            })],
+        })
+        .collect();
 
     // Add the anonymous customer as well
     consumers.push(Consumer {
         username: "anonymous".into(),
         acls: vec![],
-        credentials: vec![]
+        credentials: vec![],
     });
 
     consumers
@@ -499,7 +509,7 @@ pub struct Consumer {
 }
 
 #[derive(Serialize, Clone)]
-#[serde(tag = "name", content = "attributes", rename_all="kebab-case")]
+#[serde(tag = "name", content = "attributes", rename_all = "kebab-case")]
 pub enum ConsumerCredentials {
     Jwt(JwtCredentialsAttributes),
 }

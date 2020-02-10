@@ -2,8 +2,7 @@ use merge::Merge;
 
 use shipcat_definitions::structs::Authorization;
 
-use super::Result;
-use super::util::{Build};
+use super::{util::Build, Result};
 
 #[derive(Deserialize, Default, Merge, Clone)]
 pub struct AuthorizationSource {
@@ -36,7 +35,9 @@ impl Build<Authorization, ()> for AuthorizationSource {
         }
 
         let enable_cookie_refresh = self.enable_cookie_refresh.unwrap_or(false);
-        if enable_cookie_refresh && (self.refresh_auth_service.is_none() || self.refresh_body_refresh_token_key.is_none()){
+        if enable_cookie_refresh
+            && (self.refresh_auth_service.is_none() || self.refresh_body_refresh_token_key.is_none())
+        {
             bail!("enable_cookie_refresh requires refresh_auth_service and refresh_body_refresh_token_key");
         }
 

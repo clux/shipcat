@@ -1,9 +1,7 @@
+use super::{Config, Manifest, Region, Result};
+use crate::{git, helm, kubectl};
 use regex::Regex;
 use shipcat_definitions::Crd;
-use crate::kubectl;
-use crate::helm;
-use crate::git;
-use super::{Config, Region, Manifest, Result};
 use std::process::Command;
 
 
@@ -106,9 +104,11 @@ pub fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool
     Ok(s.success())
 }
 
-use std::path::Path;
-use std::fs::{self, File};
-use std::io::Write;
+use std::{
+    fs::{self, File},
+    io::Write,
+    path::Path,
+};
 
 /// Diff values using kubectl diff
 ///
@@ -198,9 +198,10 @@ pub fn minify(diff: &str) -> String {
 fn minify_helm(diff: &str) -> String {
     let has_changed_re = Regex::new(r"has changed|^\- |^\+ ").unwrap();
     // only show lines that includes "has changed" or starting with + or -
-    diff.split('\n').filter(|l| {
-        has_changed_re.is_match(l)
-    }).collect::<Vec<_>>().join("\n")
+    diff.split('\n')
+        .filter(|l| has_changed_re.is_match(l))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 
@@ -217,8 +218,7 @@ fn minify_kube(diff: &str) -> String {
     for l in diff.lines() {
         if let Some(cap) = type_re.captures(l) {
             res.push(format!("{} has changed:", &cap[1]));
-        }
-        else if !l.starts_with("+++") && !generation_re.is_match(l) && has_changed_re.is_match(l) {
+        } else if !l.starts_with("+++") && !generation_re.is_match(l) && has_changed_re.is_match(l) {
             res.push(l.to_string());
         }
     }
@@ -247,9 +247,10 @@ pub fn is_version_only(diff: &str, vers: (&str, &str)) -> bool {
 /// Infer a version change diff and extract old version and new version
 pub fn infer_version_change(diff: &str) -> Option<(String, String)> {
     let img_re = Regex::new(r"[^:]+:(?P<version>[a-z0-9\.\-]+)").unwrap();
-    let res = img_re.captures_iter(diff).map(|cap| {
-        cap["version"].to_string()
-    }).collect::<Vec<String>>();
+    let res = img_re
+        .captures_iter(diff)
+        .map(|cap| cap["version"].to_string())
+        .collect::<Vec<String>>();
     if res.len() >= 2 {
         return Some((res[0].clone(), res[1].clone()));
     }
@@ -272,7 +273,7 @@ pub fn obfuscate_secrets(input: String, secrets: Vec<String>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{minify, infer_version_change, is_version_only};
+    use super::{infer_version_change, is_version_only, minify};
 
     #[test]
     fn version_change_test() {
@@ -369,9 +370,12 @@ mod tests {
            value: DEBUG
          - name: NAMESPACE";
 
-        assert_eq!(minify(input), "apps.v1.Deployment.dev.raftcat has changed:
+        assert_eq!(
+            minify(input),
+            "apps.v1.Deployment.dev.raftcat has changed:
 -          value: eirik4
-+          value: eirik5");
++          value: eirik5"
+        );
     }
 
     #[test]

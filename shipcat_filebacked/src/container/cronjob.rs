@@ -1,12 +1,14 @@
 use merge::Merge;
 
-use shipcat_definitions::Result;
-use shipcat_definitions::structs::{JobVolumeClaim, CronJob};
+use shipcat_definitions::{
+    structs::{CronJob, JobVolumeClaim},
+    Result,
+};
 
-use crate::util::{Build, Require, RelaxedString};
+use crate::util::{Build, RelaxedString, Require};
 use std::collections::BTreeMap;
 
-use super::source::{ContainerSource, ContainerBuildParams};
+use super::source::{ContainerBuildParams, ContainerSource};
 
 #[derive(Deserialize, Merge, Clone, Default)]
 #[serde(default, rename_all = "camelCase")]

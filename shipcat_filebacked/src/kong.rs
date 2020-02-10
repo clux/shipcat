@@ -1,11 +1,15 @@
 use merge::Merge;
 use std::collections::BTreeMap;
 
-use shipcat_definitions::structs::{Authentication, Authorization, BabylonAuthHeader, Cors, Kong, PiiRegionHeader};
-use shipcat_definitions::{Region, KongConfig, Result};
+use shipcat_definitions::{
+    structs::{Authentication, Authorization, BabylonAuthHeader, Cors, Kong, PiiRegionHeader},
+    KongConfig, Region, Result,
+};
 
-use super::authorization::AuthorizationSource;
-use super::util::{Build, Enabled, EnabledMap};
+use super::{
+    authorization::AuthorizationSource,
+    util::{Build, Enabled, EnabledMap},
+};
 
 #[derive(Deserialize, Default, Merge, Clone)]
 #[serde(default)]
@@ -27,14 +31,17 @@ pub struct KongApisBuildParams {
 
 impl Build<Vec<Kong>, KongApisBuildParams> for KongApisSource {
     fn build(self, params: &KongApisBuildParams) -> Result<Vec<Kong>> {
-        let defaults = Enabled { enabled: None, item: self.defaults };
+        let defaults = Enabled {
+            enabled: None,
+            item: self.defaults,
+        };
 
         if let Some(k) = KongApisSource::build_single_api(&defaults, params)? {
             debug!("Using single Kong API for {}", params.service);
             if !self.apis.is_empty() {
                 bail!(".kong and .kong_apis properties are mutually exclusive")
             }
-            return Ok(vec![k])
+            return Ok(vec![k]);
         }
 
         let mut built = Vec::new();
@@ -60,10 +67,16 @@ impl Build<Vec<Kong>, KongApisBuildParams> for KongApisSource {
 }
 
 impl KongApisSource {
-    fn build_single_api(defaults: &Enabled<KongSource>, params: &KongApisBuildParams) -> Result<Option<Kong>> {
-        let Enabled { enabled, item: merged } = defaults.clone().merge(params.single_api.clone());
+    fn build_single_api(
+        defaults: &Enabled<KongSource>,
+        params: &KongApisBuildParams,
+    ) -> Result<Option<Kong>> {
+        let Enabled {
+            enabled,
+            item: merged,
+        } = defaults.clone().merge(params.single_api.clone());
         if let Some(false) = enabled {
-            return Ok(None)
+            return Ok(None);
         }
 
         // For backwards compatibility, { uris: null, hosts: [], ... } is equivalent to { enabled: false, ... }
@@ -116,7 +129,12 @@ struct KongBuildParams {
 impl Build<Kong, KongBuildParams> for KongSource {
     /// Build a Kong from a KongSource, validating and mutating properties.
     fn build(self, params: &KongBuildParams) -> Result<Kong> {
-        let KongBuildParams { region, service, name, kong } = params;
+        let KongBuildParams {
+            region,
+            service,
+            name,
+            kong,
+        } = params;
         debug!("Building Kong API {} for {}", &name, &service);
 
         let hosts = self.build_hosts(&kong.base_url)?;
@@ -167,7 +185,10 @@ impl KongSource {
         }
     }
 
-    fn build_auth(auth: Option<Authentication>, authz: Enabled<AuthorizationSource>) -> Result<(Option<Authentication>, Option<Authorization>)> {
+    fn build_auth(
+        auth: Option<Authentication>,
+        authz: Enabled<AuthorizationSource>,
+    ) -> Result<(Option<Authentication>, Option<Authorization>)> {
         Ok(match (auth, authz.build(&())?) {
             (Some(_), Some(_)) => bail!("auth and authorization.enabled are mutually exclusive"),
             (Some(Authentication::None), None) => (None, None),
@@ -176,7 +197,11 @@ impl KongSource {
     }
 
     fn build_hosts(&self, base_url: &str) -> Result<Vec<String>> {
-        Ok(self.hosts.clone().unwrap_or_default().into_iter()
+        Ok(self
+            .hosts
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
             .map(|h| {
                 let fully_qualified = h.contains('.');
                 if fully_qualified {
@@ -184,6 +209,7 @@ impl KongSource {
                 } else {
                     format!("{}{}", h, base_url)
                 }
-            }).collect())
+            })
+            .collect())
     }
 }

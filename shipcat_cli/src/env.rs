@@ -1,4 +1,4 @@
-use super::{Result, Config, Region};
+use super::{Config, Region, Result};
 
 /// Print exports to source from a shell
 pub fn print_bash(svc: &str, conf: &Config, reg: &Region, mock: bool) -> Result<()> {
@@ -9,11 +9,11 @@ pub fn print_bash(svc: &str, conf: &Config, reg: &Region, mock: bool) -> Result<
         shipcat_filebacked::load_manifest(&svc, &conf, &reg)?.complete(&reg)?
     };
 
-    for (k,s) in mf.secrets {
+    for (k, s) in mf.secrets {
         println!("export {}={}", k, s);
     }
-    for (k,v) in mf.env.plain {
-        println!("export {}={}", k,v);
+    for (k, v) in mf.env.plain {
+        println!("export {}={}", k, v);
     }
     Ok(())
 }

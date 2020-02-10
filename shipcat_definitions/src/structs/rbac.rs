@@ -19,7 +19,7 @@ pub struct Rbac {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub resourceNames: Vec<String>,
     /// Actions to be allowed
-    pub verbs: Vec<String>
+    pub verbs: Vec<String>,
 }
 
 impl Rbac {
