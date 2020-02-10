@@ -1,3 +1,7 @@
+0.146.0 / 2020-02-10
+====================
+  * `Manifest.eventStreams` syntax added for Kafka topic and Zookeepr ACL creation - #381
+
 0.145.0 / 2020-02-07
 ====================
   * service deletion now gets a slack warning

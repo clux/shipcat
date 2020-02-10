@@ -73,7 +73,7 @@ pub struct ManifestOverrides {
     pub source_ranges: Option<Vec<String>>,
     pub rbac: Option<Vec<Rbac>>,
     pub sentry: Option<SentrySource>,
-    pub eventStreams: Option<Vec<EventStream>>,
+    pub event_streams: Option<Vec<EventStream>>,
     //  to have this section merge alerts sub-field deeply
     //      we have to avoid using Option
     pub newrelic: NewrelicSource,
@@ -175,7 +175,7 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             sentry: overrides.sentry
                 .map(|sentry| sentry.build(&team_notifications))
                 .transpose()?,
-            eventStreams: overrides.eventStreams.unwrap_or_default(),
+            eventStreams: overrides.event_streams.unwrap_or_default(),
             upgradeNotifications: Default::default(),
             region: region.name.clone(),
             environment: region.environment.to_string(),
