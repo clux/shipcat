@@ -18,7 +18,7 @@ use super::structs::{
     security::DataHandling,
     Probe,
     CronJob, EnvVars,
-    {Gate, Kafka, Kong, Rbac},
+    {Gate, Kafka, Kong, Rbac, EventStream},
     RollingUpdate,
     NotificationMode,
     autoscaling::AutoScaling,
@@ -29,6 +29,7 @@ use super::structs::{
 };
 use super::structs::newrelic::Newrelic;
 use super::structs::sentry::Sentry;
+
 
 /// Main manifest, serializable from manifest.yml or the shipcat CRD.
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -689,6 +690,38 @@ pub struct Manifest {
     /// ```
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rbac: Vec<Rbac>,
+    
+    /// Kafka / EventStream configuration
+    ///
+    /// A list of resources that will interact with the Kafka-operator CRD /
+    /// service to create kafka topics and ACLs. The Kafka-Operator is an 
+    /// extension of the strimzi-kafka-operator project:
+    /// - https://strimzi.io/
+    /// - https://github.com/strimzi/strimzi-kafka-operator
+    ///
+    /// 
+    /// ```yaml
+    ///  eventStreams:
+    ///  - name: topicA
+    ///    producers:
+    ///    - service1
+    ///    - service2
+    ///    consumers:
+    ///    - service3
+    ///    - service4
+    ///    eventDefinitions:
+    ///    - key: my_schema_key
+    ///      value: my_schema_value
+    ///    - key: my_schema_key_1
+    ///      value: my_schema_value_1
+    ///    config:
+    ///        retention.ms: "7200000"
+    ///        segment.bytes: "1073741824"
+    /// ```
+    
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub eventStreams: Vec<EventStream>,
+
 
     /// Monitoring section covering NewRelic configuration
     ///
