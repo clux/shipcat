@@ -114,6 +114,33 @@ pub enum Language {
     Other,
 }
 
+/// Context section, defining parent context in overall architecture
+///
+/// Informational use only, referenced by external tooling in order
+/// to create a software map of domains and constituent services.
+/// ```yaml
+/// context:
+///   name: consultations
+/// ```
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Context {
+    /// name of parent context
+    #[serde(default)]
+    pub name: String,
+}
+
+impl Context {
+    pub fn verify(&self) -> Result<()> {
+        // limit to 30 characters, alphanumeric/dashes.
+        let re = Regex::new(r"^[0-9a-z\-]{1,30}$").unwrap();
+        if !re.is_match(&self.name) {
+            bail!("Invalid context name.");
+        }
+
+        Ok(())
+    }
+}
 
 /// Metadata for a service
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -123,6 +150,10 @@ pub struct Metadata {
     pub repo: String,
     /// Owning squad
     pub team: String,
+
+    /// Context this resource belongs to
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<Context>,
 
     /// Squad output parameter - not deserialized
     #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
@@ -201,6 +232,9 @@ impl Metadata {
         }
         for cc in &self.contacts {
             cc.verify()?;
+        }
+        if let Some(context) = &self.context {
+            context.verify()?;
         }
         for m in &self.maintainers {
             if !owners.people.contains_key(m) {
