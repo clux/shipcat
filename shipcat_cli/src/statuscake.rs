@@ -57,14 +57,14 @@ impl StatuscakeTest {
     }
 }
 
-fn generate_statuscake_output(conf: &Config, region: &Region) -> Result<Vec<StatuscakeTest>> {
+async fn generate_statuscake_output(conf: &Config, region: &Region) -> Result<Vec<StatuscakeTest>> {
     let mut tests = Vec::new();
 
     // Ensure the region has a base_url
     if let Some(external_svc) = region.base_urls.get("external_services") {
         debug!("Using base_url.external_services {:?}", external_svc);
         // Generate list of APIs to feed to Statuscake
-        for mf in shipcat_filebacked::available(conf, region)? {
+        for mf in shipcat_filebacked::available(conf, region).await? {
             debug!("Found service {:?}", mf);
             for k in mf.kong_apis.clone() {
                 if k.name != mf.base.name {
@@ -99,8 +99,8 @@ fn generate_statuscake_output(conf: &Config, region: &Region) -> Result<Vec<Stat
 }
 
 /// Generate Statuscake config from a filled in global config
-pub fn output(conf: &Config, region: &Region) -> Result<()> {
-    let res = generate_statuscake_output(&conf, &region)?;
+pub async fn output(conf: &Config, region: &Region) -> Result<()> {
+    let res = generate_statuscake_output(&conf, &region).await?;
     let output = serde_yaml::to_string(&res)?;
     println!("{}", output);
 

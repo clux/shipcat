@@ -12,10 +12,14 @@ use shipcat_definitions::status::{make_date, Applier, Condition, ManifestStatus}
 /// Client creator
 ///
 /// TODO: embed inside shipcat::apply when needed for other things
-fn make_client() -> Result<APIClient> {
-    let config = kube::config::incluster_config()
-        .or_else(|_| kube::config::load_kube_config())
-        .map_err(ErrorKind::KubeError)?;
+async fn make_client() -> Result<APIClient> {
+    let config = if let Ok(cfg) = kube::config::incluster_config() {
+        cfg
+    } else {
+        kube::config::load_kube_config()
+            .await
+            .map_err(ErrorKind::KubeError)?
+    };
     Ok(kube::client::APIClient::new(config))
 }
 
@@ -43,9 +47,9 @@ pub struct ShipKube {
 
 /// Entry points for shipcat::apply
 impl ShipKube {
-    pub fn new_within(svc: &str, ns: &str) -> Result<Self> {
+    pub async fn new_within(svc: &str, ns: &str) -> Result<Self> {
         // hide the client in here -> Api resource for now (not needed elsewhere)
-        let client = make_client()?;
+        let client = make_client().await?;
         let scm: Api<ManifestK> = Api::customResource(client.clone(), "shipcatmanifests")
             .group("babylontech.co.uk")
             .within(ns);
@@ -60,12 +64,12 @@ impl ShipKube {
         })
     }
 
-    pub fn new(mf: &Manifest) -> Result<Self> {
-        Self::new_within(&mf.name, &mf.namespace)
+    pub async fn new(mf: &Manifest) -> Result<Self> {
+        Self::new_within(&mf.name, &mf.namespace).await
     }
 
     /// CRD applier
-    pub fn apply(&self, mf: Manifest) -> Result<bool> {
+    pub async fn apply(&self, mf: Manifest) -> Result<bool> {
         assert!(mf.version.is_some()); // ensure crd is in right state w/o secrets
         assert!(mf.is_base());
         // TODO: use server side apply in 1.15
@@ -82,26 +86,31 @@ impl ShipKube {
         use crate::kubectl;
         let svc = mf.name.clone();
         let ns = mf.namespace.clone();
-        kubectl::apply_crd(&svc, mf, &ns)
+        kubectl::apply_crd(&svc, mf, &ns).await
     }
 
     /// Full CRD fetcher
-    pub fn get(&self) -> Result<ManifestK> {
-        let o = self.scm.get(&self.name).map_err(ErrorKind::KubeError)?;
+    pub async fn get(&self) -> Result<ManifestK> {
+        let o = self.scm.get(&self.name).await.map_err(ErrorKind::KubeError)?;
         Ok(o)
     }
 
     /// Minimal CRD fetcher (for upgrades)
-    pub fn get_minimal(&self) -> Result<ManifestMinimalK> {
-        let o = self.scm_minimal.get(&self.name).map_err(ErrorKind::KubeError)?;
+    pub async fn get_minimal(&self) -> Result<ManifestMinimalK> {
+        let o = self
+            .scm_minimal
+            .get(&self.name)
+            .await
+            .map_err(ErrorKind::KubeError)?;
         Ok(o)
     }
 
     /// Minimal CRD deleter
-    pub fn delete(&self) -> Result<()> {
+    pub async fn delete(&self) -> Result<()> {
         let dp = DeleteParams::default();
         self.scm_minimal
             .delete(&self.name, &dp)
+            .await
             .map_err(ErrorKind::KubeError)?;
         Ok(())
     }
@@ -111,18 +120,19 @@ impl ShipKube {
     // ====================================================
 
     // helper to send a merge patch
-    fn patch(&self, data: &serde_json::Value) -> Result<ManifestK> {
+    async fn patch(&self, data: &serde_json::Value) -> Result<ManifestK> {
         let pp = PatchParams::default();
         let o = self
             .scm
             .patch_status(&self.name, &pp, serde_json::to_vec(data)?)
+            .await
             .map_err(ErrorKind::KubeError)?;
         debug!("Patched status: {:?}", o.status);
         Ok(o)
     }
 
     // helper to delete accidental flags
-    pub fn update_generate_true(&self) -> Result<ManifestK> {
+    pub async fn update_generate_true(&self) -> Result<ManifestK> {
         debug!("Setting generated true");
         let now = make_date();
         let cond = Condition::ok(&self.applier);
@@ -137,12 +147,12 @@ impl ShipKube {
                 }
             }
         });
-        self.patch(&data)
+        self.patch(&data).await
     }
 
     // Manual helper fn to blat old status data
     #[allow(dead_code)]
-    fn remove_old_props(&self) -> Result<ManifestK> {
+    async fn remove_old_props(&self) -> Result<ManifestK> {
         // did you accidentally populate the .status object with garbage?
         let _data = json!({
             "status": {
@@ -155,10 +165,10 @@ impl ShipKube {
         });
         unreachable!("I know what i am doing");
         #[allow(unreachable_code)]
-        self.patch(&_data)
+        self.patch(&_data).await
     }
 
-    pub fn update_generate_false(&self, err: &str, reason: String) -> Result<ManifestK> {
+    pub async fn update_generate_false(&self, err: &str, reason: String) -> Result<ManifestK> {
         debug!("Setting generated false");
         let cond = Condition::bad(&self.applier, err, reason.clone());
         let data = json!({
@@ -172,10 +182,10 @@ impl ShipKube {
                 }
             }
         });
-        self.patch(&data)
+        self.patch(&data).await
     }
 
-    pub fn update_apply_true(&self, ureason: String) -> Result<ManifestK> {
+    pub async fn update_apply_true(&self, ureason: String) -> Result<ManifestK> {
         debug!("Setting applied true");
         let now = make_date();
         let cond = Condition::ok(&self.applier);
@@ -192,10 +202,10 @@ impl ShipKube {
                 }
             }
         });
-        self.patch(&data)
+        self.patch(&data).await
     }
 
-    pub fn update_apply_false(&self, ureason: String, err: &str, reason: String) -> Result<ManifestK> {
+    pub async fn update_apply_false(&self, ureason: String, err: &str, reason: String) -> Result<ManifestK> {
         debug!("Setting applied false");
         let now = make_date();
         let cond = Condition::bad(&self.applier, err, reason.clone());
@@ -212,10 +222,10 @@ impl ShipKube {
                 }
             }
         });
-        self.patch(&data)
+        self.patch(&data).await
     }
 
-    pub fn update_rollout_false(&self, err: &str, reason: String) -> Result<ManifestK> {
+    pub async fn update_rollout_false(&self, err: &str, reason: String) -> Result<ManifestK> {
         debug!("Setting rolledout false");
         let cond = Condition::bad(&self.applier, err, reason.clone());
         let now = make_date();
@@ -231,10 +241,10 @@ impl ShipKube {
                 }
             }
         });
-        self.patch(&data)
+        self.patch(&data).await
     }
 
-    pub fn update_rollout_true(&self, version: &str) -> Result<ManifestK> {
+    pub async fn update_rollout_true(&self, version: &str) -> Result<ManifestK> {
         debug!("Setting rolledout true");
         let now = make_date();
         let cond = Condition::ok(&self.applier);
@@ -252,7 +262,7 @@ impl ShipKube {
                 }
             }
         });
-        self.patch(&data)
+        self.patch(&data).await
     }
 }
 
@@ -283,10 +293,10 @@ fn format_condition(cond: &Condition) -> Result<String> {
 
 use crate::{Config, Region};
 /// Entry point for `shipcat status`
-pub fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
+pub async fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
     use crate::kubectl;
-    let mf = shipcat_filebacked::load_manifest(svc, conf, reg)?;
-    let crd = ShipKube::new(&mf)?.get()?;
+    let mf = shipcat_filebacked::load_manifest(svc, conf, reg).await?;
+    let crd = ShipKube::new(&mf).await?.get().await?;
 
     let md = mf.metadata.clone().expect("need metadata");
     let ver = crd.spec.version.expect("need version");
@@ -338,6 +348,6 @@ pub fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
     println!();
 
     println!("==> RESOURCES");
-    print!("{}", kubectl::kpods(&mf)?);
+    print!("{}", kubectl::kpods(&mf).await?);
     Ok(())
 }

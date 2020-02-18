@@ -102,14 +102,15 @@ pub struct ManifestDefaults {
     pub kong: Enabled<KongSource>,
 }
 
-impl Build<Manifest, (Config, Region)> for ManifestSource {
+// impl Build<Manifest, (Config, Region)> - but no need to have this as a trait
+impl ManifestSource {
     /// Build a Manifest from a ManifestSource, validating and mutating properties.
-    fn build(self, (conf, region): &(Config, Region)) -> Result<Manifest> {
+    pub async fn build(self, (conf, region): &(Config, Region)) -> Result<Manifest> {
         let simple = self.build_simple(conf, region)?;
         let name = simple.base.name;
         let data_handling = self.build_data_handling();
         let kafka = self.build_kafka(&name, region);
-        let configs = self.build_configs(&name)?;
+        let configs = self.build_configs(&name).await?;
 
         let overrides = self.overrides;
         let defaults = overrides.defaults;
@@ -316,14 +317,14 @@ impl ManifestSource {
     }
 
     // TODO: Extract ConfigsSource
-    fn build_configs(&self, service: &str) -> Result<Option<ConfigMap>> {
+    async fn build_configs(&self, service: &str) -> Result<Option<ConfigMap>> {
         let original = &self.overrides.configs;
         if original.is_none() {
             return Ok(None);
         }
         let mut configs = original.clone().unwrap();
         for f in &mut configs.files {
-            f.value = Some(read_template_file(service, &f.name)?);
+            f.value = Some(read_template_file(service, &f.name).await?);
         }
         Ok(Some(configs))
     }
@@ -334,8 +335,9 @@ impl ManifestSource {
     }
 }
 
-fn read_template_file(svc: &str, tmpl: &str) -> Result<String> {
-    use std::{fs, path::Path};
+async fn read_template_file(svc: &str, tmpl: &str) -> Result<String> {
+    use std::path::Path;
+    use tokio::fs;
     // try to read file from ./services/{svc}/{tmpl} into `tpl` sting
     let pth = Path::new(".").join("services").join(svc).join(tmpl);
     let gpth = Path::new(".").join("templates").join(tmpl);
@@ -355,7 +357,7 @@ fn read_template_file(svc: &str, tmpl: &str) -> Result<String> {
         gpth
     };
     // read the template - should work now
-    let data = fs::read_to_string(&found_pth)?;
+    let data = fs::read_to_string(&found_pth).await?;
     Ok(data)
 }
 

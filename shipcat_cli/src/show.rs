@@ -19,8 +19,8 @@ pub fn config_crd(conf: Config) -> Result<()> {
 }
 
 // TODO: deprecate
-pub fn manifest_crd(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
-    let mf = shipcat_filebacked::load_manifest(svc, conf, reg)?;
+pub async fn manifest_crd(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
+    let mf = shipcat_filebacked::load_manifest(svc, conf, reg).await?;
     if mf.version.is_none() {
         warn!("Do not apply this CRD manually - it has no version");
     }

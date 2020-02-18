@@ -3,11 +3,11 @@ use crate::common::setup;
 use shipcat::graph::{generate, nodeidx_from_name};
 use shipcat_definitions::{Config, ConfigState};
 
-#[test]
-fn graph_generate() {
+#[tokio::test]
+async fn graph_generate() {
     setup();
-    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
-    let graph = generate("fake-ask", &conf, &reg, true).unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").await.unwrap();
+    let graph = generate("fake-ask", &conf, &reg, true).await.unwrap();
     assert!(graph.edge_count() > 0);
     print!("got struct: \n{:?}\n", serde_yaml::to_string(&graph));
     let askidx = nodeidx_from_name("fake-ask", &graph).unwrap();

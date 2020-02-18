@@ -27,11 +27,11 @@ macro_rules! assert_plugin_removed {
     };
 }
 
-#[test]
-fn kong_test() {
+#[tokio::test]
+async fn kong_test() {
     setup();
-    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
-    let kongrs = generate_kong_output(&conf, &reg).unwrap(); // kong exists in region
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").await.unwrap();
+    let kongrs = generate_kong_output(&conf, &reg).await.unwrap(); // kong exists in region
     let mut output = KongfigOutput::new(kongrs, &reg);
 
     assert_eq!(output.host, "admin.dev.something.domain.com");

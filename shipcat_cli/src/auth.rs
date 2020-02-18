@@ -37,7 +37,7 @@ You must install version 3.2.* and not 4.0.0"
 ///
 /// This will use teleport to login if a teleport url is set
 /// otherwise it assumes you have already set a context with `region.name` externally.
-pub fn login(conf: &Config, region: &Region, force: bool) -> Result<()> {
+pub async fn login(conf: &Config, region: &Region, force: bool) -> Result<()> {
     if let Some(cluster) = conf.find_owning_cluster(&region) {
         if let Some(teleport) = &cluster.teleport {
             ensure_teleport()?;
@@ -78,8 +78,8 @@ pub fn login(conf: &Config, region: &Region, force: bool) -> Result<()> {
                 format!("--user={}", &teleport),
                 format!("--namespace={}", region.namespace),
             ];
-            kubectl::set_context(&region.name, args)?;
-            kubectl::use_context(&region.name)?;
+            kubectl::set_context(&region.name, args).await?;
+            kubectl::use_context(&region.name).await?;
         } else {
             // We assume there's an external way to for users to create kube contexts
             // if not teleport url is set on the owning cluster.
@@ -87,7 +87,7 @@ pub fn login(conf: &Config, region: &Region, force: bool) -> Result<()> {
                 "Reusing {} context for non-teleport region {}",
                 region.cluster, region.name
             );
-            kubectl::use_context(&region.cluster)?;
+            kubectl::use_context(&region.cluster).await?;
         }
     } else {
         bail!("Region {} does not have a cluster", region.name);

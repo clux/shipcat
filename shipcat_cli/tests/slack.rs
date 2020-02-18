@@ -4,13 +4,15 @@ use shipcat::slack::{env_channel, send, send_dumb, DumbMessage, Message};
 use shipcat_definitions::{structs::NotificationMode, Config, ConfigState};
 
 // integration temporarily disabled
-#[test]
+#[tokio::test]
 #[ignore]
-fn slack_test() {
+async fn slack_test() {
     setup();
 
-    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
-    let mf = shipcat_filebacked::load_metadata("fake-ask", &conf, &reg).unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").await.unwrap();
+    let mf = shipcat_filebacked::load_metadata("fake-ask", &conf, &reg)
+        .await
+        .unwrap();
 
     let chan = env_channel().unwrap();
     if chan == "#shipcat-test" {

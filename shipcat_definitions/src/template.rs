@@ -39,6 +39,7 @@ pub fn render_file_data(data: String, context: &Context) -> Result<String> {
     tera.register_filter("indent", indent);
     tera.register_filter("as_secret", as_secret);
 
+    // TODO: should be async, but tera needs to expose it
     let result = tera
         .render("one_off", context)
         .chain_err(|| ErrorKind::InvalidOneOffTemplate(data))?;
@@ -128,15 +129,16 @@ impl EnvVars {
 
 /// Read an arbitrary template from manifests/{folder}/{name}.j2
 #[cfg(feature = "filesystem")]
-fn read_arbitrary_template_file(folder: &str, name: &str) -> Result<String> {
-    use std::{fs, path::Path};
+async fn read_arbitrary_template_file(folder: &str, name: &str) -> Result<String> {
+    use std::path::Path;
+    use tokio::fs;
 
     let pth = Path::new(".").join(folder).join(format!("{}.j2", name));
     if !pth.exists() {
         bail!("Template file in {} does not exist", pth.display());
     }
     // read the template - should work now
-    let data = fs::read_to_string(&pth)?;
+    let data = fs::read_to_string(&pth).await?;
     Ok(data)
 }
 
@@ -145,15 +147,15 @@ fn read_arbitrary_template_file(folder: &str, name: &str) -> Result<String> {
 impl VaultConfig {
     // This function defines what variables are available within .j2 templates and evars
     #[cfg(feature = "filesystem")]
-    pub fn template(&self, owned_mfs: Vec<String>, env: Environment) -> Result<String> {
+    pub async fn template(&self, owned_mfs: Vec<String>, env: Environment) -> Result<String> {
         let mut ctx = Context::new();
         ctx.insert("folder", &self.folder);
         ctx.insert("team_owned_services", &owned_mfs);
 
         let tpl = if env == Environment::Prod {
-            read_arbitrary_template_file("vault", "team-policy-prod.hcl")?
+            read_arbitrary_template_file("vault", "team-policy-prod.hcl").await?
         } else {
-            read_arbitrary_template_file("vault", "team-policy.hcl")?
+            read_arbitrary_template_file("vault", "team-policy.hcl").await?
         };
         let res =
             render_file_data(tpl, &ctx).chain_err(|| ErrorKind::InvalidTemplate("vault-template".into()))?;

@@ -12,9 +12,9 @@ use super::{Config, Region, Result};
 /// Find the hardcoded versions of services in a region
 ///
 /// Services without a hardcoded version are not returned.
-pub fn versions(conf: &Config, region: &Region) -> Result<BTreeMap<String, Version>> {
+pub async fn versions(conf: &Config, region: &Region) -> Result<BTreeMap<String, Version>> {
     let mut output = BTreeMap::new();
-    for mf in shipcat_filebacked::available(conf, region)? {
+    for mf in shipcat_filebacked::available(conf, region).await? {
         if let Some(v) = mf.version {
             if let Ok(sv) = Version::parse(&v) {
                 output.insert(mf.base.name, sv);
@@ -28,9 +28,9 @@ pub fn versions(conf: &Config, region: &Region) -> Result<BTreeMap<String, Versi
 /// Find the hardcoded images of services in a region
 ///
 /// Services without a hardcoded image will assume the shipcat.conf specific default
-pub fn images(conf: &Config, region: &Region) -> Result<BTreeMap<String, String>> {
+pub async fn images(conf: &Config, region: &Region) -> Result<BTreeMap<String, String>> {
     let mut output = BTreeMap::new();
-    for mf in shipcat_filebacked::available(conf, region)? {
+    for mf in shipcat_filebacked::available(conf, region).await? {
         if let Some(i) = mf.image {
             output.insert(mf.base.name, i);
         }
@@ -43,10 +43,10 @@ pub fn images(conf: &Config, region: &Region) -> Result<BTreeMap<String, String>
 ///
 /// Cross references config.teams with manifest.metadata.team
 /// Each returned string is Github CODEOWNER syntax
-pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
+pub async fn codeowners(conf: &Config) -> Result<Vec<String>> {
     let mut output = vec![];
     let org = &conf.github.organisation;
-    for mf in shipcat_filebacked::all(conf)? {
+    for mf in shipcat_filebacked::all(conf).await? {
         let md = mf.metadata;
         let mut ghids = vec![];
 
@@ -89,8 +89,8 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
 ///
 /// Assumes you have setup github provider using right organisation.
 /// vault write auth/github/config organization={GithubOrganisation}
-pub fn vaultpolicy(conf: &Config, region: &Region, team_name: &str) -> Result<String> {
-    let mfs = shipcat_filebacked::all(conf)?;
+pub async fn vaultpolicy(conf: &Config, region: &Region, team_name: &str) -> Result<String> {
+    let mfs = shipcat_filebacked::all(conf).await?;
     let team = if let Some(s) = conf.owners.squads.get(team_name) {
         if s.github.admins.is_none() {
             warn!(
@@ -102,7 +102,10 @@ pub fn vaultpolicy(conf: &Config, region: &Region, team_name: &str) -> Result<St
     } else {
         bail!("Squad '{}' does not exist in teams.yml", team_name)
     };
-    let output = region.vault.make_policy(mfs, &team, region.environment.clone())?;
+    let output = region
+        .vault
+        .make_policy(mfs, &team, region.environment.clone())
+        .await?;
     println!("{}", output);
     Ok(output)
 }
@@ -175,7 +178,7 @@ struct RegionInfo {
     base_urls: BTreeMap<String, String>,
     ip_whitelist: Vec<String>,
 }
-pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
+pub async fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
     let mut services = BTreeMap::new();
 
     // Get Environment Config
@@ -187,8 +190,8 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
     };
 
     // Get API Info from Manifests
-    for svc in shipcat_filebacked::available(conf, reg)? {
-        let mf = shipcat_filebacked::load_manifest(&svc.base.name, &conf, &reg)?;
+    for svc in shipcat_filebacked::available(conf, reg).await? {
+        let mf = shipcat_filebacked::load_manifest(&svc.base.name, &conf, &reg).await?;
         for k in mf.kongApis {
             let mut params = APIServiceParams {
                 uris: k.uris.unwrap_or("".into()),

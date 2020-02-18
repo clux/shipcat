@@ -1,3 +1,13 @@
+0.147.0 / 2020-02-XX
+====================
+  * Convert shipcat to use async/await internally
+    - tokio "fs" feature in shipcat_filebacked
+    - tokio "process" feature in shipcat_cli
+    - kube 0.25.0 for k8s api calls
+  * Remove rayon + threadpool dependencies
+    - cluster + validate/verify commands now just use tokio "stream" feature
+  * Added optional `metadata.context` field
+
 0.146.0 / 2020-02-10
 ====================
   * `Manifest.eventStreams` syntax added for Kafka topic and Zookeepr ACL creation - #381

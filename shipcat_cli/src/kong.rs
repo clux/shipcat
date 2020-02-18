@@ -69,11 +69,11 @@ impl KongCrdOutput {
     }
 }
 
-pub fn generate_kong_output(conf: &Config, region: &Region) -> Result<KongOutput> {
+pub async fn generate_kong_output(conf: &Config, region: &Region) -> Result<KongOutput> {
     let mut apis = BTreeMap::new();
     if let Some(kong) = &region.kong {
         // Generate list of APIs to feed to Kong
-        for mf in shipcat_filebacked::available(conf, region)? {
+        for mf in shipcat_filebacked::available(conf, region).await? {
             debug!("Scanning service {:?}", mf);
             for k in mf.kong_apis {
                 if let Some(clash) = apis.insert(k.name.clone(), k) {
@@ -106,8 +106,8 @@ pub enum KongOutputMode {
 }
 
 /// Generate Kong config from a filled in global config
-pub fn output(conf: &Config, region: &Region, mode: KongOutputMode) -> Result<()> {
-    let data = generate_kong_output(conf, &region)?;
+pub async fn output(conf: &Config, region: &Region, mode: KongOutputMode) -> Result<()> {
+    let data = generate_kong_output(conf, &region).await?;
     let output = match mode {
         KongOutputMode::Crd => {
             let res = KongCrdOutput::new(&region.name, data);

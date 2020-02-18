@@ -15,21 +15,21 @@ pub fn hexists() -> Result<()> {
     Ok(())
 }
 
-pub fn hexec(args: Vec<String>) -> Result<()> {
-    use std::process::Command;
+pub async fn hexec(args: Vec<String>) -> Result<()> {
+    use tokio::process::Command;
     debug!("helm {}", args.join(" "));
     hexists()?;
-    let s = Command::new("helm").args(&args).status()?;
+    let s = Command::new("helm").args(&args).status().await?;
     if !s.success() {
         bail!("Subprocess failure from helm: {}", s.code().unwrap_or(1001))
     }
     Ok(())
 }
-pub fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
-    use std::process::Command;
+pub async fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
+    use tokio::process::Command;
     debug!("helm {}", args.join(" "));
     hexists()?;
-    let s = Command::new("helm").args(&args).output()?;
+    let s = Command::new("helm").args(&args).output().await?;
     let out: String = String::from_utf8_lossy(&s.stdout).into();
     let err: String = String::from_utf8_lossy(&s.stderr).into();
     Ok((out, err, s.status.success()))
@@ -57,7 +57,7 @@ pub fn values(mf: &Manifest, output: &str) -> Result<()> {
 /// Analogue of helm template
 ///
 /// Generates helm values to disk, then passes it to helm template
-pub fn template(mf: &Manifest, output: Option<PathBuf>) -> Result<String> {
+pub async fn template(mf: &Manifest, output: Option<PathBuf>) -> Result<String> {
     let hfile = format!("{}.helm.gen.yml", mf.name);
     values(&mf, &hfile)?;
 
@@ -69,7 +69,7 @@ pub fn template(mf: &Manifest, output: Option<PathBuf>) -> Result<String> {
         hfile.clone(),
     ];
     // NB: this call does NOT need --tiller-namespace (offline call)
-    let (tpl, tplerr, success) = hout(tplvec.clone())?;
+    let (tpl, tplerr, success) = hout(tplvec.clone()).await?;
     if !success {
         warn!("{} stderr: {}", tplvec.join(" "), tplerr);
         bail!("helm template failed");

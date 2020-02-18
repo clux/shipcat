@@ -37,36 +37,37 @@ pub fn setup() {
 
 use shipcat_definitions::{Config, ConfigState, Environment}; // Product
 
-#[test]
-fn config_test() {
+#[tokio::test]
+async fn config_test() {
     setup();
-    assert!(Config::read().is_ok());
-    assert!(Config::new(ConfigState::Base, "dev-uk").is_ok());
+    assert!(Config::read().await.is_ok());
+    assert!(Config::new(ConfigState::Base, "dev-uk").await.is_ok());
     let filteredcfg = Config::new(ConfigState::Filtered, "dev-uk");
-    let (conf, _region) = filteredcfg.unwrap(); // better to unwrap and get full trace
-    assert!(Config::new(ConfigState::File, "dev-uk").is_err());
+    let (conf, _region) = filteredcfg.await.unwrap(); // better to unwrap and get full trace
+    assert!(Config::new(ConfigState::File, "dev-uk").await.is_err());
     assert!(conf.print().is_ok());
 }
 
-#[test]
-fn config_cr_settings_test() {
+#[tokio::test]
+async fn config_cr_settings_test() {
     setup();
-    Config::read().unwrap(); // iof assert!(Config::read().is_ok());
-    Config::new(ConfigState::Base, "dev-ops").unwrap();
+    Config::read().await.unwrap(); // iof assert!(Config::read().is_ok());
+    Config::new(ConfigState::Base, "dev-ops").await.unwrap();
     let gbcfg = Config::new(ConfigState::UnionisedBase, "dev-ops");
-    let (conf, _region) = gbcfg.unwrap();
+    let (conf, _region) = gbcfg.await.unwrap();
     assert!(conf.print().is_ok());
 }
 
-#[test]
-fn config_defaults_test() {
+#[tokio::test]
+async fn config_defaults_test() {
     setup();
-    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").await.unwrap();
 
     // -- Slack channels --
 
     // fake-ask gets default for 'observability'
     let mfdefault = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg)
+        .await
         .unwrap()
         .complete(&reg)
         .unwrap();
@@ -76,6 +77,7 @@ fn config_defaults_test() {
 
     // fake-storage overrides for 'someteam'
     let mfoverride = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg)
+        .await
         .unwrap()
         .complete(&reg)
         .unwrap();
@@ -85,27 +87,27 @@ fn config_defaults_test() {
 }
 
 use shipcat::get;
-#[test]
-fn getters() {
+#[tokio::test]
+async fn getters() {
     setup();
-    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
-    let vers = get::versions(&conf, &reg).unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").await.unwrap();
+    let vers = get::versions(&conf, &reg).await.unwrap();
     assert_eq!(vers.len(), 1); // only one of the services has a version
     assert_eq!(vers["fake-ask"], Version::new(1, 6, 0));
 
-    let imgs = get::images(&conf, &reg).unwrap();
+    let imgs = get::images(&conf, &reg).await.unwrap();
     assert_eq!(imgs.len(), 2); // every service gets an image
     assert_eq!(imgs["fake-ask"], "quay.io/babylonhealth/fake-ask");
     assert_eq!(imgs["fake-storage"], "nginx");
 }
 
-#[test]
-fn clusterinfo() {
+#[tokio::test]
+async fn clusterinfo() {
     setup();
     // clusterinfo must be correct in its resolution!
     // test all cases
     // NB: needs a base config to be able to verify region/cluster constraints
-    let conf = Config::read().unwrap();
+    let conf = Config::read().await.unwrap();
 
     assert!(get::clusterinfo(&conf, "preproduk-blue", Some("preproduk-blue")).is_ok());
     assert!(get::clusterinfo(&conf, "preproduk-green", None).is_err()); // ambiguous
@@ -120,21 +122,21 @@ fn clusterinfo() {
     assert_eq!(devglob.cluster, "kops-global")
 }
 
-#[test]
-fn get_codeowners() {
+#[tokio::test]
+async fn get_codeowners() {
     setup();
-    let conf = Config::read().unwrap();
-    let cos = get::codeowners(&conf).unwrap();
+    let conf = Config::read().await.unwrap();
+    let cos = get::codeowners(&conf).await.unwrap();
 
     assert_eq!(cos.len(), 4); // serivces with team admins get a listing
     assert_eq!(cos[1], "services/fake-ask/* @babylonhealth/o11y @clux");
 }
 
-#[test]
-fn manifest_test() {
+#[tokio::test]
+async fn manifest_test() {
     setup();
-    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
-    let mfread = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg);
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").await.unwrap();
+    let mfread = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg).await;
     assert!(mfread.is_ok());
     let mfbase = mfread.unwrap();
     let mfres = mfbase.complete(&reg);
@@ -151,11 +153,12 @@ fn manifest_test() {
     assert_eq!(s3.fields[1].keyRotator, Some("2w".into())); // field value
 }
 
-#[test]
-fn templating_test() {
+#[tokio::test]
+async fn templating_test() {
     setup();
-    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").await.unwrap();
     let mf = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg)
+        .await
         .unwrap()
         .complete(&reg)
         .unwrap();
@@ -211,11 +214,13 @@ fn templating_test() {
 }
 
 
-#[test]
-fn vault_policy_test() {
+#[tokio::test]
+async fn vault_policy_test() {
     setup();
-    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").unwrap();
-    let policy = shipcat::get::vaultpolicy(&conf, &reg, "observability").unwrap();
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").await.unwrap();
+    let policy = shipcat::get::vaultpolicy(&conf, &reg, "observability")
+        .await
+        .unwrap();
 
     println!("got dev policy for observability as {}", policy);
     let expected_deny = r#"path "sys/*" {
@@ -235,7 +240,9 @@ fn vault_policy_test() {
     // prod should be stricter:
     let mut fakereg = reg.clone();
     fakereg.environment = Environment::Prod;
-    let strict_policy = shipcat::get::vaultpolicy(&conf, &fakereg, "observability").unwrap();
+    let strict_policy = shipcat::get::vaultpolicy(&conf, &fakereg, "observability")
+        .await
+        .unwrap();
 
     let expected_strict_access = r#"path "secret/dev-uk/fake-ask/*" {
   capabilities = ["create", "list"]

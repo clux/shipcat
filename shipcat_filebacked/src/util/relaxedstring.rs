@@ -34,7 +34,10 @@ struct RelaxedStringVisitor;
 
 macro_rules! visit_tostring {
     ( $name:ident, $type:ty ) => {
-        fn $name<E>(self, v: $type) -> Result<Self::Value, E> where E: Error {
+        fn $name<E>(self, v: $type) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
             self.visit_string(v.to_string())
         }
     };

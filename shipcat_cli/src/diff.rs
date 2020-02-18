@@ -10,8 +10,8 @@ use std::process::Command;
 /// Return an empty string if the manifest fails region-validation,
 /// otherwise YAML serialise the content. For diff purposes, the content
 /// of a manifest not in a region is a blank, rather than being invalid.
-fn as_yaml(svc: &str, conf: &Config, region: &Region) -> Result<String> {
-    let mf = shipcat_filebacked::load_manifest(&svc, conf, region)?;
+async fn as_yaml(svc: &str, conf: &Config, region: &Region) -> Result<String> {
+    let mf = shipcat_filebacked::load_manifest(&svc, conf, region).await?;
     if let Ok(m) = mf.verify_region() {
         let yaml = serde_yaml::to_string(&m)?;
         Ok(yaml)
@@ -27,8 +27,8 @@ fn as_yaml(svc: &str, conf: &Config, region: &Region) -> Result<String> {
 /// then goes back to previous branch and pops the stash.
 ///
 /// Because this does fiddle with git state while running it is not the default implementation.
-pub fn values_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> {
-    let after = as_yaml(&svc, conf, region)?;
+pub async fn values_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> {
+    let after = as_yaml(&svc, conf, region).await?;
 
     // move git to get before state:
     let merge_base = git::merge_base()?;
@@ -40,7 +40,7 @@ pub fn values_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> 
     }
 
     // compute before state
-    let before = as_yaml(&svc, conf, region)?;
+    let before = as_yaml(&svc, conf, region).await?;
 
     // move git back
     if needs_stash {
@@ -53,12 +53,17 @@ pub fn values_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> 
 }
 
 /// Fast local compare of shipcat template for two regions
-pub fn values_vs_region(svc: &str, conf: &Config, region: &Region, ref_region: &Region) -> Result<bool> {
+pub async fn values_vs_region(
+    svc: &str,
+    conf: &Config,
+    region: &Region,
+    ref_region: &Region,
+) -> Result<bool> {
     let before_region = format!("{}.{}", svc, ref_region.name);
-    let before_values = as_yaml(svc, conf, ref_region)?;
+    let before_values = as_yaml(svc, conf, ref_region).await?;
 
     let after_region = format!("{}.{}", svc, region.name);
-    let after_values = as_yaml(svc, conf, region)?;
+    let after_values = as_yaml(svc, conf, region).await?;
 
     // display diff
     shell_diff(&before_values, &after_values, &before_region, &after_region)
@@ -68,10 +73,12 @@ pub fn values_vs_region(svc: &str, conf: &Config, region: &Region, ref_region: &
 ///
 /// Because this uses the template in master against local state,
 /// we don't resolve secrets for this (would compare equal values anyway).
-pub fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> {
+pub async fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> {
     let afterpth = Path::new(".").join("after.shipcat.gen.yml");
-    let mf_after = shipcat_filebacked::load_manifest(svc, conf, region)?.stub(region)?;
-    let _after = helm::template(&mf_after, Some(afterpth.clone()))?;
+    let mf_after = shipcat_filebacked::load_manifest(svc, conf, region)
+        .await?
+        .stub(region)?;
+    let _after = helm::template(&mf_after, Some(afterpth.clone())).await?;
 
     // move git to get before state:
     let merge_base = git::merge_base()?;
@@ -84,8 +91,10 @@ pub fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool
 
     // compute old state:
     let beforepth = Path::new(".").join("before.shipcat.gen.yml");
-    let mf_before = shipcat_filebacked::load_manifest(svc, conf, region)?.stub(region)?;
-    let _before = helm::template(&mf_before, Some(beforepth.clone()))?;
+    let mf_before = shipcat_filebacked::load_manifest(svc, conf, region)
+        .await?
+        .stub(region)?;
+    let _before = helm::template(&mf_before, Some(beforepth.clone())).await?;
 
     // move git back
     if needs_stash {
@@ -114,9 +123,9 @@ use std::{
 ///
 /// Generate crd as we write it and pipe it to `kubectl diff -`
 /// Only works on clusters with kubectl 1.13 on the server side, so not available everywhere
-pub fn values_vs_kubectl(svc: &str, conf: &Config, region: &Region) -> Result<bool> {
+pub async fn values_vs_kubectl(svc: &str, conf: &Config, region: &Region) -> Result<bool> {
     // Generate crd in a temp file:
-    let mf = shipcat_filebacked::load_manifest(svc, conf, region)?;
+    let mf = shipcat_filebacked::load_manifest(svc, conf, region).await?;
     let crd = Crd::from(mf);
     let encoded = serde_yaml::to_string(&crd)?;
     let cfile = format!("{}.shipcat.crd.gen.yml", svc);
@@ -125,7 +134,7 @@ pub fn values_vs_kubectl(svc: &str, conf: &Config, region: &Region) -> Result<bo
     let mut f = File::create(&pth)?;
     writeln!(f, "{}", encoded)?;
     // shell out to kubectl:
-    let (out, _err, success) = kubectl::diff(pth.clone(), &region.namespace)?;
+    let (out, _err, success) = kubectl::diff(pth.clone(), &region.namespace).await?;
     println!("{}", out);
     // cleanup:
     fs::remove_file(pth)?;
@@ -136,14 +145,14 @@ pub fn values_vs_kubectl(svc: &str, conf: &Config, region: &Region) -> Result<bo
 ///
 /// Generate template as we write it and pipe it to `kubectl diff -`
 /// Only works on clusters with kubectl 1.13 on the server side, so not available everywhere
-pub fn template_vs_kubectl(mf: &Manifest) -> Result<Option<String>> {
+pub async fn template_vs_kubectl(mf: &Manifest) -> Result<Option<String>> {
     // Generate template in a temp file:
     let tfile = format!("{}.shipcat.tpl.gen.yml", mf.name);
     let pth = Path::new(".").join(tfile);
 
-    let _tpl = helm::template(&mf, Some(pth.clone()))?;
+    let _tpl = helm::template(&mf, Some(pth.clone())).await?;
 
-    let (out, err, success) = kubectl::diff(pth.clone(), &mf.namespace)?;
+    let (out, err, success) = kubectl::diff(pth.clone(), &mf.namespace).await?;
     // cleanup:
     fs::remove_file(pth)?;
     if !success && !err.is_empty() && err.trim() != "exit status 1" {

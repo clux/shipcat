@@ -1,6 +1,4 @@
-use std::sync::mpsc::channel;
-use threadpool::ThreadPool;
-
+use futures::stream::{self, StreamExt};
 use shipcat_definitions::{BaseManifest, Config, Region};
 use shipcat_filebacked::SimpleManifest;
 
@@ -10,43 +8,61 @@ use crate::{
     status::ShipKube,
     webhooks::{self, UpgradeState},
 };
-use rayon::{iter::Either, prelude::*};
+
+struct DiffResult {
+    name: String,
+    diff: Option<String>,
+}
+async fn diff_summary(svc: String, conf: &Config, reg: &Region) -> Result<DiffResult> {
+    let mut mf = shipcat_filebacked::load_manifest(&svc, &conf, &reg)
+        .await?
+        .complete(&reg)?;
+    // complete with version and uid from crd
+    let s = ShipKube::new(&mf).await?;
+    let crd = s.get().await?;
+    mf.version = mf.version.or(crd.spec.version);
+    mf.uid = crd.metadata.uid;
+    info!("diffing {}", mf.name);
+    let d = if let Some(kdiffunobfusc) = diff::template_vs_kubectl(&mf).await? {
+        let kubediff = diff::obfuscate_secrets(
+            kdiffunobfusc, // move this away quickly..
+            mf.get_secrets(),
+        );
+        let smalldiff = diff::minify(&kubediff);
+        Some(smalldiff)
+    } else {
+        None
+    };
+    Ok(DiffResult {
+        name: mf.name,
+        diff: d,
+    })
+}
 
 /// Diffs all services in a region
 ///
 /// Helper that shells out to kubectl diff in parallel.
-pub fn mass_diff(conf: &Config, reg: &Region) -> Result<()> {
-    let svcs = shipcat_filebacked::available(conf, reg)?;
+pub async fn mass_diff(conf: &Config, reg: &Region) -> Result<()> {
+    let svcs = shipcat_filebacked::available(conf, reg).await?;
     assert!(conf.has_secrets());
 
-    let (errs, diffs): (Vec<Error>, Vec<_>) = svcs
-        .par_iter()
-        .map(|mf| {
-            let mut mf = shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?.complete(&reg)?;
-            // complete with version and uid from crd
-            let s = ShipKube::new(&mf)?;
-            let crd = s.get()?;
-            mf.version = mf.version.or(crd.spec.version);
-            mf.uid = crd.metadata.uid;
-            info!("diffing {}", mf.name);
-            let d = if let Some(kdiffunobfusc) = diff::template_vs_kubectl(&mf)? {
-                let kubediff = diff::obfuscate_secrets(
-                    kdiffunobfusc, // move this away quickly..
-                    mf.get_secrets(),
-                );
-                let smalldiff = diff::minify(&kubediff);
-                Some(smalldiff)
-            } else {
-                None
-            };
-            Ok((mf.name, d))
-        })
-        .partition_map(Either::from);
-    for (n, d) in diffs {
-        if let Some(diff) = d {
-            info!("{} diff output:\n{}", n, diff);
+    let mut buffered = stream::iter(svcs)
+        .map(move |mf| diff_summary(mf.base.name, &conf, &reg))
+        .buffer_unordered(10);
+
+    let mut errs = vec![];
+    let mut diffs = vec![];
+    while let Some(r) = buffered.next().await {
+        match r {
+            Ok(dr) => diffs.push(dr),
+            Err(e) => errs.push(e),
+        }
+    }
+    for dr in diffs {
+        if let Some(diff) = dr.diff {
+            info!("{} diff output:\n{}", dr.name, diff);
         } else {
-            info!("{} unchanged", n)
+            info!("{} unchanged", dr.name)
         }
     }
     if !errs.is_empty() {
@@ -70,27 +86,38 @@ pub fn mass_diff(conf: &Config, reg: &Region) -> Result<()> {
     Ok(())
 }
 
+async fn check_summary(svc: String, conf: &Config, reg: &Region) -> Result<String> {
+    let mut mf = shipcat_filebacked::load_manifest(&svc, &conf, &reg)
+        .await?
+        .stub(&reg)?;
+    mf.version = mf.version.or(Some("latest".to_string()));
+    mf.uid = Some("FAKE-GUID".to_string());
+
+    info!("verifying template for {}", mf.name);
+    let tpl = helm::template(&mf, None).await?;
+    helm::template_check(&mf, reg, &tpl)?;
+    Ok(mf.name)
+}
 
 /// Verifies all populated templates for all services in a region
 ///
 /// Helper that shells out to helm template in parallel.
-pub fn mass_template_verify(conf: &Config, reg: &Region) -> Result<()> {
-    let svcs = shipcat_filebacked::available(conf, reg)?;
+pub async fn mass_template_verify(conf: &Config, reg: &Region) -> Result<()> {
+    let svcs = shipcat_filebacked::available(conf, reg).await?;
     assert!(conf.has_secrets());
 
-    let (errs, passed): (Vec<Error>, Vec<_>) = svcs
-        .par_iter()
-        .map(|mf| {
-            let mut mf = shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?.stub(&reg)?;
-            mf.version = mf.version.or(Some("latest".to_string()));
-            mf.uid = Some("FAKE-GUID".to_string());
+    let mut buffered = stream::iter(svcs)
+        .map(move |mf| check_summary(mf.base.name, &conf, &reg))
+        .buffer_unordered(100);
 
-            info!("verifying template for {}", mf.name);
-            let tpl = helm::template(&mf, None)?;
-            helm::template_check(&mf, reg, &tpl)?;
-            Ok(mf.name)
-        })
-        .partition_map(Either::from);
+    let (mut errs, mut passed): (Vec<Error>, Vec<_>) = (vec![], vec![]);
+    while let Some(r) = buffered.next().await {
+        match r {
+            Ok(p) => passed.push(p),
+            Err(e) => errs.push(e),
+        }
+    }
+
     for n in passed {
         info!("{} verified", n)
     }
@@ -108,12 +135,12 @@ pub fn mass_template_verify(conf: &Config, reg: &Region) -> Result<()> {
 /// Apply all crds in a region
 ///
 /// Helper that shells out to kubectl apply in parallel.
-pub fn mass_crd(conf_sec: &Config, conf_base: &Config, reg: &Region, n_workers: usize) -> Result<()> {
-    let svcs = shipcat_filebacked::available(conf_base, reg)?;
-    crd_reconcile(svcs, conf_sec, conf_base, &reg.name, n_workers)
+pub async fn mass_crd(conf_sec: &Config, conf_base: &Config, reg: &Region, n_workers: usize) -> Result<()> {
+    let svcs = shipcat_filebacked::available(conf_base, reg).await?;
+    crd_reconcile(svcs, conf_sec, conf_base, &reg.name, n_workers).await
 }
 
-fn crd_reconcile(
+async fn crd_reconcile(
     svcs: Vec<SimpleManifest>,
     config_sec: &Config,
     config_base: &Config,
@@ -143,69 +170,60 @@ fn crd_reconcile(
     // Reconcile CRDs (definition itself)
     use shipcat_definitions::gen_all_crds;
     for crdef in gen_all_crds() {
-        kubectl::apply_crd(&region_base.name, crdef.clone(), &region_base.namespace)?;
+        kubectl::apply_crd(&region_base.name, crdef.clone(), &region_base.namespace).await?;
     }
 
     // Make sure config can apply first
     let applycfg = if let Some(ref crs) = &region_base.customResources {
         // special configtype detected - re-populating config object
-        Config::new(crs.shipcatConfig.clone(), &region_base.name)?.0
+        Config::new(crs.shipcatConfig.clone(), &region_base.name).await?.0
     } else {
         config_base.clone()
     };
-    kubectl::apply_crd(&region_base.name, applycfg, &region_base.namespace)?;
+    kubectl::apply_crd(&region_base.name, applycfg, &region_base.namespace).await?;
 
     // Single instruction kubectl delete shipcat manifests .... of excess ones
     let svc_names = svcs.iter().map(|x| x.base.name.to_string()).collect::<Vec<_>>();
-    let excess = kubectl::find_redundant_manifests(&region_sec.namespace, &svc_names)?;
+    let excess = kubectl::find_redundant_manifests(&region_sec.namespace, &svc_names).await?;
     if !excess.is_empty() {
         info!("Will remove excess manifests: {:?}", excess);
     }
     for svc in excess {
         // NB: doing deletion sequentially...
-        apply::delete(&svc, &region_sec, &config_sec)?;
+        apply::delete(&svc, &region_sec, &config_sec).await?;
     }
 
-    let n_jobs = svcs.len();
-    let pool = ThreadPool::new(n_workers);
     info!(
-        "Starting {} parallel kube jobs using {} workers",
-        n_jobs, n_workers
+        "Spawning {} parallel kube jobs with {} workers",
+        svcs.len(),
+        n_workers
     );
 
     webhooks::reconcile_event(UpgradeState::Started, &region_sec);
     // then parallel apply the remaining ones
     let force = std::env::var("SHIPCAT_MASS_RECONCILE").unwrap_or("0".into()) == "1";
     let wait_for_rollout = true;
-    let (tx, rx) = channel();
-    for svc in svc_names.clone() {
-        let reg = region_sec.clone();
-        let conf = config_sec.clone();
-        assert!(conf.has_secrets());
 
-        let tx = tx.clone(); // tx channel reused in each thread
-        pool.execute(move || {
-            debug!("Running CRD reconcile for {:?}", svc);
-            let res = apply::apply(&svc, force, &reg, &conf, wait_for_rollout, None);
-            tx.send(res).expect("channel will be there waiting for the pool");
-        });
-    }
-    // wait for threads collect errors
-    let res = rx
-        .iter()
-        .take(n_jobs)
-        .map(|r| {
-            match r {
-                Ok(_) => {}
-                Err(ref e) => warn!("{}", e),
-            }
-            r
+    let conf = config_sec.clone();
+    let reg = region_sec.clone();
+    let mut buffered = stream::iter(svcs)
+        .map(|mf| {
+            debug!("Running CRD reconcile for {:?}", mf.base.name);
+            apply::apply(mf.base.name, force, &reg, &conf, wait_for_rollout, None)
         })
-        .filter_map(Result::err)
-        .collect::<Vec<_>>();
+        .buffer_unordered(n_workers);
+
+
+    let mut errs = vec![];
+    while let Some(r) = buffered.next().await {
+        if let Err(e) = r {
+            warn!("{}", e);
+            errs.push(e);
+        }
+    }
 
     // propagate first non-ignorable error if exists
-    for e in res {
+    for e in errs {
         match e {
             Error(ErrorKind::MissingRollingVersion(svc), _) => {
                 // This only happens in rolling envs because version is mandatory in other envs
@@ -243,60 +261,55 @@ fn crd_reconcile(
 ///
 /// Requires a `vault login` outside of this command as a user who
 /// is sufficiently elevated to write general policies.
-pub fn mass_vault(conf: &Config, reg: &Region, n_workers: usize) -> Result<()> {
-    let svcs = shipcat_filebacked::all(conf)?;
-    vault_reconcile(svcs, conf, reg, n_workers)
+pub async fn mass_vault(conf: &Config, reg: &Region, n_workers: usize) -> Result<()> {
+    let svcs = shipcat_filebacked::all(conf).await?;
+    vault_reconcile(svcs, conf, reg, n_workers).await
 }
 
-fn vault_reconcile(mfs: Vec<BaseManifest>, conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
+async fn vault_reconcile(
+    mfs: Vec<BaseManifest>,
+    conf: &Config,
+    region: &Region,
+    n_workers: usize,
+) -> Result<()> {
     let n_jobs = conf.owners.squads.len();
-    let pool = ThreadPool::new(n_workers);
     info!(
-        "Starting {} parallel vault jobs using {} workers",
+        "Starting {} parallel vault jobs with {} workers",
         n_jobs, n_workers
     );
 
     // then parallel apply the remaining ones
-    let (tx, rx) = channel();
-    for (name, squad) in conf.owners.clone().squads {
-        let mfs = mfs.clone();
-        let reg = region.clone();
-        let admins = squad.github.admins.clone();
+    let reg = region.clone();
 
-        let tx = tx.clone(); // tx channel reused in each thread
-        pool.execute(move || {
+    let mut buffered = stream::iter(conf.owners.clone().squads)
+        .map(|(name, squad)| {
+            let mfs = mfs.clone();
             debug!("Running vault reconcile for {}", name);
-            let res = vault_reconcile_worker(mfs, &name, admins, reg);
-            tx.send(res).expect("channel will be there waiting for the pool");
-        });
+            vault_reconcile_worker(mfs, name, squad.github.admins, &reg)
+        })
+        .buffer_unordered(n_workers);
+
+    let mut errs = vec![];
+    while let Some(r) = buffered.next().await {
+        if let Err(e) = r {
+            warn!("{}", e);
+            errs.push(e);
+        }
     }
 
-    // wait for threads collect errors
-    let res = rx
-        .iter()
-        .take(n_jobs)
-        .map(|r| {
-            match r {
-                Ok(_) => {}
-                Err(ref e) => warn!("error: {}", e),
-            }
-            r
-        })
-        .filter_map(Result::err)
-        .collect::<Vec<_>>();
     // propagate first non-ignorable error if exists
-    if let Some(e) = res.into_iter().next() {
+    if let Some(e) = errs.into_iter().next() {
         // no errors ignoreable atm
         return Err(e);
     }
     Ok(())
 }
 
-fn vault_reconcile_worker(
+async fn vault_reconcile_worker(
     svcs: Vec<BaseManifest>,
-    team: &str,
+    team: String,
     admins_opt: Option<String>,
-    reg: Region,
+    reg: &Region,
 ) -> Result<()> {
     use std::{fs::File, io::Write, path::Path};
     if admins_opt.is_none() {
@@ -305,7 +318,10 @@ fn vault_reconcile_worker(
     };
     let admins = admins_opt.unwrap();
 
-    let policy = reg.vault.make_policy(svcs, &team, reg.environment.clone())?;
+    let policy = reg
+        .vault
+        .make_policy(svcs, &team, reg.environment.clone())
+        .await?;
     debug!("Vault policy: {}", policy);
     // Write policy to a file named "{admins}-policy.hcl"
     let pth = Path::new(".").join(format!("{}-policy.hcl", admins));
@@ -313,7 +329,7 @@ fn vault_reconcile_worker(
     let mut f = File::create(&pth)?;
     writeln!(f, "{}", policy)?;
     // Write a vault policy with the name equal to the admin team:
-    use std::process::Command;
+    use tokio::process::Command;
     // vault write policy < file
     {
         info!("Applying vault policy for {} in {}", admins, reg.name);
@@ -324,7 +340,7 @@ fn vault_reconcile_worker(
             format!("{}-policy.hcl", admins),
         ];
         debug!("vault {}", write_args.join(" "));
-        let s = Command::new("vault").args(&write_args).status()?;
+        let s = Command::new("vault").args(&write_args).status().await?;
         if !s.success() {
             bail!("Subprocess failure from vault: {}", s.code().unwrap_or(1001))
         }
@@ -341,7 +357,7 @@ fn vault_reconcile_worker(
             format!("value={}", admins),
         ];
         debug!("vault {}", assoc_args.join(" "));
-        let s = Command::new("vault").args(&assoc_args).status()?;
+        let s = Command::new("vault").args(&assoc_args).status().await?;
         if !s.success() {
             bail!("Subprocess failure from vault: {}", s.code().unwrap_or(1001))
         }

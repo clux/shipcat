@@ -3,14 +3,16 @@ use crate::common::setup;
 use shipcat::{helm, Result};
 use shipcat_definitions::{Config, ConfigState};
 
-#[test]
+#[tokio::test]
 #[ignore] // This test requires helm cli - not on circle
-fn helm_template() -> Result<()> {
+async fn helm_template() -> Result<()> {
     setup();
-    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk")?;
-    let mf = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg)?.stub(&reg)?;
+    let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").await?;
+    let mf = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg)
+        .await?
+        .stub(&reg)?;
 
-    let res = helm::template(&mf, None)?;
+    let res = helm::template(&mf, None).await?;
 
     // verify we have deferred to helm for templating
     assert!(res.contains("image: \"quay.io/babylonhealth/fake-ask:1.6.0\""));

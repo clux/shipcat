@@ -12,12 +12,12 @@ use crate::{
     shipcat_definitions::{Config, ConfigState},
 };
 
-#[test]
+#[tokio::test]
 // #[serial] not available still :( so have to concatenate two tests messing with evars
-fn webhooks_ensure_requirements() {
+async fn webhooks_ensure_requirements() {
     common::setup();
 
-    let (_conf, reg) = Config::new(ConfigState::Filtered, "dev-uk").unwrap();
+    let (_conf, reg) = Config::new(ConfigState::Filtered, "dev-uk").await.unwrap();
 
     env::set_var("SHIPCAT_AUDIT_REVISION", "egrevision");
     env::set_var("SHIPCAT_AUDIT_CONTEXT_ID", "egcontextid");

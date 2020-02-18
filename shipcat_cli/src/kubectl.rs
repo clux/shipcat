@@ -21,19 +21,19 @@ struct AccessReviewRequest {
     subresource: Option<String>,
 }
 
-pub fn kexec(args: Vec<String>) -> Result<()> {
-    use std::process::Command;
+pub async fn kexec(args: Vec<String>) -> Result<()> {
+    use tokio::process::Command;
     debug!("kubectl {}", args.join(" "));
-    let s = Command::new("kubectl").args(&args).status()?;
+    let s = Command::new("kubectl").args(&args).status().await?;
     if !s.success() {
         bail!("Subprocess failure from kubectl: {}", s.code().unwrap_or(1001))
     }
     Ok(())
 }
-fn kout(args: Vec<String>) -> Result<(String, bool)> {
-    use std::process::Command;
+async fn kout(args: Vec<String>) -> Result<(String, bool)> {
+    use tokio::process::Command;
     debug!("kubectl {}", args.join(" "));
-    let s = Command::new("kubectl").args(&args).output()?;
+    let s = Command::new("kubectl").args(&args).output().await?;
     let out: String = String::from_utf8_lossy(&s.stdout).into();
     let err: String = String::from_utf8_lossy(&s.stderr).to_string().trim().into();
     if !err.is_empty() {
@@ -73,10 +73,11 @@ fn kout(args: Vec<String>) -> Result<(String, bool)> {
 // debug!("status: {:?}", o.status);
 // Ok(o.status.expect("expected rules").resource_rules)
 // }
-fn kani(rr: AccessReviewRequest) -> Result<bool> {
-    let config = load_kube_config().expect("config failed to load");
+async fn kani(rr: AccessReviewRequest) -> Result<bool> {
+    let config = load_kube_config().await.expect("config failed to load");
     let client = APIClient::new(config);
 
+    // TODO: migrate to proper Api here so we can remove types herein
     let ssrr = RawApi::customResource("selfsubjectaccessreviews")
         .group("authorization.k8s.io")
         .version("v1");
@@ -109,6 +110,7 @@ fn kani(rr: AccessReviewRequest) -> Result<bool> {
         .expect("failed to create request");
     let o = client
         .request::<Object<SelfSubjectAccessReviewSpec, SubjectAccessReviewStatus>>(req)
+        .await
         .map_err(ErrorKind::KubeError)?;
 
     debug!("spec: {:?}", o.spec);
@@ -125,11 +127,13 @@ fn kani(rr: AccessReviewRequest) -> Result<bool> {
 /// CLI way to resolve kube context
 ///
 /// Should only be used from main.
-pub fn current_context() -> Result<String> {
-    let (mut res, _) = kout(vec!["config".into(), "current-context".into()]).map_err(|e| {
-        error!("Failed to Get kubectl config current-context. Is kubectl installed?");
-        e
-    })?;
+pub async fn current_context() -> Result<String> {
+    let (mut res, _) = kout(vec!["config".into(), "current-context".into()])
+        .await
+        .map_err(|e| {
+            error!("Failed to Get kubectl config current-context. Is kubectl installed?");
+            e
+        })?;
     let len = res.len();
     if res.ends_with('\n') {
         res.truncate(len - 1);
@@ -137,11 +141,11 @@ pub fn current_context() -> Result<String> {
     Ok(res)
 }
 
-pub fn set_context(context: &str, args: Vec<String>) -> Result<String> {
+pub async fn set_context(context: &str, args: Vec<String>) -> Result<String> {
     let mut arg_list = vec!["config".into(), "set-context".into(), context.into()];
     arg_list.extend_from_slice(&args);
 
-    let (res, _) = kout(arg_list).map_err(|e| {
+    let (res, _) = kout(arg_list).await.map_err(|e| {
         error!("Failed to set kubectl config set-context. Is kubectl installed?");
         e
     })?;
@@ -149,16 +153,18 @@ pub fn set_context(context: &str, args: Vec<String>) -> Result<String> {
     Ok(res)
 }
 
-pub fn use_context(context: &str) -> Result<String> {
-    let (res, _) = kout(vec!["config".into(), "use-context".into(), context.into()]).map_err(|e| {
-        error!("Failed to set kubectl config use-context. Is kubectl installed?");
-        e
-    })?;
+pub async fn use_context(context: &str) -> Result<String> {
+    let (res, _) = kout(vec!["config".into(), "use-context".into(), context.into()])
+        .await
+        .map_err(|e| {
+            error!("Failed to set kubectl config use-context. Is kubectl installed?");
+            e
+        })?;
 
     Ok(res)
 }
 
-fn rollout_status(mf: &Manifest) -> Result<bool> {
+async fn rollout_status(mf: &Manifest) -> Result<bool> {
     // TODO: handle more than one deployment
     // Even if this were called 10 times with 1/10th of waiting time, we still can't wait:
     // - we'd still need to check other deploys...
@@ -170,7 +176,7 @@ fn rollout_status(mf: &Manifest) -> Result<bool> {
         format!("-n={}", mf.namespace),
         "--watch=false".into(), // always just print current status
     ];
-    let (rollres, _) = kout(statusvec)?;
+    let (rollres, _) = kout(statusvec).await?;
     debug!("{}", rollres);
     if rollres.contains("successfully rolled out") || rollres.contains("roll out complete") {
         Ok(true)
@@ -182,13 +188,13 @@ fn rollout_status(mf: &Manifest) -> Result<bool> {
 }
 
 /// A replacement for helm upgrade's --wait and --timeout
-pub fn await_rollout_status(mf: &Manifest) -> Result<bool> {
+pub async fn await_rollout_status(mf: &Manifest) -> Result<bool> {
     use std::{thread, time};
     // Check for rollout progress
     let waittime = mf.estimate_wait_time();
     let sec = time::Duration::from_millis(1000);
     // if this is called immediately after apply/upgrade, resources might not exist yet
-    match rollout_status(&mf) {
+    match rollout_status(&mf).await {
         Ok(true) => return Ok(true), // can also insta-succeed on "noops"
         Ok(false) => debug!("Ignoring rollout failure right after upgrade"),
         Err(e) => warn!("Ignoring rollout failure right after upgrade: {}", e),
@@ -206,7 +212,7 @@ pub fn await_rollout_status(mf: &Manifest) -> Result<bool> {
             trace!("sleep 1s (waited {})", waited);
             thread::sleep(sec);
         }
-        if rollout_status(&mf)? {
+        if rollout_status(&mf).await? {
             return Ok(true);
         }
     }
@@ -218,17 +224,17 @@ enum PodClassification {
     Broken,
 }
 
-fn get_active_pods(mf: &Manifest) -> Result<String> {
-    let (_, pods) = get_classified_pods(PodClassification::Active, mf).unwrap();
+async fn get_active_pods(mf: &Manifest) -> Result<String> {
+    let (_, pods) = get_classified_pods(PodClassification::Active, mf).await.unwrap();
     Ok(pods.join(" "))
 }
 
 /// Return non-running or partially ready pods
-fn get_broken_pods(mf: &Manifest) -> Result<(String, Vec<String>)> {
-    get_classified_pods(PodClassification::Broken, mf)
+async fn get_broken_pods(mf: &Manifest) -> Result<(String, Vec<String>)> {
+    get_classified_pods(PodClassification::Broken, mf).await
 }
 
-fn get_classified_pods(pc: PodClassification, mf: &Manifest) -> Result<(String, Vec<String>)> {
+async fn get_classified_pods(pc: PodClassification, mf: &Manifest) -> Result<(String, Vec<String>)> {
     let podargs = vec![
         "get".into(),
         "pods".into(),
@@ -236,7 +242,7 @@ fn get_classified_pods(pc: PodClassification, mf: &Manifest) -> Result<(String, 
         format!("-n={}", mf.namespace),
         "--no-headers".into(),
     ];
-    let (podres, _) = kout(podargs)?;
+    let (podres, _) = kout(podargs).await?;
     let status_re = Regex::new(r" (?P<ready>\d+)/(?P<total>\d+) ").unwrap();
     let mut active = vec![];
     let mut broken = vec![];
@@ -269,8 +275,8 @@ fn get_classified_pods(pc: PodClassification, mf: &Manifest) -> Result<(String, 
 ///
 /// Prints log excerpts and events for broken pods.
 /// Typically enough to figure out why upgrades broke.
-pub fn debug(mf: &Manifest) -> Result<()> {
-    let (podres, pods) = get_broken_pods(&mf)?;
+pub async fn debug(mf: &Manifest) -> Result<()> {
+    let (podres, pods) = get_broken_pods(&mf).await?;
     if pods.is_empty() {
         info!("No broken pods found");
         info!("Pod statuses:\n{}", podres);
@@ -286,7 +292,7 @@ pub fn debug(mf: &Manifest) -> Result<()> {
             format!("-n={}", mf.namespace),
             "--tail=30".into(),
         ];
-        match kout(logvec) {
+        match kout(logvec).await {
             Ok((l, _)) => {
                 if l == "" {
                     warn!("No logs for pod {} found", pod);
@@ -308,7 +314,7 @@ pub fn debug(mf: &Manifest) -> Result<()> {
             format!("-n={}", mf.namespace),
         ];
 
-        match kout(descvec) {
+        match kout(descvec).await {
             Ok((mut o, _)) => {
                 if let Some(idx) = o.find("Events:\n") {
                     println!("{}", o.split_off(idx))
@@ -322,7 +328,7 @@ pub fn debug(mf: &Manifest) -> Result<()> {
     }
     // ignore errors from here atm - it's mostly here as a best effort helper
     let _ = match mf.workload {
-        PrimaryWorkload::Deployment => debug_active_replicasets(mf),
+        PrimaryWorkload::Deployment => debug_active_replicasets(mf).await,
         PrimaryWorkload::Statefulset => Ok(()), // TODO: make replacement
     };
     Ok(())
@@ -382,7 +388,7 @@ pub struct ReplicaSet {
 }
 
 // Finds affected replicatsets, and checks the state of them.
-fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
+async fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
     // find relevant replicasets
     // NB: not returned via `k get deploy {name} -oyaml` - have to scrape describe..
     let descvec = vec![
@@ -394,7 +400,7 @@ fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
     // Finding the affected replicasets:
     let rs_re =
         Regex::new(r"(Old|New)ReplicaSets?:\s+(?P<rs>\S+)\s+\((?P<running>\d+)/(?P<total>\d+)").unwrap();
-    let (deployres, _) = kout(descvec)?;
+    let (deployres, _) = kout(descvec).await?;
     let mut sets = vec![];
     for l in deployres.lines() {
         if let Some(caps) = rs_re.captures(l) {
@@ -416,7 +422,7 @@ fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
             format!("-n={}", mf.namespace),
             "-oyaml".into(),
         ];
-        let (getres, _) = kout(getvec)?;
+        let (getres, _) = kout(getvec).await?;
         let rv: ReplicaSetVal = serde_yaml::from_str(&getres)?;
         let ri = rv.status;
         let res = ReplicaSet {
@@ -431,8 +437,8 @@ fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
 }
 
 // Debug status of active replicasets post-upgrade helpful info
-fn debug_active_replicasets(mf: &Manifest) -> Result<()> {
-    let sets = find_active_replicasets(mf)?;
+async fn debug_active_replicasets(mf: &Manifest) -> Result<()> {
+    let sets = find_active_replicasets(mf).await?;
     if sets.len() > 1 {
         warn!("ReplicaSets: {:?}", sets);
     }
@@ -455,8 +461,8 @@ fn debug_active_replicasets(mf: &Manifest) -> Result<()> {
 }
 
 /// Print upgrade status of current replicaset rollout
-pub fn debug_rollout_status(mf: &Manifest) -> Result<()> {
-    let mut sets = find_active_replicasets(mf)?;
+pub async fn debug_rollout_status(mf: &Manifest) -> Result<()> {
+    let mut sets = find_active_replicasets(mf).await?;
     if sets.len() == 2 {
         sets.sort_unstable_by(|x, y| x.created.timestamp().cmp(&y.created.timestamp()));
         let old = sets.first().unwrap();
@@ -470,7 +476,7 @@ pub fn debug_rollout_status(mf: &Manifest) -> Result<()> {
 }
 
 // Helper to see what your pods are like
-pub fn kpods(mf: &Manifest) -> Result<String> {
+pub async fn kpods(mf: &Manifest) -> Result<String> {
     let custom_cols = vec![
         "NAME:metadata.name".into(),
         "VERSION:{spec.containers[*].env[?(@.name==\'SERVICE_VERSION\')].value}".to_string(),
@@ -485,7 +491,7 @@ pub fn kpods(mf: &Manifest) -> Result<String> {
         format!("-o=custom-columns={}", custom_cols.join(",")),
         "--sort-by=.metadata.creationTimestamp".into(),
     ];
-    let (out, _succ) = kout(podargs)?;
+    let (out, _succ) = kout(podargs).await?;
     Ok(out)
 }
 
@@ -493,9 +499,9 @@ pub fn kpods(mf: &Manifest) -> Result<String> {
 /// Shell into all pods associated with a service
 ///
 /// Optionally specify the arbitrary pod index from kubectl get pods
-pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -> Result<()> {
+pub async fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -> Result<()> {
     // TODO: kubectl auth can-i create pods/exec
-    let podsres = get_active_pods(&mf)?;
+    let podsres = get_active_pods(&mf).await?;
     debug!("podsres: {}", podsres);
     if podsres.is_empty() {
         bail!("No healthy pods for {}, cannot connect", mf.name);
@@ -525,7 +531,7 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
             ];
             // kubectl exec $pod which bash
             // returns a non-zero rc if not found generally
-            let shexe = match kexec(trybash) {
+            let shexe = match kexec(trybash).await {
                 Ok(o) => {
                     debug!("Got {:?}", o);
                     "bash".into()
@@ -538,7 +544,7 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
             };
             execargs.push(shexe);
         }
-        kexec(execargs)?;
+        kexec(execargs).await?;
     } else {
         bail!("Pod {} not found for service {}", pnr, &mf.name);
     }
@@ -549,7 +555,7 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
 /// Port forward a port to localhost
 ///
 /// Useful because we have autocomplete on manifest names in shipcat
-pub fn port_forward(mf: &Manifest) -> Result<()> {
+pub async fn port_forward(mf: &Manifest) -> Result<()> {
     let access_request = AccessReviewRequest {
         namespace: mf.namespace.clone(),
         verb: "create".into(),
@@ -557,7 +563,7 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
         subresource: Some("portforward".into()),
     };
 
-    if !kani(access_request)? {
+    if !kani(access_request).await? {
         bail!("Current token does not have authorization to port-forward")
     };
 
@@ -599,7 +605,7 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
         pfargs.push(format!("{}:{}", localport, port));
     }
 
-    kexec(pfargs)?;
+    kexec(pfargs).await?;
     Ok(())
 }
 
@@ -608,7 +614,7 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
 ///
 /// CRDs itself, Manifest and Config typically.
 /// Returns whether or not the CRD was configured
-pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> Result<bool> {
+pub async fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> Result<bool> {
     use std::{
         fs::{self, File},
         io::Write,
@@ -636,7 +642,7 @@ pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> 
     debug!("Applying {} CRD for {}", crd.kind, name);
     let applyargs = vec![format!("-n={}", ns), "apply".into(), "-f".into(), crdfile.clone()];
     debug!("applying {} : {:?}", name, applyargs);
-    let (out, status) = kout(applyargs.clone())?;
+    let (out, status) = kout(applyargs.clone()).await?;
     print!("{}", out); // always print kube output from this
     if !status {
         bail!("subprocess failure from kubectl: {:?}", applyargs);
@@ -654,14 +660,14 @@ pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> 
 /// Find all ManifestCrds in a given namespace
 ///
 /// Allows us to purge manifests that are not in Manifest::available()
-fn find_all_manifest_crds(ns: &str) -> Result<Vec<String>> {
+async fn find_all_manifest_crds(ns: &str) -> Result<Vec<String>> {
     let getargs = vec![
         "get".into(),
         format!("-n={}", ns),
         "shipcatmanifests".into(),
         "-ojsonpath='{.items[*].metadata.name}'".into(),
     ];
-    let (out, _) = kout(getargs)?;
+    let (out, _) = kout(getargs).await?;
     if out == "''" {
         // stupid kubectl
         return Ok(vec![]);
@@ -671,17 +677,17 @@ fn find_all_manifest_crds(ns: &str) -> Result<Vec<String>> {
 
 use std::path::PathBuf;
 // Kubectl diff experiment (ignores secrets)
-pub fn diff(pth: PathBuf, ns: &str) -> Result<(String, String, bool)> {
+pub async fn diff(pth: PathBuf, ns: &str) -> Result<(String, String, bool)> {
     let args = vec![
         "diff".into(),
         format!("-n={}", ns),
         format!("-f={}", pth.display()),
     ];
     // need the error code here so re-implent - and discard stderr
-    use std::process::Command;
+    use tokio::process::Command;
     debug!("kubectl {}", args.join(" "));
 
-    let s = Command::new("kubectl").args(&args).output()?;
+    let s = Command::new("kubectl").args(&args).output().await?;
     let out: String = String::from_utf8_lossy(&s.stdout).into();
     let err: String = String::from_utf8_lossy(&s.stderr).into();
     trace!("out: {}, err: {}", out, err);
@@ -691,16 +697,16 @@ pub fn diff(pth: PathBuf, ns: &str) -> Result<(String, String, bool)> {
     Ok((out, err, s.status.success()))
 }
 
-pub fn find_redundant_manifests(ns: &str, svcs: &[String]) -> Result<Vec<String>> {
+pub async fn find_redundant_manifests(ns: &str, svcs: &[String]) -> Result<Vec<String>> {
     use std::collections::HashSet;
     let requested: HashSet<_> = svcs.iter().cloned().collect();
-    let found: HashSet<_> = find_all_manifest_crds(ns)?.iter().cloned().collect();
+    let found: HashSet<_> = find_all_manifest_crds(ns).await?.iter().cloned().collect();
     debug!("Found manifests: {:?}", found);
     Ok(found.difference(&requested).cloned().collect())
 }
 
 // Get a version of a service from the current shipcatmanifest crd
-pub fn get_running_version(svc: &str, ns: &str) -> Result<String> {
+pub async fn get_running_version(svc: &str, ns: &str) -> Result<String> {
     // kubectl get shipcatmanifest $* -o jsonpath='{.spec.version}'
     let mfargs = vec![
         "get".into(),
@@ -709,7 +715,7 @@ pub fn get_running_version(svc: &str, ns: &str) -> Result<String> {
         format!("-n={}", ns),
         "-ojsonpath='{.spec.version}'".into(),
     ];
-    match kout(mfargs) {
+    match kout(mfargs).await {
         Ok((kout, true)) => Ok(kout),
         _ => bail!("Manifest for '{}' not found in {}", svc, ns),
     }
@@ -720,21 +726,21 @@ mod tests {
     use super::{current_context, get_running_version};
     use dirs;
 
-    #[test]
-    fn validate_ctx() {
+    #[tokio::test]
+    async fn validate_ctx() {
         let kubecfg = dirs::home_dir().unwrap().join(".kube").join("config");
         // ignoring this test on circleci..
         if kubecfg.is_file() {
-            let ctx = current_context().unwrap();
+            let ctx = current_context().await.unwrap();
             assert_eq!(ctx, ctx.trim());
             assert_ne!(ctx, "");
         }
     }
 
-    #[test]
+    #[tokio::test]
     #[ignore]
-    fn check_get_version() {
-        let r = get_running_version("raftcat", "dev").unwrap();
+    async fn check_get_version() {
+        let r = get_running_version("raftcat", "dev").await.unwrap();
         assert_eq!(r, "0.121.0");
     }
 }

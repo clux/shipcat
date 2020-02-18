@@ -19,8 +19,8 @@ pub fn locations(conf: &Config) -> Result<()> {
 
 /// Print supported services in a region
 /// TODO: this one needs to do the guess outside in main!
-pub fn services(conf: &Config, region: &Region) -> Result<()> {
-    let services = shipcat_filebacked::available(conf, region)?;
+pub async fn services(conf: &Config, region: &Region) -> Result<()> {
+    let services = shipcat_filebacked::available(conf, region).await?;
     for svc in services {
         println!("{}", &svc.base.name);
     }

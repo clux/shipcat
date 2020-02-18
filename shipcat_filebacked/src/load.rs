@@ -1,36 +1,33 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use merge::Merge;
 use serde::de::DeserializeOwned;
 use shipcat_definitions::{Config, ErrorKind, Manifest, Region, Result, ResultExt};
 use walkdir::WalkDir;
 
-use super::{
-    authorization::AuthorizationSource,
-    util::{Build, Enabled},
-    BaseManifest, SimpleManifest,
-};
+use super::{authorization::AuthorizationSource, util::Enabled, BaseManifest, SimpleManifest};
 use crate::manifest::{ManifestDefaults, ManifestOverrides, ManifestSource};
 
 impl ManifestSource {
-    pub fn load_manifest(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
+    pub async fn load_manifest(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
         let reg_name = reg.name.clone();
         let service_name = service.to_string();
 
-        ManifestSource::load_merged(service, conf, reg)
-            .and_then(|manifest| manifest.build(&(conf.clone(), reg.clone())))
+        let merged = ManifestSource::load_merged(service, conf, reg)
+            .await
+            .chain_err(|| ErrorKind::FailedToBuildManifest(service_name.clone(), reg_name.clone()))?;
+        merged
+            .build(&(conf.clone(), reg.clone()))
+            .await
             .chain_err(|| ErrorKind::FailedToBuildManifest(service_name.clone(), reg_name.clone()))
     }
 
-    pub fn load_metadata(service: &str, conf: &Config, reg: &Region) -> Result<SimpleManifest> {
-        let manifest = ManifestSource::load_merged(service, conf, reg)?;
+    pub async fn load_metadata(service: &str, conf: &Config, reg: &Region) -> Result<SimpleManifest> {
+        let manifest = ManifestSource::load_merged(service, conf, reg).await?;
         manifest.build_simple(&conf, &reg)
     }
 
-    fn load_merged(service: &str, conf: &Config, reg: &Region) -> Result<Self> {
+    async fn load_merged(service: &str, conf: &Config, reg: &Region) -> Result<Self> {
         let dir = Self::services_dir().join(service);
 
         if !dir.exists() {
@@ -43,20 +40,20 @@ impl ManifestSource {
 
         let source_path = Self::services_dir().join(service).join("manifest.yml");
         debug!("Loading service manifest from {:?}", source_path);
-        let source: ManifestSource = read_from(&source_path)?;
+        let source: ManifestSource = read_from(&source_path).await?;
         let mut manifest = defaults.merge_source(source);
 
         let env_path = dir.join(format!("{}.yml", reg.environment.to_string()));
         if env_path.is_file() {
             debug!("Loading service overrides from {:?}", env_path);
-            let env: ManifestOverrides = read_from(&env_path)?;
+            let env: ManifestOverrides = read_from(&env_path).await?;
             manifest = manifest.merge_overrides(env);
         }
 
         let region_path = dir.join(format!("{}.yml", reg.name));
         if region_path.is_file() {
             debug!("Loading service overrides from {:?}", region_path);
-            let region: ManifestOverrides = read_from(&region_path)?;
+            let region: ManifestOverrides = read_from(&region_path).await?;
             manifest = manifest.merge_overrides(region);
         }
 
@@ -83,22 +80,22 @@ impl ManifestSource {
         res
     }
 
-    pub fn all(conf: &Config) -> Result<Vec<BaseManifest>> {
+    pub async fn all(conf: &Config) -> Result<Vec<BaseManifest>> {
         let mut all = vec![];
         for service in Self::all_names() {
             let source_path = Self::services_dir().join(service).join("manifest.yml");
             debug!("Loading service manifest from {:?}", source_path);
-            let source: ManifestSource = read_from(&source_path)?;
+            let source: ManifestSource = read_from(&source_path).await?;
             let manifest = source.build_base(conf)?;
             all.push(manifest);
         }
         Ok(all)
     }
 
-    pub fn available(conf: &Config, reg: &Region) -> Result<Vec<SimpleManifest>> {
+    pub async fn available(conf: &Config, reg: &Region) -> Result<Vec<SimpleManifest>> {
         let mut available = vec![];
         for service in Self::all_names() {
-            let manifest = Self::load_metadata(&service, conf, reg)?;
+            let manifest = Self::load_metadata(&service, conf, reg).await?;
             if manifest.enabled && !manifest.external {
                 available.push(manifest);
             }
@@ -148,12 +145,13 @@ impl ManifestDefaults {
     }
 }
 
-fn read_from<T: DeserializeOwned>(path: &PathBuf) -> Result<T> {
+async fn read_from<T: DeserializeOwned>(path: &PathBuf) -> Result<T> {
+    use tokio::fs;
     trace!("Reading manifest in {}", path.display());
     if !path.exists() {
         bail!("Manifest file {} does not exist", path.display())
     }
-    let data = fs::read_to_string(&path)?;
+    let data = fs::read_to_string(&path).await?;
     if data.is_empty() {
         bail!("Manifest file {} is empty", path.display());
     }
@@ -174,37 +172,41 @@ mod tests {
         std::env::set_current_dir(pth).unwrap();
     }
 
-    #[test]
-    fn load_fake_ask() {
+    #[tokio::test]
+    async fn load_fake_ask() {
         setup();
 
-        let conf = Config::read().unwrap();
+        let conf = Config::read().await.unwrap();
         let region = conf.get_region("dev-uk").unwrap();
 
-        let manifest = ManifestSource::load_manifest("fake-ask", &conf, &region).unwrap();
+        let manifest = ManifestSource::load_manifest("fake-ask", &conf, &region)
+            .await
+            .unwrap();
         assert_eq!(manifest.name, "fake-ask".to_string());
     }
 
-    #[test]
-    fn load_fake_ask_metadata() {
+    #[tokio::test]
+    async fn load_fake_ask_metadata() {
         setup();
 
-        let conf = Config::read().unwrap();
+        let conf = Config::read().await.unwrap();
         let region = conf.get_region("dev-uk").unwrap();
 
-        let manifest = ManifestSource::load_metadata("fake-ask", &conf, &region).unwrap();
+        let manifest = ManifestSource::load_metadata("fake-ask", &conf, &region)
+            .await
+            .unwrap();
         assert_eq!(manifest.base.name, "fake-ask".to_string());
         assert_eq!(manifest.version, Some("1.6.0".into()));
         assert_eq!(manifest.image, Some("quay.io/babylonhealth/fake-ask".into()));
     }
 
-    #[test]
-    fn all() {
+    #[tokio::test]
+    async fn all() {
         setup();
 
-        let conf = Config::read().unwrap();
+        let conf = Config::read().await.unwrap();
 
-        let all = ManifestSource::all(&conf).unwrap();
+        let all = ManifestSource::all(&conf).await.unwrap();
 
         let svc = &all[0];
         assert_eq!(svc.name, "external");
@@ -219,14 +221,14 @@ mod tests {
         assert_eq!(svc.name, "out-of-region");
     }
 
-    #[test]
-    fn available() {
+    #[tokio::test]
+    async fn available() {
         setup();
 
-        let conf = Config::read().unwrap();
+        let conf = Config::read().await.unwrap();
         let region = conf.get_region("dev-uk").unwrap();
 
-        let available = ManifestSource::available(&conf, &region).unwrap();
+        let available = ManifestSource::available(&conf, &region).await.unwrap();
         assert_eq!(available.len(), 2);
 
         let manifest = &available[0];

@@ -432,8 +432,8 @@ impl Config {
     /// Main constructor for CLI
     ///
     /// Pass this a region request via argument or a current context
-    pub fn new(state: ConfigState, context: &str) -> Result<(Config, Region)> {
-        let mut conf = Self::read()?;
+    pub async fn new(state: ConfigState, context: &str) -> Result<(Config, Region)> {
+        let mut conf = Self::read().await?;
         let region = if let Some(r) = conf.resolve_context(context.to_string()) {
             r
         } else {
@@ -458,22 +458,22 @@ impl Config {
     }
 
     /// Read a config file in an arbitrary path
-    fn read_from(pwd: &PathBuf) -> Result<Config> {
-        use std::fs;
+    async fn read_from(pwd: &PathBuf) -> Result<Config> {
+        use tokio::fs;
         let mpath = pwd.join("shipcat.conf");
         trace!("Using config in {}", mpath.display());
         if !mpath.exists() {
             bail!("Config file {} does not exist", mpath.display())
         }
-        let data = fs::read_to_string(&mpath)?;
+        let data = fs::read_to_string(&mpath).await?;
         let res = serde_yaml::from_str(&data)?;
         Ok(res)
     }
 
     /// Read a config in pwd and leave placeholders
-    pub fn read() -> Result<Config> {
+    pub async fn read() -> Result<Config> {
         let pwd = Path::new(".");
-        let mut conf = Config::read_from(&pwd.to_path_buf())?;
+        let mut conf = Config::read_from(&pwd.to_path_buf()).await?;
         conf.owners = teams::Owners::read()?;
         Ok(conf)
     }

@@ -1,6 +1,6 @@
 use super::{Config, Error, Manifest, Region, Result};
-use rayon::prelude::*;
-use shipcat_definitions::math::ResourceTotals;
+use futures::stream::{self, StreamExt};
+use shipcat_definitions::{math::ResourceTotals, BaseManifest};
 use std::{collections::BTreeMap, str::FromStr};
 
 use generic_array::{typenum::U4, GenericArray};
@@ -38,51 +38,66 @@ impl FromStr for ResourceOrder {
     }
 }
 
-fn calculate_manifest_requests(conf: &Config, reg: &Region) -> Result<Vec<(Manifest, ResourceTotals)>> {
-    let available = shipcat_filebacked::available(conf, &reg)?;
-    let mfs_res: Result<Vec<(Manifest, ResourceTotals)>> = available
-        .par_iter()
-        .map(|mf| {
-            let mf = shipcat_filebacked::load_manifest(&mf.base.name, &conf, &reg)?.stub(&reg)?;
-            let res = mf.compute_resource_totals()?;
-            Ok((mf, res))
-        })
-        .collect();
-    Ok(mfs_res?)
+async fn load_mf_req(svc: String, conf: &Config, reg: &Region) -> Result<(Manifest, ResourceTotals)> {
+    let mf = shipcat_filebacked::load_manifest(&svc, &conf, &reg)
+        .await?
+        .stub(&reg)?;
+    let res = mf.compute_resource_totals()?;
+    Ok((mf, res))
 }
 
-fn calculate_manifest_requests_world(conf: &Config) -> Result<Vec<(Manifest, ResourceTotals)>> {
-    let all = shipcat_filebacked::all(conf)?;
-    let mfs_res: Result<Vec<Option<(Manifest, ResourceTotals)>>> = all
-        .par_iter()
-        .map(|base| {
-            let mut res = ResourceTotals::default();
-            let mut first_mf = None;
-            debug!("{} looping over {:?}", base.name, base.regions);
-            for r in &base.regions {
-                if let Some(reg) = conf.get_region_unchecked(&r) {
-                    trace!("valid region: {}", reg.name);
-                    let mf = shipcat_filebacked::load_manifest(&base.name, &conf, &reg)?.stub(&reg)?;
-                    if !mf.disabled && !mf.external {
-                        let ResourceTotals { base: rb, extra: se } = mf.compute_resource_totals()?;
-                        debug!(
-                            "{} in {}: adding reqs: {} {}",
-                            mf.name, r, rb.requests.cpu, rb.requests.memory
-                        );
-                        res.base += rb.clone();
-                        res.extra += se.clone();
-                        first_mf = Some(mf);
-                    }
-                }
+async fn calculate_manifest_requests(conf: &Config, reg: &Region) -> Result<Vec<(Manifest, ResourceTotals)>> {
+    let available = shipcat_filebacked::available(conf, &reg).await?;
+    let mut buffered = stream::iter(available)
+        .map(move |mf| load_mf_req(mf.base.name, conf, reg))
+        .buffer_unordered(100);
+    let mut mfs = vec![];
+    while let Some(r) = buffered.next().await {
+        mfs.push(r?);
+    }
+    Ok(mfs)
+}
+
+async fn load_mf_req_world(base: BaseManifest, conf: &Config) -> Result<Option<(Manifest, ResourceTotals)>> {
+    let mut res = ResourceTotals::default();
+    let mut first_mf = None;
+    debug!("{} looping over {:?}", base.name, base.regions);
+    for r in &base.regions {
+        if let Some(reg) = conf.get_region_unchecked(&r) {
+            trace!("valid region: {}", reg.name);
+            let mf = shipcat_filebacked::load_manifest(&base.name, &conf, &reg)
+                .await?
+                .stub(&reg)?;
+            if !mf.disabled && !mf.external {
+                let ResourceTotals { base: rb, extra: se } = mf.compute_resource_totals()?;
+                debug!(
+                    "{} in {}: adding reqs: {} {}",
+                    mf.name, r, rb.requests.cpu, rb.requests.memory
+                );
+                res.base += rb.clone();
+                res.extra += se.clone();
+                first_mf = Some(mf);
             }
-            if let Some(mf) = first_mf {
-                Ok(Some((mf, res)))
-            } else {
-                Ok(None)
-            }
-        })
-        .collect();
-    let mfs: Vec<(Manifest, ResourceTotals)> = mfs_res?.into_iter().filter_map(|x| x).collect();
+        }
+    }
+    if let Some(mf) = first_mf {
+        Ok(Some((mf, res)))
+    } else {
+        Ok(None)
+    }
+}
+
+async fn calculate_manifest_requests_world(conf: &Config) -> Result<Vec<(Manifest, ResourceTotals)>> {
+    let all = shipcat_filebacked::all(conf).await?;
+    let mut buffered = stream::iter(all)
+        .map(|mf| load_mf_req_world(mf, conf))
+        .buffer_unordered(100);
+    let mut mfs = vec![];
+    while let Some(r) = buffered.next().await {
+        if let Some(v) = r? {
+            mfs.push(v);
+        }
+    }
     Ok(mfs)
 }
 
@@ -92,13 +107,13 @@ fn calculate_manifest_requests_world(conf: &Config) -> Result<Vec<(Manifest, Res
 /// It does NOT talk to kubernetes.
 ///
 /// It works out ResourceTotals based on Manifest properties analytically.
-pub fn world_requests(
+pub async fn world_requests(
     order: ResourceOrder,
     ub: bool,
     fmt: OutputFormat,
     conf: &Config,
 ) -> Result<Vec<(Manifest, ResourceTotals)>> {
-    let mfs = calculate_manifest_requests_world(conf)?;
+    let mfs = calculate_manifest_requests_world(conf).await?;
     let mfs = sort_and_print_resources(mfs, order, fmt, ub)?;
     Ok(mfs)
 }
@@ -110,14 +125,14 @@ pub fn world_requests(
 /// It does NOT talk to kubernetes.
 ///
 /// It works out ResourceTotals based on Manifest properties analytically.
-pub fn region_requests(
+pub async fn region_requests(
     order: ResourceOrder,
     ub: bool,
     fmt: OutputFormat,
     conf: &Config,
     reg: &Region,
 ) -> Result<Vec<(Manifest, ResourceTotals)>> {
-    let mfs = calculate_manifest_requests(conf, reg)?;
+    let mfs = calculate_manifest_requests(conf, reg).await?;
     let mfs = sort_and_print_resources(mfs, order, fmt, ub)?;
     Ok(mfs)
 }
@@ -288,14 +303,14 @@ fn fold_manifests_by_tribe(reqs: Vec<(Manifest, ResourceTotals)>) -> Result<Vec<
 /// Resource squad top for a single region
 ///
 /// Same data as region_requests, but aggregated across squads
-pub fn region_squad_requests(
+pub async fn region_squad_requests(
     order: ResourceOrder,
     ub: bool,
     fmt: OutputFormat,
     conf: &Config,
     reg: &Region,
 ) -> Result<Vec<(String, ResourceTotals)>> {
-    let mfs = calculate_manifest_requests(conf, reg)?;
+    let mfs = calculate_manifest_requests(conf, reg).await?;
     let team_requests = fold_manifests_by_squad(mfs)?;
     let sorted = sort_and_print_team_resources(team_requests, "squad", order, fmt, ub)?;
     Ok(sorted)
@@ -305,14 +320,14 @@ pub fn region_squad_requests(
 ///
 /// Uses same data as reguion_requests but aggregates across tribes.
 /// If tribes exists for all squads, then the data sums up to the same numbers
-pub fn region_tribe_requests(
+pub async fn region_tribe_requests(
     order: ResourceOrder,
     ub: bool,
     fmt: OutputFormat,
     conf: &Config,
     reg: &Region,
 ) -> Result<Vec<(String, ResourceTotals)>> {
-    let mfs = calculate_manifest_requests(conf, reg)?;
+    let mfs = calculate_manifest_requests(conf, reg).await?;
     let team_requests = fold_manifests_by_tribe(mfs)?;
     let sorted = sort_and_print_team_resources(team_requests, "tribe", order, fmt, ub)?;
     Ok(sorted)
@@ -321,13 +336,13 @@ pub fn region_tribe_requests(
 /// Resource squad top for every region
 ///
 /// Same data as world_requests, but aggregated across squads
-pub fn world_squad_requests(
+pub async fn world_squad_requests(
     order: ResourceOrder,
     ub: bool,
     fmt: OutputFormat,
     conf: &Config,
 ) -> Result<Vec<(String, ResourceTotals)>> {
-    let mfs = calculate_manifest_requests_world(conf)?;
+    let mfs = calculate_manifest_requests_world(conf).await?;
     let team_requests = fold_manifests_by_squad(mfs)?;
     let sorted = sort_and_print_team_resources(team_requests, "squad", order, fmt, ub)?;
     Ok(sorted)
@@ -337,13 +352,13 @@ pub fn world_squad_requests(
 ///
 /// Uses same data as world_requests but aggregates across tribes.
 /// If tribes exists for all squads, then the data sums up to the same numbers
-pub fn world_tribe_requests(
+pub async fn world_tribe_requests(
     order: ResourceOrder,
     ub: bool,
     fmt: OutputFormat,
     conf: &Config,
 ) -> Result<Vec<(String, ResourceTotals)>> {
-    let mfs = calculate_manifest_requests_world(conf)?;
+    let mfs = calculate_manifest_requests_world(conf).await?;
     let team_requests = fold_manifests_by_tribe(mfs)?;
     let sorted = sort_and_print_team_resources(team_requests, "tribe", order, fmt, ub)?;
     Ok(sorted)

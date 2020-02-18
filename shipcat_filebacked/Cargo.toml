@@ -14,6 +14,7 @@ serde_derive = "1.0.92"
 serde_yaml = "0.8.9"
 log = "0.4.5"
 error-chain = "0.12.0"
+tokio = { version = "0.2.11", default-features = false, features = ["fs"] }
 walkdir = { version = "2.2.5"}
 
 [dev-dependencies]

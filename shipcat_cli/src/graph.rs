@@ -79,6 +79,8 @@ fn recurse_manifest(
     reg: &Region,
     graph: &mut CatGraph,
 ) -> Result<()> {
+    // avoid making this fn async because it needs a lot of annotations due to recursion
+    use futures::executor;
     for dep in &mf.dependencies {
         debug!("Recursing into {}", dep.name);
         // skip if node exists to avoid infinite loop
@@ -89,7 +91,9 @@ fn recurse_manifest(
             continue;
         }
 
-        let depmf = shipcat_filebacked::load_manifest(&dep.name, conf, reg)?;
+        // so run this synchronously:
+        let res = executor::block_on(shipcat_filebacked::load_manifest(&dep.name, conf, reg));
+        let depmf = res?;
 
         let depnode = ManifestNode::new(&depmf);
         let depidx = graph.add_node(depnode);
@@ -97,13 +101,12 @@ fn recurse_manifest(
         graph.update_edge(idx, depidx, DepEdge::new(&dep));
         recurse_manifest(depidx, &depmf, conf, reg, graph)?;
     }
-
     Ok(())
 }
 
 /// Generate dependency graph from an entry point via recursion
-pub fn generate(service: &str, conf: &Config, reg: &Region, dot: bool) -> Result<CatGraph> {
-    let base = shipcat_filebacked::load_manifest(service, conf, reg)?;
+pub async fn generate(service: &str, conf: &Config, reg: &Region, dot: bool) -> Result<CatGraph> {
+    let base = shipcat_filebacked::load_manifest(service, conf, reg).await?;
 
     let mut graph: CatGraph = DiGraph::<_, _>::new();
     let node = ManifestNode::new(&base);
@@ -126,12 +129,12 @@ pub fn generate(service: &str, conf: &Config, reg: &Region, dot: bool) -> Result
 /// one or more services as we could also show grahps reaching into the ecosystem.
 ///
 /// But it would require: TODO: optionally filter edges around node(s)
-pub fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
+pub async fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
     let mut graph: CatGraph = DiGraph::<_, _>::new();
-    for svc in shipcat_filebacked::available(conf, reg)? {
+    for svc in shipcat_filebacked::available(conf, reg).await? {
         debug!("Scanning service {:?}", svc);
 
-        let mf = shipcat_filebacked::load_manifest(&svc.base.name, conf, reg)?;
+        let mf = shipcat_filebacked::load_manifest(&svc.base.name, conf, reg).await?;
         let node = ManifestNode::new(&mf);
         let idx = graph.add_node(node);
 
@@ -141,7 +144,7 @@ pub fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
                 id
             } else {
                 trace!("Found dependency new in graph: {}", dep.name);
-                let depmf = shipcat_filebacked::load_manifest(&dep.name, conf, reg)?;
+                let depmf = shipcat_filebacked::load_manifest(&dep.name, conf, reg).await?;
                 let depnode = ManifestNode::new(&depmf);
                 graph.add_node(depnode) // depidx
             };
@@ -159,10 +162,10 @@ pub fn full(dot: bool, conf: &Config, reg: &Region) -> Result<CatGraph> {
 }
 
 /// Generate first level reverse dependencies for a service
-pub fn reverse(service: &str, conf: &Config, reg: &Region) -> Result<Vec<String>> {
+pub async fn reverse(service: &str, conf: &Config, reg: &Region) -> Result<Vec<String>> {
     let mut res = vec![];
-    for svc in shipcat_filebacked::available(conf, reg)? {
-        let mf = shipcat_filebacked::load_manifest(&svc.base.name, conf, reg)?;
+    for svc in shipcat_filebacked::available(conf, reg).await? {
+        let mf = shipcat_filebacked::load_manifest(&svc.base.name, conf, reg).await?;
         if mf.dependencies.into_iter().any(|d| d.name == service) {
             res.push(svc.base.name)
         }
