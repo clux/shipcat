@@ -1,8 +1,8 @@
 #![allow(unused_imports, unused_variables)]
-
 #[macro_use] extern crate log;
 
 use serde_derive::Serialize;
+use std::collections::BTreeMap;
 
 use chrono::Local;
 use std::env;
@@ -15,67 +15,69 @@ fn find_team(owners: &Owners, slug: &str) -> Option<Squad> {
 
 // ----------------------------------------------------------------------------------
 // Web server interface
+use actix_files as fs;
 use actix_web::{
-    http::{header, Method, StatusCode},
-    middleware, server, App, HttpRequest, HttpResponse, Path, Responder,
+    middleware,
+    web::{self, Data},
+    App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 
 
 // Route entrypoints
-fn get_single_manifest(req: &HttpRequest<State>) -> Result<HttpResponse> {
+async fn get_single_manifest(c: Data<State>, req: HttpRequest) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
-    if let Some(mf) = req.state().get_manifest(name)? {
+    if let Some(mf) = c.get_manifest(name).await? {
         Ok(HttpResponse::Ok().json(mf.spec))
     } else {
         Ok(HttpResponse::NotFound().finish())
     }
 }
-fn get_all_manifests(req: &HttpRequest<State>) -> Result<HttpResponse> {
-    let mfs = req.state().get_manifests()?;
+async fn get_all_manifests(c: Data<State>, _req: HttpRequest) -> Result<HttpResponse> {
+    let mfs: BTreeMap<String, Manifest> = c.get_manifests().await?;
     Ok(HttpResponse::Ok().json(mfs))
 }
-fn get_resource_usage(req: &HttpRequest<State>) -> Result<HttpResponse> {
+async fn get_resource_usage(c: Data<State>, req: HttpRequest) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
-    if let Some(mf) = req.state().get_manifest(name)? {
+    if let Some(mf) = c.get_manifest(name).await? {
         let totals = mf.spec.compute_resource_totals().unwrap(); // TODO: use 'failure' in shipcat_definitions
         Ok(HttpResponse::Ok().json(totals))
     } else {
         Ok(HttpResponse::NotFound().finish())
     }
 }
-fn get_manifests_for_team(req: &HttpRequest<State>) -> Result<HttpResponse> {
+async fn get_manifests_for_team(c: Data<State>, req: HttpRequest) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
-    let cfg = req.state().get_config()?;
+    let cfg = c.get_config().await?;
     if let Some(t) = find_team(&cfg.owners, name) {
-        let mfs = req.state().get_manifests_for(&t.name)?;
+        let mfs = c.get_manifests_for(&t.name).await?;
         Ok(HttpResponse::Ok().json(mfs))
     } else {
         Ok(HttpResponse::NotFound().finish())
     }
 }
-fn get_teams(req: &HttpRequest<State>) -> Result<HttpResponse> {
-    let cfg = req.state().get_config()?;
+async fn get_teams(c: Data<State>) -> Result<HttpResponse> {
+    let cfg = c.get_config().await?;
     Ok(HttpResponse::Ok().json(cfg.owners.squads))
 }
 
-fn get_versions(req: &HttpRequest<State>) -> Result<HttpResponse> {
-    let vers = req.state().get_versions()?;
+async fn get_versions(c: Data<State>) -> Result<HttpResponse> {
+    let vers = c.get_versions().await?;
     Ok(HttpResponse::Ok().json(vers))
 }
 
-fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
+async fn get_service(c: Data<State>, req: HttpRequest) -> Result<HttpResponse> {
     let name = req.match_info().get("name").unwrap();
-    let cfg = req.state().get_config()?;
-    let region = req.state().get_region()?;
+    let cfg = c.get_config().await?;
+    let region = c.get_region().await?;
 
-    let revdeps = req.state().get_reverse_deps(name).ok();
-    let newrelic_link = req.state().get_newrelic_link(name);
-    let sentry_slug = req.state().get_sentry_slug(name);
+    let revdeps = c.get_reverse_deps(name).await.ok();
+    let newrelic_link = c.get_newrelic_link(name);
+    let sentry_slug = c.get_sentry_slug(name);
 
-    if let Some(mfobj) = req.state().get_manifest(name)? {
+    if let Some(mfobj) = c.get_manifest(name).await? {
         let mf = mfobj.spec;
         let pretty = serde_yaml::to_string(&mf)?;
-        let mfstub = mf.clone().stub(&region).unwrap();
+        let mfstub = mf.clone().stub(&region).await.unwrap();
 
         let md = mf.metadata.clone().unwrap();
         let version = mf.version.clone().unwrap();
@@ -165,19 +167,19 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
         let time = date.format("%Y-%m-%d %H:%M:%S").to_string();
 
         ctx.insert("time", &time);
-        let s = req.state().render_template("service.tera", ctx);
+        let s = c.render_template("service.tera", ctx);
         Ok(HttpResponse::Ok().content_type("text/html").body(s))
     } else {
         Ok(HttpResponse::NotFound().finish())
     }
 }
 
-fn health(_: &HttpRequest<State>) -> HttpResponse {
-    HttpResponse::Ok().json("healthy")
+async fn health() -> Result<HttpResponse> {
+    Ok(HttpResponse::Ok().json("healthy"))
 }
 
-fn get_config(req: &HttpRequest<State>) -> Result<HttpResponse> {
-    let cfg = req.state().get_config()?;
+async fn get_config(c: Data<State>, _req: HttpRequest) -> Result<HttpResponse> {
+    let cfg = c.get_config().await?;
     Ok(HttpResponse::Ok().json(cfg))
 }
 
@@ -192,12 +194,12 @@ struct SimpleRegion {
     url: String,
 }
 
-fn index(req: &HttpRequest<State>) -> Result<HttpResponse> {
-    let mut ctx = tera::Context::new();
 
-    let data = req
-        .state()
-        .get_manifests()?
+async fn index(c: Data<State>, _req: HttpRequest) -> Result<HttpResponse> {
+    let mut ctx = tera::Context::new();
+    let data = c
+        .get_manifests()
+        .await?
         .into_iter()
         .map(|(k, m)| SimpleManifest {
             name: k,
@@ -207,9 +209,9 @@ fn index(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let data = serde_json::to_string(&data)?;
     ctx.insert("manifests", &data);
 
-    let regions = req
-        .state()
-        .get_config()?
+    let regions = c
+        .get_config()
+        .await?
         .get_regions()
         .into_iter()
         .filter_map(|r| r.raftcat_url().map(|url| SimpleRegion { name: r.name, url }))
@@ -220,15 +222,15 @@ fn index(req: &HttpRequest<State>) -> Result<HttpResponse> {
     }
 
     ctx.insert("raftcat", env!("CARGO_PKG_VERSION"));
-    let s = req.state().render_template("index.tera", ctx);
+    let s = c.render_template("index.tera", ctx);
     Ok(HttpResponse::Ok().content_type("text/html").body(s))
 }
 
-
-fn main() -> Result<()> {
-    sentry::integrations::panic::register_panic_handler();
-    let dsn = env::var("SENTRY_DSN").expect("Sentry DSN required");
-    let _guard = sentry::init(dsn); // must keep _guard in scope
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
+    //sentry::integrations::panic::register_panic_handler();
+    //let dsn = env::var("SENTRY_DSN").expect("Sentry DSN required");
+    //let _guard = sentry::init(dsn); // must keep _guard in scope
 
     env::set_var("RUST_LOG", "actix_web=info,raftcat=info,kube=info");
     if let Ok(level) = env::var("LOG_LEVEL") {
@@ -243,56 +245,47 @@ fn main() -> Result<()> {
     env::set_var("VAULT_TOKEN", "INVALID"); // needed because it happens super early..
 
     // Set up kube access + fetch initial state. Crashing on failure here.
-    let cfg = kube::config::incluster_config()
-        .or_else(|_| kube::config::load_kube_config())
-        .expect("Failed to load kube config");
-    let shared_state = state::init(cfg).unwrap(); // crash if init fails
+    let cfg = if let Ok(c) = kube::config::incluster_config() {
+        c
+    } else {
+        kube::config::load_kube_config()
+            .await
+            .expect("Failed to load kube config")
+    };
+    let shared_state = state::init(cfg).await.unwrap();
 
-    info!("Creating http server");
-    let sys = actix::System::new("raftcat");
-    server::new(move || {
-        App::with_state(shared_state.clone())
-            .middleware(
+    info!("Starting listening on 0.0.0.0:8000");
+    HttpServer::new(move || {
+        App::new()
+            .data(shared_state.clone())
+            .wrap(
                 middleware::Logger::default()
-                    .exclude("/raftcat/health")
                     .exclude("/health")
+                    .exclude("/raftcat/health")
                     .exclude("/favicon.ico")
                     .exclude("/raftcat/static/*.png")
                     .exclude("/raftcat/static/images/*.png"),
             )
-            .middleware(sentry_actix::SentryMiddleware::new())
-            .handler(
-                "/raftcat/static",
-                actix_web::fs::StaticFiles::new("./raftcat/static").unwrap(),
+            //.wrap(prometheus.clone())
+            //.wrap(sentry_actix...)
+            .service(fs::Files::new("/raftcat/static", "./raftcat/static").index_file("index.html"))
+            .service(web::resource("/raftcat/config").route(web::get().to(get_config)))
+            .service(
+                web::resource("/raftcat/manifests/{name}/resources").route(web::get().to(get_resource_usage)),
             )
-            .resource("/raftcat/config", |r| r.method(Method::GET).f(get_config))
-            .resource("/raftcat/manifests/{name}/resources", |r| {
-                r.method(Method::GET).f(get_resource_usage)
-            })
-            .resource("/raftcat/manifests/{name}", |r| {
-                r.method(Method::GET).f(get_single_manifest)
-            })
-            .resource("/raftcat/manifests", |r| {
-                r.method(Method::GET).f(get_all_manifests)
-            })
-            .resource("/raftcat/services/{name}", |r| {
-                r.method(Method::GET).f(get_service)
-            })
-            .resource("/raftcat/teams/{name}", |r| {
-                r.method(Method::GET).f(get_manifests_for_team)
-            })
-            .resource("/raftcat/teams", |r| r.method(Method::GET).f(get_teams))
-            .resource("/raftcat/health", |r| r.method(Method::GET).f(health))
-            .resource("/raftcat/versions", |r| r.method(Method::GET).f(get_versions))
-            .resource("/health", |r| r.method(Method::GET).f(health)) // redundancy
-            .resource("/raftcat/", |r| r.method(Method::GET).f(index))
+            .service(web::resource("/raftcat/manifests/{name}").route(web::get().to(get_single_manifest)))
+            .service(web::resource("/raftcat/manifests").route(web::get().to(get_all_manifests)))
+            .service(web::resource("/raftcat/services/{name}").route(web::get().to(get_service)))
+            .service(web::resource("/raftcat/teams/{name}").route(web::get().to(get_manifests_for_team)))
+            .service(web::resource("/raftcat/teams").route(web::get().to(get_teams)))
+            .service(web::resource("/raftcat/health").route(web::get().to(health)))
+            .service(web::resource("/raftcat/versions").route(web::get().to(get_versions)))
+            .service(web::resource("/health").route(web::get().to(health))) // redundancy
+            .service(web::resource("/raftcat/").route(web::get().to(index)))
     })
-    .bind("0.0.0.0:8080")
-    .expect("Can not bind to 0.0.0.0:8080")
-    .shutdown_timeout(0) // <- Set shutdown timeout to 0 seconds (default 60s)
-    .start();
-
-    info!("Starting listening on 0.0.0.0:8080");
-    let _ = sys.run();
-    Ok(())
+    .bind("0.0.0.0:8000")
+    .expect("Can not bind to 0.0.0.0:8000")
+    .shutdown_timeout(0)
+    .run()
+    .await
 }

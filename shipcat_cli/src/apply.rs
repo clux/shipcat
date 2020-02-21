@@ -1,4 +1,5 @@
-use std::{fs, path::Path};
+use std::path::Path;
+use tokio::fs;
 
 use crate::{
     diff, helm, kubectl,
@@ -205,15 +206,15 @@ async fn apply_kubectl(
 
     // Prepare for an actual upgrade now..
     let mut ui = UpgradeInfo::new(&mfcrd);
-    webhooks::apply_event(UpgradeState::Pending, &ui, &region, &conf);
+    webhooks::apply_event(UpgradeState::Pending, &ui, &region, &conf).await;
 
     // Fetch all the secrets so we can create a completed manifest
     // TODO: check scp.status.secretChecksum against secret-manager instead
-    let mut mf = match mfcrd.complete(&region) {
+    let mut mf = match mfcrd.complete(&region).await {
         Ok(m) => m,
         Err(e) => {
             // Fire failed events if secrets fail to resolve
-            webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
+            webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf).await;
             s.update_generate_false("SecretFailure", e.description().to_string())
                 .await?;
             return Err(e.into());
@@ -229,7 +230,7 @@ async fn apply_kubectl(
             Err(e) => {
                 debug!("{:?}", e);
                 // Fire failed events if crd could not be fetched after its creation
-                webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
+                webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf).await;
                 s.update_generate_false("CrdFailure", e.description().to_string())
                     .await?;
                 return Err(e);
@@ -242,7 +243,7 @@ async fn apply_kubectl(
     let tpth = Path::new(".").join(tfile.clone());
     if let Err(e) = helm::template(&mf, Some(tpth)).await {
         // Errors here are obscure, and should not happen, but pass them up anyway
-        webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
+        webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf).await;
         s.update_generate_false("ResolveFailure", e.description().to_string())
             .await?;
         return Err(e);
@@ -260,7 +261,7 @@ async fn apply_kubectl(
                 // If we explicitly received no diff, don't try to upgrade
                 // This is a stronger diff than CRD-only if this succeeds; STOP.
                 info!("{} up to date (full diff check)", svc);
-                webhooks::apply_event(UpgradeState::Cancelled, &ui, &region, &conf);
+                webhooks::apply_event(UpgradeState::Cancelled, &ui, &region, &conf).await;
                 s.update_generate_true().await?; // every force reconcile makes one generate cond
                 return Ok(None);
             }
@@ -269,7 +270,7 @@ async fn apply_kubectl(
                 warn!("Unable to diff against {}: {}", svc, e);
                 if !force && reason.is_none() {
                     // pass on a diff failure
-                    webhooks::apply_event(UpgradeState::Cancelled, &ui, &region, &conf);
+                    webhooks::apply_event(UpgradeState::Cancelled, &ui, &region, &conf).await;
                     s.update_generate_false("DiffFailure", e.description().to_string())
                         .await?;
                     return Ok(None); // but ultimately ignore this in fast reconciles
@@ -281,42 +282,42 @@ async fn apply_kubectl(
 
     // We cannot be here without a reason now, although you have to convince yourself.
     let ureason = reason.expect("cannot apply without a reason");
-    webhooks::apply_event(UpgradeState::Started, &ui, &region, &conf);
+    webhooks::apply_event(UpgradeState::Started, &ui, &region, &conf).await;
     s.update_generate_true().await?; // if this fails, stop, want .status to be correct
 
     match upgrade_kubectl(&mf, &tfile).await {
         Err(e) => {
             error!("{} from {}", e, ui.name);
-            webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
+            webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf).await;
             let reason = e.description().to_string();
             s.update_apply_false(ureason.to_string(), "ApplyFailure", reason)
                 .await?; // TODO: chain
             return Err(e);
         }
         Ok(_) => {
-            let _ = s.update_apply_true(ureason.to_string());
+            let _ = s.update_apply_true(ureason.to_string()).await;
             if !wait {
                 info!("successfully applied {} (without waiting)", ui.name);
             } else {
                 match kubectl::await_rollout_status(&mf).await {
                     Ok(true) => {
                         info!("successfully rolled out {}", &ui.name);
-                        webhooks::apply_event(UpgradeState::Completed, &ui, &region, &conf);
+                        webhooks::apply_event(UpgradeState::Completed, &ui, &region, &conf).await;
                         s.update_rollout_true(&actual_version).await?;
                     }
                     Ok(false) => {
                         let time = mf.estimate_wait_time();
                         let reason = format!("timed out waiting {}s for rollout", time);
-                        let _ = kubectl::debug_rollout_status(&mf);
-                        let _ = kubectl::debug(&mf);
+                        let _ = kubectl::debug_rollout_status(&mf).await;
+                        let _ = kubectl::debug(&mf).await;
                         // TODO: collect these for .status call ^?
                         warn!("failed to roll out {}", &ui.name);
-                        webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
+                        webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf).await;
                         s.update_rollout_false("Timeout", reason).await?; // TODO: chain
                         return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), time).into());
                     }
                     Err(e) => {
-                        webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf);
+                        webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf).await;
                         s.update_rollout_false("RolloutTrackFailure", e.description().to_string())
                             .await?; // TODO: chain
                         return Err(e);
@@ -326,7 +327,7 @@ async fn apply_kubectl(
         }
     };
     // cleanups in non-error cases
-    let _ = fs::remove_file(&tfile);
+    let _ = fs::remove_file(&tfile).await;
     Ok(Some(ui))
 }
 
@@ -420,8 +421,8 @@ pub async fn restart(mf: &Manifest, wait: bool) -> Result<()> {
     } else {
         let time = mf.estimate_wait_time();
         let reason = format!("timed out waiting {}s for rollout to restart", time);
-        let _ = kubectl::debug_rollout_status(&mf);
-        let _ = kubectl::debug(&mf);
+        let _ = kubectl::debug_rollout_status(&mf).await;
+        let _ = kubectl::debug(&mf).await;
         warn!("failed to roll out {}", &mf.name);
         warn!("{}", reason);
         Err(ErrorKind::UpgradeTimeout(mf.name.clone(), time).into())
@@ -458,16 +459,16 @@ pub async fn delete(svc: &str, reg: &Region, conf: &Config) -> Result<()> {
         Ok(mfk) => {
             let info = UpgradeInfo::new(&mfk.spec);
             // We notify before we start, because this is potentially a "panic" type notification.
-            webhooks::delete_event(&UpgradeState::Started, &info, &reg, &conf);
+            webhooks::delete_event(&UpgradeState::Started, &info, &reg, &conf).await;
             match s.delete().await {
                 Ok(_) => {
                     // NB: we say completed when the api is "done"
                     // This might still trigger finalizers ATM...
-                    webhooks::delete_event(&UpgradeState::Completed, &info, &reg, &conf);
+                    webhooks::delete_event(&UpgradeState::Completed, &info, &reg, &conf).await;
                     Ok(())
                 }
                 Err(e) => {
-                    webhooks::delete_event(&UpgradeState::Failed, &info, &reg, &conf);
+                    webhooks::delete_event(&UpgradeState::Failed, &info, &reg, &conf).await;
                     Err(e)
                 }
             }

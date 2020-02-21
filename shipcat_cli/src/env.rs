@@ -6,11 +6,13 @@ pub async fn print_bash(svc: &str, conf: &Config, reg: &Region, mock: bool) -> R
         warn!("Using mocked values for secrets. Use `-s` to resolve secrets.");
         shipcat_filebacked::load_manifest(&svc, &conf, &reg)
             .await?
-            .stub(&reg)?
+            .stub(&reg)
+            .await?
     } else {
         shipcat_filebacked::load_manifest(&svc, &conf, &reg)
             .await?
-            .complete(&reg)?
+            .complete(&reg)
+            .await?
     };
 
     for (k, s) in mf.secrets {

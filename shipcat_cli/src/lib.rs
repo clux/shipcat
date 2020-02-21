@@ -21,12 +21,10 @@ error_chain! {
         Mani(shipcat_definitions::Error);
         SerdeY(serde_yaml::Error);
         SerdeJ(serde_json::Error);
-        Slack(slack_hook::Error);
-        Reqw(reqwest::UrlError);
         Reqe(reqwest::Error);
+        UrlP(url::ParseError);
         Time(::std::time::SystemTimeError);
         Chrono(chrono::format::ParseError);
-        SelfUpdate(self_update::errors::Error);
     }
     errors {
         MissingSlackUrl {
@@ -68,6 +66,14 @@ error_chain! {
         KubeError(e: kube::Error) {
             description("kube api interaction failed")
             display("kube api: {}: {:?}", e, e)
+        }
+        SlackError(e: slack_hook2::Error) {
+            description("slack_hook interaction failed")
+            display("slack_hook: {}: {:?}", e, e)
+        }
+        SelfUpgradeError(s: String) {
+            description("self-upgrade failed")
+            display("self-upgrade: {}", s)
         }
     }
 }
@@ -143,6 +149,7 @@ pub mod show;
 pub mod auth;
 
 /// Shipcat self upgrade
+#[cfg(feature = "self-upgrade")]
 pub mod upgrade;
 
 /// Smart initialiser with safety

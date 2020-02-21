@@ -10,7 +10,8 @@ async fn helm_template() -> Result<()> {
     let (conf, reg) = Config::new(ConfigState::Base, "dev-uk").await?;
     let mf = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg)
         .await?
-        .stub(&reg)?;
+        .stub(&reg)
+        .await?;
 
     let res = helm::template(&mf, None).await?;
 

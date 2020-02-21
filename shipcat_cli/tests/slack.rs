@@ -20,6 +20,7 @@ async fn slack_test() {
             text: format!("simple `{}` test", "slack"),
             ..Default::default()
         })
+        .await
         .unwrap();
         send(
             Message {
@@ -36,6 +37,7 @@ async fn slack_test() {
             },
             &conf.owners,
         )
+        .await
         .unwrap();
 
         // this is not just a three line diff, so
@@ -55,6 +57,7 @@ async fn slack_test() {
             },
             &conf.owners,
         )
+        .await
         .unwrap();
     }
 }

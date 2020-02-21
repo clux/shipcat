@@ -77,7 +77,8 @@ pub async fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Resul
     let afterpth = Path::new(".").join("after.shipcat.gen.yml");
     let mf_after = shipcat_filebacked::load_manifest(svc, conf, region)
         .await?
-        .stub(region)?;
+        .stub(region)
+        .await?;
     let _after = helm::template(&mf_after, Some(afterpth.clone())).await?;
 
     // move git to get before state:
@@ -93,7 +94,8 @@ pub async fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Resul
     let beforepth = Path::new(".").join("before.shipcat.gen.yml");
     let mf_before = shipcat_filebacked::load_manifest(svc, conf, region)
         .await?
-        .stub(region)?;
+        .stub(region)
+        .await?;
     let _before = helm::template(&mf_before, Some(beforepth.clone())).await?;
 
     // move git back

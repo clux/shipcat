@@ -13,7 +13,7 @@ pub mod sentryapi {
     pub type SentryMap = BTreeMap<String, String>;
 
     // Get Sentry info
-    pub fn get_slugs(sentry_url: &str, env: &str) -> Result<SentryMap> {
+    pub async fn get_slugs(sentry_url: &str, env: &str) -> Result<SentryMap> {
         let client = reqwest::Client::new();
         let token = std::env::var("SENTRY_TOKEN")?;
 
@@ -24,15 +24,16 @@ pub mod sentryapi {
         );
 
         debug!("Fetching {}", projects_url);
-        let mut res = client
+        let res = client
             .get(reqwest::Url::parse(&projects_url).unwrap())
             .header("Authorization", format!("Bearer {token}", token = token))
-            .send()?;
+            .send()
+            .await?;
 
         if !res.status().is_success() {
             bail!("Failed to fetch projects in {}: {}", env, res.status());
         }
-        let text = res.text()?;
+        let text = res.text().await?;
         debug!("Got slugs: {}", text);
         let data: Vec<Project> = serde_json::from_str(&text)?;
         let res = data.into_iter().fold(BTreeMap::new(), |mut acc, e| {
@@ -62,22 +63,23 @@ pub mod newrelic {
     pub type RelicMap = BTreeMap<String, String>;
 
     // Get NewRelic link
-    pub fn get_links(region: &str) -> Result<RelicMap> {
+    pub async fn get_links(region: &str) -> Result<RelicMap> {
         let client = reqwest::Client::new();
         let api_key = std::env::var("NEWRELIC_API_KEY")?;
         let account_id = std::env::var("NEWRELIC_ACCOUNT_ID")?;
 
         let search = format!("({region})", region = region);
-        let mut res = client
+        let res = client
             .get("https://api.newrelic.com/v2/applications.json")
             .query(&[("filter[name]", search)])
             .header("X-Api-Key", api_key)
-            .send()?;
+            .send()
+            .await?;
 
         if !res.status().is_success() {
             bail!("Failed to fetch applications: {}", res.status());
         }
-        let text = res.text()?;
+        let text = res.text().await?;
         debug!("Got NewRelic data: {}", text);
         let data: Applications = serde_json::from_str(&text)?;
         let res = data.applications.into_iter().fold(BTreeMap::new(), |mut acc, e| {

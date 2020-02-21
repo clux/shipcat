@@ -1007,7 +1007,7 @@ impl Manifest {
     ///
     /// This will use the HTTP api of Vault using the configuration parameters
     /// in the `Config`.
-    pub fn secrets(&mut self, client: &Vault, vc: &VaultConfig) -> Result<()> {
+    pub async fn secrets(&mut self, client: &Vault, vc: &VaultConfig) -> Result<()> {
         let pth = self.get_vault_path(vc);
         debug!("Injecting secrets from vault {} ({:?})", pth, client.mode());
 
@@ -1036,7 +1036,7 @@ impl Manifest {
         // Lookup values for each secret in vault.
         for k in vault_secrets {
             let vkey = format!("{}/{}", pth, k);
-            self.secrets.insert(k.to_string(), client.read(&vkey)?);
+            self.secrets.insert(k.to_string(), client.read(&vkey).await?);
         }
 
         self.secrets.append(&mut template_secrets);
@@ -1045,7 +1045,7 @@ impl Manifest {
         for (k, v) in &mut self.secretFiles {
             if v == "IN_VAULT" {
                 let vkey = format!("{}/{}", pth, k);
-                *v = client.read(&vkey)?;
+                *v = client.read(&vkey).await?;
             }
             // sanity check; secretFiles are assumed base64 verify we can decode
             if base64::decode(v).is_err() {
@@ -1067,7 +1067,7 @@ impl Manifest {
         secrets
     }
 
-    pub fn verify_secrets_exist(&self, vc: &VaultConfig) -> Result<()> {
+    pub async fn verify_secrets_exist(&self, vc: &VaultConfig) -> Result<()> {
         use std::collections::HashSet;
         // what are we requesting
         // TODO: Use envvars directly
@@ -1096,7 +1096,7 @@ impl Manifest {
         let secpth = self.get_vault_path(vc);
 
         // list secrets; fail immediately if folder is empty
-        let found = match v.list(&secpth) {
+        let found = match v.list(&secpth).await {
             Ok(lst) => lst.into_iter().collect::<HashSet<_>>(),
             Err(e) => bail!(
                 "Missing secret folder {} expected to contain {:?}: {}",

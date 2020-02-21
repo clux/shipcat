@@ -29,7 +29,7 @@ struct AuditEvent<T: Serialize + Clone> {
     /// Eg a jenkins job id
     context_id: String,
     /// Eg a jenkins job url
-    #[serde(with = "url_serde", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     context_link: Option<Url>,
 
     /// represents a single kubectl apply, kubectl delete, or a reconciliation
@@ -53,7 +53,7 @@ where
         }
     }
 
-    fn send(&self, audcfg: &AuditWebhook) -> Result<()> {
+    async fn send(&self, audcfg: &AuditWebhook) -> Result<()> {
         let endpoint = &audcfg.url;
         debug!(
             "event status: {}, url: {:?}",
@@ -66,6 +66,7 @@ where
             .bearer_auth(audcfg.token.clone())
             .json(&self)
             .send()
+            .await
             .chain_err(|| ErrorKind::Url(endpoint.clone()))?;
         Ok(())
     }
@@ -149,21 +150,27 @@ impl DeletionPayload {
 // ----------------------------------------------------------------------------------
 
 /// Apply audit sent by shipcat::aplpy
-pub fn apply(us: &UpgradeState, u: &UpgradeInfo, audcfg: &AuditWebhook, whc: WHC) -> Result<()> {
+pub async fn apply(us: &UpgradeState, u: &UpgradeInfo, audcfg: &AuditWebhook, whc: WHC) -> Result<()> {
     let pl = DeploymentPayload::new(&whc, &u);
-    AuditEvent::new(AuditType::Deployment, &whc, &us, pl).send(&audcfg)
+    AuditEvent::new(AuditType::Deployment, &whc, &us, pl)
+        .send(&audcfg)
+        .await
 }
 
 /// Apply audit sent by shipcat::cluster
-pub fn reconciliation(us: &UpgradeState, region: &str, audcfg: &AuditWebhook, whc: WHC) -> Result<()> {
+pub async fn reconciliation(us: &UpgradeState, region: &str, audcfg: &AuditWebhook, whc: WHC) -> Result<()> {
     let pl = ReconciliationPayload::new(&whc, region);
-    AuditEvent::new(AuditType::Reconciliation, &whc, &us, pl).send(&audcfg)
+    AuditEvent::new(AuditType::Reconciliation, &whc, &us, pl)
+        .send(&audcfg)
+        .await
 }
 
 /// Delete audit sent by shipcat::cluster
-pub fn deletion(us: &UpgradeState, ui: &UpgradeInfo, audcfg: &AuditWebhook, whc: WHC) -> Result<()> {
+pub async fn deletion(us: &UpgradeState, ui: &UpgradeInfo, audcfg: &AuditWebhook, whc: WHC) -> Result<()> {
     let pl = DeletionPayload::new(&whc, &ui);
-    AuditEvent::new(AuditType::Deletion, &whc, &us, pl).send(&audcfg)
+    AuditEvent::new(AuditType::Deletion, &whc, &us, pl)
+        .send(&audcfg)
+        .await
 }
 
 
@@ -178,8 +185,8 @@ mod tests {
 
     use crate::{apply::UpgradeInfo, audit, AuditWebhook, Manifest, Result, UpgradeState};
 
-    #[test]
-    fn audit_does_audit_deployment() -> Result<()> {
+    #[tokio::test]
+    async fn audit_does_audit_deployment() -> Result<()> {
         let mut whc: BTreeMap<String, String> = BTreeMap::default();
         whc.insert("SHIPCAT_AUDIT_CONTEXT_ID".into(), "egcontextid".into());
         whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), "http://eg.server/".into());
@@ -212,7 +219,7 @@ mod tests {
             })))
             .expect(1)
             .create();
-        audit::apply(&us, &ud, &audcfg, whc)?;
+        audit::apply(&us, &ud, &audcfg, whc).await?;
         mocked.assert();
         Ok(())
     }

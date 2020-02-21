@@ -15,24 +15,21 @@ path = "src/lib.rs"
 
 [dependencies]
 shipcat_definitions = { path = "../shipcat_definitions" }
-kube = "0.16.1"
-#kube = { path = "../../kube-rs" }
-#kube = { git = "https://github.com/clux/kube-rs", rev = "14a851d115ed8ea8ddeeb46398450d25862e3c11" }
+kube = "0.25.0"
 serde_json = "1.0.32"
 serde_yaml = "0.8.9"
 serde = "1.0.92"
 serde_derive = "1.0.92"
-prometheus = "0.4"
-url = "1.7.2"
+url = "2.1.1"
 http = "0.1.13"
 failure = "0.1.5"
-actix-web = "0.7.13"
-env_logger = "0.6.1"
-actix = "0.7.6"
+env_logger = "0.7.1"
+actix-web = "2.0.0"
+actix-rt = "1.0.0"
+actix-files = "0.2.1"
 log = "0.4.6"
-sentry = "0.12.0"
-sentry-actix = "0.12.0"
 tera = "0.11.20"
 chrono = "0.4.6"
-reqwest = "0.9.4"
+reqwest = "0.10.1"
 semver = { version = "0.9.0", features = ["serde"] }
+tokio = { version = "0.2.11", features = ["full"] }

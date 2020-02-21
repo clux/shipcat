@@ -4,8 +4,10 @@
     - tokio "fs" feature in shipcat_filebacked
     - tokio "process" feature in shipcat_cli
     - kube 0.25.0 for k8s api calls
-  * Remove rayon + threadpool dependencies
+    * Remove rayon + threadpool dependencies
     - cluster + validate/verify commands now just use tokio "stream" feature
+  * Upgrade reqwest to 0.10 everywhere in shipcat cli (-15 deps)
+  * Upgrade url to 2.X and remove url_serde dependency
   * Added optional `metadata.context` field
 
 0.146.0 / 2020-02-10

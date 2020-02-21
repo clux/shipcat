@@ -272,12 +272,12 @@ impl Config {
     ///
     /// This will use the HTTP api of Vault using the configuration parameters.
     #[cfg(feature = "filesystem")]
-    fn secrets(&mut self, region: &str) -> Result<()> {
+    async fn secrets(&mut self, region: &str) -> Result<()> {
         assert_eq!(self.state, ConfigState::Base);
         assert_eq!(self.regions.len(), 1);
         self.state = ConfigState::Filtered;
         if let Some(idx) = self.regions.iter().position(|r| r.name == region) {
-            self.regions[idx].secrets()?;
+            self.regions[idx].secrets().await?;
         } else {
             bail!("Region {} does not exist in the config", region)
         }
@@ -451,7 +451,7 @@ impl Config {
         }
 
         if state == ConfigState::Filtered {
-            conf.secrets(&region)?;
+            conf.secrets(&region).await?;
         }
         let reg = conf.get_region(&region)?;
         Ok((conf, reg))

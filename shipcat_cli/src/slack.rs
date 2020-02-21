@@ -1,12 +1,12 @@
 use semver::Version;
-use slack_hook::{
+use slack_hook2::{
     AttachmentBuilder, PayloadBuilder, Slack, SlackLink, SlackText,
     SlackTextContent::{self, Link, Text, User},
     SlackUserLink,
 };
 use std::{collections::BTreeMap, env};
 
-use super::{ErrorKind, Result, ResultExt};
+use super::{ErrorKind, Result};
 use crate::diff;
 use shipcat_definitions::{
     structs::{Contact, Metadata, NotificationMode},
@@ -72,25 +72,24 @@ pub fn have_credentials() -> Result<()> {
 }
 
 /// Send a message based on a upgrade event
-pub fn send(msg: Message, owners: &Owners) -> Result<()> {
+pub async fn send(msg: Message, owners: &Owners) -> Result<()> {
     let hook_chan: String = env_channel()?;
-    send_internal(msg.clone(), hook_chan, owners)?;
+    send_internal(msg.clone(), hook_chan, owners).await?;
     let md = &msg.metadata;
     if let Some(chan) = &md.notifications {
         let c = chan.clone();
-        send_internal(msg, c.to_string(), owners)?;
+        send_internal(msg, c.to_string(), owners).await?;
     }
     Ok(())
 }
 
 /// Send entry point for `shipcat slack`
-pub fn send_dumb(msg: DumbMessage) -> Result<()> {
+pub async fn send_dumb(msg: DumbMessage) -> Result<()> {
     let chan: String = env_channel()?;
     let hook_url: &str = &env_hook_url()?;
     let hook_user: String = env_username();
 
-    // if hook url is invalid, chain it so we know where it came from:
-    let slack = Slack::new(hook_url).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
+    let slack = Slack::new(hook_url).map_err(ErrorKind::SlackError)?;
     let mut p = PayloadBuilder::new()
         .channel(chan)
         .icon_emoji(":shipcat:")
@@ -128,24 +127,25 @@ pub fn send_dumb(msg: DumbMessage) -> Result<()> {
 
     // Pass the texts array to slack_hook
     a = a.text(texts.as_slice());
-    let ax = vec![a.build()?];
+    let ax = vec![a.build().map_err(ErrorKind::SlackError)?];
     p = p.attachments(ax);
 
     // Send everything. Phew.
     slack
-        .send(&p.build()?)
-        .chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
+        .send(&p.build().map_err(ErrorKind::SlackError)?)
+        .await
+        .map_err(ErrorKind::SlackError)?;
     Ok(())
 }
 
 /// Send a `Message` to a configured slack destination
-fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()> {
+async fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()> {
     let hook_url: &str = &env_hook_url()?;
     let hook_user: String = env_username();
     let md = &msg.metadata;
 
-    // if hook url is invalid, chain it so we know where it came from:
-    let slack = Slack::new(hook_url).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
+    let slack = Slack::new(hook_url).map_err(ErrorKind::SlackError)?;
+
     let mut p = PayloadBuilder::new()
         .channel(chan)
         .icon_emoji(":shipcat:")
@@ -160,7 +160,7 @@ fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()> {
 
     // First attachment is main text + main link + CCs
     // Fallbacktext is in constructor here (shown in OSD notifies)
-    let mut a = AttachmentBuilder::new(msg.text.clone()); // <- fallback
+    let mut a = AttachmentBuilder::new(msg.text.clone()); // fallback
     if let Some(c) = msg.color {
         a = a.color(c)
     }
@@ -183,7 +183,8 @@ fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()> {
                 AttachmentBuilder::new(diff.clone())
                     .color("#439FE0")
                     .text(vec![Text(diff.into())].as_slice())
-                    .build()?,
+                    .build()
+                    .map_err(ErrorKind::SlackError)?,
             )
         }
     } else if let Some(v) = msg.version {
@@ -210,7 +211,7 @@ fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()> {
 
     // Pass the texts array to slack_hook
     a = a.text(texts.as_slice());
-    let mut ax = vec![a.build()?];
+    let mut ax = vec![a.build().map_err(ErrorKind::SlackError)?];
 
     // Second attachment: optional code (blue)
     if let Some(diffattach) = codeattach {
@@ -222,8 +223,9 @@ fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()> {
     // Send everything. Phew.
     if msg.mode != NotificationMode::Silent {
         slack
-            .send(&p.build()?)
-            .chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
+            .send(&p.build().map_err(ErrorKind::SlackError)?)
+            .await
+            .map_err(ErrorKind::SlackError)?;
     }
 
     Ok(())

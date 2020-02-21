@@ -10,7 +10,6 @@ use std::{
     collections::BTreeMap,
     env,
     sync::{Arc, RwLock},
-    time::Duration,
 };
 
 use crate::{
@@ -52,7 +51,7 @@ pub struct State {
 ///
 /// This is fine; a bad unwrap here or in a handler results in a 500 + a sentry event.
 impl State {
-    pub fn new(client: APIClient) -> Result<Self> {
+    pub async fn new(client: APIClient) -> Result<Self> {
         info!("Loading state from CRDs");
         let region = env::var("REGION_NAME").expect("Need REGION_NAME evar");
         let ns = env::var("NAMESPACE").expect("Need NAMESPACE evar");
@@ -67,11 +66,12 @@ impl State {
             .version("v1")
             .group("babylontech.co.uk")
             .within(&ns);
-        let manifests = Reflector::new(mfresource).init()?;
-        let configs = Reflector::new(cfgresource).init()?;
+        let manifests = Reflector::new(mfresource).init().await?;
+        let configs = Reflector::new(cfgresource).init().await?;
         // Use federated config if available:
         let is_federated = configs
-            .read()?
+            .state()
+            .await?
             .iter()
             .any(|crd: &ConfigObject| crd.metadata.name == "unionised");
         let config_name = if is_federated {
@@ -88,7 +88,7 @@ impl State {
             sentries: BTreeMap::new(),
             template: Arc::new(RwLock::new(t)),
         };
-        res.update_slow_cache()?;
+        res.update_slow_cache().await?;
         Ok(res)
     }
 
@@ -99,10 +99,11 @@ impl State {
     }
 
     // Getters for main
-    pub fn get_manifests(&self) -> Result<BTreeMap<String, Manifest>> {
+    pub async fn get_manifests(&self) -> Result<BTreeMap<String, Manifest>> {
         let xs = self
             .manifests
-            .read()?
+            .state()
+            .await?
             .into_iter()
             .fold(BTreeMap::new(), |mut acc, crd| {
                 acc.insert(crd.spec.name.clone(), crd.spec); // don't expose crd metadata + status
@@ -111,8 +112,8 @@ impl State {
         Ok(xs)
     }
 
-    pub fn get_config(&self) -> Result<Config> {
-        let cfgs = self.configs.read()?;
+    pub async fn get_config(&self) -> Result<Config> {
+        let cfgs = self.configs.state().await?;
         if let Some(cfg) = cfgs.into_iter().find(|c| c.metadata.name == self.config_name) {
             Ok(cfg.spec)
         } else {
@@ -120,10 +121,11 @@ impl State {
         }
     }
 
-    pub fn get_versions(&self) -> Result<VersionMap> {
+    pub async fn get_versions(&self) -> Result<VersionMap> {
         let res = self
             .manifests
-            .read()?
+            .state()
+            .await?
             .into_iter()
             .fold(BTreeMap::new(), |mut acc, crd| {
                 acc.insert(crd.spec.name, crd.spec.version.unwrap());
@@ -132,21 +134,27 @@ impl State {
         Ok(res)
     }
 
-    pub fn get_region(&self) -> Result<Region> {
-        let cfg = self.get_config()?;
+    pub async fn get_region(&self) -> Result<Region> {
+        let cfg = self.get_config().await?;
         cfg.get_region(&self.region)
             .map_err(|e| err_msg(format!("could not resolve cluster for {}: {}", self.region, e)))
     }
 
-    pub fn get_manifest(&self, key: &str) -> Result<Option<ManifestObject>> {
-        let opt = self.manifests.read()?.into_iter().find(|o| o.spec.name == key);
+    pub async fn get_manifest(&self, key: &str) -> Result<Option<ManifestObject>> {
+        let opt = self
+            .manifests
+            .state()
+            .await?
+            .into_iter()
+            .find(|o| o.spec.name == key);
         Ok(opt)
     }
 
-    pub fn get_manifests_for(&self, team: &str) -> Result<Vec<String>> {
+    pub async fn get_manifests_for(&self, team: &str) -> Result<Vec<String>> {
         let mfs = self
             .manifests
-            .read()?
+            .state()
+            .await?
             .into_iter()
             .filter(|crd| crd.spec.metadata.clone().unwrap().team == team)
             .map(|crd| crd.spec.name)
@@ -154,9 +162,9 @@ impl State {
         Ok(mfs)
     }
 
-    pub fn get_reverse_deps(&self, service: &str) -> Result<Vec<String>> {
+    pub async fn get_reverse_deps(&self, service: &str) -> Result<Vec<String>> {
         let mut res = vec![];
-        for crd in &self.manifests.read()? {
+        for crd in &self.manifests.state().await? {
             if crd.spec.dependencies.iter().any(|d| d.name == service) {
                 res.push(crd.spec.name.clone())
             }
@@ -173,16 +181,34 @@ impl State {
     }
 
     // Interface for internal thread
-    fn poll(&self) -> Result<()> {
-        self.manifests.poll()?;
-        self.configs.poll()?;
+    async fn poller(&self) -> Result<()> {
+        let c = self.clone();
+        // Make sure we always keep polling the reflectors.
+        // If any of them fail, boot to let kubernete's backoff to hopefully fix it
+        tokio::spawn(async move {
+            loop {
+                if let Err(e) = c.manifests.poll().await {
+                    error!("Kube state failed to recover: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        });
+        let c2 = self.clone();
+        tokio::spawn(async move {
+            loop {
+                if let Err(e) = c2.configs.poll().await {
+                    error!("Kube state failed to recover: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        });
         Ok(())
     }
 
-    fn update_slow_cache(&mut self) -> Result<()> {
-        let region = self.get_region()?;
+    async fn update_slow_cache(&mut self) -> Result<()> {
+        let region = self.get_region().await?;
         if let Some(s) = region.sentry {
-            match sentryapi::get_slugs(&s.url, &region.environment.to_string()) {
+            match sentryapi::get_slugs(&s.url, &region.environment.to_string()).await {
                 Ok(res) => {
                     self.sentries = res;
                     info!("Loaded {} sentry slugs", self.sentries.len());
@@ -192,7 +218,7 @@ impl State {
         } else {
             warn!("No sentry url configured for this region");
         }
-        match newrelic::get_links(&region.name) {
+        match newrelic::get_links(&region.name).await {
             Ok(res) => {
                 self.relics = res;
                 info!("Loaded {} newrelic links", self.relics.len());
@@ -206,23 +232,9 @@ impl State {
 /// Initiailize state machine for an actix app
 ///
 /// Returns a Sync
-pub fn init(cfg: Configuration) -> Result<State> {
+pub async fn init(cfg: Configuration) -> Result<State> {
     let client = APIClient::new(cfg);
-    let state = State::new(client)?; // for app to read
-    let state_clone = state.clone(); // clone for internal thread
-    std::thread::spawn(move || {
-        loop {
-            std::thread::sleep(Duration::from_secs(30));
-            // update state here - can cause a few more waits in edge cases
-            state_clone
-                .poll()
-                .map_err(|e| {
-                    // Can't recover: boot as much as kubernetes' backoff allows
-                    error!("Failed to refesh cache '{}' - rebooting", e);
-                    std::process::exit(1); // boot might fix it if network is failing
-                })
-                .unwrap();
-        }
-    });
+    let state = State::new(client).await?;
+    state.poller().await?; // starts inifinite polling tasks
     Ok(state)
 }

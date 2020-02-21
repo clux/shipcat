@@ -41,7 +41,8 @@ impl FromStr for ResourceOrder {
 async fn load_mf_req(svc: String, conf: &Config, reg: &Region) -> Result<(Manifest, ResourceTotals)> {
     let mf = shipcat_filebacked::load_manifest(&svc, &conf, &reg)
         .await?
-        .stub(&reg)?;
+        .stub(&reg)
+        .await?;
     let res = mf.compute_resource_totals()?;
     Ok((mf, res))
 }
@@ -67,7 +68,8 @@ async fn load_mf_req_world(base: BaseManifest, conf: &Config) -> Result<Option<(
             trace!("valid region: {}", reg.name);
             let mf = shipcat_filebacked::load_manifest(&base.name, &conf, &reg)
                 .await?
-                .stub(&reg)?;
+                .stub(&reg)
+                .await?;
             if !mf.disabled && !mf.external {
                 let ResourceTotals { base: rb, extra: se } = mf.compute_resource_totals()?;
                 debug!(

@@ -1,6 +1,5 @@
 use super::Result;
 use chrono::{SecondsFormat, Utc};
-use serde::Serialize;
 
 pub fn make_date() -> String {
     // Format == `1996-12-19T16:39:57-08:00`, but we hardcode Utc herein.

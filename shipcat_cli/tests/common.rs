@@ -70,6 +70,7 @@ async fn config_defaults_test() {
         .await
         .unwrap()
         .complete(&reg)
+        .await
         .unwrap();
     let metadata = mfdefault.metadata.unwrap();
     assert_eq!(*metadata.support.unwrap(), "CA04UJ8S0"); // from teams.yml
@@ -80,6 +81,7 @@ async fn config_defaults_test() {
         .await
         .unwrap()
         .complete(&reg)
+        .await
         .unwrap();
     let metadata = mfoverride.metadata.unwrap();
     assert_eq!(*metadata.support.unwrap(), "#dev-platform-override");
@@ -139,7 +141,7 @@ async fn manifest_test() {
     let mfread = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg).await;
     assert!(mfread.is_ok());
     let mfbase = mfread.unwrap();
-    let mfres = mfbase.complete(&reg);
+    let mfres = mfbase.complete(&reg).await;
     assert!(mfres.is_ok());
     let mf = mfres.unwrap();
 
@@ -161,6 +163,7 @@ async fn templating_test() {
         .await
         .unwrap()
         .complete(&reg)
+        .await
         .unwrap();
 
     // verify templating

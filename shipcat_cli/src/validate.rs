@@ -5,7 +5,8 @@ use futures::stream::{self, StreamExt};
 async fn verify_manifest(svc: String, conf: &Config, reg: &Region) -> Result<String> {
     let mf = shipcat_filebacked::load_manifest(&svc, &conf, &reg)
         .await?
-        .stub(&reg)?;
+        .stub(&reg)
+        .await?;
     mf.verify(&conf, &reg)?;
     Ok(mf.name)
 }
@@ -85,11 +86,13 @@ pub async fn manifest(services: Vec<String>, conf: &Config, reg: &Region, secret
         let mf = if secrets {
             shipcat_filebacked::load_manifest(&svc, conf, reg)
                 .await?
-                .complete(reg)?
+                .complete(reg)
+                .await?
         } else {
             shipcat_filebacked::load_manifest(&svc, conf, reg)
                 .await?
-                .stub(reg)?
+                .stub(reg)
+                .await?
         };
         mf.verify(conf, reg)?;
         debug!("validated {} for {}", svc, reg.name);
@@ -105,11 +108,11 @@ pub async fn secret_presence_full(conf: &Config, regions: Vec<String>) -> Result
     for r in regions {
         info!("validating secrets in {}", r);
         let reg = conf.get_region(&r)?; // verifies region or region alias exists
-        reg.verify_secrets_exist()?; // verify secrets for the region
+        reg.verify_secrets_exist().await?; // verify secrets for the region
         for svc in shipcat_filebacked::available(conf, &reg).await? {
             let mf = shipcat_filebacked::load_manifest(&svc.base.name, conf, &reg).await?;
             debug!("validating secrets for {} in {}", &svc.base.name, r);
-            mf.verify_secrets_exist(&reg.vault)?;
+            mf.verify_secrets_exist(&reg.vault).await?;
         }
     }
     Ok(())
@@ -122,7 +125,7 @@ pub async fn secret_presence_explicit(svcs: Vec<String>, conf: &Config, regions:
     for r in regions {
         info!("validating secrets in {}", r);
         let reg = conf.get_region(&r)?; // verifies region or region alias exists
-        reg.verify_secrets_exist()?; // verify secrets for the region
+        reg.verify_secrets_exist().await?; // verify secrets for the region
         debug!("Validating {:?}", svcs);
         for svc in &svcs {
             debug!("Validating {}", svc);
@@ -132,7 +135,7 @@ pub async fn secret_presence_explicit(svcs: Vec<String>, conf: &Config, regions:
                     continue;
                 }
                 debug!("validating secrets for {} in {}", &svc, r);
-                mf.verify_secrets_exist(&reg.vault)?;
+                mf.verify_secrets_exist(&reg.vault).await?;
             }
         }
     }
@@ -144,7 +147,7 @@ pub async fn secret_presence_git(conf: &Config, regions: Vec<String>) -> Result<
     for r in regions {
         info!("validating secrets in {}", r);
         let reg = conf.get_region(&r)?; // verifies region or region alias exists
-        reg.verify_secrets_exist()?; // verify secrets for the region
+        reg.verify_secrets_exist().await?; // verify secrets for the region
 
         // Try to find services changed by git:
         let svcs = match git_diff_changes() {
@@ -167,7 +170,7 @@ pub async fn secret_presence_git(conf: &Config, regions: Vec<String>) -> Result<
                     continue;
                 }
                 debug!("validating secrets for {} in {}", &svc, r);
-                mf.verify_secrets_exist(&reg.vault)?;
+                mf.verify_secrets_exist(&reg.vault).await?;
             }
         }
     }

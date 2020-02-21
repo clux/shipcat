@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, env, io::Read};
+use std::{collections::BTreeMap, env};
 
 use super::{Error, ErrorKind, Result, ResultExt};
 use crate::region::VaultConfig;
@@ -129,16 +129,17 @@ impl Vault {
     }
 
     // The actual HTTP GET logic
-    fn get_secret(&self, path: &str) -> Result<Secret> {
+    async fn get_secret(&self, path: &str) -> Result<Secret> {
         let url = self.addr.join(&format!("v1/{}", path))?;
         debug!("GET {}", url);
 
         let mkerr = || ErrorKind::Url(url.clone());
-        let mut res = self
+        let res = self
             .client
             .get(url.clone())
             .header("X-Vault-Token", self.token.clone())
             .send()
+            .await
             .chain_err(&mkerr)?;
 
         // Generate informative errors for HTTP failures, because these can
@@ -149,24 +150,24 @@ impl Vault {
             return Err(err).chain_err(&mkerr);
         }
 
-        let mut body = String::new();
-        res.read_to_string(&mut body)?;
+        let body = res.text().await?;
         Ok(serde_json::from_str(&body)?)
     }
 
     /// List secrets
     ///
     /// Does a HTTP LIST on the folder a service is in and returns the keys
-    pub fn list(&self, path: &str) -> Result<Vec<String>> {
+    pub async fn list(&self, path: &str) -> Result<Vec<String>> {
         let url = self.addr.join(&format!("v1/secret/{}?list=true", path))?;
         debug!("LIST {}", url);
 
         let mkerr = || ErrorKind::Url(url.clone());
-        let mut res = self
+        let res = self
             .client
             .get(url.clone())
             .header("X-Vault-Token", self.token.clone())
             .send()
+            .await
             .chain_err(&mkerr)?;
 
         // Generate informative errors for HTTP failures, because these can
@@ -177,8 +178,8 @@ impl Vault {
             return Err(err).chain_err(&mkerr);
         }
 
-        let mut body = String::new();
-        res.read_to_string(&mut body)?;
+        let body = res.text().await?;
+
         let lsec: ListSecrets = serde_json::from_str(&body)?;
         if !lsec.data.contains_key("keys") {
             bail!(
@@ -196,7 +197,7 @@ impl Vault {
     }
 
     /// Read secret from a Vault via an authenticated HTTP GET (or memory cache)
-    pub fn read(&self, key: &str) -> Result<String> {
+    pub async fn read(&self, key: &str) -> Result<String> {
         let pth = format!("secret/{}", key);
         if self.mode == Mode::Mocked {
             // arbitrary base64 encoded value so it's compatible with everything
@@ -205,6 +206,7 @@ impl Vault {
 
         let secret = self
             .get_secret(&pth)
+            .await
             .chain_err(|| ErrorKind::SecretNotAccessible(pth.clone()))?;
 
         // NB: Currently assume each path in vault has a single `value`
@@ -223,18 +225,18 @@ mod tests {
     use super::Vault;
     use base64;
 
-    #[test]
-    fn get_dev_secret() {
+    #[tokio::test]
+    async fn get_dev_secret() {
         let client = Vault::from_evars().unwrap();
-        let secret = client.read("dev-uk/test-shipcat/FAKE_SECRET").unwrap();
+        let secret = client.read("dev-uk/test-shipcat/FAKE_SECRET").await.unwrap();
         assert_eq!(secret, "hello");
 
         // integers in vault coerced to strings
-        let secretnum = client.read("dev-uk/test-shipcat/FAKE_NUMBER").unwrap();
+        let secretnum = client.read("dev-uk/test-shipcat/FAKE_NUMBER").await.unwrap();
         assert_eq!(secretnum, "-2");
 
         // secretfiles are valid base64
-        let secretfile = client.read("dev-uk/test-shipcat/fake-file").unwrap();
+        let secretfile = client.read("dev-uk/test-shipcat/fake-file").await.unwrap();
         assert_eq!(secretfile, "aGVsbG8gd29ybGQgYmFzZTY0Cg==".to_string());
         if let Ok(b) = base64::decode(&secretfile) {
             let s = String::from_utf8(b).unwrap();
@@ -244,12 +246,12 @@ mod tests {
         }
     }
 
-    #[test]
+    #[tokio::test]
     // CircleCI's Vault token can't list secrets
     #[ignore]
-    fn list_dev_secrets() {
+    async fn list_dev_secrets() {
         let client = Vault::from_evars().unwrap();
-        let mut secrets = client.list("dev-uk/test-shipcat").unwrap();
+        let mut secrets = client.list("dev-uk/test-shipcat").await.unwrap();
         secrets.sort_unstable(); // ignore key order
         assert_eq!(secrets, vec![
             "FAKE_NUMBER".to_string(),

@@ -82,7 +82,7 @@ impl Default for ManifestState {
 /// - creating a base manifest from its backing
 impl Manifest {
     /// Upgrade a `Base` manifest to either a Complete or a Stubbed one
-    fn upgrade(mut self, reg: &Region, state: ManifestState) -> Result<Self> {
+    async fn upgrade(mut self, reg: &Region, state: ManifestState) -> Result<Self> {
         assert_eq!(self.state, ManifestState::Base); // sanity
         let v = match state {
             ManifestState::Completed => Vault::regional(&reg.vault)?,
@@ -94,7 +94,7 @@ impl Manifest {
         // secrets may be injected at this step from the Region
         self.template_evars(reg)?;
         // secrets before configs (.j2 template files use raw secret values)
-        self.secrets(&v, &reg.vault)?;
+        self.secrets(&v, &reg.vault).await?;
 
         // templates last
         self.template_configs(reg)?;
@@ -103,13 +103,13 @@ impl Manifest {
     }
 
     /// Complete a Base manifest with stub secrets
-    pub fn stub(self, reg: &Region) -> Result<Self> {
-        self.upgrade(reg, ManifestState::Stubbed)
+    pub async fn stub(self, reg: &Region) -> Result<Self> {
+        self.upgrade(reg, ManifestState::Stubbed).await
     }
 
     /// Complete a Base manifest with actual secrets
-    pub fn complete(self, reg: &Region) -> Result<Self> {
-        self.upgrade(reg, ManifestState::Completed)
+    pub async fn complete(self, reg: &Region) -> Result<Self> {
+        self.upgrade(reg, ManifestState::Completed).await
     }
 
     /// Check to see we are using the right types of manifests internally

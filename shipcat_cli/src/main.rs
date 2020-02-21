@@ -22,7 +22,7 @@ fn print_error_debug(e: &Error) {
 
 #[rustfmt::skip]
 fn build_cli() -> App<'static, 'static> {
-    App::new("shipcat")
+    let mut app = App::new("shipcat")
         .version(crate_version!())
         .setting(AppSettings::VersionlessSubcommands)
         .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -397,15 +397,18 @@ fn build_cli() -> App<'static, 'static> {
                 .default_value("cpu")
                 .long("sort")
                 .short("s")
-                .help("Resource type to sort by")))
+                .help("Resource type to sort by")));
 
-        .subcommand(SubCommand::with_name("self-upgrade")
+    if cfg!(feature = "self-upgrade") {
+        app = app.subcommand(SubCommand::with_name("self-upgrade")
             .about("Upgrade shipcat using github releases")
             .arg(Arg::with_name("tag")
                 .long("tag")
                 .short("t")
                 .takes_value(true)
-                .help("Tag to upgrade to (otherwise will use latest semver)")))
+                .help("Tag to upgrade to (otherwise will use latest semver)")));
+    }
+    app
 }
 
 #[tokio::main]
@@ -470,14 +473,19 @@ async fn resolve_config(args: &ArgMatches<'_>, ct: ConfigState) -> Result<(Confi
             if let Some(v) = ConfigFallback::find_upgradeable_version()? {
                 // Attempt an auto-upgrade if set
                 if std::env::var("SHIPCAT_AUTOUPGRADE").is_ok() {
-                    warn!(
-                        "shipcat.conf read in fallback mode - version < {} - upgrading",
-                        v.to_string()
-                    );
-                    if let Err(e2) = shipcat::upgrade::self_upgrade(Some(v)) {
-                        return Err(Error::from(e).chain_err(|| e2));
+                    if cfg!(feature = "upgrade") {
+                        warn!(
+                            "shipcat.conf read in fallback mode - version < {} - upgrading",
+                            v.to_string()
+                        );
+                        if let Err(e2) = shipcat::upgrade::self_upgrade(Some(v)).await {
+                            return Err(Error::from(e).chain_err(|| e2));
+                        }
+                        std::process::exit(0);
+                    } else {
+                        error!("Cannot auto-upgrade if the self-upgrade feature is not compiled in");
+                        return Err(e.into());
                     }
-                    std::process::exit(0);
                 } else {
                     // no auto-upgrade, just tell people what to do as usual.
                     let e2 = Config::bail_on_version_older_than(&v).unwrap_err();
@@ -495,7 +503,7 @@ async fn resolve_config(args: &ArgMatches<'_>, ct: ConfigState) -> Result<(Confi
         } else if std::env::var("SHIPCAT_AUTOUPGRADE").is_ok() {
             let pin = cfg.get_appropriate_version_pin(&reg.environment).ok();
             warn!("shipcat out of date - autoupgrading"); // potentially to latest
-            shipcat::upgrade::self_upgrade(pin)?;
+            shipcat::upgrade::self_upgrade(pin).await?;
             // we could potentially shell out to new shipcat with args here
             // but the args were just consumed by clap, so..
             info!("Please retry your command");
@@ -536,7 +544,7 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
         } else {
             None
         };
-        return shipcat::upgrade::self_upgrade(tag);
+        return shipcat::upgrade::self_upgrade(tag).await;
     }
     // getters
     else if let Some(a) = args.subcommand_matches("get") {
@@ -697,11 +705,13 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
         let mf = if a.is_present("secrets") {
             shipcat_filebacked::load_manifest(&svc, &conf, &region)
                 .await?
-                .complete(&region)?
+                .complete(&region)
+                .await?
         } else {
             shipcat_filebacked::load_manifest(&svc, &conf, &region)
                 .await?
-                .stub(&region)?
+                .stub(&region)
+                .await?
         };
         mf.print()?;
         return Ok(());
@@ -719,11 +729,13 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
         let mut mf = if a.is_present("secrets") {
             shipcat_filebacked::load_manifest(&svc, &conf, &region)
                 .await?
-                .complete(&region)?
+                .complete(&region)
+                .await?
         } else {
             shipcat_filebacked::load_manifest(&svc, &conf, &region)
                 .await?
-                .stub(&region)?
+                .stub(&region)
+                .await?
         };
         mf.version = mf.version.or(ver);
         if a.is_present("current") {
@@ -785,11 +797,13 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
             let mut mf = if !a.is_present("secrets") {
                 shipcat_filebacked::load_manifest(&svc, &conf, &region)
                     .await?
-                    .stub(&region)?
+                    .stub(&region)
+                    .await?
             } else {
                 shipcat_filebacked::load_manifest(&svc, &conf, &region)
                     .await?
-                    .complete(&region)?
+                    .complete(&region)
+                    .await?
             };
             let ver = a.value_of("tag").map(String::from);
             mf.version = mf.version.or(ver);
@@ -901,7 +915,8 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
         };
         let mf = shipcat_filebacked::load_manifest(service, &conf, &region)
             .await?
-            .stub(&region)?;
+            .stub(&region)
+            .await?;
         return shipcat::kubectl::shell(&mf, pod, cmd).await;
     } else if let Some(a) = args.subcommand_matches("version") {
         let svc = a.value_of("service").map(String::from).unwrap();
@@ -914,14 +929,16 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
         let service = a.value_of("service").unwrap();
         let mf = shipcat_filebacked::load_manifest(service, &conf, &region)
             .await?
-            .stub(&region)?;
+            .stub(&region)
+            .await?;
         return shipcat::kubectl::port_forward(&mf).await;
     } else if let Some(a) = args.subcommand_matches("debug") {
         let (conf, region) = resolve_config(args, ConfigState::Base).await?;
         let service = a.value_of("service").unwrap();
         let mf = shipcat_filebacked::load_manifest(service, &conf, &region)
             .await?
-            .stub(&region)?;
+            .stub(&region)
+            .await?;
         return shipcat::kubectl::debug(&mf).await;
     }
     // these could technically forgo the kube dependency..
@@ -930,7 +947,7 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
         let link = a.value_of("url").map(String::from);
         let color = a.value_of("color").map(String::from);
         let msg = shipcat::slack::DumbMessage { text, link, color };
-        return shipcat::slack::send_dumb(msg);
+        return shipcat::slack::send_dumb(msg).await;
     } else if let Some(a) = args.subcommand_matches("gdpr") {
         let (conf, region) = resolve_config(args, ConfigState::Base).await?;
         let svc = a.value_of("service").map(String::from);

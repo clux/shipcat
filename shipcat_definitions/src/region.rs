@@ -146,7 +146,6 @@ pub enum Webhook {
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct AuditWebhook {
     /// Endpoint
-    #[serde(with = "url_serde")]
     pub url: Url,
     /// Credential
     pub token: String,
@@ -276,23 +275,23 @@ pub struct DefaultKongConfig {
 }
 
 impl Webhook {
-    fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
+    async fn secrets(&mut self, vault: &Vault, region: &str) -> Result<()> {
         match self {
             Webhook::Audit(h) => {
                 if h.token == "IN_VAULT" {
                     let vkey = format!("{}/shipcat/WEBHOOK_AUDIT_TOKEN", region);
-                    h.token = vault.read(&vkey)?;
+                    h.token = vault.read(&vkey).await?;
                 }
             }
         }
         Ok(())
     }
 
-    fn verify_secrets_exist(&self, vault: &Vault, region: &str) -> Result<()> {
+    async fn verify_secrets_exist(&self, vault: &Vault, region: &str) -> Result<()> {
         match self {
             Webhook::Audit(_h) => {
                 let vkey = format!("{}/shipcat/WEBHOOK_AUDIT_TOKEN", region);
-                vault.read(&vkey)?;
+                vault.read(&vkey).await?;
             }
         }
         // TODO: when more secrets, build up a list and do a LIST on shipcat folder
@@ -522,19 +521,19 @@ pub struct Region {
 
 impl Region {
     // Internal secret populator for Config::new
-    pub fn secrets(&mut self) -> Result<()> {
+    pub async fn secrets(&mut self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
         for wh in self.webhooks.iter_mut() {
-            wh.secrets(&v, &self.name)?;
+            wh.secrets(&v, &self.name).await?;
         }
         Ok(())
     }
 
     // Entry point for region verifier
-    pub fn verify_secrets_exist(&self) -> Result<()> {
+    pub async fn verify_secrets_exist(&self) -> Result<()> {
         let v = Vault::regional(&self.vault)?;
         for wh in &self.webhooks {
-            wh.verify_secrets_exist(&v, &self.name)?;
+            wh.verify_secrets_exist(&v, &self.name).await?;
         }
         Ok(())
     }

@@ -16,7 +16,8 @@ struct DiffResult {
 async fn diff_summary(svc: String, conf: &Config, reg: &Region) -> Result<DiffResult> {
     let mut mf = shipcat_filebacked::load_manifest(&svc, &conf, &reg)
         .await?
-        .complete(&reg)?;
+        .complete(&reg)
+        .await?;
     // complete with version and uid from crd
     let s = ShipKube::new(&mf).await?;
     let crd = s.get().await?;
@@ -89,7 +90,8 @@ pub async fn mass_diff(conf: &Config, reg: &Region) -> Result<()> {
 async fn check_summary(svc: String, conf: &Config, reg: &Region) -> Result<String> {
     let mut mf = shipcat_filebacked::load_manifest(&svc, &conf, &reg)
         .await?
-        .stub(&reg)?;
+        .stub(&reg)
+        .await?;
     mf.version = mf.version.or(Some("latest".to_string()));
     mf.uid = Some("FAKE-GUID".to_string());
 
@@ -166,7 +168,7 @@ async fn crd_reconcile(
         .unwrap()
         .clone();
 
-    webhooks::reconcile_event(UpgradeState::Pending, &region_sec);
+    webhooks::reconcile_event(UpgradeState::Pending, &region_sec).await;
     // Reconcile CRDs (definition itself)
     use shipcat_definitions::gen_all_crds;
     for crdef in gen_all_crds() {
@@ -199,7 +201,7 @@ async fn crd_reconcile(
         n_workers
     );
 
-    webhooks::reconcile_event(UpgradeState::Started, &region_sec);
+    webhooks::reconcile_event(UpgradeState::Started, &region_sec).await;
     // then parallel apply the remaining ones
     let force = std::env::var("SHIPCAT_MASS_RECONCILE").unwrap_or("0".into()) == "1";
     let wait_for_rollout = true;
@@ -234,14 +236,14 @@ async fn crd_reconcile(
             }
             // remaining cases not ignorable
             _ => {
-                webhooks::reconcile_event(UpgradeState::Failed, &region_sec);
+                webhooks::reconcile_event(UpgradeState::Failed, &region_sec).await;
                 return Err(e);
             }
         }
     }
 
     // Otherwise we're good
-    webhooks::reconcile_event(UpgradeState::Completed, &region_sec);
+    webhooks::reconcile_event(UpgradeState::Completed, &region_sec).await;
     Ok(())
 }
 

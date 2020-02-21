@@ -21,7 +21,7 @@ error_chain! {
         Tmpl(tera::Error);
         SerdeY(serde_yaml::Error);
         SerdeJ(serde_json::Error);
-        Reqw(reqwest::UrlError);
+        UrlP(url::ParseError);
         Reqe(reqwest::Error);
         Time(::std::time::SystemTimeError);
         Chrono(chrono::format::ParseError);
@@ -43,6 +43,7 @@ error_chain! {
             description("can't find home directory")
             display("can't find home directory")
         }
+        // TODO: rename
         Url(url: reqwest::Url) {
             description("could not access URL")
             display("could not access URL '{}'", &url)
