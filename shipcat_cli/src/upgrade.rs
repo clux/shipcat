@@ -1,5 +1,5 @@
 //! Interface to shipcat self-upgrade
-use super::Result;
+use super::{ErrorKind, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Client;
 use semver::Version;
@@ -130,7 +130,7 @@ pub async fn self_upgrade(ver: Option<Version>) -> Result<()> {
     // Because upgrade fs::rename call can fail when moving across partitions
     // we try to avoid this by using a temp dir inside the path shipcat is found..
     let tmp_dir = TempDir::new_in(exe.base, "shipcat_upgrade")?;
-    std::fs::create_dir_all(tmp_dir.path())?;
+    fs::create_dir_all(&tmp_dir).await?;
     debug!("using tmp_dir: {:?}", tmp_dir);
 
     let tmp_tarball_path = tmp_dir.path().join(&asset.name);
@@ -141,7 +141,8 @@ pub async fn self_upgrade(ver: Option<Version>) -> Result<()> {
 
     let dl_url = &asset.browser_download_url;
     download_tarball(&client, &dl_url, tmp_tarball).await?;
-    extract_tarball(&tmp_dir.path(), tmp_tarball_path)?;
+    let bin_path = std::path::PathBuf::from("bin/shipcat");
+    extract_tarball(&tmp_dir.path(), tmp_tarball_path, &bin_path)?;
 
     debug!("Replacing {:?}", exe.path);
     let swap = tmp_dir.path().join("replacement");
@@ -149,12 +150,12 @@ pub async fn self_upgrade(ver: Option<Version>) -> Result<()> {
     let dest = exe.path;
 
     debug!("Backing up {} to {}", dest.display(), swap.display());
-    std::fs::rename(&dest, &swap)?;
+    fs::rename(&dest, &swap).await?;
 
     debug!("Swapping in new version of shipcat {:?} -> {:?}", src, dest);
-    if let Err(e) = std::fs::rename(&src, &dest) {
+    if let Err(e) = fs::rename(&src, &dest).await {
         warn!("rollback rename: {:?} -> {:?} due to {}", swap, dest, e);
-        std::fs::rename(&swap, &dest)?; // fallback on error TODO: ?
+        fs::rename(&swap, &dest).await?; // fallback on error TODO: ?
     }
     Ok(())
 }
@@ -237,7 +238,7 @@ impl<R: Read + Seek> Read for ProgressReader<R> {
 /// Extract a tarball from `src` into a specified `extract_path`
 ///
 /// Updates with a yellow progress-bar while extraction is happening.
-fn extract_tarball<T: AsRef<Path>>(extract_path: &Path, src: T) -> Result<()> {
+fn extract_tarball<T: AsRef<Path>>(extract_path: &Path, src: T, file_to_extract: &Path) -> Result<()> {
     use flate2::read::GzDecoder;
     use std::fs;
     use tar::Archive; // no async tar/gz stuff afaikt
@@ -246,7 +247,14 @@ fn extract_tarball<T: AsRef<Path>>(extract_path: &Path, src: T) -> Result<()> {
     let progdata = ProgressReader::new(data, "extracting")?;
     let decompressed = GzDecoder::new(progdata);
     let mut archive = Archive::new(decompressed); // Archive reads decoded
-    archive.unpack(&extract_path)?;
 
+    let mut entry = archive
+        .entries()?
+        .filter_map(|e| e.ok())
+        .find(|e| e.path().ok().filter(|p| p == file_to_extract).is_some())
+        .ok_or_else(|| {
+            ErrorKind::SelfUpgradeError(format!("Could not find path in archive: {:?}", file_to_extract))
+        })?;
+    entry.unpack_in(&extract_path)?;
     Ok(())
 }
