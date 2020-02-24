@@ -39,6 +39,10 @@ error_chain! {
             description("could not access URL")
             display("could not access URL '{}'", &url)
         }
+        InvalidManifest(svc: String) {
+            description("invalid manifest")
+            display("{} failed validation", &svc)
+        }
         MissingRollingVersion(svc: String) {
             description("missing version for install")
             display("{} has no version in manifest and is not installed yet", &svc)

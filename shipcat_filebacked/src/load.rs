@@ -83,10 +83,14 @@ impl ManifestSource {
     pub async fn all(conf: &Config) -> Result<Vec<BaseManifest>> {
         let mut all = vec![];
         for service in Self::all_names() {
-            let source_path = Self::services_dir().join(service).join("manifest.yml");
+            let source_path = Self::services_dir().join(&service).join("manifest.yml");
             debug!("Loading service manifest from {:?}", source_path);
-            let source: ManifestSource = read_from(&source_path).await?;
-            let manifest = source.build_base(conf)?;
+            let source: ManifestSource = read_from(&source_path)
+                .await
+                .chain_err(|| ErrorKind::InvalidManifest(service.clone()))?;
+            let manifest = source
+                .build_base(conf)
+                .chain_err(|| ErrorKind::InvalidManifest(service.clone()))?;
             all.push(manifest);
         }
         Ok(all)
@@ -95,7 +99,9 @@ impl ManifestSource {
     pub async fn available(conf: &Config, reg: &Region) -> Result<Vec<SimpleManifest>> {
         let mut available = vec![];
         for service in Self::all_names() {
-            let manifest = Self::load_metadata(&service, conf, reg).await?;
+            let manifest = Self::load_metadata(&service, conf, reg)
+                .await
+                .chain_err(|| ErrorKind::InvalidManifest(service.clone()))?;
             if manifest.enabled && !manifest.external {
                 available.push(manifest);
             }
@@ -155,7 +161,10 @@ async fn read_from<T: DeserializeOwned>(path: &PathBuf) -> Result<T> {
     if data.is_empty() {
         bail!("Manifest file {} is empty", path.display());
     }
-    Ok(serde_yaml::from_str(&data)?)
+    match serde_yaml::from_str(&data) {
+        Err(e) => bail!("Manifest file {} did not parse as YAML: {}", path.display(), e),
+        Ok(d) => Ok(d),
+    }
 }
 
 

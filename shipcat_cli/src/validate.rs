@@ -11,7 +11,6 @@ async fn verify_manifest(svc: String, conf: &Config, reg: &Region) -> Result<Str
     Ok(mf.name)
 }
 
-
 /// Validate all manifests in a service directory for a region
 ///
 /// This is meant to replace `shipcat validate ..all_services`

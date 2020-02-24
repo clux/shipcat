@@ -1,8 +1,7 @@
-use std::{
-    fs,
-    fs::File,
-    io::Write,
-    path::{Path, PathBuf},
+use std::path::{Path, PathBuf};
+use tokio::{
+    fs::{self, File},
+    prelude::*,
 };
 
 use super::Result;
@@ -38,12 +37,13 @@ pub async fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
 /// Create helm values file for a service
 ///
 /// Requires a completed manifest (with inlined configs)
-pub fn values(mf: &Manifest, output: &str) -> Result<()> {
+pub async fn values(mf: &Manifest, output: &str) -> Result<()> {
     let encoded = serde_yaml::to_string(&mf)?;
     let pth = Path::new(".").join(output);
     debug!("Writing helm values for {} to {}", mf.name, pth.display());
-    let mut f = File::create(&pth)?;
-    writeln!(f, "{}", encoded)?;
+    let mut f = File::create(&pth).await?;
+    f.write_all(&encoded.as_bytes()).await?;
+    f.sync_data().await?;
     debug!(
         "Wrote helm values for {} to {}: \n{}",
         mf.name,
@@ -59,7 +59,7 @@ pub fn values(mf: &Manifest, output: &str) -> Result<()> {
 /// Generates helm values to disk, then passes it to helm template
 pub async fn template(mf: &Manifest, output: Option<PathBuf>) -> Result<String> {
     let hfile = format!("{}.helm.gen.yml", mf.name);
-    values(&mf, &hfile)?;
+    values(&mf, &hfile).await?;
 
     // helm template with correct params
     let tplvec = vec![
@@ -74,19 +74,22 @@ pub async fn template(mf: &Manifest, output: Option<PathBuf>) -> Result<String> 
         warn!("{} stderr: {}", tplvec.join(" "), tplerr);
         bail!("helm template failed");
     }
-    if let Some(o) = output {
+    if let Some(o) = &output {
         let pth = Path::new(".").join(o);
         debug!("Writing helm template for {} to {}", mf.name, pth.display());
-        let mut f = File::create(&pth)?;
-        writeln!(f, "{}", tpl)?;
+        let mut f = File::create(&pth).await?;
+        f.write_all(&tpl.as_bytes()).await?;
+        f.sync_data().await?;
         debug!(
             "Wrote helm template for {} to {}: \n{}",
             mf.name,
             pth.display(),
             tpl
         );
-    };
-    fs::remove_file(hfile)?;
+        if let Err(e) = fs::remove_file(&hfile).await {
+            warn!("Failed to delete file: {} {}", hfile, e);
+        }
+    }
     Ok(tpl)
 }
 
