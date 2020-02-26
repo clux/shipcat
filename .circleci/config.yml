@@ -52,17 +52,16 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - run: grep "\[metadata\]" -A 9000 Cargo.lock > deps_checksum
       - restore_cache:
           keys:
-          - musl_cache_2_{{ checksum "deps_checksum" }}
+          - musl_cache_2_{{ checksum "Cargo.lock" }}
       - run: cargo build --release -p shipcat
       - run: cargo build --release -p raftcat
       - save_cache:
           paths:
             - /root/.cargo/registry
             - target
-          key: musl_cache_2_{{ checksum "deps_checksum" }}
+          key: musl_cache_2_{{ checksum "Cargo.lock" }}
       # Ensure we have a built `shipcat.x86_64-unknown-linux-musl` at workspace root
       - run: mv target/x86_64-unknown-linux-musl/release/shipcat{,.x86_64-unknown-linux-musl}
       - run: mv target/x86_64-unknown-linux-musl/release/raftcat{,.x86_64-unknown-linux-musl}
@@ -80,10 +79,9 @@ jobs:
       - RUST_BACKTRACE: "full"
     steps:
       - checkout
-      - run: grep "\[metadata\]" -A 9000 Cargo.lock > deps_checksum
       - restore_cache:
           keys:
-          - debug_cache_2_{{ checksum "deps_checksum" }}
+          - debug_cache_2_{{ checksum "Cargo.lock" }}
       - run: cargo test --all --no-run
       - run: cargo test --all -- --nocapture
       # Tests within shipcat_definitions do not get run with features
@@ -95,7 +93,7 @@ jobs:
           paths:
             - /usr/local/cargo/registry
             - target
-          key: debug_cache_2_{{ checksum "deps_checksum" }}
+          key: debug_cache_2_{{ checksum "Cargo.lock" }}
 
   docker_build:
     machine: true
@@ -130,16 +128,15 @@ jobs:
     steps:
       - checkout
       - run: curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
-      - run: grep "\[metadata\]" -A 9000 Cargo.lock > deps_checksum
       - restore_cache:
           keys:
-          - mac_cache_{{ checksum "deps_checksum" }}
+          - mac_cache_{{ checksum "Cargo.lock" }}
       - run: ~/.cargo/bin/cargo build --release -p shipcat
       - save_cache:
           paths:
             - /Users/distiller/.cargo/registry
             - target
-          key: mac_cache_{{ checksum "deps_checksum" }}
+          key: mac_cache_{{ checksum "Cargo.lock" }}
       # Ensure we have a built `shipcat.x86_64-apple-darwin` at workspace root
       - run: mv target/release/shipcat{,.x86_64-apple-darwin}
       - persist_to_workspace:

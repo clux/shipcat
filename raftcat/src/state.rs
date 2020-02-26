@@ -1,6 +1,6 @@
 use failure::err_msg;
 use kube::{
-    api::{Api, Object, Reflector, Void},
+    api::{Api, NotUsed, Object, Reflector},
     client::APIClient,
     config::Configuration,
 };
@@ -21,7 +21,7 @@ use crate::{
 };
 
 type ManifestObject = Object<Manifest, ManifestStatus>;
-type ConfigObject = Object<Config, Void>;
+type ConfigObject = Object<Config, NotUsed>;
 
 /// Map of service -> versions
 pub type VersionMap = BTreeMap<String, String>;
