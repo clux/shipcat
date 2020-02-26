@@ -12,7 +12,7 @@ authors = [
 name = "shipcat"
 description = "Deploy right meow."
 readme = "README.md"
-version = "0.146.0"
+version = "0.147.0"
 categories = ["command-line-utilities"]
 keywords = ["kubernetes", "helm", "deployment", "standardisation", "validation"]
 license-file = "LICENSE"
@@ -52,18 +52,17 @@ generic-array = "0.12"
 uuid = { version = "0.8", features = ["v4"] }
 tokio = { version = "0.2.11", features = ["full"] }
 futures = "0.3.4"
-tempdir = { version = "0.3.7", optional = true }
 indicatif = { version = "0.14.0", optional = true }
 tar = { version = "0.4.26", optional = true }
 flate2 = { version = "1.0.13", optional = true }
 
-[features]
-default = ["self-upgrade"]
-self-upgrade = ["indicatif", "flate2", "tar", "tempdir"]
-
 [dependencies.petgraph]
 features = ["serde-1"]
 version = "0.5.0"
+
+[features]
+default = ["self-upgrade"]
+self-upgrade = ["indicatif", "flate2", "tar"]
 
 [dev-dependencies]
 mockito = "0.23.1"

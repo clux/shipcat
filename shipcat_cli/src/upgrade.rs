@@ -1,10 +1,9 @@
 //! Interface to shipcat self-upgrade
 use super::{ErrorKind, Result};
 use indicatif::{ProgressBar, ProgressStyle};
-use reqwest::Client;
+use reqwest::{header, Client};
 use semver::Version;
 use std::path::{Path, PathBuf};
-use tempdir::TempDir;
 use tokio::fs::{self, File};
 
 fn get_target() -> Result<String> {
@@ -129,11 +128,11 @@ pub async fn self_upgrade(ver: Option<Version>) -> Result<()> {
 
     // Because upgrade fs::rename call can fail when moving across partitions
     // we try to avoid this by using a temp dir inside the path shipcat is found..
-    let tmp_dir = TempDir::new_in(exe.base, "shipcat_upgrade")?;
+    let tmp_dir = exe.base.join(format!("shipcat_{}", release.tag_name));
     fs::create_dir_all(&tmp_dir).await?;
     debug!("using tmp_dir: {:?}", tmp_dir);
 
-    let tmp_tarball_path = tmp_dir.path().join(&asset.name);
+    let tmp_tarball_path = tmp_dir.join(&asset.name);
     debug!("tarball path: {:?}", tmp_tarball_path);
 
     let tmp_tarball = fs::File::create(&tmp_tarball_path).await?;
@@ -142,11 +141,11 @@ pub async fn self_upgrade(ver: Option<Version>) -> Result<()> {
     let dl_url = &asset.browser_download_url;
     download_tarball(&client, &dl_url, tmp_tarball).await?;
     let bin_path = std::path::PathBuf::from("bin/shipcat");
-    extract_tarball(&tmp_dir.path(), tmp_tarball_path, &bin_path)?;
+    extract_tarball(&tmp_dir, tmp_tarball_path, &bin_path)?;
 
     debug!("Replacing {:?}", exe.path);
-    let swap = tmp_dir.path().join("replacement");
-    let src = tmp_dir.path().join("bin").join("shipcat");
+    let swap = tmp_dir.join("replacement");
+    let src = tmp_dir.join("bin").join("shipcat");
     let dest = exe.path;
 
     debug!("Backing up {} to {}", dest.display(), swap.display());
@@ -157,6 +156,7 @@ pub async fn self_upgrade(ver: Option<Version>) -> Result<()> {
         warn!("rollback rename: {:?} -> {:?} due to {}", swap, dest, e);
         fs::rename(&swap, &dest).await?; // fallback on error TODO: ?
     }
+    fs::remove_dir_all(&tmp_dir).await?;
     Ok(())
 }
 
@@ -168,6 +168,8 @@ async fn download_tarball(client: &Client, url: &str, dest: File) -> Result<()> 
     use tokio::io::{AsyncWriteExt, BufWriter};
     debug!("Downloading tarball: {}", url);
     let mut req = client.get(url);
+
+    req = req.header(header::ACCEPT, "application/octet-stream");
     if let Ok(token) = std::env::var("SHIPCAT_AUTOUPGRADE_TOKEN") {
         req = req.bearer_auth(token);
     }

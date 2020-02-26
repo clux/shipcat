@@ -365,9 +365,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "670843da104a1339d46c967382f78d9debb1713aee20e09ba1b25445076f40f4"
+checksum = "9d37ca0ddff0c8afe8307cd4cc3636c19f0fa09ecfc642344b1597d08a19d1a2"
 dependencies = [
  "bytes 0.5.4",
  "flate2",
@@ -1443,11 +1443,11 @@ checksum = "88579771288728879b57485cc7d6b07d648c9f0141eb955f8ab7f9d45394468e"
 
 [[package]]
 name = "merge"
-version = "0.146.0"
+version = "0.147.0"
 
 [[package]]
 name = "merge_derive"
-version = "0.146.0"
+version = "0.147.0"
 dependencies = [
  "proc-macro2 0.4.30",
  "quote 0.6.13",
@@ -1964,7 +1964,7 @@ dependencies = [
 
 [[package]]
 name = "raftcat"
-version = "0.146.0"
+version = "0.147.0"
 dependencies = [
  "actix-files",
  "actix-rt",
@@ -2374,7 +2374,7 @@ checksum = "2579985fda508104f7587689507983eadd6a6e84dd35d6d115361f530916fa0d"
 
 [[package]]
 name = "shipcat"
-version = "0.146.0"
+version = "0.147.0"
 dependencies = [
  "chrono",
  "clap",
@@ -2404,7 +2404,6 @@ dependencies = [
  "size_format",
  "slack-hook2",
  "tar",
- "tempdir",
  "tokio",
  "url 2.1.1",
  "uuid",
@@ -2413,7 +2412,7 @@ dependencies = [
 
 [[package]]
 name = "shipcat_definitions"
-version = "0.146.0"
+version = "0.147.0"
 dependencies = [
  "base64 0.9.3",
  "chrono",
@@ -2437,7 +2436,7 @@ dependencies = [
 
 [[package]]
 name = "shipcat_filebacked"
-version = "0.146.0"
+version = "0.147.0"
 dependencies = [
  "error-chain",
  "log",
@@ -2584,16 +2583,6 @@ dependencies = [
  "libc",
  "redox_syscall",
  "xattr",
-]
-
-[[package]]
-name = "tempdir"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15f2b5fb00ccdf689e0149d1b1b3c03fead81c2b37735d812fa8bddbbf41b6d8"
-dependencies = [
- "rand 0.4.6",
- "remove_dir_all",
 ]
 
 [[package]]

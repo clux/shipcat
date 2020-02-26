@@ -254,7 +254,7 @@ async fn main() -> std::io::Result<()> {
     };
     let shared_state = state::init(cfg).await.unwrap();
 
-    info!("Starting listening on 0.0.0.0:8000");
+    info!("Starting listening on 0.0.0.0:8080");
     HttpServer::new(move || {
         App::new()
             .data(shared_state.clone())
@@ -283,8 +283,8 @@ async fn main() -> std::io::Result<()> {
             .service(web::resource("/health").route(web::get().to(health))) // redundancy
             .service(web::resource("/raftcat/").route(web::get().to(index)))
     })
-    .bind("0.0.0.0:8000")
-    .expect("Can not bind to 0.0.0.0:8000")
+    .bind("0.0.0.0:8080")
+    .expect("Can not bind to 0.0.0.0:8080")
     .shutdown_timeout(0)
     .run()
     .await

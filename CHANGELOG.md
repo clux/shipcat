@@ -1,4 +1,4 @@
-0.147.0 / 2020-02-XX
+0.147.0 / 2020-02-26
 ====================
   * Convert shipcat to use async/await internally
     - tokio "fs" feature in shipcat_filebacked
@@ -9,6 +9,7 @@
   * Upgrade reqwest to 0.10 everywhere in shipcat cli (-15 deps)
   * Upgrade url to 2.X and remove url_serde dependency
   * Added optional `metadata.context` field
+  * Allow empty `producers` +  `consumers` in `eventStreams`
 
 0.146.0 / 2020-02-10
 ====================
