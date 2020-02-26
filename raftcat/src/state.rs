@@ -1,8 +1,9 @@
 use failure::err_msg;
 use kube::{
-    api::{Api, NotUsed, Object, Reflector},
+    api::{Api, NotUsed, Object},
     client::APIClient,
     config::Configuration,
+    runtime::Reflector,
 };
 use tera::compile_templates;
 

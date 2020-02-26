@@ -79,6 +79,7 @@ jobs:
       - RUST_BACKTRACE: "full"
     steps:
       - checkout
+      - run: make sanity
       - restore_cache:
           keys:
           - debug_cache_2_{{ checksum "Cargo.lock" }}

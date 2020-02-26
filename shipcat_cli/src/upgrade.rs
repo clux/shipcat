@@ -1,5 +1,6 @@
 //! Interface to shipcat self-upgrade
 use super::{ErrorKind, Result};
+use futures::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{header, Client};
 use semver::Version;
@@ -164,8 +165,8 @@ pub async fn self_upgrade(ver: Option<Version>) -> Result<()> {
 /// Download the file behind the given `url` into the specified `dest`.
 ///
 /// Presents a progressbar via indicatif when content-length is returned
-async fn download_tarball(client: &Client, url: &str, dest: File) -> Result<()> {
-    use tokio::io::{AsyncWriteExt, BufWriter};
+async fn download_tarball(client: &Client, url: &str, mut dest: File) -> Result<()> {
+    use tokio::io::AsyncWriteExt;
     debug!("Downloading tarball: {}", url);
     let mut req = client.get(url);
 
@@ -173,7 +174,7 @@ async fn download_tarball(client: &Client, url: &str, dest: File) -> Result<()> 
     if let Ok(token) = std::env::var("SHIPCAT_AUTOUPGRADE_TOKEN") {
         req = req.bearer_auth(token);
     }
-    let mut res = req.send().await?;
+    let res = req.send().await?;
     let size = res.content_length().unwrap_or(0); // for progress-bar length
     if !res.status().is_success() {
         let status = res.status().to_owned();
@@ -194,9 +195,9 @@ async fn download_tarball(client: &Client, url: &str, dest: File) -> Result<()> 
     };
 
     // chunked writing
-    let mut writer = BufWriter::new(dest);
-    while let Some(chunk) = res.chunk().await? {
-        writer.write(&chunk).await?;
+    let mut stream = res.bytes_stream();
+    while let Some(chunk) = stream.try_next().await? {
+        dest.write_all(&chunk).await?;
         let n = chunk.len();
         if let Some(ref mut pb) = pbar {
             downloaded = std::cmp::min(downloaded + n as u64, size);

@@ -161,7 +161,6 @@ pub mod upgrade;
 /// Tricks the library into reading from your manifest location.
 pub fn init() -> Result<()> {
     use std::{env, path::Path};
-    openssl_probe::init_ssl_cert_env_vars(); // prerequisite for https clients
 
     // Allow shipcat calls to work from anywhere if we know where manifests are
     if let Ok(mdir) = env::var("SHIPCAT_MANIFEST_DIR") {

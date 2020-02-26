@@ -1,3 +1,7 @@
+0.148.0 / 2020-02-26
+====================
+  * TLS transport now uses rustls rather than openssl
+
 0.147.0 / 2020-02-26
 ====================
   * Convert shipcat to use async/await internally

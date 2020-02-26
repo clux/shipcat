@@ -136,4 +136,8 @@ raftcat-semver:
 		docker push $(REPO)/raftcat:$(RAFTCAT_VERSION); \
 	fi
 
+sanity:
+	# No "openssl" in the dependency tree please
+	! grep openssl\" Cargo.lock
+
 .PHONY: doc install build compile releases raftcat
