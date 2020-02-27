@@ -1,6 +1,8 @@
+use super::Result;
 use std::collections::BTreeMap;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Default, Serialize, Deserialize, Clone, Debug)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct EventDefinition {
     pub key: String,
     pub value: String,
@@ -18,9 +20,20 @@ pub struct EventStream {
     #[serde(default)]
     pub consumers: Vec<String>,
 
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_definitions: Option<Vec<EventDefinition>>,
+    pub event_definitions: Vec<EventDefinition>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub config: Option<BTreeMap<String, String>>,
+}
+
+impl EventStream {
+    pub fn verify(&self) -> Result<()> {
+        if self.event_definitions.is_empty() {
+            bail!("Event definitions must not be empty when EventStreams is specified");
+        }
+        if self.name.is_empty() {
+            bail!("EventStream name must not be empty when EventStreams is specified");
+        }
+        Ok(())
+    }
 }

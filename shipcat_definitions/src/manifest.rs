@@ -933,6 +933,9 @@ impl Manifest {
                 bail!("Service: {} using label {} not defined in config", self.name, k)
             }
         }
+        for es in &self.eventStreams {
+            es.verify()?;
+        }
         // misc minor properties
         if self.replicaCount.unwrap() == 0 {
             bail!("Need replicaCount to be at least 1");
