@@ -13,8 +13,10 @@ This folder contains a sample manifest repository setup for a kubernetes cluster
         └── manifest.yml
 ```
 
-## Cluster setup
-Start minikube, and prepare an `apps` namespace:
+## Requirements
+A cluster with an `apps` namespace, reachable [through dns](https://github.com/clux/kube-rs/issues/153).
+
+E.g. minikube, and prepare an `apps` namespace:
 
 ```sh
 minikube start

@@ -189,10 +189,12 @@ fn build_cli() -> App<'static, 'static> {
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .about("Perform cluster level recovery / reconcilation commands")
             .subcommand(SubCommand::with_name("diff")
-                // Use RAYON_NUM_THREADS to parallelize
                 .about("Diff all services against the a region"))
             .subcommand(SubCommand::with_name("check")
-                // Use RAYON_NUM_THREADS to parallelize
+                .arg(Arg::with_name("skip-kinds")
+                    .long("skip-kinds")
+                    .takes_value(true)
+                    .help("Kinds to ignore strongest checks for (comma separated)"))
                 .about("Check all service templates for a region"))
             .subcommand(SubCommand::with_name("crd")
                 .arg(Arg::with_name("num-jobs")
@@ -262,6 +264,11 @@ fn build_cli() -> App<'static, 'static> {
                 .short("c")
                 .long("check")
                 .help("Check the validity of the template"))
+               .arg(Arg::with_name("skip-kinds")
+                .long("skip-kinds")
+                .takes_value(true)
+                .requires("check")
+                .help("Kinds to ignore strongest checks for (comma separated)"))
               .arg(Arg::with_name("tag")
                 .long("tag")
                 .short("t")
@@ -750,7 +757,14 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
         }
         let tpl = shipcat::helm::template(&mf, None).await?;
         if a.is_present("check") {
-            shipcat::helm::template_check(&mf, &region, &tpl)?;
+            let skipped = a
+                .value_of("skip-kinds")
+                .unwrap_or_default()
+                .split(',')
+                .map(String::from)
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<_>>();
+            shipcat::helm::template_check(&mf, &region, &skipped, &tpl)?;
         } else {
             println!("{}", tpl);
         }
@@ -885,9 +899,16 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
             let (conf, region) = resolve_config(args, ConfigState::Filtered).await?;
             return shipcat::cluster::mass_diff(&conf, &region).await;
         }
-        if let Some(_b) = a.subcommand_matches("check") {
-            let (conf, region) = resolve_config(args, ConfigState::Filtered).await?;
-            return shipcat::cluster::mass_template_verify(&conf, &region).await;
+        if let Some(b) = a.subcommand_matches("check") {
+            let (conf, region) = resolve_config(args, ConfigState::Base).await?;
+            let skipped = b
+                .value_of("skip-kinds")
+                .unwrap_or_default()
+                .split(',')
+                .map(String::from)
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<_>>();
+            return shipcat::cluster::mass_template_verify(&conf, &region, &skipped).await;
         }
 
         if let Some(b) = a.subcommand_matches("vault-policy") {

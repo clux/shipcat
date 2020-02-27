@@ -99,7 +99,7 @@ pub async fn template(mf: &Manifest, output: Option<PathBuf>) -> Result<String> 
 /// We don't validate kubernetes schemas in here, but we do validate consistency of:
 /// - labels: app.kubernetes.io/name, app.kubernetes.io/version, app.kubernetes.io/managed-by
 /// - ownerReferences (need ShipcatManifest, !controller, uid propagated, name correct)
-pub fn template_check(mf: &Manifest, reg: &Region, tpl: &str) -> Result<()> {
+pub fn template_check(mf: &Manifest, reg: &Region, skipped: &Vec<String>, tpl: &str) -> Result<()> {
     let mut invalids = vec![];
     for to in tpl.split("---") {
         let kind = match serde_yaml::from_str::<PartialObject>(&to) {
@@ -123,7 +123,7 @@ pub fn template_check(mf: &Manifest, reg: &Region, tpl: &str) -> Result<()> {
         let ok = match reg.reconciliationMode {
             ReconciliationMode::CrdOwned => {
                 let owner_ok = check_owner_refs(mf, &kind, &obj)?;
-                let labels_ok = check_labels(mf, &kind, &obj)?;
+                let labels_ok = check_labels(mf, &kind, skipped, &obj)?;
                 labels_ok && owner_ok
             }
         } && tiller_ok;
@@ -150,7 +150,7 @@ struct MetaObject {
     metadata: ObjectMeta,
 }
 
-fn check_labels(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool> {
+fn check_labels(mf: &Manifest, kind: &str, skipped: &Vec<String>, obj: &MetaObject) -> Result<bool> {
     let mut success = true;
     let labels = &obj.metadata.labels;
     match labels.get("app.kubernetes.io/name") {
@@ -184,7 +184,7 @@ fn check_labels(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool> {
     // If the object doesn't get injected into the Deployment automatically
     // then it ought to have the standard version property.
     // If it changes, we should not lie about it changing (Secret + CM didn't really change)
-    if !["Secret", "ConfigMap"].contains(&kind) {
+    if !["Secret", "ConfigMap"].contains(&kind) && !skipped.contains(&kind.to_string()) {
         if let Some(v) = &mf.version {
             match labels.get("app.kubernetes.io/version") {
                 Some(n) => {

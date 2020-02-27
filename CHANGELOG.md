@@ -1,3 +1,8 @@
+0.149.0 / 2020-02-XX
+====================
+  * `shipcat cluster check` now useable offline
+    - adds comma separated `--skip-kinds` flag for less restrictive label checks
+
 0.148.0 / 2020-02-26
 ====================
   * TLS transport now uses rustls rather than openssl

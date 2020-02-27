@@ -87,7 +87,7 @@ pub async fn mass_diff(conf: &Config, reg: &Region) -> Result<()> {
     Ok(())
 }
 
-async fn check_summary(svc: String, conf: &Config, reg: &Region) -> Result<String> {
+async fn check_summary(svc: String, skipped: &Vec<String>, conf: &Config, reg: &Region) -> Result<String> {
     let mut mf = shipcat_filebacked::load_manifest(&svc, &conf, &reg)
         .await?
         .stub(&reg)
@@ -97,19 +97,18 @@ async fn check_summary(svc: String, conf: &Config, reg: &Region) -> Result<Strin
 
     info!("verifying template for {}", mf.name);
     let tpl = helm::template(&mf, None).await?;
-    helm::template_check(&mf, reg, &tpl)?;
+    helm::template_check(&mf, reg, skipped, &tpl)?;
     Ok(mf.name)
 }
 
 /// Verifies all populated templates for all services in a region
 ///
 /// Helper that shells out to helm template in parallel.
-pub async fn mass_template_verify(conf: &Config, reg: &Region) -> Result<()> {
+pub async fn mass_template_verify(conf: &Config, reg: &Region, skipped: &Vec<String>) -> Result<()> {
     let svcs = shipcat_filebacked::available(conf, reg).await?;
-    assert!(conf.has_secrets());
 
     let mut buffered = stream::iter(svcs)
-        .map(move |mf| check_summary(mf.base.name, &conf, &reg))
+        .map(move |mf| check_summary(mf.base.name, &skipped, &conf, &reg))
         .buffer_unordered(100);
 
     let (mut errs, mut passed): (Vec<Error>, Vec<_>) = (vec![], vec![]);
