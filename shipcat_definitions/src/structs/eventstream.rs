@@ -12,11 +12,11 @@ pub struct EventDefinition {
 pub struct EventStream {
     pub name: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub producers: Option<Vec<String>>,
+    #[serde(default)]
+    pub producers: Vec<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub consumers: Option<Vec<String>>,
+    #[serde(default)]
+    pub consumers: Vec<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_definitions: Option<Vec<EventDefinition>>,
