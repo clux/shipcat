@@ -1,14 +1,14 @@
-use super::{Config, Region, Result};
+use super::{Config, Manifest, Region, Result};
 use crate::{error_chain::ChainedError, git};
 use futures::stream::{self, StreamExt};
 
-async fn verify_manifest(svc: String, conf: &Config, reg: &Region) -> Result<String> {
+async fn verify_manifest(svc: String, conf: &Config, reg: &Region) -> Result<Manifest> {
     let mf = shipcat_filebacked::load_manifest(&svc, &conf, &reg)
         .await?
         .stub(&reg)
         .await?;
     mf.verify(&conf, &reg)?;
-    Ok(mf.name)
+    Ok(mf)
 }
 
 /// Validate all manifests in a service directory for a region
@@ -23,9 +23,19 @@ pub async fn regional_manifests(conf: &Config, reg: &Region) -> Result<()> {
         .buffer_unordered(16);
 
     let mut errs = vec![];
+    let mut used_stream_names = vec![];
     while let Some(r) = buffered.next().await {
-        if let Err(e) = r {
-            errs.push(e);
+        match r {
+            Err(e) => errs.push(e),
+            Ok(mf) => {
+                // uniqueness validation
+                for es in mf.eventStreams {
+                    if used_stream_names.contains(&es.name) {
+                        bail!("{} cannot reuse eventStream names {}", mf.name, es.name);
+                    }
+                    used_stream_names.push(es.name.clone());
+                }
+            }
         }
     }
 
