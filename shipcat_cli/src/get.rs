@@ -1,10 +1,9 @@
 use semver::Version;
-use shipcat_definitions::Environment;
+use shipcat_definitions::{structs::EventStream, Environment};
 /// This file contains the `shipcat get` subcommand
 use std::collections::BTreeMap;
 
 use super::{Config, Region, Result};
-
 
 // ----------------------------------------------------------------------------
 // Simple reducers
@@ -171,6 +170,7 @@ struct APIServiceParams {
     publiclyAccessible: bool,
     websockets: bool,
 }
+
 #[derive(Serialize)]
 struct RegionInfo {
     name: String,
@@ -229,6 +229,31 @@ pub async fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
     }
 
     let output = APIStatusOutput { region, services };
+    println!("{}", serde_json::to_string_pretty(&output)?);
+    Ok(())
+}
+
+// Get Eventstreams
+
+#[derive(Serialize)]
+struct EventStreamsOutput {
+    region: String,
+    eventstreams: BTreeMap<String, EventStream>,
+}
+
+pub async fn eventstreams(conf: &Config, reg: &Region) -> Result<()> {
+    let mut eventstreams = BTreeMap::new();
+
+    // Get eventstream Info from Manifests
+    for svc in shipcat_filebacked::available(conf, reg).await? {
+        let mf = shipcat_filebacked::load_manifest(&svc.base.name, &conf, &reg).await?;
+        for k in mf.eventStreams {
+            eventstreams.insert(k.name.clone(), k);
+        }
+    }
+
+    let region = reg.name.clone();
+    let output = EventStreamsOutput { region, eventstreams };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }

@@ -8,7 +8,6 @@ pub struct EventDefinition {
     pub value: String,
 }
 
-
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EventStream {
@@ -22,8 +21,8 @@ pub struct EventStream {
 
     pub event_definitions: Vec<EventDefinition>,
 
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub config: Option<BTreeMap<String, String>>,
+    #[serde(default)]
+    pub config: BTreeMap<String, String>,
 }
 
 impl EventStream {

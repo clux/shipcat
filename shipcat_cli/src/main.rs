@@ -149,6 +149,8 @@ fn build_cli() -> App<'static, 'static> {
                 .help("Reduce encoded image info"))
               .subcommand(SubCommand::with_name("apistatus")
                 .help("Reduce encoded API info"))
+                .subcommand(SubCommand::with_name("eventstreams")
+                .help("Reduce eventstreams info"))
               .subcommand(SubCommand::with_name("codeowners")
                 .help("Generate CODEOWNERS syntax for manifests based on team ownership"))
               .subcommand(SubCommand::with_name("vault-policy")
@@ -582,6 +584,9 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
         }
         if let Some(_) = a.subcommand_matches("apistatus") {
             return shipcat::get::apistatus(&conf, &region).await;
+        }
+        if let Some(_) = a.subcommand_matches("eventstreams") {
+            return shipcat::get::eventstreams(&conf, &region).await;
         }
     } else if let Some(a) = args.subcommand_matches("top") {
         let sort = top::ResourceOrder::from_str(a.value_of("sort").unwrap())?;
