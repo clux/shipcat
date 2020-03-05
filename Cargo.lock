@@ -2599,17 +2599,17 @@ checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
 
 [[package]]
 name = "slack-hook2"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f878b6143ac2a6b1002de0fe949e20c597eb5301612647aea78faabc1c837b5f"
+checksum = "75b51ccb34a9f6c81764e43f92ac5df46d813427e6d17f59ab731a8d6b70ae2d"
 dependencies = [
  "chrono",
- "failure",
  "hex",
  "reqwest",
  "serde",
  "serde_derive",
  "serde_json",
+ "thiserror",
  "url 2.1.1",
 ]
 

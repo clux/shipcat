@@ -23,6 +23,7 @@ error_chain! {
         SerdeJ(serde_json::Error);
         Reqe(reqwest::Error);
         UrlP(url::ParseError);
+        Slack(slack_hook2::SlackError);
         Time(::std::time::SystemTimeError);
         Chrono(chrono::format::ParseError);
     }
@@ -70,10 +71,6 @@ error_chain! {
         KubeError(e: kube::Error) {
             description("kube api interaction failed")
             display("kube api: {}: {:?}", e, e)
-        }
-        SlackError(e: slack_hook2::Error) {
-            description("slack_hook interaction failed")
-            display("slack_hook: {}: {:?}", e, e)
         }
         SelfUpgradeError(s: String) {
             description("self-upgrade failed")

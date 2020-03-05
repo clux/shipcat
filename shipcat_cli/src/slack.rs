@@ -89,7 +89,7 @@ pub async fn send_dumb(msg: DumbMessage) -> Result<()> {
     let hook_url: &str = &env_hook_url()?;
     let hook_user: String = env_username();
 
-    let slack = Slack::new(hook_url).map_err(ErrorKind::SlackError)?;
+    let slack = Slack::new(hook_url)?;
     let mut p = PayloadBuilder::new()
         .channel(chan)
         .icon_emoji(":shipcat:")
@@ -127,14 +127,11 @@ pub async fn send_dumb(msg: DumbMessage) -> Result<()> {
 
     // Pass the texts array to slack_hook
     a = a.text(texts.as_slice());
-    let ax = vec![a.build().map_err(ErrorKind::SlackError)?];
+    let ax = vec![a.build()?];
     p = p.attachments(ax);
 
     // Send everything. Phew.
-    slack
-        .send(&p.build().map_err(ErrorKind::SlackError)?)
-        .await
-        .map_err(ErrorKind::SlackError)?;
+    slack.send(&p.build()?).await?;
     Ok(())
 }
 
@@ -144,7 +141,7 @@ async fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()
     let hook_user: String = env_username();
     let md = &msg.metadata;
 
-    let slack = Slack::new(hook_url).map_err(ErrorKind::SlackError)?;
+    let slack = Slack::new(hook_url)?;
 
     let mut p = PayloadBuilder::new()
         .channel(chan)
@@ -183,8 +180,7 @@ async fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()
                 AttachmentBuilder::new(diff.clone())
                     .color("#439FE0")
                     .text(vec![Text(diff.into())].as_slice())
-                    .build()
-                    .map_err(ErrorKind::SlackError)?,
+                    .build()?,
             )
         }
     } else if let Some(v) = msg.version {
@@ -211,7 +207,7 @@ async fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()
 
     // Pass the texts array to slack_hook
     a = a.text(texts.as_slice());
-    let mut ax = vec![a.build().map_err(ErrorKind::SlackError)?];
+    let mut ax = vec![a.build()?];
 
     // Second attachment: optional code (blue)
     if let Some(diffattach) = codeattach {
@@ -222,10 +218,7 @@ async fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()
 
     // Send everything. Phew.
     if msg.mode != NotificationMode::Silent {
-        slack
-            .send(&p.build().map_err(ErrorKind::SlackError)?)
-            .await
-            .map_err(ErrorKind::SlackError)?;
+        slack.send(&p.build()?).await?;
     }
 
     Ok(())
