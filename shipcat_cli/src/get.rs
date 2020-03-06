@@ -1,9 +1,9 @@
+use super::{Config, Region, Result};
 use semver::Version;
 use shipcat_definitions::{structs::EventStream, Environment};
 /// This file contains the `shipcat get` subcommand
 use std::collections::BTreeMap;
 
-use super::{Config, Region, Result};
 
 // ----------------------------------------------------------------------------
 // Simple reducers
@@ -233,7 +233,8 @@ pub async fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
     Ok(())
 }
 
-// Get Eventstreams
+// ----------------------------------------------------------------------------
+// Get Eventstreams and kafka reducers
 
 #[derive(Serialize)]
 struct EventStreamsOutput {
@@ -254,6 +255,59 @@ pub async fn eventstreams(conf: &Config, reg: &Region) -> Result<()> {
 
     let region = reg.name.clone();
     let output = EventStreamsOutput { region, eventstreams };
+    println!("{}", serde_json::to_string_pretty(&output)?);
+    Ok(())
+}
+
+// get Kafka Users
+#[derive(Serialize)]
+pub struct KafkaUsersInput {
+    region: String,
+    eventstreams: BTreeMap<String, KafkaUsersParams>,
+}
+#[derive(Serialize)]
+pub struct KafkaUsersParams {
+    producers: Vec<String>,
+    consumers: Vec<String>,
+}
+
+#[derive(Default, Serialize)]
+struct KafkaUsersOutput {
+    produces_to: Vec<String>,
+    consumes_from: Vec<String>,
+}
+
+fn transformUsers(input: KafkaUsersInput) -> BTreeMap<String, KafkaUsersOutput> {
+    let mut output: BTreeMap<String, KafkaUsersOutput> = BTreeMap::new();
+
+    for (name, eventstreams) in input.eventstreams {
+        for user in eventstreams.producers {
+            output.entry(user).or_default().produces_to.push(name.clone());
+        }
+        for user in eventstreams.consumers {
+            output.entry(user).or_default().consumes_from.push(name.clone());
+        }
+    }
+
+    output
+}
+
+pub async fn kafkausers(conf: &Config, reg: &Region) -> Result<()> {
+    let mut eventstreams = BTreeMap::new();
+
+    // Get eventstream Info from Manifests
+    for svc in shipcat_filebacked::available(conf, reg).await? {
+        let mf = shipcat_filebacked::load_manifest(&svc.base.name, &conf, &reg).await?;
+        for k in mf.eventStreams {
+            let params = KafkaUsersParams {
+                producers: k.producers,
+                consumers: k.consumers,
+            };
+            eventstreams.insert(k.name, params);
+        }
+    }
+    let region = reg.name.clone();
+    let output = transformUsers(KafkaUsersInput { region, eventstreams });
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
