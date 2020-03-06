@@ -262,9 +262,9 @@ pub async fn eventstreams(conf: &Config, reg: &Region) -> Result<()> {
 // get Kafka Users
 #[derive(Serialize)]
 pub struct KafkaUsersInput {
-    region: String,
     eventstreams: BTreeMap<String, KafkaUsersParams>,
 }
+
 #[derive(Serialize)]
 pub struct KafkaUsersParams {
     producers: Vec<String>,
@@ -275,6 +275,12 @@ pub struct KafkaUsersParams {
 struct KafkaUsersOutput {
     produces_to: Vec<String>,
     consumes_from: Vec<String>,
+}
+
+#[derive(Default, Serialize)]
+struct KafkaUsers {
+    region: String,
+    kafka_users: BTreeMap<String, KafkaUsersOutput>,
 }
 
 fn transformUsers(input: KafkaUsersInput) -> BTreeMap<String, KafkaUsersOutput> {
@@ -307,7 +313,10 @@ pub async fn kafkausers(conf: &Config, reg: &Region) -> Result<()> {
         }
     }
     let region = reg.name.clone();
-    let output = transformUsers(KafkaUsersInput { region, eventstreams });
+    let output = KafkaUsers {
+        region,
+        kafka_users: transformUsers(KafkaUsersInput { eventstreams }),
+    };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
