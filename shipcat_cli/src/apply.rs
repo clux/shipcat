@@ -144,6 +144,13 @@ async fn apply_kubectl(
     }
     let explicit_version = mfbase.version.clone().or(passed_version);
 
+    if !mfbase.regions.contains(&region.name) {
+        bail!(
+            "Cannot deploy '{}' to a region it's not configured for in its manifest",
+            svc
+        );
+    }
+
     // Interact with the kube api to get the shipcatmanifest crd and its .status
     // This lets us work out:
     // - if the service has been installed before (negates the need for a diff)
