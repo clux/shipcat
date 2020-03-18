@@ -53,7 +53,9 @@ RUN pip install --upgrade pip && \
         "six>=1.12.0,<2.0.0" \
         "tabulate==0.8.3" \
         "yamllint>=1.17.0,<2.0.0" \
-        "yq>=2.7.2,<3.0.0"
+        "yq>=2.7.2,<3.0.0" \
+        "jsonschema==3.2.0" \
+        "schema==0.7.1"
 
 # Install node packages as non-root
 RUN npm install -g js-yaml@3.13.1 danger@9.2.0
