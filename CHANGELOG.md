@@ -1,4 +1,8 @@
-0.149.0 / 2020-02-XX
+0.148.4 / 2020-03-18
+====================
+  * add python "Schema" library to kubecat docker image
+
+0.148.3 / 2020-03-02
 ====================
   * `shipcat cluster check` now useable offline
     - adds comma separated `--skip-kinds` flag for less restrictive label checks
