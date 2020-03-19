@@ -1,3 +1,12 @@
+0.149.0 / 2020-03-18
+====================
+  * upgrade tracking now uses kube for api tracking
+  * kubectl module majorly trimmed down
+  * new minial cmd `shipcat cluster crd install` to configure a `Region`
+  * `shipcat status` uses `kube` and gives better info
+  * `shipcat apply` has a progress bar using `indicatif`
+  * crd generation now done via `kube-derive` (crds.rs trimmed)
+
 0.148.4 / 2020-03-18
 ====================
   * add python "Schema" library to kubecat docker image

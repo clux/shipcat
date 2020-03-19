@@ -1,7 +1,11 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 use tokio::{
     fs::{self, File},
     prelude::*,
+    process::Command,
 };
 
 use super::Result;
@@ -15,7 +19,6 @@ pub fn hexists() -> Result<()> {
 }
 
 pub async fn hexec(args: Vec<String>) -> Result<()> {
-    use tokio::process::Command;
     debug!("helm {}", args.join(" "));
     hexists()?;
     let s = Command::new("helm").args(&args).status().await?;
@@ -25,7 +28,6 @@ pub async fn hexec(args: Vec<String>) -> Result<()> {
     Ok(())
 }
 pub async fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
-    use tokio::process::Command;
     debug!("helm {}", args.join(" "));
     hexists()?;
     let s = Command::new("helm").args(&args).output().await?;
@@ -99,7 +101,7 @@ pub async fn template(mf: &Manifest, output: Option<PathBuf>) -> Result<String> 
 /// We don't validate kubernetes schemas in here, but we do validate consistency of:
 /// - labels: app.kubernetes.io/name, app.kubernetes.io/version, app.kubernetes.io/managed-by
 /// - ownerReferences (need ShipcatManifest, !controller, uid propagated, name correct)
-pub fn template_check(mf: &Manifest, reg: &Region, skipped: &Vec<String>, tpl: &str) -> Result<()> {
+pub fn template_check(mf: &Manifest, reg: &Region, skipped: &[String], tpl: &str) -> Result<()> {
     let mut invalids = vec![];
     for to in tpl.split("---") {
         let kind = match serde_yaml::from_str::<PartialObject>(&to) {
@@ -112,12 +114,18 @@ pub fn template_check(mf: &Manifest, reg: &Region, skipped: &Vec<String>, tpl: &
                 o.kind
             }
         };
-        let obj: MetaObject = serde_yaml::from_str(to)?;
-        let types = &obj.types;
-        let name = &obj.metadata.name;
-        if types.apiVersion.is_none() {
-            warn!("Missing apiVersion in object: {}", kind);
-        }
+        let obj: KubeObject = match serde_yaml::from_str(to) {
+            Err(e) => {
+                warn!("Invalid KubeObject: {}: {}", kind, e);
+                continue;
+            }
+            Ok(o) => o,
+        };
+        let name = &obj
+            .metadata
+            .name
+            .clone()
+            .unwrap_or_else(|| format!("unset metadata.name from {}", kind));
 
         let tiller_ok = check_no_tiller_refs(&kind, &obj)?;
         let ok = match reg.reconciliationMode {
@@ -144,15 +152,15 @@ struct PartialObject {
 }
 
 #[derive(Deserialize)]
-struct MetaObject {
+struct KubeObject {
     #[serde(flatten)]
-    types: TypeMeta,
+    _types: TypeMeta,
     metadata: ObjectMeta,
 }
 
-fn check_labels(mf: &Manifest, kind: &str, skipped: &Vec<String>, obj: &MetaObject) -> Result<bool> {
+fn check_labels(mf: &Manifest, kind: &str, skipped: &[String], obj: &KubeObject) -> Result<bool> {
     let mut success = true;
-    let labels = &obj.metadata.labels;
+    let labels = &obj.metadata.labels.clone().unwrap_or_else(BTreeMap::new);
     match labels.get("app.kubernetes.io/name") {
         Some(n) => {
             if n == &mf.name {
@@ -205,12 +213,18 @@ fn check_labels(mf: &Manifest, kind: &str, skipped: &Vec<String>, obj: &MetaObje
     Ok(success)
 }
 
-fn check_owner_refs(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool> {
+fn check_owner_refs(mf: &Manifest, kind: &str, obj: &KubeObject) -> Result<bool> {
     let mut success = true;
     // First ownerReferences must be ShipcatManifest
-    match obj.metadata.ownerReferences.first() {
+    match obj
+        .metadata
+        .owner_references
+        .clone()
+        .unwrap_or_else(|| vec![])
+        .first()
+    {
         Some(or) => {
-            if or.kind == "ShipcatManifest" && !or.controller && or.name == mf.name {
+            if or.kind == "ShipcatManifest" && or.controller != Some(true) && or.name == mf.name {
                 debug!("{}: valid ownerReference for {}", kind, or.kind);
             } else {
                 success = false;
@@ -238,9 +252,13 @@ fn check_owner_refs(mf: &Manifest, kind: &str, obj: &MetaObject) -> Result<bool>
 }
 
 // charts should not reference tiller
-fn check_no_tiller_refs(kind: &str, obj: &MetaObject) -> Result<bool> {
+fn check_no_tiller_refs(kind: &str, obj: &KubeObject) -> Result<bool> {
     let mut success = true;
-    let labels = &obj.metadata.labels;
+    let labels = &obj
+        .metadata
+        .labels
+        .as_ref()
+        .unwrap_or_else(|| panic!("kind {} has labels", kind));
     for key in ["chart", "heritage", "release"].iter() {
         match labels.get(&key.to_string()) {
             Some(n) => {

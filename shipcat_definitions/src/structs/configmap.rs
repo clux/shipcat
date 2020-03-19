@@ -6,7 +6,7 @@ use super::Result;
 /// Deals with automatic mounting into the pods.
 ///
 /// Only one of these is supported.
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct ConfigMap {
     /// Container-local directory path where configs are available
@@ -18,7 +18,7 @@ pub struct ConfigMap {
 /// ConfigMapped File
 ///
 /// Files that are mounted under the parent `mount` path.
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct ConfigMappedFile {
     /// Name of file to template (from service repo paths)

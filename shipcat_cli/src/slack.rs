@@ -224,7 +224,7 @@ async fn send_internal(msg: Message, chan: String, owners: &Owners) -> Result<()
     Ok(())
 }
 
-fn short_ver(ver: &str) -> String {
+pub fn short_ver(ver: &str) -> String {
     if Version::parse(&ver).is_err() && ver.len() == 40 {
         // only abbreviate versions that are not semver and 40 chars (git shas)
         ver[..8].to_string()

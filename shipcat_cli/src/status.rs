@@ -1,271 +1,7 @@
-use crate::{ErrorKind, Manifest, Result};
-use serde_json::json;
-
-use kube::{
-    api::{Api, DeleteParams, Object, PatchParams},
-    client::APIClient,
-};
-
-use shipcat_definitions::status::{make_date, Applier, Condition, ManifestStatus};
-
-
-/// Client creator
-///
-/// TODO: embed inside shipcat::apply when needed for other things
-async fn make_client() -> Result<APIClient> {
-    let config = if let Ok(cfg) = kube::config::incluster_config() {
-        cfg
-    } else {
-        kube::config::load_kube_config()
-            .await
-            .map_err(ErrorKind::KubeError)?
-    };
-    Ok(kube::client::APIClient::new(config))
-}
-
-/// Kube Object version of Manifest
-///
-/// This is the new version of Crd<Manifest> (which will be removed)
-type ManifestK = Object<Manifest, ManifestStatus>;
-
-type ManifestMinimalK = Object<MinimalManifest, ManifestStatus>;
-
-/// The few immutable properties that always must exist during upgrades
-#[derive(Clone, Serialize, Deserialize)]
-pub struct MinimalManifest {
-    pub name: String,
-    pub version: String,
-}
-
-/// Interface for dealing with kubernetes shipcatmanifests
-pub struct ShipKube {
-    scm: Api<ManifestK>,
-    scm_minimal: Api<ManifestMinimalK>,
-    applier: Applier,
-    name: String,
-}
-
-/// Entry points for shipcat::apply
-impl ShipKube {
-    pub async fn new_within(svc: &str, ns: &str) -> Result<Self> {
-        // hide the client in here -> Api resource for now (not needed elsewhere)
-        let client = make_client().await?;
-        let scm: Api<ManifestK> = Api::customResource(client.clone(), "shipcatmanifests")
-            .group("babylontech.co.uk")
-            .within(ns);
-        let scm_minimal: Api<ManifestMinimalK> = Api::customResource(client, "shipcatmanifests")
-            .group("babylontech.co.uk")
-            .within(ns);
-        Ok(Self {
-            name: svc.to_string(),
-            applier: Applier::infer(),
-            scm: scm,
-            scm_minimal: scm_minimal,
-        })
-    }
-
-    pub async fn new(mf: &Manifest) -> Result<Self> {
-        Self::new_within(&mf.name, &mf.namespace).await
-    }
-
-    /// CRD applier
-    pub async fn apply(&self, mf: Manifest) -> Result<bool> {
-        assert!(mf.version.is_some()); // ensure crd is in right state w/o secrets
-        assert!(mf.is_base());
-        // TODO: use server side apply in 1.15
-        // let mfk = json!({
-        //    "apiVersion": "babylontech.co.uk/v1",
-        //    "kind": "ShipcatManifest",
-        //    "metadata": {
-        //        "name": mf.name,
-        //        "namespace": mf.namespace,
-        //    },
-        //    "spec": mf,
-        //});
-        // for now, shell out to kubectl
-        use crate::kubectl;
-        let svc = mf.name.clone();
-        let ns = mf.namespace.clone();
-        kubectl::apply_crd(&svc, mf, &ns).await
-    }
-
-    /// Full CRD fetcher
-    pub async fn get(&self) -> Result<ManifestK> {
-        let o = self.scm.get(&self.name).await.map_err(ErrorKind::KubeError)?;
-        Ok(o)
-    }
-
-    /// Minimal CRD fetcher (for upgrades)
-    pub async fn get_minimal(&self) -> Result<ManifestMinimalK> {
-        let o = self
-            .scm_minimal
-            .get(&self.name)
-            .await
-            .map_err(ErrorKind::KubeError)?;
-        Ok(o)
-    }
-
-    /// Minimal CRD deleter
-    pub async fn delete(&self) -> Result<()> {
-        let dp = DeleteParams::default();
-        self.scm_minimal
-            .delete(&self.name, &dp)
-            .await
-            .map_err(ErrorKind::KubeError)?;
-        Ok(())
-    }
-
-    // ====================================================
-    // WARNING : PATCH HELL BELOW
-    // ====================================================
-
-    // helper to send a merge patch
-    async fn patch(&self, data: &serde_json::Value) -> Result<ManifestK> {
-        let pp = PatchParams::default();
-        let o = self
-            .scm
-            .patch_status(&self.name, &pp, serde_json::to_vec(data)?)
-            .await
-            .map_err(ErrorKind::KubeError)?;
-        debug!("Patched status: {:?}", o.status);
-        Ok(o)
-    }
-
-    // helper to delete accidental flags
-    pub async fn update_generate_true(&self) -> Result<ManifestK> {
-        debug!("Setting generated true");
-        let now = make_date();
-        let cond = Condition::ok(&self.applier);
-        let data = json!({
-            "status": {
-                "conditions": {
-                    "generated": cond
-                },
-                "summary": {
-                    "lastSuccessfulGenerate": now,
-                    "lastAction": "Generate",
-                }
-            }
-        });
-        self.patch(&data).await
-    }
-
-    // Manual helper fn to blat old status data
-    #[allow(dead_code)]
-    async fn remove_old_props(&self) -> Result<ManifestK> {
-        // did you accidentally populate the .status object with garbage?
-        let _data = json!({
-            "status": {
-                "conditions": {
-                    "apply": null,
-                    "rollout": null,
-                },
-                "summary": null
-            }
-        });
-        unreachable!("I know what i am doing");
-        #[allow(unreachable_code)]
-        self.patch(&_data).await
-    }
-
-    pub async fn update_generate_false(&self, err: &str, reason: String) -> Result<ManifestK> {
-        debug!("Setting generated false");
-        let cond = Condition::bad(&self.applier, err, reason.clone());
-        let data = json!({
-            "status": {
-                "conditions": {
-                    "generated": cond
-                },
-                "summary": {
-                    "lastFailureReason": reason,
-                    "lastAction": "Generate",
-                }
-            }
-        });
-        self.patch(&data).await
-    }
-
-    pub async fn update_apply_true(&self, ureason: String) -> Result<ManifestK> {
-        debug!("Setting applied true");
-        let now = make_date();
-        let cond = Condition::ok(&self.applier);
-        let data = json!({
-            "status": {
-                "conditions": {
-                    "applied": cond
-                },
-                "summary": {
-                    "lastApply": now,
-                    "lastSuccessfulApply": now,
-                    "lastApplyReason": ureason,
-                    "lastAction": "Apply",
-                }
-            }
-        });
-        self.patch(&data).await
-    }
-
-    pub async fn update_apply_false(&self, ureason: String, err: &str, reason: String) -> Result<ManifestK> {
-        debug!("Setting applied false");
-        let now = make_date();
-        let cond = Condition::bad(&self.applier, err, reason.clone());
-        let data = json!({
-            "status": {
-                "conditions": {
-                    "applied": cond
-                },
-                "summary": {
-                    "lastApply": now,
-                    "lastFailureReason": reason,
-                    "lastApplyReason": ureason,
-                    "lastAction": "Apply",
-                }
-            }
-        });
-        self.patch(&data).await
-    }
-
-    pub async fn update_rollout_false(&self, err: &str, reason: String) -> Result<ManifestK> {
-        debug!("Setting rolledout false");
-        let cond = Condition::bad(&self.applier, err, reason.clone());
-        let now = make_date();
-        let data = json!({
-            "status": {
-                "conditions": {
-                    "rolledout": cond
-                },
-                "summary": {
-                    "lastRollout": now,
-                    "lastFailureReason": reason,
-                    "lastAction": "Rollout",
-                }
-            }
-        });
-        self.patch(&data).await
-    }
-
-    pub async fn update_rollout_true(&self, version: &str) -> Result<ManifestK> {
-        debug!("Setting rolledout true");
-        let now = make_date();
-        let cond = Condition::ok(&self.applier);
-        let data = json!({
-            "status": {
-                "conditions": {
-                    "rolledout": cond
-                },
-                "summary": {
-                    "lastRollout": now,
-                    "lastSuccessfulRollout": now,
-                    "lastFailureReason": null,
-                    "lastAction": "Rollout",
-                    "lastSuccessfulRolloutVersion": version,
-                }
-            }
-        });
-        self.patch(&data).await
-    }
-}
-
+use crate::{kubeapi::ShipKube, track::PodSummary, Result};
+use k8s_openapi::api::core::v1::Pod;
+use shipcat_definitions::status::Condition;
+use std::convert::TryFrom;
 
 fn format_condition(cond: &Condition) -> Result<String> {
     let mut s = String::from("");
@@ -291,12 +27,26 @@ fn format_condition(cond: &Condition) -> Result<String> {
     Ok(s)
 }
 
+fn format_pods(pods: Vec<Pod>) -> Result<()> {
+    // NB: podname here is our service limit + rs sha len + pod sha len
+    println!(
+        "{0:<60} {1:<8} {2:<12} {3:<6} {4:<8} {5:<12}",
+        "POD", "VERSION", "STATUS", "READY", "RESTARTS", "AGE"
+    );
+    for pod in pods {
+        let podstate = PodSummary::try_from(pod)?;
+        println!("{:?}", podstate);
+    }
+    Ok(())
+}
+
 use crate::{Config, Region};
 /// Entry point for `shipcat status`
 pub async fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
-    use crate::kubectl;
     let mf = shipcat_filebacked::load_manifest(svc, conf, reg).await?;
-    let crd = ShipKube::new(&mf).await?.get().await?;
+    let api = ShipKube::new(&mf).await?;
+    let crd = api.get().await?;
+    let pod_res = api.get_pods().await;
 
     let md = mf.metadata.clone().expect("need metadata");
     let ver = crd.spec.version.expect("need version");
@@ -347,7 +97,19 @@ pub async fn show(svc: &str, conf: &Config, reg: &Region) -> Result<()> {
     }
     println!();
 
-    println!("==> RESOURCES");
-    print!("{}", kubectl::kpods(&mf).await?);
+    if let Ok(pods) = pod_res {
+        println!("==> RESOURCES");
+        let mut pvec = pods.into_iter().collect::<Vec<Pod>>();
+        pvec.sort_by_key(|p| {
+            p.metadata
+                .as_ref()
+                .unwrap()
+                .creation_timestamp
+                .as_ref()
+                .unwrap()
+                .0
+        });
+        format_pods(pvec)?;
+    }
     Ok(())
 }

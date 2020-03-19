@@ -25,7 +25,7 @@ impl Default for DependencyProtocol {
 }
 
 /// Dependency of a service
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Dependency {
     /// Name of service relied upon (used to goto dependent manifest)

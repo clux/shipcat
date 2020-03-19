@@ -1,14 +1,14 @@
 use super::Result;
 
 /// Operator for a toleraton
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Operator {
     Exists,
     Equal,
 }
 
 /// Effect of a toleration
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Effect {
     NoSchedule,
     NoExecute,
@@ -21,7 +21,7 @@ impl Default for Effect {
 }
 
 /// Kubernetes Tolerations parameters for a service
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Tolerations {
     /// What key does the toleration apply to?
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -80,14 +80,14 @@ pub mod region;
 pub use crate::region::{Environment, KongConfig, ReconciliationMode, Region, VaultConfig, VersionScheme};
 /// Master config with cross-region data
 pub mod config;
-pub use crate::config::{Cluster, Config, ConfigFallback, ManifestDefaults};
+pub use crate::config::{Cluster, Config, ConfigFallback, ManifestDefaults, ShipcatConfig};
 
 
 /// Structs for the manifest
 pub mod structs;
 
 pub mod manifest;
-pub use crate::manifest::Manifest;
+pub use crate::manifest::{Manifest, ShipcatManifest};
 
 pub mod base;
 pub use crate::base::BaseManifest;
@@ -97,7 +97,7 @@ pub mod teams;
 
 /// Crd wrappers
 mod crds;
-pub use crate::crds::{gen_all_crds, Crd};
+pub use crate::crds::gen_all_crds;
 
 /// Status objects
 pub mod status;

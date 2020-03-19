@@ -13,7 +13,6 @@ resources:
   limits:
     cpu: 100m
     memory: 100Mi
-replicaCount: 1
 
 # health check used to gate upgrades / readinessProbe
 health:
@@ -26,3 +25,14 @@ httpPort: 80
 # what regions it's deployed to
 regions:
 - minikube
+- kind
+
+# how it decides how many replicas to use
+autoScaling:
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 20

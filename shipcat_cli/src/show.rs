@@ -1,4 +1,5 @@
 use super::{Config, Region, Result};
+use shipcat_definitions::{ShipcatConfig, ShipcatManifest};
 
 /// Print the config
 ///
@@ -8,12 +9,11 @@ pub fn config(conf: Config) -> Result<()> {
     Ok(())
 }
 
-use shipcat_definitions::Crd;
 pub fn config_crd(conf: Config) -> Result<()> {
     if conf.has_all_regions() {
         bail!("The config crd needs to be for a single region only");
     }
-    let crd = Crd::from(conf);
+    let crd = ShipcatConfig::from(conf);
     println!("{}", serde_yaml::to_string(&crd)?);
     Ok(())
 }
@@ -24,7 +24,7 @@ pub async fn manifest_crd(svc: &str, conf: &Config, reg: &Region) -> Result<()> 
     if mf.version.is_none() {
         warn!("Do not apply this CRD manually - it has no version");
     }
-    let crd = Crd::from(mf);
+    let crd = ShipcatManifest::from(mf);
     println!("{}", serde_yaml::to_string(&crd)?);
     Ok(())
 }

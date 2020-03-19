@@ -53,15 +53,22 @@ impl ResourceTotals {
 ///
 /// These generally assume that `verify` has passed on all manifests.
 impl Manifest {
+    /// Compute minimum replicas
+    ///
+    /// Used to `estimate_rollout_iterations` for a rollout.
+    pub fn min_replicas(&self) -> u32 {
+        if let Some(ref hpa) = self.autoScaling {
+            hpa.minReplicas
+        } else {
+            self.replicaCount.unwrap() // verify ensures we have one of these
+        }
+    }
+
     /// Estimate how many iterations needed in a kube rolling upgrade
     ///
     /// Used to `estimate_wait_time` for a rollout.
     pub fn estimate_rollout_iterations(&self) -> u32 {
-        let rcount = if let Some(ref hpa) = self.autoScaling {
-            hpa.minReplicas
-        } else {
-            self.replicaCount.unwrap() // verify ensures we have one of these
-        };
+        let rcount = self.min_replicas();
         if let Some(ru) = self.rollingUpdate.clone() {
             ru.rollout_iterations(rcount)
         } else {
@@ -160,9 +167,9 @@ mod tests {
             wait: 60,
             ..Default::default()
         });
-        mf.replicaCount = Some(2);
+        mf.replicaCount = Some(1);
         assert_eq!(mf.estimate_wait_time(), 180); // 60*1.5 + 90s
-        mf.replicaCount = Some(3); // needs two cycles now
+        mf.replicaCount = Some(2); // needs two cycles now
         assert_eq!(mf.estimate_wait_time(), 360); // (60*1.5 + 90s)*2
 
         // huge image, fast boot
@@ -174,7 +181,7 @@ mod tests {
             wait: 10,
             ..Default::default()
         });
-        mf.replicaCount = Some(2);
+        mf.replicaCount = Some(1);
         assert_eq!(mf.estimate_wait_time(), 735); // very high.. network not always reliable
 
         // medium images, sloooow boot
@@ -184,7 +191,7 @@ mod tests {
             wait: 600,
             ..Default::default()
         });
-        mf.replicaCount = Some(2);
+        mf.replicaCount = Some(1);
         assert_eq!(mf.estimate_wait_time(), 990); // lots of leeway here just in case
     }
 }

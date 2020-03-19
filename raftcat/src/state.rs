@@ -1,10 +1,11 @@
 use failure::err_msg;
 use kube::{
-    api::{Api, NotUsed, Object},
+    api::{ListParams, Meta, Resource},
     client::APIClient,
     config::Configuration,
     runtime::Reflector,
 };
+use shipcat_definitions::{ShipcatConfig, ShipcatManifest};
 use tera::compile_templates;
 
 use std::{
@@ -21,9 +22,6 @@ use crate::{
     *,
 };
 
-type ManifestObject = Object<Manifest, ManifestStatus>;
-type ConfigObject = Object<Config, NotUsed>;
-
 /// Map of service -> versions
 pub type VersionMap = BTreeMap<String, String>;
 
@@ -34,8 +32,8 @@ pub type VersionMap = BTreeMap<String, String>;
 /// Only this file should have a write handler to this struct.
 #[derive(Clone)]
 pub struct State {
-    manifests: Reflector<ManifestObject>,
-    configs: Reflector<ConfigObject>,
+    manifests: Reflector<ShipcatManifest>,
+    configs: Reflector<ShipcatConfig>,
     relics: RelicMap,
     sentries: SentryMap,
     /// Templates via tera which do not implement clone
@@ -59,22 +57,20 @@ impl State {
         let t = compile_templates!(concat!("raftcat", "/templates/*"));
         debug!("Initializing cache for {} in {}", region, ns);
 
-        let mfresource = Api::customResource(client.clone(), "shipcatmanifests")
-            .version("v1")
-            .group("babylontech.co.uk")
-            .within(&ns);
-        let cfgresource = Api::customResource(client, "shipcatconfigs")
-            .version("v1")
-            .group("babylontech.co.uk")
-            .within(&ns);
-        let manifests = Reflector::new(mfresource).init().await?;
-        let configs = Reflector::new(cfgresource).init().await?;
+        let mfresource = Resource::namespaced::<ShipcatManifest>(&ns);
+        let cfgresource = Resource::namespaced::<ShipcatConfig>(&ns);
+
+        let lp = ListParams::default();
+        let manifests = Reflector::new(client.clone(), lp.clone(), mfresource)
+            .init()
+            .await?;
+        let configs = Reflector::new(client, lp, cfgresource).init().await?;
         // Use federated config if available:
         let is_federated = configs
             .state()
             .await?
             .iter()
-            .any(|crd: &ConfigObject| crd.metadata.name == "unionised");
+            .any(|crd| Meta::name(crd) == "unionised");
         let config_name = if is_federated {
             "unionised".into()
         } else {
@@ -115,7 +111,7 @@ impl State {
 
     pub async fn get_config(&self) -> Result<Config> {
         let cfgs = self.configs.state().await?;
-        if let Some(cfg) = cfgs.into_iter().find(|c| c.metadata.name == self.config_name) {
+        if let Some(cfg) = cfgs.into_iter().find(|c| Meta::name(c) == self.config_name) {
             Ok(cfg.spec)
         } else {
             bail!("Failed to find config for {}", self.region);
@@ -141,7 +137,7 @@ impl State {
             .map_err(|e| err_msg(format!("could not resolve cluster for {}: {}", self.region, e)))
     }
 
-    pub async fn get_manifest(&self, key: &str) -> Result<Option<ManifestObject>> {
+    pub async fn get_manifest(&self, key: &str) -> Result<Option<ShipcatManifest>> {
         let opt = self
             .manifests
             .state()

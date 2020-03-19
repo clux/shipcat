@@ -2,7 +2,7 @@
 #[macro_use] extern crate log;
 
 use clap::{App, AppSettings, Arg, ArgMatches, Shell, SubCommand};
-use shipcat::{status::ShipKube, *};
+use shipcat::{kubeapi::ShipKube, *};
 use std::{process, str::FromStr};
 
 fn print_error_debug(e: &Error) {
@@ -66,11 +66,6 @@ fn build_cli() -> App<'static, 'static> {
 
         .subcommand(SubCommand::with_name("shell")
             .about("Shell into pods for a service described in a manifest")
-            .arg(Arg::with_name("pod")
-                .takes_value(true)
-                .short("p")
-                .long("pod")
-                .help("Pod number - otherwise tries first"))
             .arg(Arg::with_name("service")
                 .required(true)
                 .help("Service name"))
@@ -206,6 +201,8 @@ fn build_cli() -> App<'static, 'static> {
                     .long("num-jobs")
                     .takes_value(true)
                     .help("Number of worker threads used"))
+                .subcommand(SubCommand::with_name("install")
+                    .about("Install the Shipcat related CRDs"))
                 .subcommand(SubCommand::with_name("reconcile")
                     .about("Reconcile shipcat custom resource definitions with local state")))
             .subcommand(SubCommand::with_name("vault-policy")
@@ -901,6 +898,9 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
             let (conf_sec, _region_sec) = resolve_config(args, ConfigState::Filtered).await?;
             let (conf_base, region_base) = resolve_config(args, ConfigState::Base).await?;
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
+            if let Some(_) = b.subcommand_matches("install") {
+                return shipcat::cluster::crd_install(&region_base).await;
+            }
             if let Some(_) = b.subcommand_matches("reconcile") {
                 return shipcat::cluster::mass_crd(&conf_sec, &conf_base, &region_base, jobs).await;
             }
@@ -937,8 +937,6 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("shell") {
         let (conf, region) = resolve_config(args, ConfigState::Base).await?;
         let service = a.value_of("service").unwrap();
-        let pod = value_t!(a.value_of("pod"), usize).ok();
-
         let cmd = if a.is_present("cmd") {
             Some(a.values_of("cmd").unwrap().collect::<Vec<_>>())
         } else {
@@ -948,7 +946,7 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
             .await?
             .stub(&region)
             .await?;
-        return shipcat::kubectl::shell(&mf, pod, cmd).await;
+        return shipcat::kubectl::shell(&mf, cmd).await;
     } else if let Some(a) = args.subcommand_matches("version") {
         let svc = a.value_of("service").map(String::from).unwrap();
         let (_conf, region) = resolve_config(a, ConfigState::Base).await?;
@@ -970,7 +968,8 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
             .await?
             .stub(&region)
             .await?;
-        return shipcat::kubectl::debug(&mf).await;
+        let s = ShipKube::new(&mf).await?;
+        return shipcat::track::debug(&mf, &s).await;
     }
     // these could technically forgo the kube dependency..
     else if let Some(a) = args.subcommand_matches("slack") {

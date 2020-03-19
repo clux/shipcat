@@ -4,7 +4,7 @@ use regex::Regex;
 /// DestinationRule
 ///
 /// An abstraction that captures the information needed to make routing decisions.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DestinationRule {
     /// The identifier the incoming request must possess to be considered for forwarding
     pub identifier: String,

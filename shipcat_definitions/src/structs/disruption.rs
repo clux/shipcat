@@ -10,7 +10,7 @@
 use super::{Result};
 
 // Untagged enum to get around the weird validation
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum AvailabilityPolicy {
     Percentage(String),
@@ -46,7 +46,7 @@ impl AvailabilityPolicy {
 /// Users need to set exactly one of these to pass validation.
 /// The values are "how many replicas" when integer values are used,
 /// and "what percentage of total replicas" when a % is added to the string.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DisruptionBudget {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub minAvailable: Option<AvailabilityPolicy>,

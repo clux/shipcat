@@ -1,7 +1,7 @@
 use super::Container;
 use std::collections::BTreeMap;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct JobVolumeClaim {
     /// The cron job name
@@ -10,7 +10,7 @@ pub struct JobVolumeClaim {
 }
 
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CronJob {
     /// Common properties for all types of container
     #[serde(flatten)]

@@ -58,7 +58,7 @@ impl VersionScheme {
 }
 
 /// Vault configuration for a region
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(test, derive(Default))]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct VaultConfig {
@@ -114,7 +114,7 @@ impl VaultConfig {
 //}
 
 /// Kafka configuration for a region
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct KafkaConfig {
     /// Broker urls in "hostname:port" format.
@@ -134,7 +134,7 @@ pub struct KafkaConfig {
 }
 
 /// Webhook types that shipcat might trigger after actions
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "name", deny_unknown_fields, rename_all = "snake_case")]
 pub enum Webhook {
     /// Audit webhook details
@@ -142,7 +142,7 @@ pub enum Webhook {
 }
 
 /// Where / how to send audited events
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct AuditWebhook {
     /// Endpoint
@@ -152,7 +152,7 @@ pub struct AuditWebhook {
 }
 
 /// Configure how CRs will be deployed on a region
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct CRSettings {
     #[serde(rename = "config")]
@@ -162,7 +162,7 @@ pub struct CRSettings {
 // ----------------------------------------------------------------------------------
 
 /// Kong configuration for a region
-#[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
+#[derive(Serialize, Deserialize, Clone, Debug, Default)] // TODO: better Default impl
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct KongConfig {
     /// Base URL to use (e.g. uk.dev.babylontech.co.uk)
@@ -182,7 +182,7 @@ pub struct KongConfig {
 }
 
 /// StatusCake configuration for a region
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct StatuscakeConfig {
     /// Contact Group that will be used if tests go down
@@ -194,7 +194,7 @@ pub struct StatuscakeConfig {
 }
 
 /// Logz.io configuration for a region
-#[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
+#[derive(Serialize, Deserialize, Clone, Debug, Default)] // TODO: better Default impl
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct LogzIoConfig {
     /// Base URL to use (e.g. https://app-eu.logz.io/#/dashboard/kibana/dashboard)
@@ -204,7 +204,7 @@ pub struct LogzIoConfig {
 }
 
 /// Grafana details for a region
-#[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
+#[derive(Serialize, Deserialize, Clone, Debug, Default)] // TODO: better Default impl
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct GrafanaConfig {
     /// Base URL to use (e.g. https://dev-grafana.ops.babylontech.co.uk)
@@ -214,20 +214,20 @@ pub struct GrafanaConfig {
 }
 
 /// Sentry details for a region
-#[derive(Serialize, Deserialize, Clone, Default)] // TODO: better Default impl
+#[derive(Serialize, Deserialize, Clone, Debug, Default)] // TODO: better Default impl
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct SentryConfig {
     /// Base URL to use (e.g. https://dev-uk-sentry.ops.babylontech.co.uk)
     pub url: String,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct KongAnonymousConsumers {
     pub anonymous: BTreeMap<String, String>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct KongOauthConsumer {
     pub oauth_client_id: String,
@@ -235,14 +235,14 @@ pub struct KongOauthConsumer {
     pub username: String,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct KongJwtConsumer {
     pub kid: String,
     pub public_key: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct KongTcpLogConfig {
     pub enabled: bool,
@@ -258,14 +258,14 @@ impl KongConfig {
 
 /// Defaults for services in this region
 // TODO: This should be ManifestDefaults from shipcat_filebacked
-#[derive(Deserialize, Clone, Default)]
+#[derive(Deserialize, Clone, Debug, Default)]
 #[serde(default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct DefaultConfig {
     pub kong: DefaultKongConfig,
 }
 
-#[derive(Deserialize, Clone, Default)]
+#[derive(Deserialize, Clone, Debug, Default)]
 #[serde(default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct DefaultKongConfig {
@@ -426,7 +426,7 @@ impl ToString for Environment {
 // ----------------------------------------------------------------------------------
 
 /// Environments are well defined strings
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum ReconciliationMode {
     /// Shipcat owned, CRD based decision
     ///
@@ -447,7 +447,7 @@ impl Default for ReconciliationMode {
 ///
 /// Either it's a pure kubernetes context with a namespace and a cluster,
 /// or it's an abstract concept with many associated real kubernetes contexts.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(test, derive(Default))]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Region {

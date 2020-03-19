@@ -5,7 +5,7 @@ use std::path::Path;
 /// What sensitive data is managed and how
 ///
 /// See https://engineering.ops.babylontech.co.uk/docs/principles-security/
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct DataHandling {
     /// Where and how data is stored
@@ -25,7 +25,7 @@ impl DataHandling {
 }
 
 /// Data storage information and encryption information
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct DataStore {
     /// Storage type (one of "MySQL", "DynamoDB", "S3", "File", "Kafka")
@@ -82,7 +82,7 @@ impl DataStore {
 
 
 /// Data storage information and encryption information
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct DataField {
     /// Canonical name of the data field
@@ -104,7 +104,7 @@ pub struct DataField {
 }
 
 /// Data storage information and encryption information
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct DataProcess {
     /// Canonical field name

@@ -2,13 +2,17 @@ use std::path::Path;
 use tokio::fs;
 
 use crate::{
-    diff, helm, kubectl,
-    status::ShipKube,
+    diff, helm,
+    kubeapi::ShipKube,
+    kubectl, track,
     webhooks::{self, UpgradeState},
 };
+use serde_json::json;
+
 use shipcat_definitions::{
+    status::{make_date, Condition},
     structs::{Metadata, NotificationMode},
-    Config, Manifest, PrimaryWorkload, ReconciliationMode, Region,
+    Config, Manifest, PrimaryWorkload, ReconciliationMode, Region, ShipcatManifest,
 };
 
 use super::{ErrorKind, Result, ResultExt};
@@ -306,7 +310,7 @@ async fn apply_kubectl(
             if !wait {
                 info!("successfully applied {} (without waiting)", ui.name);
             } else {
-                match kubectl::await_rollout_status(&mf).await {
+                match track::workload_rollout(&mf, &s).await {
                     Ok(true) => {
                         info!("successfully rolled out {}", &ui.name);
                         webhooks::apply_event(UpgradeState::Completed, &ui, &region, &conf).await;
@@ -315,8 +319,8 @@ async fn apply_kubectl(
                     Ok(false) => {
                         let time = mf.estimate_wait_time();
                         let reason = format!("timed out waiting {}s for rollout", time);
-                        let _ = kubectl::debug_rollout_status(&mf).await;
-                        let _ = kubectl::debug(&mf).await;
+                        //let _ = kubectl::debug_rollout_status(&mf).await;
+                        let _ = track::debug(&mf, &s).await;
                         // TODO: collect these for .status call ^?
                         warn!("failed to roll out {}", &ui.name);
                         webhooks::apply_event(UpgradeState::Failed, &ui, &region, &conf).await;
@@ -421,15 +425,16 @@ pub async fn restart(mf: &Manifest, wait: bool) -> Result<()> {
         );
         return Ok(());
     }
+    let sk = ShipKube::new(&mf).await?;
     // wait for primary if we are waiting
-    if kubectl::await_rollout_status(&mf).await? {
+    if track::workload_rollout(&mf, &sk).await? {
         info!("successfully restarted {}/{}", mf.workload.to_string(), &mf.name);
         Ok(())
     } else {
         let time = mf.estimate_wait_time();
         let reason = format!("timed out waiting {}s for rollout to restart", time);
-        let _ = kubectl::debug_rollout_status(&mf).await;
-        let _ = kubectl::debug(&mf).await;
+        //let _ = kubectl::debug_rollout_status(&mf).await;
+        let _ = track::debug(&mf, &sk).await;
         warn!("failed to roll out {}", &mf.name);
         warn!("{}", reason);
         Err(ErrorKind::UpgradeTimeout(mf.name.clone(), time).into())
@@ -485,5 +490,153 @@ pub async fn delete(svc: &str, reg: &Region, conf: &Config) -> Result<()> {
             warn!("Unable to notify about service deletion: {}", e);
             s.delete().await // this Result is more important
         }
+    }
+}
+
+/// Extend kubeapi::ShipKube with patching logic for the .status object
+///
+/// This should arguably live inside apply.rs or shipcat_definitions
+impl ShipKube {
+    // ====================================================
+    // WARNING : PATCH HELL BELOW
+    // ====================================================
+
+    // helper to delete accidental flags
+    pub async fn update_generate_true(&self) -> Result<ShipcatManifest> {
+        debug!("Setting generated true");
+        let now = make_date();
+        let cond = Condition::ok(&self.applier);
+        let data = json!({
+            "status": {
+                "conditions": {
+                    "generated": cond
+                },
+                "summary": {
+                    "lastSuccessfulGenerate": now,
+                    "lastAction": "Generate",
+                }
+            }
+        });
+        self.patch(&data).await
+    }
+
+    // Manual helper fn to blat old status data
+    #[allow(dead_code)]
+    async fn remove_old_props(&self) -> Result<ShipcatManifest> {
+        // did you accidentally populate the .status object with garbage?
+        let _data = json!({
+            "status": {
+                "conditions": {
+                    "apply": null,
+                    "rollout": null,
+                },
+                "summary": null
+            }
+        });
+        unreachable!("I know what i am doing");
+        #[allow(unreachable_code)]
+        self.patch(&_data).await
+    }
+
+    pub async fn update_generate_false(&self, err: &str, reason: String) -> Result<ShipcatManifest> {
+        debug!("Setting generated false");
+        let cond = Condition::bad(&self.applier, err, reason.clone());
+        let data = json!({
+            "status": {
+                "conditions": {
+                    "generated": cond
+                },
+                "summary": {
+                    "lastFailureReason": reason,
+                    "lastAction": "Generate",
+                }
+            }
+        });
+        self.patch(&data).await
+    }
+
+    pub async fn update_apply_true(&self, ureason: String) -> Result<ShipcatManifest> {
+        debug!("Setting applied true");
+        let now = make_date();
+        let cond = Condition::ok(&self.applier);
+        let data = json!({
+            "status": {
+                "conditions": {
+                    "applied": cond
+                },
+                "summary": {
+                    "lastApply": now,
+                    "lastSuccessfulApply": now,
+                    "lastApplyReason": ureason,
+                    "lastAction": "Apply",
+                }
+            }
+        });
+        self.patch(&data).await
+    }
+
+    pub async fn update_apply_false(
+        &self,
+        ureason: String,
+        err: &str,
+        reason: String,
+    ) -> Result<ShipcatManifest> {
+        debug!("Setting applied false");
+        let now = make_date();
+        let cond = Condition::bad(&self.applier, err, reason.clone());
+        let data = json!({
+            "status": {
+                "conditions": {
+                    "applied": cond
+                },
+                "summary": {
+                    "lastApply": now,
+                    "lastFailureReason": reason,
+                    "lastApplyReason": ureason,
+                    "lastAction": "Apply",
+                }
+            }
+        });
+        self.patch(&data).await
+    }
+
+    pub async fn update_rollout_false(&self, err: &str, reason: String) -> Result<ShipcatManifest> {
+        debug!("Setting rolledout false");
+        let cond = Condition::bad(&self.applier, err, reason.clone());
+        let now = make_date();
+        let data = json!({
+            "status": {
+                "conditions": {
+                    "rolledout": cond
+                },
+                "summary": {
+                    "lastRollout": now,
+                    "lastFailureReason": reason,
+                    "lastAction": "Rollout",
+                }
+            }
+        });
+        self.patch(&data).await
+    }
+
+    pub async fn update_rollout_true(&self, version: &str) -> Result<ShipcatManifest> {
+        debug!("Setting rolledout true");
+        let now = make_date();
+        let cond = Condition::ok(&self.applier);
+        let data = json!({
+            "status": {
+                "conditions": {
+                    "rolledout": cond
+                },
+                "summary": {
+                    "lastRollout": now,
+                    "lastSuccessfulRollout": now,
+                    "lastFailureReason": null,
+                    "lastAction": "Rollout",
+                    "lastSuccessfulRolloutVersion": version,
+                }
+            }
+        });
+        self.patch(&data).await
     }
 }

@@ -3,7 +3,7 @@ use super::Result;
 /// A straight port of Kubernetes Container Lifecycle Events
 ///
 /// From https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct LifeCycle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -12,13 +12,13 @@ pub struct LifeCycle {
     pub preStop: Option<LifeCycleHandler>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct LifeCycleHandler {
     pub exec: ExecAction,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct ExecAction {
     command: Vec<String>,

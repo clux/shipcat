@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 // TODO: cross reference better with
 // https://kubernetes.io/docs/concepts/storage/volumes/
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VolumeSecretItem {
     #[serde(default = "volume_key")]
     pub key: String,
@@ -20,35 +20,35 @@ fn volume_default_mode() -> u32 {
     420
 } // 0o644
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct VolumeSecretDetail {
     pub secretName: String,
     pub items: Vec<VolumeSecretItem>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ProjectedVolumeSecretSourceDetail {
     pub name: String,
     pub items: Vec<VolumeSecretItem>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ProjectedVolumeSecretSource {
     pub secret: ProjectedVolumeSecretSourceDetail,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ProjectedVolumeSecret {
     pub sources: Vec<ProjectedVolumeSecretSource>,
     // pub default_mode: u32,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DownwardApiWrapper {
     pub items: Vec<DownwardApiItem>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DownwardApiItem {
     /// Kube path to string
     pub path: String,
@@ -56,7 +56,7 @@ pub struct DownwardApiItem {
     pub resourceFieldRef: DownWardApiResource,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DownWardApiResource {
     /// Name of container TODO: default to service name
     pub containerName: String,
@@ -67,7 +67,7 @@ pub struct DownWardApiResource {
     pub divisor: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Volume {
     pub name: String,
     /// A projection combines multiple volume items
@@ -92,7 +92,7 @@ impl Volume {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Default, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct VolumeMount {
     pub name: String,
     pub mountPath: String,

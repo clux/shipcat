@@ -1,4 +1,5 @@
 use crate::vault::Vault;
+use kube_derive::CustomResource;
 use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -7,6 +8,7 @@ use crate::{
     config::Config,
     region::{Region, VaultConfig},
     states::{ManifestState, PrimaryWorkload},
+    ManifestStatus,
 };
 
 // All structs come from the structs directory
@@ -23,7 +25,19 @@ use super::structs::{
 };
 
 /// Main manifest, serializable from manifest.yml or the shipcat CRD.
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(CustomResource, Serialize, Deserialize, Debug, Clone, Default)]
+#[kube(
+    group = "babylontech.co.uk",
+    kind = "ShipcatManifest",
+    version = "v1",
+    namespaced,
+    shortname = "sm",
+    status = "ManifestStatus",
+    printcolumn = r#"{"name":"Kong", "jsonPath": ".spec.kong_apis[*].uris", "type": "string", "description": "The URI where the service is available through kong"}"#,
+    printcolumn = r#"{"name":"Version", "jsonPath": ".spec.version", "type": "string", "description": "The version of the service that is deployed"}"#,
+    printcolumn = r#"{"name":"Team", "jsonPath": ".spec.metadata.team", "type": "string", "description": "The team that owns the service"}"#
+)]
+#[kube(apiextensions = "v1beta1")] // kubernetes < 1.16
 pub struct Manifest {
     // ------------------------------------------------------------------------
     // Non-mergeable global properties

@@ -10,7 +10,9 @@ metadata:
 {{- end }}
 {{- template "chart.shipcatRefs" . }}
 spec:
+{{- if not .Values.autoScaling }}
   replicas: {{ .Values.replicaCount }}
+{{- end }}
   revisionHistoryLimit: 20
   strategy:
     rollingUpdate:

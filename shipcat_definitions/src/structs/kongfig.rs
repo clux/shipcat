@@ -9,14 +9,14 @@ use std::collections::BTreeMap;
 
 /// Kongfig structs
 /// https://github.com/mybuilder/kongfig
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct Api {
     pub name: String,
     pub plugins: Vec<ApiPlugin>,
     pub attributes: ApiAttributes,
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct ApiAttributes {
     #[serde(serialize_with = "empty_as_brackets")]
     pub hosts: Vec<String>,
@@ -36,7 +36,7 @@ pub struct ApiAttributes {
 }
 
 /// Plugins and their configs
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct CorsPluginConfig {
     pub methods: Vec<String>,
     pub exposed_headers: Vec<String>,
@@ -87,7 +87,7 @@ where
     }
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct HeadersAndJson {
     #[serde(serialize_with = "none_as_brackets")]
     pub headers: Option<Vec<String>>,
@@ -95,7 +95,7 @@ pub struct HeadersAndJson {
     pub json: Option<Vec<String>>,
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct ResponseTransformerPluginConfig {
     pub add: HeadersAndJson,
     pub append: HeadersAndJson,
@@ -121,7 +121,7 @@ impl ResponseTransformerPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct RequestTransformerPluginConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_method: Option<String>,
@@ -155,7 +155,7 @@ impl RequestTransformerPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct TcpLogPluginConfig {
     pub host: String,
     pub port: u32,
@@ -174,7 +174,7 @@ impl TcpLogPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct JwtPluginConfig {
     pub key_claim_name: String,
     #[serde(serialize_with = "empty_as_brackets")]
@@ -213,7 +213,7 @@ impl JwtPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct JwtValidatorPluginConfig {
     pub allowed_audiences: Vec<String>,
     pub expected_region: String,
@@ -221,7 +221,7 @@ pub struct JwtValidatorPluginConfig {
     pub allow_invalid_tokens: bool,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct JsonCookiesCsrfPluginConfig {}
 
 impl Default for JsonCookiesCsrfPluginConfig {
@@ -230,7 +230,7 @@ impl Default for JsonCookiesCsrfPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct JsonCookiesToHeadersPluginConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth_service: Option<String>,
@@ -248,7 +248,7 @@ pub struct JsonCookiesToHeadersPluginConfig {
     pub renew_before_expiry_sec: Option<u32>,
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct BabylonAuthHeaderPluginConfig {
     pub auth_service: String,
     pub cache_timeout_sec: u32,
@@ -265,13 +265,13 @@ impl BabylonAuthHeaderPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct PiiRegionHeaderPluginConfig {
     pub region_service_uri: String,
     pub enabled: bool,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct CorrelationIdPluginConfig {
     pub echo_downstream: bool,
     pub header_name: String,
@@ -289,7 +289,7 @@ impl Default for CorrelationIdPluginConfig {
 }
 
 #[allow(clippy::large_enum_variant)] // variants all reasonably similar
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(tag = "name", rename_all = "kebab-case")]
 pub enum ApiPlugin {
     TcpLog(PluginBase<TcpLogPluginConfig>),
@@ -305,7 +305,7 @@ pub enum ApiPlugin {
     RequestTransformer(PluginBase<RequestTransformerPluginConfig>),
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(tag = "ensure", content = "attributes", rename_all = "lowercase")]
 pub enum PluginBase<T> {
     Present(PluginAttributes<T>),
@@ -331,7 +331,7 @@ impl<T> PluginBase<T> {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct PluginAttributes<T> {
     pub enabled: bool,
     pub config: T,
@@ -501,20 +501,20 @@ pub fn kongfig_consumers(k: KongConfig) -> Vec<Consumer> {
     consumers
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct Consumer {
     pub username: String,
     pub acls: Vec<String>,
     pub credentials: Vec<ConsumerCredentials>,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(tag = "name", content = "attributes", rename_all = "kebab-case")]
 pub enum ConsumerCredentials {
     Jwt(JwtCredentialsAttributes),
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct JwtCredentialsAttributes {
     pub algorithm: String,
     pub key: String,
@@ -522,11 +522,11 @@ pub struct JwtCredentialsAttributes {
 }
 
 /// Not used yet
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Debug, Clone, Default)]
 pub struct Plugin {}
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Debug, Clone, Default)]
 pub struct Upstream {}
 
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Debug, Clone, Default)]
 pub struct Certificate {}

@@ -1,7 +1,7 @@
 use crate::region::Region;
 use std::collections::BTreeMap;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Kafka {
     #[serde(default)]
     pub mountPodIP: bool,

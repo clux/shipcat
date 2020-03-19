@@ -1,7 +1,7 @@
 use super::{Config, Manifest, Region, Result};
 use crate::{git, helm, kubectl};
 use regex::Regex;
-use shipcat_definitions::Crd;
+use shipcat_definitions::ShipcatManifest;
 use std::process::Command;
 
 
@@ -128,7 +128,7 @@ use std::{
 pub async fn values_vs_kubectl(svc: &str, conf: &Config, region: &Region) -> Result<bool> {
     // Generate crd in a temp file:
     let mf = shipcat_filebacked::load_manifest(svc, conf, region).await?;
-    let crd = Crd::from(mf);
+    let crd = ShipcatManifest::from(mf);
     let encoded = serde_yaml::to_string(&crd)?;
     let cfile = format!("{}.shipcat.crd.gen.yml", svc);
     let pth = Path::new(".").join(cfile);

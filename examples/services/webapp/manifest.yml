@@ -33,6 +33,7 @@ configs:
 # what regions it's deployed to
 regions:
 - minikube
+- kind
 
 # evars
 env:

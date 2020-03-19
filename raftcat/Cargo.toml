@@ -1,6 +1,6 @@
 [package]
 name = "raftcat"
-version = "0.148.4"
+version = "0.149.0"
 authors = ["Eirik Albrigtsen <eirik.albrigtsen@babylonhealth.com>"]
 edition = "2018"
 
@@ -15,7 +15,7 @@ path = "src/lib.rs"
 
 [dependencies]
 shipcat_definitions = { path = "../shipcat_definitions" }
-kube = { version = "0.27.0" }
+kube = { version = "0.30.0" }
 serde_json = "1.0.32"
 serde_yaml = "0.8.9"
 serde = "1.0.92"

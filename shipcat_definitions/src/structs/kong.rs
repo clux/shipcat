@@ -4,7 +4,7 @@ use super::Authorization;
 use crate::deserializers::comma_separated_string;
 
 /// Kong setup for a service
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Kong {
@@ -124,7 +124,7 @@ fn preserve_host_default() -> bool {
 }
 
 /// Cors plugin data
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Cors {
     pub credentials: bool,
@@ -138,7 +138,7 @@ pub struct Cors {
 }
 
 /// Babylon Auth Header plugin data
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct BabylonAuthHeader {
     pub auth_service: String,
@@ -148,7 +148,7 @@ pub struct BabylonAuthHeader {
 }
 
 /// Babylon Auth Header plugin data
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct PiiRegionHeader {
     pub region_service_uri: String,
@@ -156,7 +156,7 @@ pub struct PiiRegionHeader {
 }
 
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum Authentication {
     None,

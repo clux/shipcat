@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 ///
 /// Essentially a side-car like object that can scale resources separately to the main pods.
 /// Useful for services that have one single side service that polls or does some work.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Worker {
     /// Replication limits
     pub replicaCount: u32,

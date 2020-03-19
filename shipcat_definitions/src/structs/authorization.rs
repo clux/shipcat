@@ -1,5 +1,5 @@
 /// Configuration for authorization of requests
-#[derive(Serialize, Deserialize, Default, Clone)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct Authorization {
     /// Allowed values for the `aud` claim of the JWT payload.
     pub allowed_audiences: Vec<String>,

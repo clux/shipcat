@@ -1,8 +1,8 @@
 #![allow(non_snake_case)]
 
+use kube_derive::CustomResource;
 use semver::Version;
 use std::collections::{BTreeMap, BTreeSet};
-
 
 use crate::teams;
 #[allow(unused_imports)] use std::path::{Path, PathBuf};
@@ -15,7 +15,7 @@ use crate::{
 
 // ----------------------------------------------------------------------------------
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct ManifestDefaults {
     /// Image prefix string
@@ -38,7 +38,7 @@ impl Default for ManifestDefaults {
 }
 
 /// Kubernetes cluster information
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Cluster {
     /// Name of the cluster
@@ -52,7 +52,7 @@ pub struct Cluster {
     pub regions: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Location {
     /// Location name
@@ -65,7 +65,7 @@ pub struct Location {
     pub local_region: String,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct GithubParameters {
     /// Organisation name
@@ -73,7 +73,7 @@ pub struct GithubParameters {
 }
 
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct SlackParameters {
     /// Team name (T...)
@@ -85,7 +85,14 @@ pub struct SlackParameters {
 
 
 /// Main manifest, serializable from shipcat.conf
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(CustomResource, Serialize, Deserialize, Debug, Clone)]
+#[kube(
+    group = "babylontech.co.uk",
+    kind = "ShipcatConfig",
+    version = "v1",
+    namespaced
+)]
+#[kube(apiextensions = "v1beta1")] // kubernetes < 1.16
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Config {
     /// Global defaults for the manifests

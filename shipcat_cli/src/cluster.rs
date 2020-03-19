@@ -1,11 +1,11 @@
 use futures::stream::{self, StreamExt};
-use shipcat_definitions::{BaseManifest, Config, Region};
+use shipcat_definitions::{BaseManifest, Config, Region, ShipcatConfig};
 use shipcat_filebacked::SimpleManifest;
 
 use super::{kubectl, Error, ErrorKind, Result};
 use crate::{
     apply, diff, helm,
-    status::ShipKube,
+    kubeapi::ShipKube,
     webhooks::{self, UpgradeState},
 };
 
@@ -87,7 +87,7 @@ pub async fn mass_diff(conf: &Config, reg: &Region) -> Result<()> {
     Ok(())
 }
 
-async fn check_summary(svc: String, skipped: &Vec<String>, conf: &Config, reg: &Region) -> Result<String> {
+async fn check_summary(svc: String, skipped: &[String], conf: &Config, reg: &Region) -> Result<String> {
     let mut mf = shipcat_filebacked::load_manifest(&svc, &conf, &reg)
         .await?
         .stub(&reg)
@@ -104,7 +104,7 @@ async fn check_summary(svc: String, skipped: &Vec<String>, conf: &Config, reg: &
 /// Verifies all populated templates for all services in a region
 ///
 /// Helper that shells out to helm template in parallel.
-pub async fn mass_template_verify(conf: &Config, reg: &Region, skipped: &Vec<String>) -> Result<()> {
+pub async fn mass_template_verify(conf: &Config, reg: &Region, skipped: &[String]) -> Result<()> {
     let svcs = shipcat_filebacked::available(conf, reg).await?;
 
     let mut buffered = stream::iter(svcs)
@@ -132,8 +132,16 @@ pub async fn mass_template_verify(conf: &Config, reg: &Region, skipped: &Vec<Str
     Ok(())
 }
 
+/// Apply CRDs in all region
+pub async fn crd_install(reg: &Region) -> Result<()> {
+    use shipcat_definitions::gen_all_crds;
+    for crdef in gen_all_crds() {
+        kubectl::apply_resource(&reg.name, crdef, &reg.namespace).await?;
+    }
+    Ok(())
+}
 
-/// Apply all crds in a region
+/// Apply all services in the region
 ///
 /// Helper that shells out to kubectl apply in parallel.
 pub async fn mass_crd(conf_sec: &Config, conf_base: &Config, reg: &Region, n_workers: usize) -> Result<()> {
@@ -168,20 +176,18 @@ async fn crd_reconcile(
         .clone();
 
     webhooks::reconcile_event(UpgradeState::Pending, &region_sec).await;
-    // Reconcile CRDs (definition itself)
-    use shipcat_definitions::gen_all_crds;
-    for crdef in gen_all_crds() {
-        kubectl::apply_crd(&region_base.name, crdef.clone(), &region_base.namespace).await?;
-    }
+    // Always reconcile the CRDs (definitions themselves) first
+    crd_install(&region_base).await?;
 
     // Make sure config can apply first
-    let applycfg = if let Some(ref crs) = &region_base.customResources {
+    let applycfg: ShipcatConfig = if let Some(ref crs) = &region_base.customResources {
         // special configtype detected - re-populating config object
         Config::new(crs.shipcatConfig.clone(), &region_base.name).await?.0
     } else {
         config_base.clone()
-    };
-    kubectl::apply_crd(&region_base.name, applycfg, &region_base.namespace).await?;
+    }
+    .into();
+    kubectl::apply_resource(&region_base.name, applycfg, &region_base.namespace).await?;
 
     // Single instruction kubectl delete shipcat manifests .... of excess ones
     let svc_names = svcs.iter().map(|x| x.base.name.to_string()).collect::<Vec<_>>();

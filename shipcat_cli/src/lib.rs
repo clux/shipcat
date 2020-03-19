@@ -18,6 +18,7 @@ error_chain! {
         Io(::std::io::Error) #[cfg(unix)];
         Float(::std::num::ParseFloatError);
         Int(::std::num::ParseIntError);
+        TryInt(::std::num::TryFromIntError);
         Mani(shipcat_definitions::Error);
         SerdeY(serde_yaml::Error);
         SerdeJ(serde_json::Error);
@@ -103,6 +104,12 @@ pub mod gdpr;
 
 /// A small CLI kubernetes interface
 pub mod kubectl;
+
+/// A newer API kubernetes interface
+pub mod kubeapi;
+
+/// A newer upgrade tracking interface
+pub mod track;
 
 /// A kubernetes API interface for reading/writing .status
 pub mod status;

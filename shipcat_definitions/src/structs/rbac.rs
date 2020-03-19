@@ -8,7 +8,7 @@ use super::Result;
 /// This is a port of [k8s PolicyRule](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.15/#policyrule-v1beta1-rbac-authorization-k8s-io)
 /// We skip `nonResourceURLs` since it is only relevant for ClusterRoles
 /// We also disallow empty resources to shoehorn in "all" access.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Rbac {
     /// API groups containing resources

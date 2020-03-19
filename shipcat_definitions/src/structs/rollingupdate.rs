@@ -1,7 +1,7 @@
 use super::Result;
 
 // Untagged enum to get around the weird validation
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum AvailabilityPolicy {
     Percentage(String),
@@ -28,13 +28,14 @@ impl AvailabilityPolicy {
                 }
             }
         }
+        // TODO: ensure both not zero (illegal - currently caught by apiserver)
         Ok(())
     }
 
-    /// FIgure out how many the availability policy refers to
+    /// Figure out how many the availability policy refers to
     ///
-    /// This multiplies the policy with num replicas
-    fn to_replicas(&self, replicas: u32) -> u32 {
+    /// This multiplies the policy with num replicas and rounds up (for maxSurge)
+    fn to_replicas_ceil(&self, replicas: u32) -> u32 {
         match self {
             AvailabilityPolicy::Percentage(percstr) => {
                 let digits = percstr.chars().take_while(|ch| *ch != '%').collect::<String>();
@@ -44,10 +45,24 @@ impl AvailabilityPolicy {
             AvailabilityPolicy::Unsigned(u) => *u,
         }
     }
+
+    /// Figure out how many the availability policy refers to
+    ///
+    /// This multiplies the policy with num replicas and rounds down (for maxUnavailable)
+    fn to_replicas_floor(&self, replicas: u32) -> u32 {
+        match self {
+            AvailabilityPolicy::Percentage(percstr) => {
+                let digits = percstr.chars().take_while(|ch| *ch != '%').collect::<String>();
+                let surgeperc: u32 = digits.parse().unwrap(); // safe due to verify ^
+                ((f64::from(replicas) * f64::from(surgeperc)) / 100.0).floor() as u32
+            }
+            AvailabilityPolicy::Unsigned(u) => *u,
+        }
+    }
 }
 
 /// Configuration parameters for Deployment.spec.strategy.rollingUpdate
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RollingUpdate {
     /// How many replicas or percentage of replicas that can be down during rolling-update
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -95,16 +110,16 @@ impl RollingUpdate {
     pub fn rollout_iterations(&self, replicas: u32) -> u32 {
         let surge = if let Some(surge) = self.maxSurge.clone() {
             // surge is max number/percentage
-            surge.to_replicas(replicas)
+            surge.to_replicas_ceil(replicas)
         } else {
             // default surge percentage is 25
             (f64::from(replicas * 25) / 100.0).ceil() as u32
         };
         let unavail = if let Some(unav) = self.maxUnavailable.clone() {
             // maxUnavailable is max number/percentage
-            unav.to_replicas(replicas)
+            unav.to_replicas_floor(replicas)
         } else {
-            (f64::from(replicas * 25) / 100.0).ceil() as u32
+            (f64::from(replicas * 25) / 100.0).floor() as u32
         };
         // Work out how many iterations is needed assuming consistent rollout time
         // Often, this is not true, but it provides a good indication
@@ -118,13 +133,20 @@ impl RollingUpdate {
             unavail
         );
         while newrs < replicas {
-            // kild from oldrs the difference in total if we are surging
+            // kill from oldrs the difference in total if we are surging
             oldrs -= oldrs + newrs - replicas; // noop if surge == 0
                                                // terminate pods so we have at least maxUnavailable
             let total = newrs + oldrs;
+
             let unavail_safe = if total <= unavail { 0 } else { unavail };
-            oldrs -= unavail_safe;
-            // add new pods to cover and allow surging a little
+            trace!(
+                "oldrs{}, total is {}, unavail_safe: {}",
+                oldrs,
+                total,
+                unavail_safe
+            );
+            oldrs -= std::cmp::min(oldrs, unavail_safe); // never integer overflow
+                                                         // add new pods to cover and allow surging a little
             newrs += unavail_safe;
             newrs += surge;
             // after this iteration, assume we have rolled out newrs replicas
@@ -148,12 +170,21 @@ mod tests {
     use super::{AvailabilityPolicy, RollingUpdate};
 
     #[test]
+    fn rollout_iteration_no_overflow() {
+        // ensure no interger failures above..
+        for i in 0..100 {
+            //println!("overflow check for {}", i);
+            assert!(RollingUpdate::default().rollout_iterations(i) < 5);
+        }
+    }
+
+    #[test]
     fn rollout_iteration_check() {
         // examples cross referenced with kube
         // (kube rollout cycles in parens after each assert)
         let ru = RollingUpdate::default();
         assert_eq!(ru.rollout_iterations(1), 1); // 0 dn 1 up (then 1 down ungated)
-        assert_eq!(ru.rollout_iterations(2), 1); // 1 dn 2 up (then 1 down ungated)
+        assert_eq!(ru.rollout_iterations(2), 2); // 0 dn 1 up, 1 dn 2 up (then 1 down ungated)
         assert_eq!(ru.rollout_iterations(4), 2); // 1 dn 2 up, 2 dn 2 up
         assert_eq!(ru.rollout_iterations(8), 2); // 2 dn 4 up, 4 dn 4 up (then 2 down ungated)
 

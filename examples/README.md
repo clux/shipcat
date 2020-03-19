@@ -14,14 +14,29 @@ This folder contains a sample manifest repository setup for a kubernetes cluster
 ```
 
 ## Requirements
-A cluster with an `apps` namespace, reachable [through dns](https://github.com/clux/kube-rs/issues/153).
+A cluster defined in `shipcat.conf` (two example environments defined therein), reachable [through dns](https://github.com/clux/kube-rs/issues/153).
 
-E.g. minikube, and prepare an `apps` namespace:
+### Example 1: Minikube
+A [minikube](https://github.com/kubernetes/minikube) [none driver](https://minikube.sigs.k8s.io/docs/reference/drivers/none/), running in the `apps` namespace:
 
 ```sh
-minikube start
+sudo -E minikube start --driver=none --kubernetes-version v1.15.8 --extra-config kubeadm.ignore-preflight-errors=SystemVerification
 kubectl config set-context --cluster=minikube --user=minikube --namespace=apps minikube
 kubectl create namespace apps
+```
+
+### Example 2: Kind
+A [kind](https://github.com/kubernetes-sigs/kind) cluster in the default namespace:
+
+```sh
+kind create cluster --name shipcat
+```
+
+## Installation
+The only thing you need to install are the CRDs that shipcat define, which can be done with:
+
+```sh
+shipcat cluster crd install
 ```
 
 ## Local Exploration
@@ -39,7 +54,7 @@ Check generated kube yaml:
 shipcat template webapp
 ```
 
-Diff the template against what's running (try after installing):
+Diff the template against what's running (try after applying):
 
 ```sh
 shipcat diff webapp
@@ -68,7 +83,7 @@ helm install --set postgresqlPassword=pw,postgresqlDatabase=webapp -n=webapp-pg 
 Then we can write the external `DATABASE_URL` for `webapp`:
 
 ```sh
-vault write secret/minikube/webapp/DATABASE_URL value=postgres://postgres:pw@webapp-pg-postgresql.apps/webapp
+vault write secret/example/webapp/DATABASE_URL value=postgres://postgres:pw@webapp-pg-postgresql.apps/webapp
 ```
 
 You can verify that `shipcat` picks up on this via: `shipcat values -s webapp`.
@@ -118,7 +133,7 @@ Ensure the current commands are run before merging into a repository like this f
 ```sh
 shipcat config verify
 shipcat verify
-shipcat cluster check -r minikube
+shipcat cluster check
 shipcat secret verify-region -r minikube --changed=blog,webapp
 shipcat template webapp | kubeval -v 1.13.8 --strict
 ```
