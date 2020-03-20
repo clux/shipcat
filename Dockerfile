@@ -35,7 +35,7 @@ RUN adduser kubectl -Du 1000 -h /config && \
 RUN apk add --no-cache --virtual virtualbuild libffi-dev g++ python3-dev openssl-dev && \
     pip3 install --upgrade pip && \
     pip3 install yamllint yq && \
-    pip3 install semver jira jinja2 && \
+    pip3 install semver jira jinja2 schema && \
     apk del virtualbuild
 
 # Install shipcat (built for musl outside)
