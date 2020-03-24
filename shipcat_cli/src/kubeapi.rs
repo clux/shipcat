@@ -107,15 +107,22 @@ impl ShipKube {
     }
 
     // helper to send a merge patch
-    pub async fn patch(&self, data: &serde_json::Value) -> Result<ShipcatManifest> {
+    pub async fn patch(&self, data: &serde_json::Value) -> Result<()> {
         let pp = PatchParams::default();
-        let o = self
-            .api
+        // Run this patch with a smaller deserialization surface via kube::Resource
+        // kube::Api would force ShipcatManifest fully valid here
+        // and this would prevent status updates during schema changes.
+        let req = self
+            .mfs
             .patch_status(&self.name, &pp, serde_json::to_vec(data)?)
+            .map_err(ErrorKind::KubeError)?;
+        let o = self
+            .client
+            .request::<MinimalMfCrd>(req) // <- difference from using Api::patch_status
             .await
             .map_err(ErrorKind::KubeError)?;
         debug!("Patched status: {:?}", o.status);
-        Ok(o)
+        Ok(())
     }
 
     // helper to get pod data
@@ -174,28 +181,57 @@ impl ShipKube {
         Ok(rs.items.first().map(Clone::clone))
     }
 
-    // helper to get the latest rs
-    pub async fn get_rs_latest(&self) -> Result<Option<ReplicaSet>> {
-        let api: Api<ReplicaSet> = Api::namespaced(self.client.clone(), &self.namespace);
-        let lp = ListParams {
-            label_selector: Some(format!("app={}", self.name)),
-            ..Default::default()
-        };
-        let rs = api.list(&lp).await.map_err(ErrorKind::KubeError)?;
-        let mut rssorted = rs.into_iter().collect::<Vec<ReplicaSet>>();
+    // helper to get rs from deployment
+    pub async fn get_rs_from_deploy(&self) -> Result<Option<ReplicaSet>> {
+        let deps: Api<Deployment> = Api::namespaced(self.client.clone(), &self.namespace);
+        let replicasets: Api<ReplicaSet> = Api::namespaced(self.client.clone(), &self.namespace);
 
-        rssorted.sort_by_key(|rs| {
-            // TODO: creation(&rs).unwrap_or_else(|| Time(Utc::now())
-            // awaiting k8s-opinapi version
-            rs.metadata
-                .as_ref()
-                .expect("rs has metadata")
-                .creation_timestamp
-                .as_ref()
-                .expect("rs has creation timestamp")
-                .0
-        });
-        Ok(rssorted.last().map(Clone::clone))
+        // Get owning deployment and its revision annotation
+        let dep = deps.get(&self.name).await.map_err(ErrorKind::KubeError)?;
+        let mut rev = None;
+        if let Some(meta) = dep.metadata {
+            if let Some(annot) = meta.annotations {
+                if let Some(r) = annot.get("deployment.kubernetes.io/revision") {
+                    rev = Some(r.clone());
+                    debug!("Desired deployment revision for {} is {}", self.name, r);
+                }
+            }
+        }
+
+        // If that worked, match it up to a replicaset:
+        if let Some(desired) = rev {
+            // Find all replicasets with our app label
+            let lp = ListParams {
+                label_selector: Some(format!("app={}", self.name)),
+                ..Default::default()
+            };
+            let rs = replicasets.list(&lp).await.map_err(ErrorKind::KubeError)?;
+
+            // Rely on kubernetes' annotation conventions
+            let matching = rs
+                .iter()
+                .find(|r| {
+                    if let Some(meta) = &r.metadata {
+                        if let Some(annot) = &meta.annotations {
+                            if let Some(found) = annot.get("deployment.kubernetes.io/revision") {
+                                if found == &desired {
+                                    debug!("Tracking replicaset revision {} for {}", found, self.name);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                    false
+                })
+                .map(Clone::clone);
+            Ok(matching)
+        } else {
+            // If matching up fails, we __could__ try to get the latest one...
+            // But this was problematic in the case of a perfect rollback:
+            // Kubernetes might re-use an existing replicaset in this case,
+            // causing us to return a more recent, but downscaling replicaset.
+            Ok(None)
+        }
     }
 
     // helper to get deployment data
@@ -212,18 +248,3 @@ impl ShipKube {
         Ok(ssets)
     }
 }
-
-/*
-// For above TODO ^
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
-fn creation(rs: &ReplicaSet) -> Option<Time> {
-    if let Some(meta) = &rs.metadata {
-        if let Some(ts) = &meta.creation_timestamp {
-            return Some(ts.clone())
-        }
-        warn!("No creation timestamp for replicaset {:?}", meta.name);
-        return None;
-    }
-    warn!("No creation timestamp for replicaset");
-    return None;
-}*/

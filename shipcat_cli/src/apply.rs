@@ -12,7 +12,7 @@ use serde_json::json;
 use shipcat_definitions::{
     status::{make_date, Condition},
     structs::{Metadata, NotificationMode},
-    Config, Manifest, PrimaryWorkload, ReconciliationMode, Region, ShipcatManifest,
+    Config, Manifest, PrimaryWorkload, ReconciliationMode, Region,
 };
 
 use super::{ErrorKind, Result, ResultExt};
@@ -502,7 +502,7 @@ impl ShipKube {
     // ====================================================
 
     // helper to delete accidental flags
-    pub async fn update_generate_true(&self) -> Result<ShipcatManifest> {
+    pub async fn update_generate_true(&self) -> Result<()> {
         debug!("Setting generated true");
         let now = make_date();
         let cond = Condition::ok(&self.applier);
@@ -522,7 +522,7 @@ impl ShipKube {
 
     // Manual helper fn to blat old status data
     #[allow(dead_code)]
-    async fn remove_old_props(&self) -> Result<ShipcatManifest> {
+    async fn remove_old_props(&self) -> Result<()> {
         // did you accidentally populate the .status object with garbage?
         let _data = json!({
             "status": {
@@ -538,7 +538,7 @@ impl ShipKube {
         self.patch(&_data).await
     }
 
-    pub async fn update_generate_false(&self, err: &str, reason: String) -> Result<ShipcatManifest> {
+    pub async fn update_generate_false(&self, err: &str, reason: String) -> Result<()> {
         debug!("Setting generated false");
         let cond = Condition::bad(&self.applier, err, reason.clone());
         let data = json!({
@@ -555,7 +555,7 @@ impl ShipKube {
         self.patch(&data).await
     }
 
-    pub async fn update_apply_true(&self, ureason: String) -> Result<ShipcatManifest> {
+    pub async fn update_apply_true(&self, ureason: String) -> Result<()> {
         debug!("Setting applied true");
         let now = make_date();
         let cond = Condition::ok(&self.applier);
@@ -575,12 +575,7 @@ impl ShipKube {
         self.patch(&data).await
     }
 
-    pub async fn update_apply_false(
-        &self,
-        ureason: String,
-        err: &str,
-        reason: String,
-    ) -> Result<ShipcatManifest> {
+    pub async fn update_apply_false(&self, ureason: String, err: &str, reason: String) -> Result<()> {
         debug!("Setting applied false");
         let now = make_date();
         let cond = Condition::bad(&self.applier, err, reason.clone());
@@ -600,7 +595,7 @@ impl ShipKube {
         self.patch(&data).await
     }
 
-    pub async fn update_rollout_false(&self, err: &str, reason: String) -> Result<ShipcatManifest> {
+    pub async fn update_rollout_false(&self, err: &str, reason: String) -> Result<()> {
         debug!("Setting rolledout false");
         let cond = Condition::bad(&self.applier, err, reason.clone());
         let now = make_date();
@@ -619,7 +614,7 @@ impl ShipKube {
         self.patch(&data).await
     }
 
-    pub async fn update_rollout_true(&self, version: &str) -> Result<ShipcatManifest> {
+    pub async fn update_rollout_true(&self, version: &str) -> Result<()> {
         debug!("Setting rolledout true");
         let now = make_date();
         let cond = Condition::ok(&self.applier);

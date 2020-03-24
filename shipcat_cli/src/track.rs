@@ -404,11 +404,11 @@ pub async fn workload_rollout(mf: &Manifest, kube: &ShipKube) -> Result<bool> {
     let mut hash = None;
     // Attempt to find an owning RS hash to track
     if let PrimaryWorkload::Deployment = mf.workload {
-        if let Some(rs) = kube.get_rs_latest().await? {
+        if let Some(rs) = kube.get_rs_from_deploy().await? {
             if let Some(meta) = rs.metadata {
                 if let Some(labels) = meta.labels {
                     if let Some(h) = labels.get("pod-template-hash") {
-                        info!("Tracking replicaset {} for {}", h, mf.name);
+                        debug!("Tracking replicaset {} for {}", h, mf.name);
                         hash = Some(h.clone());
                     }
                 }
@@ -416,11 +416,18 @@ pub async fn workload_rollout(mf: &Manifest, kube: &ShipKube) -> Result<bool> {
         }
     }
 
+    // TODO: create progress bar above this fn so we can use MultiProgressBar in cluster.rs
     let pb = ProgressBar::new(minimum.into());
     pb.set_style(
-        ProgressStyle::default_bar().template("{prefix} {bar:40.green/black} {pos}/{len} ({elapsed}) {msg}"),
+        ProgressStyle::default_bar()
+            .template("> {bar:40.green/black} {prefix} {pos}/{len} ({elapsed}) {msg}"),
     );
-    pb.set_prefix(&mf.name);
+    pb.set_draw_delta(1);
+    if let Some(h) = &hash {
+        pb.set_prefix(&format!("{}-{}", mf.name, h));
+    } else {
+        pb.set_prefix(&mf.name);
+    }
 
     for i in 1..20 {
         trace!("poll iteration {}", i);

@@ -16,6 +16,8 @@ This folder contains a sample manifest repository setup for a kubernetes cluster
 ## Requirements
 A cluster defined in `shipcat.conf` (two example environments defined therein), reachable [through dns](https://github.com/clux/kube-rs/issues/153).
 
+More examples in the `Makefile`.
+
 ### Example 1: Minikube
 A [minikube](https://github.com/kubernetes/minikube) [none driver](https://minikube.sigs.k8s.io/docs/reference/drivers/none/), running in the `apps` namespace:
 
@@ -45,25 +47,32 @@ You can use `shipcat` at the root of this folder, or anywhere else if you point 
 Check completed manifest:
 
 ```sh
-shipcat values webapp
+shipcat values blog
 ```
 
 Check generated kube yaml:
 
 ```sh
-shipcat template webapp
+shipcat template blog
 ```
 
-Diff the template against what's running (try after applying):
+Apply it to your cluster:
 
 ```sh
-shipcat diff webapp
+shipcat apply blog
 ```
 
-and with some integration setup, ensure that everything can be applied to your cluster automatically:
+Diff the template against what's running:
+
+```sh
+shipcat diff blog
+```
+
+Note that the `webapp` example requires external dependencies which you can configure with `make integrations` or follow along below.
+
 
 ## Vault Integration
-Secrets are currently resolved from `vault`, so let's install a sample backend:
+Secrets are resolved from `vault`, so let's install a sample backend using `docker`:
 
 ```sh
 docker run --cap-add=IPC_LOCK -e 'VAULT_DEV_ROOT_TOKEN_ID=myroot' -e 'VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200' -p 8200:8200 -d --rm --name vault vault:0.11.3
@@ -89,14 +98,18 @@ vault write secret/example/webapp/DATABASE_URL value=postgres://postgres:pw@weba
 You can verify that `shipcat` picks up on this via: `shipcat values -s webapp`.
 
 ### Slack integrations
-For `shipcat apply` and `shipcat cluster` commands to work you should have a place to send notifications:
+Both the `shipcat apply` and `shipcat cluster` commands will pick up on some slack evars to be able send result notifications:
 
 ```sh
 export SLACK_SHIPCAT_HOOK_URL=https://hooks.slack.com/services/.....
 export SLACK_SHIPCAT_CHANNEL=#test
 ```
 
-The evars are used to send upgrade notifications to slack hooks (if they are valid).
+If these are unset, then there are still upgrade results visible on the status object:
+
+```sh
+kubectl get sm blog -oyaml | yq ".status" -y
+```
 
 ## Cluster reconcile
 Now that all our dependencies are set up; we can ensure our cluster is up-to-date with our repository:

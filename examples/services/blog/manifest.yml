@@ -35,4 +35,6 @@ autoScaling:
   - type: Resource
     resource:
       name: cpu
-      targetAverageUtilization: 20
+      target:
+        type: Utilization
+        averageUtilization: 50

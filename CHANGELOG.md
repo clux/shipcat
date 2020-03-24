@@ -1,3 +1,9 @@
+0.150.0 / 2020-03-19
+====================
+  * `manifest.autoScaling` upgraded from hpa v2beta1 to hpa v2beta2 - #255
+  * `manifest.autoScaling` now supports all `HorizontalPodAutoscaler` features
+  * Fix bug in tracking module during rollbacks - #435
+
 0.149.0 / 2020-03-18
 ====================
   * upgrade tracking now uses kube for api tracking
