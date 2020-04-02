@@ -58,7 +58,9 @@ pub async fn codeowners(conf: &Config) -> Result<Vec<String>> {
             // Can perhaps be removed in the future
             for o in &s.members {
                 if let Some(p) = conf.owners.people.get(o) {
-                    ghids.push(format!("@{}", p.github));
+                    if let Some(gh) = &p.github {
+                        ghids.push(format!("@{}", gh));
+                    }
                 }
             }
         } else {

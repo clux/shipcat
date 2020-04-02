@@ -11,7 +11,7 @@ pub struct Person {
     /// Name in "firstname.lastname" format (must match filename)
     pub name: String,
     /// A github user id (alphanumeric)
-    pub github: String,
+    pub github: Option<String>,
     /// A slack guid (U...)
     pub slack: String,
     /// An email "firstname.lastname@babylonhealth.com"
