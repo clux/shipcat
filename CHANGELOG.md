@@ -1,3 +1,8 @@
+0.151.0 / 2020-04-02
+====================
+  * fix a bug in `shipcat get codeowners` coercing a user.github to null string
+  * add `securityContext` as top level field on manifest
+
 0.150.0 / 2020-03-19
 ====================
   * `manifest.autoScaling` upgraded from hpa v2beta1 to hpa v2beta2 - #255

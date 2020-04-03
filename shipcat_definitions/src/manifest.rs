@@ -21,7 +21,7 @@ use super::structs::{
     volume::{Volume, VolumeMount},
     ConfigMap, Container, CronJob, Dependency, DestinationRule, EnvVars, EventStream, Gate, HealthCheck,
     HostAlias, Kafka, Kong, LifeCycle, Metadata, NotificationMode, PersistentVolume, Port, Probe, Rbac,
-    ResourceRequirements, RollingUpdate, VaultOpts, Worker,
+    ResourceRequirements, RollingUpdate, SecurityContext, VaultOpts, Worker,
 };
 
 /// Main manifest, serializable from manifest.yml or the shipcat CRD.
@@ -182,6 +182,18 @@ pub struct Manifest {
     /// ```
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub command: Vec<String>,
+
+    /// Extend the workload with a securityContext
+    ///
+    /// This allows changing the ownership of mounted volumes
+    ///
+    /// ```yaml
+    /// securityContext:
+    ///   runAsUser: 1000
+    ///   fsGroup: 1000
+    /// ```
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub securityContext: Option<SecurityContext>,
 
     /// Data sources and handling strategies
     ///

@@ -81,6 +81,9 @@ pub use self::metadata::{Contact, Metadata, SlackChannel};
 /// Security related structs
 pub mod security;
 
+mod securitycontext;
+pub use securitycontext::SecurityContext;
+
 mod vault;
 pub use self::vault::VaultOpts;
 

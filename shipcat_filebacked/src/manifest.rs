@@ -5,7 +5,8 @@ use shipcat_definitions::{
     structs::{
         autoscaling::AutoScaling, security::DataHandling, tolerations::Tolerations, volume::Volume,
         ConfigMap, Dependency, DestinationRule, EventStream, Gate, HealthCheck, HostAlias, Kafka, LifeCycle,
-        Metadata, NotificationMode, PersistentVolume, Probe, Rbac, RollingUpdate, VaultOpts, VolumeMount,
+        Metadata, NotificationMode, PersistentVolume, Probe, Rbac, RollingUpdate, SecurityContext, VaultOpts,
+        VolumeMount,
     },
     BaseManifest, Config, Manifest, PrimaryWorkload, Region, Result,
 };
@@ -46,6 +47,7 @@ pub struct ManifestOverrides {
     pub image_size: Option<u32>,
     pub version: Option<ImageTagSource>,
     pub command: Option<Vec<String>>,
+    pub security_context: Option<SecurityContext>,
     pub data_handling: Option<DataHandling>,
     pub resources: Option<ResourceRequirementsSource>,
     pub secret_files: BTreeMap<String, String>,
@@ -143,6 +145,7 @@ impl ManifestSource {
             image: simple.image,
             version: simple.version,
             command: overrides.command.unwrap_or_default(),
+            securityContext: overrides.security_context,
             dataHandling: data_handling,
             resources: overrides.resources.build(&())?,
             replicaCount: defaults.replica_count,
