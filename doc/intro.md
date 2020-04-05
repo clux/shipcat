@@ -89,7 +89,7 @@ configs:
 
 This example shows a small hypothetical service running with 2 replicas in the `dev-uk` kube region, listening on port 8080, with a couple of auth secrets fetched from vault, and a templated `env.yml` mounted into `/config/`.
 
-For a list of what's available in the API please consult the API documentation for [shipcat::Manifest](https://babylonhealth.github.io/shipcat/shipcat/manifest/manifest/struct.Manifest.html)
+For a list of what's available in the API please consult the API documentation for [shipcat::Manifest](https://babylonhealth.github.io/shipcat/shipcat/struct.Manifest.html)
 
 ## Kubernetes Templates
 The completed manifest (from `shipcat values`) is currently passed to the configured helm chart (by default; the `base` chart) that also lives in the manifests repository.
