@@ -246,7 +246,12 @@ fn create_github_compare_url(md: &Metadata, vers: (&str, &str)) -> SlackTextCont
     } else {
         (vers.0.into(), vers.1.into())
     };
-    let url = format!("{}/compare/{}...{}", md.repo, v0, v1);
+    let url = if md.repo.contains("/tree/") {
+        // subfolder specified in tree - cannot do nice compare url for that
+        md.repo.clone()
+    } else {
+        format!("{}/compare/{}...{}", md.repo, v0, v1)
+    };
     Link(SlackLink::new(&url, &short_ver(vers.1)))
 }
 
