@@ -488,7 +488,10 @@ pub async fn delete(svc: &str, reg: &Region, conf: &Config) -> Result<()> {
         // otherwise, just fire and forget...
         Err(e) => {
             warn!("Unable to notify about service deletion: {}", e);
-            s.delete().await // this Result is more important
+            // The following Result is more important
+            s.delete()
+                .await
+                .chain_err(|| ErrorKind::KubectlApiFailure("delete".into(), svc.into()))
         }
     }
 }

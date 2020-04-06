@@ -61,6 +61,10 @@ error_chain! {
             description("Kube apply call failed")
             display("Kube apply of {} failed", &svc)
         }
+        KubectlApiFailure(call: String, svc: String) {
+            description("kube call failed")
+            display("kube {} of {} failed", &call, &svc)
+        }
         UpgradeTimeout(svc: String, secs: u32) {
             description("upgrade timed out")
             display("{} upgrade timed out waiting {}s for deployment(s) to come online", &svc, secs)
@@ -111,13 +115,13 @@ pub mod kubeapi;
 /// A newer upgrade tracking interface
 pub mod track;
 
-/// A kubernetes API interface for reading/writing .status
+/// Status subcommand
 pub mod status;
 
 /// Apply logic
 pub mod apply;
 
-/// A small CLI helm interface (deprecated)
+/// A small CLI helm template interface
 pub mod helm;
 
 /// A small CLI kong config generator interface

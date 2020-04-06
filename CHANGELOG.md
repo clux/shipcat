@@ -1,7 +1,11 @@
+0.151.1 / 2020-04-06
+====================
+  * fix `delete` not being able to serialize responses in reconcile - #437
+
 0.151.0 / 2020-04-02
 ====================
   * fix a bug in `shipcat get codeowners` coercing a user.github to null string
-  * add `securityContext` as top level field on manifest
+  * add `securityContext` as top level syntax for statefulsets - #443
 
 0.150.0 / 2020-03-19
 ====================

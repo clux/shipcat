@@ -305,6 +305,12 @@ fn build_cli() -> App<'static, 'static> {
                 .help("Service to restart"))
             .about("Restart a deployment rollout to restart all pods safely"))
 
+        .subcommand(SubCommand::with_name("delete")
+              .arg(Arg::with_name("service")
+                .required(true)
+                .help("Service to delete"))
+            .about("Delete a service's shipcatmanifest from kubernetes"))
+
         .subcommand(SubCommand::with_name("env")
               .arg(Arg::with_name("service")
                 .required(true)
@@ -888,6 +894,10 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
         let mf = shipcat_filebacked::load_manifest(&svc, &conf, &region).await?;
         let wait = !a.is_present("no-wait");
         return shipcat::apply::restart(&mf, wait).await.map(void);
+    } else if let Some(a) = args.subcommand_matches("delete") {
+        let svc = a.value_of("service").map(String::from).unwrap();
+        let (conf, region) = resolve_config(a, ConfigState::Base).await?;
+        return shipcat::apply::delete(&svc, &region, &conf).await.map(void);
     }
     // 4. cluster level commands
     else if let Some(a) = args.subcommand_matches("cluster") {

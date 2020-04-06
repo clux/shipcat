@@ -100,7 +100,7 @@ impl ShipKube {
         let dp = DeleteParams::default();
         let req = self.mfs.delete(&self.name, &dp).map_err(ErrorKind::KubeError)?;
         self.client
-            .request::<MinimalManifest>(req)
+            .request_status::<MinimalManifest>(req)
             .await
             .map_err(ErrorKind::KubeError)?;
         Ok(())
