@@ -1,3 +1,7 @@
+0.151.2 / 2020-04-XX
+====================
+  * Minified `shipcat diff` via reconcile now always hides secret objects
+
 0.151.1 / 2020-04-06
 ====================
   * fix `delete` not being able to serialize responses in reconcile - #437

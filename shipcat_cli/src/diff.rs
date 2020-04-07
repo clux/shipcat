@@ -192,44 +192,26 @@ fn shell_diff(before: &str, after: &str, before_name: &str, after_name: &str) ->
     Ok(s.success())
 }
 
-/// Minify diff output from helm diff or kube diff
-pub fn minify(diff: &str) -> String {
-    // kubectl diff contain at least one --- or one +++ with tmp/LIVE or tmp/merged
-    let minus_line = Regex::new(r"--- /tmp/LIVE-[a-zA-Z0-9]+/([\w\.]+)").unwrap();
-    let plus_line = Regex::new(r"--- /tmp/MERGED-[a-zA-Z0-9]+/([\w\.]+)").unwrap();
-    // helm diff output never contain any of these, and is deprecated
-    if minus_line.is_match(diff) || plus_line.is_match(diff) {
-        minify_kube(diff)
-    } else {
-        minify_helm(diff)
-    }
-}
-
-/// Minify diff output from helm diff
-fn minify_helm(diff: &str) -> String {
-    let has_changed_re = Regex::new(r"has changed|^\- |^\+ ").unwrap();
-    // only show lines that includes "has changed" or starting with + or -
-    diff.split('\n')
-        .filter(|l| has_changed_re.is_match(l))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-
 /// Minify diff output from kubectl diff
-fn minify_kube(diff: &str) -> String {
-    let has_changed_re = Regex::new(r"^\- |^\+ ").unwrap();
-    let generation_re = Regex::new(r"generation[:]{1}").unwrap();
-    let type_re = Regex::new(r"--- /tmp/LIVE-[a-zA-Z0-9]+/([\w\.]+)").unwrap();
+pub fn minify(diff: &str) -> String {
+    let minusplus = Regex::new(r"^\- |^\+ ").unwrap();
+    let generation = Regex::new(r"generation[:]{1}").unwrap();
+    let kind_line = Regex::new(r"--- /tmp/LIVE-[a-zA-Z0-9]+/([\w\.]+)").unwrap();
     // Find the +++/--- header and extract the type from it.
     // Then trim everything that doesn't start with `- ` or `+ `
     // and additionally ignore `generation` integer updates
 
     let mut res = vec![];
+    let mut in_secret = false;
     for l in diff.lines() {
-        if let Some(cap) = type_re.captures(l) {
-            res.push(format!("{} has changed:", &cap[1]));
-        } else if !l.starts_with("+++") && !generation_re.is_match(l) && has_changed_re.is_match(l) {
+        if let Some(cap) = kind_line.captures(l) {
+            in_secret = cap[1].contains("Secret");
+            if in_secret {
+                res.push(format!("Change to {} elided for security", &cap[1]));
+            } else {
+                res.push(format!("{} has changed:", &cap[1]));
+            }
+        } else if !in_secret && !l.starts_with("+++") && !generation.is_match(l) && minusplus.is_match(l) {
             res.push(l.to_string());
         }
     }
@@ -409,5 +391,61 @@ v1.Service.dev has changed:
         assert!(res.is_some());
         let (old, new) = res.unwrap();
         assert!(is_version_only(min_input, (&old, &new)));
+    }
+
+    #[test]
+    fn kubectl_diff_secret_squash_test() {
+        // A pretty large diff input that checks that secrets are filtered out
+        // ..and that it doesn't filter out objects surrounding the secrets
+        let input = r#"diff -u -N /tmp/LIVE-547038353/apps.v1.Deployment.dev.raftcat /tmp/MERGED-191875772/apps.v1.Deployment.dev.raftcat
+--- /tmp/LIVE-547038353/apps.v1.Deployment.dev.raftcat   2020-04-07 12:25:26.255493075 +0100
++++ /tmp/MERGED-191875772/apps.v1.Deployment.dev.raftcat 2020-04-07 12:25:26.312159054 +0100
+@@ -6,7 +6,7 @@
+   creationTimestamp: "2019-11-18T22:47:05Z"
+-  generation: 227
++  generation: 228
+   labels:
+     app: raftcat
+     app.kubernetes.io/managed-by: shipcat
+@@ -45,7 +45,7 @@
+     metadata:
+       annotations:
+         checksum/config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+-        checksum/secrets: 3e6c8c2098228c15554026bef845a1e121c6d32a315ecbba953d92e8b4d26bed
++        checksum/secrets: fd7f339fc814c7067c66213705ff7bfc78a81723e50c1083bd3a29df272d34e7
+         kubectl.kubernetes.io/restartedAt: "2020-03-18T18:40:01Z"
+       creationTimestamp: null
+diff -u -N /tmp/LIVE-422759316/v1.Secret.dev.raftcat-secrets /tmp/MERGED-101659107/v1.Secret.dev.raftcat-secrets
+--- /tmp/LIVE-422759316/v1.Secret.dev.raftcat-secrets   2020-04-07 12:26:32.618020569 +0100
++++ /tmp/MERGED-101659107/v1.Secret.dev.raftcat-secrets 2020-04-07 12:26:32.664686669 +0100
+@@ -1,9 +1,10 @@
+ apiVersion: v1
+ data:
+-  SENTRY_DSN: aGVsbG8gd29ybGQK==
++  SENTRY_DSN: YUdWc2JHOGdkMjl5YkdRPQ==
++  WOOT: aGk=
+ kind: Secret
+ metadata:
+diff -u -N /tmp/LIVE-167159470/autoscaling.v2beta2.HorizontalPodAutoscaler.dev.raftcat /tmp/MERGED-264369205/autoscaling.v2beta2.HorizontalPodAutoscaler.dev.raftcat
+--- /tmp/LIVE-167159470/autoscaling.v2beta2.HorizontalPodAutoscaler.dev.raftcat 2020-04-07 13:02:15.788649534 +0100
++++ /tmp/MERGED-264369205/autoscaling.v2beta2.HorizontalPodAutoscaler.dev.raftcat   2020-04-07 13:02:15.875315149 +0100
+@@ -22,7 +22,7 @@
+ spec:
+-  maxReplicas: 3
++  maxReplicas: 4
+   metrics:
+   - resource:
+       name: cpu"#;
+
+        assert_eq!(
+            minify(input),
+            "apps.v1.Deployment.dev.raftcat has changed:
+-        checksum/secrets: 3e6c8c2098228c15554026bef845a1e121c6d32a315ecbba953d92e8b4d26bed
++        checksum/secrets: fd7f339fc814c7067c66213705ff7bfc78a81723e50c1083bd3a29df272d34e7
+Change to v1.Secret.dev.raftcat elided for security
+autoscaling.v2beta2.HorizontalPodAutoscaler.dev.raftcat has changed:
+-  maxReplicas: 3
++  maxReplicas: 4"
+        );
     }
 }
