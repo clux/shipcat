@@ -219,7 +219,6 @@ async fn debug_pods(pods: ObjectList<Pod>, kube: &ShipKube) -> Result<()> {
     Ok(())
 }
 
-
 /// A summary of a Deployment's status
 #[derive(Debug)]
 pub struct DeploySummary {
@@ -272,6 +271,10 @@ impl TryFrom<Deployment> for DeploySummary {
 pub struct StatefulSummary {
     pub replicas: i32,
     pub ready: i32,
+    pub current_revision: Option<String>,
+    pub current_replicas: i32,
+    pub update_revision: Option<String>,
+    pub updated_replicas: i32,
 }
 
 impl TryFrom<StatefulSet> for StatefulSummary {
@@ -282,8 +285,20 @@ impl TryFrom<StatefulSet> for StatefulSummary {
         if let Some(status) = d.status {
             let ready = status.ready_replicas.unwrap_or(0);
             let replicas = status.replicas;
+            let current_revision = status.current_revision;
+            let current_replicas = status.current_replicas.unwrap_or(0);
+            let update_revision = status.update_revision;
+            let updated_replicas = status.updated_replicas.unwrap_or(0);
+
             // NB: No good message in statefulset conditions at 1.13
-            Ok(StatefulSummary { replicas, ready })
+            Ok(StatefulSummary {
+                replicas,
+                ready,
+                current_revision,
+                current_replicas,
+                update_revision,
+                updated_replicas,
+            })
         } else {
             bail!("Missing statefulset status object")
         }
@@ -364,11 +379,32 @@ async fn rollout_status(mf: &Manifest, kube: &ShipKube, hash: &Option<String>) -
             let ss = kube.get_statefulset().await?;
             let s = StatefulSummary::try_from(ss)?;
             let minimum = mf.min_replicas();
-            let ok = s.ready == s.replicas;
+
+            let ok = s.updated_replicas >= minimum as i32
+                && s.updated_replicas == s.ready
+                && s.update_revision == *hash;
+            let message = if ok {
+                None
+            } else {
+                Some("Statefulset update in progress".to_string())
+            };
+
+            // NB: Progress is slightly optimistic because updated_replicas increment
+            // as soon as the old replica is replaced, not when it's ready.
+            // (we can't use ready_replicas because that counts the sum of old + new)
+            // But this is OK. If it gets to 3/3 then at least 2 rolled out successfully,
+            // and the third was started. The only other way of getting around that
+            // would be tracking the pods with the new hash directly..
+
+            // Note that while progressbar is optimistic, it's not marked as ok (done)
+            // until the new revision is changed over (when sts controller thinks it's done)
+            // So this is a progressbar only inconsistency.
             Ok(RolloutResult {
-                progress: std::cmp::max(0, s.ready).try_into().expect("ss.ready >= 0"),
+                progress: std::cmp::max(0, s.updated_replicas)
+                    .try_into()
+                    .expect("sts.updated_replicas >= 0"),
                 expected: minimum,
-                message: None,
+                message: message,
                 ok,
             })
         }
@@ -402,19 +438,31 @@ pub async fn workload_rollout(mf: &Manifest, kube: &ShipKube) -> Result<bool> {
         waittime, mf.workload, mf.name
     );
     let mut hash = None;
-    // Attempt to find an owning RS hash to track
-    if let PrimaryWorkload::Deployment = mf.workload {
-        if let Some(rs) = kube.get_rs_from_deploy().await? {
-            if let Some(meta) = rs.metadata {
-                if let Some(labels) = meta.labels {
-                    if let Some(h) = labels.get("pod-template-hash") {
-                        debug!("Tracking replicaset {} for {}", h, mf.name);
-                        hash = Some(h.clone());
+    match mf.workload {
+        PrimaryWorkload::Deployment => {
+            // Attempt to find an owning RS hash to track
+            if let Some(rs) = kube.get_rs_from_deploy().await? {
+                if let Some(meta) = rs.metadata {
+                    if let Some(labels) = meta.labels {
+                        if let Some(h) = labels.get("pod-template-hash") {
+                            debug!("Tracking replicaset {} for {}", h, mf.name);
+                            hash = Some(h.clone());
+                        }
                     }
                 }
             }
         }
+        PrimaryWorkload::Statefulset => {
+            // Attempt to find an owning revesion hash to track
+            let sts = kube.get_statefulset().await?;
+            let summary = StatefulSummary::try_from(sts)?;
+            if let Some(ur) = summary.update_revision {
+                debug!("Tracking statefulset {:?} for {}", ur, mf.name);
+                hash = Some(ur);
+            }
+        }
     }
+
 
     // TODO: create progress bar above this fn so we can use MultiProgressBar in cluster.rs
     let pb = ProgressBar::new(minimum.into());
@@ -424,7 +472,14 @@ pub async fn workload_rollout(mf: &Manifest, kube: &ShipKube) -> Result<bool> {
     );
     pb.set_draw_delta(1);
     if let Some(h) = &hash {
-        pb.set_prefix(&format!("{}-{}", mf.name, h));
+        match mf.workload {
+            PrimaryWorkload::Deployment => {
+                pb.set_prefix(&format!("{}-{}", mf.name, h));
+            }
+            PrimaryWorkload::Statefulset => {
+                pb.set_prefix(h); // statefulset hash already prefixes name
+            }
+        }
     } else {
         pb.set_prefix(&mf.name);
     }

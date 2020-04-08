@@ -1,6 +1,7 @@
-0.151.2 / 2020-04-XX
+0.151.2 / 2020-04-08
 ====================
   * Minified `shipcat diff` via reconcile now always hides secret objects
+  * Statefulset rollout tracking now returns AFTER rollout is complete - #447
 
 0.151.1 / 2020-04-06
 ====================
