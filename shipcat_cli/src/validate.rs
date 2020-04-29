@@ -24,6 +24,8 @@ pub async fn regional_manifests(conf: &Config, reg: &Region) -> Result<()> {
 
     let mut errs = vec![];
     let mut used_stream_names = vec![];
+    let mut used_topic_names = vec![];
+    let mut used_user_names = vec![];
     while let Some(r) = buffered.next().await {
         match r {
             Err(e) => errs.push(e),
@@ -34,6 +36,27 @@ pub async fn regional_manifests(conf: &Config, reg: &Region) -> Result<()> {
                         bail!("{} cannot reuse eventStream names {}", mf.name, es.name);
                     }
                     used_stream_names.push(es.name.clone());
+                }
+                if let Some(kr) = mf.kafkaResources {
+                    for topic in kr.topics {
+                        if used_topic_names.contains(&topic.name) {
+                            bail!("{}, Topic name already exists: {}", mf.name, &topic.name);
+                        }
+                        if topic.name.contains('_') {
+                            bail!(
+                                "{}, cannot use underscores in kafka topic name: {}",
+                                mf.name,
+                                &topic.name
+                            );
+                        }
+                        used_topic_names.push(topic.name.clone());
+                    }
+                    for user in kr.users {
+                        if used_user_names.contains(&user.name) {
+                            bail!("{}, Kafka User name already exists: {}", mf.name, &user.name);
+                        }
+                        used_user_names.push(user.name.clone());
+                    }
                 }
             }
         }

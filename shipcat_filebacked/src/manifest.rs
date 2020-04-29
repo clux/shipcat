@@ -4,9 +4,9 @@ use std::collections::BTreeMap;
 use shipcat_definitions::{
     structs::{
         autoscaling::AutoScaling, security::DataHandling, tolerations::Tolerations, volume::Volume,
-        ConfigMap, Dependency, DestinationRule, EventStream, Gate, HealthCheck, HostAlias, Kafka, LifeCycle,
-        Metadata, NotificationMode, PersistentVolume, Probe, Rbac, RollingUpdate, SecurityContext, VaultOpts,
-        VolumeMount,
+        ConfigMap, Dependency, DestinationRule, EventStream, Gate, HealthCheck, HostAlias, Kafka,
+        KafkaResources, LifeCycle, Metadata, NotificationMode, PersistentVolume, Probe, Rbac, RollingUpdate,
+        SecurityContext, VaultOpts, VolumeMount,
     },
     BaseManifest, Config, Manifest, PrimaryWorkload, Region, Result,
 };
@@ -82,6 +82,7 @@ pub struct ManifestOverrides {
     pub rbac: Option<Vec<Rbac>>,
     pub sentry: Option<SentrySource>,
     pub event_streams: Option<Vec<EventStream>>,
+    pub kafka_resources: Option<KafkaResources>,
     //  to have this section merge alerts sub-field deeply
     //      we have to avoid using Option
     pub newrelic: NewrelicSource,
@@ -199,6 +200,7 @@ impl ManifestSource {
                 .map(|sentry| sentry.build(&team_notifications))
                 .transpose()?,
             eventStreams: overrides.event_streams.unwrap_or_default(),
+            kafkaResources: overrides.kafka_resources,
             upgradeNotifications: Default::default(),
             region: region.name.clone(),
             environment: region.environment.to_string(),

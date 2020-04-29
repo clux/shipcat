@@ -1,6 +1,6 @@
 use super::{Config, Region, Result};
 use semver::Version;
-use shipcat_definitions::{structs::EventStream, Environment};
+use shipcat_definitions::Environment;
 /// This file contains the `shipcat get` subcommand
 use std::collections::BTreeMap;
 
@@ -237,6 +237,7 @@ pub async fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
 
 // ----------------------------------------------------------------------------
 // Get Eventstreams and kafka reducers
+use shipcat_definitions::structs::{kafkaresources, EventStream};
 
 #[derive(Serialize)]
 struct EventStreamsOutput {
@@ -264,17 +265,25 @@ pub async fn eventstreams(conf: &Config, reg: &Region) -> Result<()> {
 // get Kafka Users
 #[derive(Serialize)]
 pub struct KafkaUsersInput {
-    eventstreams: BTreeMap<String, KafkaUsersParams>,
+    eventStreamsUsers: BTreeMap<String, EventStreamKafkaUsersParams>,
 }
 
 #[derive(Serialize)]
-pub struct KafkaUsersParams {
+pub struct EventStreamKafkaUsersParams {
+    service: String,
     producers: Vec<String>,
     consumers: Vec<String>,
 }
 
+#[derive(Serialize)]
+pub struct KafkaResourceUsersParams {
+    service: String,
+    acls: Vec<kafkaresources::AclDefinition>,
+}
+
 #[derive(Default, Serialize)]
-struct KafkaUsersOutput {
+struct EventStreamUsersOutput {
+    service: String,
     produces_to: Vec<String>,
     consumes_from: Vec<String>,
 }
@@ -282,17 +291,18 @@ struct KafkaUsersOutput {
 #[derive(Default, Serialize)]
 struct KafkaUsers {
     region: String,
-    kafka_users: BTreeMap<String, KafkaUsersOutput>,
+    es_kafka_users: BTreeMap<String, EventStreamUsersOutput>,
+    kr_kafka_users: BTreeMap<String, KafkaResourceUsersParams>,
 }
 
-fn transformUsers(input: KafkaUsersInput) -> BTreeMap<String, KafkaUsersOutput> {
-    let mut output: BTreeMap<String, KafkaUsersOutput> = BTreeMap::new();
+fn transformEventstreamUsers(input: KafkaUsersInput) -> BTreeMap<String, EventStreamUsersOutput> {
+    let mut output: BTreeMap<String, EventStreamUsersOutput> = BTreeMap::new();
 
-    for (name, eventstreams) in input.eventstreams {
-        for user in eventstreams.producers {
+    for (name, eventStreamsUsers) in input.eventStreamsUsers {
+        for user in eventStreamsUsers.producers {
             output.entry(user).or_default().produces_to.push(name.clone());
         }
-        for user in eventstreams.consumers {
+        for user in eventStreamsUsers.consumers {
             output.entry(user).or_default().consumes_from.push(name.clone());
         }
     }
@@ -301,24 +311,67 @@ fn transformUsers(input: KafkaUsersInput) -> BTreeMap<String, KafkaUsersOutput> 
 }
 
 pub async fn kafkausers(conf: &Config, reg: &Region) -> Result<()> {
-    let mut eventstreams = BTreeMap::new();
+    let mut eventStreamsUsers = BTreeMap::new();
+    let mut krusers = BTreeMap::new();
 
-    // Get eventstream Info from Manifests
+    // Get kafka users from eventstreams struct
     for svc in shipcat_filebacked::available(conf, reg).await? {
         let mf = shipcat_filebacked::load_manifest(&svc.base.name, &conf, &reg).await?;
         for k in mf.eventStreams {
-            let params = KafkaUsersParams {
+            let params = EventStreamKafkaUsersParams {
+                service: String::from(&svc.base.name),
                 producers: k.producers,
                 consumers: k.consumers,
             };
-            eventstreams.insert(k.name, params);
+            eventStreamsUsers.insert(k.name, params);
+        }
+        // get kafka users from KafkaResources struct
+        if let Some(kr) = mf.kafkaResources {
+            for user in kr.users {
+                let params = KafkaResourceUsersParams {
+                    service: String::from(&svc.base.name),
+                    acls: user.acls,
+                };
+                krusers.insert(user.name, params);
+            }
         }
     }
     let region = reg.name.clone();
     let output = KafkaUsers {
         region,
-        kafka_users: transformUsers(KafkaUsersInput { eventstreams }),
+        es_kafka_users: transformEventstreamUsers(KafkaUsersInput { eventStreamsUsers }),
+        kr_kafka_users: krusers,
     };
+    println!("{}", serde_json::to_string_pretty(&output)?);
+    Ok(())
+}
+
+#[derive(Default, Serialize)]
+struct KafkaTopics {
+    region: String,
+    kafka_topics: Vec<String>,
+}
+
+pub async fn kafkatopics(conf: &Config, reg: &Region) -> Result<()> {
+    let mut eventStreamsTopics = vec![];
+    let mut krtopics = vec![];
+
+    // Get eventstream Info from Manifests
+    for svc in shipcat_filebacked::available(conf, reg).await? {
+        let mf = shipcat_filebacked::load_manifest(&svc.base.name, &conf, &reg).await?;
+        for topic in mf.eventStreams {
+            eventStreamsTopics.push(topic.name);
+        }
+        // get kafka topics from KafkaResources struct
+        if let Some(kr) = mf.kafkaResources {
+            for topic in kr.topics {
+                krtopics.push(topic.name);
+            }
+        }
+    }
+    let region = reg.name.clone();
+    let kafka_topics: Vec<_> = eventStreamsTopics.iter().chain(&krtopics).cloned().collect();
+    let output = KafkaTopics { region, kafka_topics };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }

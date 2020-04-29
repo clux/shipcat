@@ -117,3 +117,6 @@ pub use notifications::NotificationMode;
 // EventStreams / Kafka related struct
 mod eventstream;
 pub use self::eventstream::EventStream;
+
+pub mod kafkaresources;
+pub use self::kafkaresources::KafkaResources;

@@ -20,8 +20,8 @@ use super::structs::{
     tolerations::Tolerations,
     volume::{Volume, VolumeMount},
     ConfigMap, Container, CronJob, Dependency, DestinationRule, EnvVars, EventStream, Gate, HealthCheck,
-    HostAlias, Kafka, Kong, LifeCycle, Metadata, NotificationMode, PersistentVolume, Port, Probe, Rbac,
-    ResourceRequirements, RollingUpdate, SecurityContext, VaultOpts, Worker,
+    HostAlias, Kafka, KafkaResources, Kong, LifeCycle, Metadata, NotificationMode, PersistentVolume, Port,
+    Probe, Rbac, ResourceRequirements, RollingUpdate, SecurityContext, VaultOpts, Worker,
 };
 
 /// Main manifest, serializable from manifest.yml or the shipcat CRD.
@@ -734,6 +734,38 @@ pub struct Manifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub eventStreams: Vec<EventStream>,
 
+    /// Kafka Resources (Topics and Users)
+    ///
+    /// inputs for this struct relate directly to the strimzi kafka project.
+    /// Topic Inputs: [Strimzi Kafka Topic CRD ](https://github.com/strimzi/strimzi-kafka-operator/blob/master/install/topic-operator/04-Crd-kafkatopic.yaml)
+    /// User Inputs: [Strimzi Kafka User CRD ](https://github.com/strimzi/strimzi-kafka-operator/blob/master/install/user-operator/04-Crd-kafkauser.yaml)
+    ///
+    /// ```yaml
+    /// kafkaResources:
+    ///   topics:
+    ///   - name: foo-topic-name
+    ///     partitions: 1
+    ///     replicas: 3
+    ///     config:
+    ///       retention.ms: 604800000
+    ///       segment.bytes: 1073741824
+    ///   users:
+    ///   - name: foo-user-name
+    ///     acls:
+    ///     - resourceName: testtopic
+    ///       resourceType: topic
+    ///       patternType: literal
+    ///       operation: write
+    ///       host: "*"
+    ///     - resourceName: testtopic
+    ///       resourceType: topic
+    ///       patternType: literal
+    ///       operation: read
+    ///       host: "*"
+    /// ```
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kafkaResources: Option<KafkaResources>,
+
     /// Monitoring section covering NewRelic configuration
     ///
     /// ```yaml
@@ -961,6 +993,9 @@ impl Manifest {
         }
         for es in &self.eventStreams {
             es.verify()?;
+        }
+        if let Some(kr) = &self.kafkaResources {
+            kr.verify()?;
         }
         // misc minor properties
         if self.replicaCount.unwrap() == 0 {

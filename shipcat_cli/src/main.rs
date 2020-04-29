@@ -147,7 +147,9 @@ fn build_cli() -> App<'static, 'static> {
               .subcommand(SubCommand::with_name("eventstreams")
                 .help("Reduce eventstreams info"))
               .subcommand(SubCommand::with_name("kafkausers")
-                .help("Reduce kafkauser info"))
+                .help("Reduce kafkaUser info"))
+              .subcommand(SubCommand::with_name("kafkatopics")
+                .help("Reduce KafkaTopic info"))
               .subcommand(SubCommand::with_name("codeowners")
                 .help("Generate CODEOWNERS syntax for manifests based on team ownership"))
               .subcommand(SubCommand::with_name("vault-policy")
@@ -595,6 +597,9 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
         }
         if let Some(_) = a.subcommand_matches("kafkausers") {
             return shipcat::get::kafkausers(&conf, &region).await;
+        }
+        if let Some(_) = a.subcommand_matches("kafkatopics") {
+            return shipcat::get::kafkatopics(&conf, &region).await;
         }
     } else if let Some(a) = args.subcommand_matches("top") {
         let sort = top::ResourceOrder::from_str(a.value_of("sort").unwrap())?;
