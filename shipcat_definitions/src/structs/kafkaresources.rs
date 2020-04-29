@@ -55,7 +55,7 @@ pub enum KafkaUserPatternType {
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
-#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields, rename_all = "camelCase"))]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct AclDefinition {
     pub resource_name: String,
     pub resource_type: Option<KafkaUserResourceType>,
@@ -65,7 +65,7 @@ pub struct AclDefinition {
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
-#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
+#[serde(deny_unknown_fields)]
 pub struct KafkaUsers {
     pub name: String,
     pub acls: Vec<AclDefinition>,
