@@ -276,7 +276,7 @@ pub struct EventStreamKafkaUsersParams {
 }
 
 #[derive(Serialize)]
-pub struct KafkaResourceUsersParams {
+pub struct KafkaResourceUserParams {
     service: String,
     acls: Vec<kafkaresources::AclDefinition>,
 }
@@ -292,7 +292,7 @@ struct EventStreamUsersOutput {
 struct KafkaUsers {
     region: String,
     es_kafka_users: BTreeMap<String, EventStreamUsersOutput>,
-    kr_kafka_users: BTreeMap<String, KafkaResourceUsersParams>,
+    kr_kafka_users: BTreeMap<String, KafkaResourceUserParams>,
 }
 
 fn transformEventstreamUsers(input: KafkaUsersInput) -> BTreeMap<String, EventStreamUsersOutput> {
@@ -328,7 +328,7 @@ pub async fn kafkausers(conf: &Config, reg: &Region) -> Result<()> {
         // get kafka users from KafkaResources struct
         if let Some(kr) = mf.kafkaResources {
             for user in kr.users {
-                let params = KafkaResourceUsersParams {
+                let params = KafkaResourceUserParams {
                     service: String::from(&svc.base.name),
                     acls: user.acls,
                 };
@@ -346,32 +346,60 @@ pub async fn kafkausers(conf: &Config, reg: &Region) -> Result<()> {
     Ok(())
 }
 
+// get kafka topics
 #[derive(Default, Serialize)]
 struct KafkaTopics {
     region: String,
-    kafka_topics: Vec<String>,
+    kafkaTopics: BTreeMap<String, KafkaTopicParams>,
+}
+
+#[derive(Serialize)]
+pub struct KafkaTopicParams {
+    service: String,
+    topicType: String,
+    partitions: String,
+    replicas: String,
+    config: BTreeMap<String, String>,
 }
 
 pub async fn kafkatopics(conf: &Config, reg: &Region) -> Result<()> {
-    let mut eventStreamsTopics = vec![];
-    let mut krtopics = vec![];
+    let mut kafkaTopics = BTreeMap::new();
 
     // Get eventstream Info from Manifests
     for svc in shipcat_filebacked::available(conf, reg).await? {
         let mf = shipcat_filebacked::load_manifest(&svc.base.name, &conf, &reg).await?;
+
+        // get kafka topics from eventstream struct
         for topic in mf.eventStreams {
-            eventStreamsTopics.push(topic.name);
+            let params = KafkaTopicParams {
+                service: String::from(&svc.base.name),
+                topicType: "EventStream".to_string(),
+                partitions: topic
+                    .config
+                    .get("partitions")
+                    .map(String::from)
+                    .unwrap_or_default(),
+                replicas: topic.config.get("replicas").map(String::from).unwrap_or_default(),
+                config: topic.config,
+            };
+            kafkaTopics.insert(topic.name, params);
         }
         // get kafka topics from KafkaResources struct
         if let Some(kr) = mf.kafkaResources {
             for topic in kr.topics {
-                krtopics.push(topic.name);
+                let params = KafkaTopicParams {
+                    service: String::from(&svc.base.name),
+                    topicType: "KafkaResource".to_string(),
+                    partitions: topic.partitions.to_string(),
+                    replicas: topic.replicas.to_string(),
+                    config: topic.config,
+                };
+                kafkaTopics.insert(topic.name, params);
             }
         }
     }
     let region = reg.name.clone();
-    let kafka_topics: Vec<_> = eventStreamsTopics.iter().chain(&krtopics).cloned().collect();
-    let output = KafkaTopics { region, kafka_topics };
+    let output = KafkaTopics { region, kafkaTopics };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
