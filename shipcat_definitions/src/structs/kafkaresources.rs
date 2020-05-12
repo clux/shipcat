@@ -61,8 +61,15 @@ pub struct AclDefinition {
     pub resource_type: Option<KafkaUserResourceType>,
     pub pattern_type: Option<KafkaUserPatternType>,
     pub operation: Option<KafkaUserOperation>,
+
+    #[serde(default = "default_host")]
     pub host: String,
 }
+
+fn default_host() -> String {
+    "*".into()
+}
+
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
