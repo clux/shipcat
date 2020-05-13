@@ -265,12 +265,6 @@ impl BabylonAuthHeaderPluginConfig {
     }
 }
 
-#[derive(Serialize, Clone, Debug, Default)]
-pub struct PiiRegionHeaderPluginConfig {
-    pub region_service_uri: String,
-    pub enabled: bool,
-}
-
 #[derive(Serialize, Debug, Clone)]
 pub struct CorrelationIdPluginConfig {
     pub echo_downstream: bool,
@@ -298,7 +292,6 @@ pub enum ApiPlugin {
     Cors(PluginBase<CorsPluginConfig>),
     CorrelationId(PluginBase<CorrelationIdPluginConfig>),
     BabylonAuthHeader(PluginBase<BabylonAuthHeaderPluginConfig>),
-    PiiRegionHeader(PluginBase<PiiRegionHeaderPluginConfig>),
     JsonCookiesToHeaders(PluginBase<JsonCookiesToHeadersPluginConfig>),
     JsonCookiesCsrf(PluginBase<JsonCookiesCsrfPluginConfig>),
     ResponseTransformer(PluginBase<ResponseTransformerPluginConfig>),
@@ -444,16 +437,6 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
             )))
         } else {
             plugins.push(ApiPlugin::RequestTransformer(PluginBase::removed()))
-        }
-
-        // If enabled: PiiRegionHeader
-        if let Some(pii_region_header) = v.pii_region_header {
-            plugins.push(ApiPlugin::PiiRegionHeader(PluginBase::new(
-                PiiRegionHeaderPluginConfig {
-                    region_service_uri: pii_region_header.region_service_uri,
-                    enabled: pii_region_header.enabled,
-                },
-            )));
         }
 
         // Create the main API object

@@ -2,7 +2,7 @@ use merge::Merge;
 use std::collections::BTreeMap;
 
 use shipcat_definitions::{
-    structs::{Authentication, Authorization, BabylonAuthHeader, Cors, Kong, PiiRegionHeader},
+    structs::{Authentication, Authorization, BabylonAuthHeader, Cors, Kong},
     KongConfig, Region, Result,
 };
 
@@ -93,7 +93,6 @@ impl KongApisSource {
     }
 }
 
-
 #[derive(Deserialize, Default, Merge, Clone)]
 #[serde(default, deny_unknown_fields)]
 pub struct KongSource {
@@ -111,7 +110,6 @@ pub struct KongSource {
     pub auth: Option<Authentication>,
     pub babylon_auth_header: Option<BabylonAuthHeader>,
     pub authorization: Enabled<AuthorizationSource>,
-    pub pii_region_header: Option<PiiRegionHeader>,
 
     pub upstream_connect_timeout: Option<u32>,
     pub upstream_send_timeout: Option<u32>,
@@ -160,7 +158,6 @@ impl Build<Kong, KongBuildParams> for KongSource {
             uris: self.uris,
             hosts,
             authorization,
-            pii_region_header: self.pii_region_header,
             strip_uri: self.strip_uri.unwrap_or_default(),
             preserve_host,
             cors: self.cors,

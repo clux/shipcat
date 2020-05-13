@@ -21,7 +21,7 @@ pub use self::worker::Worker;
 
 /// Kong configs
 pub mod kong;
-pub use self::kong::{Authentication, BabylonAuthHeader, Cors, Kong, PiiRegionHeader};
+pub use self::kong::{Authentication, BabylonAuthHeader, Cors, Kong};
 
 pub mod authorization;
 pub use self::authorization::Authorization;
@@ -112,7 +112,6 @@ pub mod sentry;
 
 mod notifications;
 pub use notifications::NotificationMode;
-
 
 // EventStreams / Kafka related struct
 mod eventstream;

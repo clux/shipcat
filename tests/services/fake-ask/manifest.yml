@@ -74,9 +74,6 @@ kong:
   authorization:
     allow_cookies: true
     enable_cookie_refresh: true
-  pii_region_header:
-    region_service_uri: "fake-region-service.svc.cluster.local"
-    enabled: true
 initContainers:
 - name: initialize
   image: foo
