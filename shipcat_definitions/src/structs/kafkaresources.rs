@@ -90,7 +90,7 @@ pub struct KafkaResources {
 }
 
 impl KafkaResources {
-    const K8S_NAMING_PATTERN: &'static str = r"^[0-9a-z\-]{1,63}$";
+    const K8S_NAMING_PATTERN: &'static str = r"^[0-9a-z\-\.]{1,63}$";
 
     fn is_VALID_K8S_NAME(value: &str) -> bool {
         Regex::new(KafkaResources::K8S_NAMING_PATTERN)
@@ -113,10 +113,11 @@ impl KafkaResources {
         let mut failed_partitions = vec![];
         let mut failed_replicas = vec![];
 
+        let mut failed_users = vec![];
+
         for topic in &self.topics {
             if !KafkaResources::is_VALID_K8S_NAME(&topic.name) {
                 failed_topics.push(&topic.name);
-                // error!("Topic Name \"{}\" is not a valid Kafka Topic Name", &topic.name);
             }
             if !KafkaResources::is_VALID_PARTITIONS(&topic.partitions) {
                 failed_partitions.push(&topic.partitions);
@@ -126,25 +127,27 @@ impl KafkaResources {
             }
         }
 
-        if failed_topics.is_empty() {
-            Ok(())
-        } else {
-            bail!("invalid topic name(s): {:?}", failed_topics);
+        for user in &self.users {
+            if !KafkaResources::is_VALID_K8S_NAME(&user.name) {
+                failed_users.push(&user.name);
+            }
         }
 
-        // ignore these tests for now, cant impl a default value when value is empty
-        // as its region / context specific
-        // if failed_topics.is_empty() && failed_partitions.is_empty() && failed_replicas.is_empty() {
-        //     Ok(())
-        // } else if !failed_topics.is_empty() {
-        //     bail!("invalid topic name(s): {:?}", failed_topics);
-        // } else if !failed_partitions.is_empty() {
-        //     bail!("invalid partition integer: {:?}", failed_partitions);
-        // } else if !failed_replicas.is_empty() {
-        //     bail!("invalid replica integer: {:?}", failed_replicas);
-        // } else {
-        //     bail!("unknown KafkaResource Error");
-        // }
+        if !failed_topics.is_empty() {
+            bail!(
+                "invalid topic name(s), must match expression \"^[0-9a-z\\-\\.]{{1,63}}$\": {:?}",
+                failed_topics
+            );
+        }
+
+        if !failed_users.is_empty() {
+            bail!(
+                "invalid user name(s), must match expression \"^[0-9a-z\\-\\.]{{1,63}}$\": {:?}",
+                failed_users
+            );
+        }
+
+        Ok(())
     }
 }
 
