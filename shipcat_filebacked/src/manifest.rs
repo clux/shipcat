@@ -5,8 +5,8 @@ use shipcat_definitions::{
     structs::{
         autoscaling::AutoScaling, security::DataHandling, tolerations::Tolerations, volume::Volume,
         ConfigMap, Dependency, DestinationRule, EventStream, Gate, HealthCheck, HostAlias, Kafka,
-        KafkaResources, LifeCycle, Metadata, NotificationMode, PersistentVolume, Probe, Rbac, RollingUpdate,
-        SecurityContext, VaultOpts, VolumeMount,
+        KafkaResources, LifeCycle, Metadata, NotificationMode, PersistentVolume, Probe, PrometheusAlert,
+        Rbac, RollingUpdate, SecurityContext, VaultOpts, VolumeMount,
     },
     BaseManifest, Config, Manifest, PrimaryWorkload, Region, Result,
 };
@@ -87,6 +87,7 @@ pub struct ManifestOverrides {
     //      we have to avoid using Option
     pub newrelic: NewrelicSource,
     pub upgrade_notifications: Option<NotificationMode>,
+    pub prometheus_alerts: Option<Vec<PrometheusAlert>>,
 
     #[serde(flatten)]
     pub defaults: ManifestDefaults,
@@ -209,6 +210,7 @@ impl ManifestSource {
             secrets: Default::default(),
             state: Default::default(),
             workload: overrides.workload.unwrap_or_default(),
+            prometheusAlerts: overrides.prometheus_alerts.unwrap_or_default(),
         })
     }
 }

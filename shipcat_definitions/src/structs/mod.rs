@@ -119,3 +119,6 @@ pub use self::eventstream::EventStream;
 
 pub mod kafkaresources;
 pub use self::kafkaresources::KafkaResources;
+
+pub mod prometheusalert;
+pub use self::prometheusalert::PrometheusAlert;

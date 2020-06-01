@@ -11,7 +11,7 @@ authors = [
 name = "shipcat_definitions"
 description = "Definition for Manifest and Config for shipcat"
 readme = "README.md"
-version = "0.152.3"
+version = "0.153.0"
 categories = ["configuration"]
 keywords = ["kubernetes", "helm", "deployment", "standardisation", "validation"]
 license-file = "LICENSE"
@@ -44,6 +44,7 @@ url = { version = "2.1.1", features = ["serde"] }
 uuid = { version = "0.8.1", features = ["v4"] }
 maplit = "1.0.1"
 tokio = { version = "0.2.11", features = ["full"] }
+Inflector = "0.11.4"
 
 [features]
 default = []

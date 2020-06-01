@@ -21,7 +21,7 @@ use super::structs::{
     volume::{Volume, VolumeMount},
     ConfigMap, Container, CronJob, Dependency, DestinationRule, EnvVars, EventStream, Gate, HealthCheck,
     HostAlias, Kafka, KafkaResources, Kong, LifeCycle, Metadata, NotificationMode, PersistentVolume, Port,
-    Probe, Rbac, ResourceRequirements, RollingUpdate, SecurityContext, VaultOpts, Worker,
+    Probe, PrometheusAlert, Rbac, ResourceRequirements, RollingUpdate, SecurityContext, VaultOpts, Worker,
 };
 
 /// Main manifest, serializable from manifest.yml or the shipcat CRD.
@@ -868,6 +868,20 @@ pub struct Manifest {
     /// ```
     #[serde(default)]
     pub workload: PrimaryWorkload,
+
+    /// Prometheus alerts associated with the service.
+    ///
+    /// ```yaml
+    /// prometheusAlerts:
+    /// - name: AlertNameInPascalCase
+    ///   summary: "One-line summary of the issue"
+    ///   description: "More details about the issue, supports Prometheus label templating"
+    ///   expr: "rate(my_service_error_rate_metric[5m]) > 123"
+    ///   min_duration: 15m
+    ///   severity: warning
+    /// ```
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prometheusAlerts: Vec<PrometheusAlert>,
 }
 
 impl Manifest {
@@ -996,6 +1010,9 @@ impl Manifest {
         }
         if let Some(kr) = &self.kafkaResources {
             kr.verify()?;
+        }
+        for pa in &self.prometheusAlerts {
+            pa.verify()?;
         }
         // misc minor properties
         if self.replicaCount.unwrap() == 0 {
