@@ -1,0 +1,28 @@
+{{- if .Values.prometheusAlerts }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Values.name }}-alerts
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.name }}
+{{- if .Values.labels }}
+{{ toYaml .Values.labels | indent 4 }}
+{{- end }}
+{{- template "chart.shipcatRefs" . }}
+spec:
+  groups:
+  - name: {{ .Values.name }}.alerts
+    rules:
+{{- range $prometheusAlert := .Values.prometheusAlerts }}
+    - alert: {{ $prometheusAlert.name }}
+      annotations:
+        summary: {{ $prometheusAlert.summary }}
+        description: {{ $prometheusAlert.description }}
+      expr: {{ $prometheusAlert.expr }}
+      for: {{ $prometheusAlert.min_duration }}
+      labels:
+        severity: {{ $prometheusAlert.severity }}
+# NB: need to inject team label here
+{{- end }}
+{{- end }}

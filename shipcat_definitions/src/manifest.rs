@@ -1012,7 +1012,7 @@ impl Manifest {
             kr.verify()?;
         }
         for pa in &self.prometheusAlerts {
-            pa.verify()?;
+            pa.verify(&self.name)?;
         }
         // misc minor properties
         if self.replicaCount.unwrap() == 0 {

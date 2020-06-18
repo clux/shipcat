@@ -11,34 +11,34 @@ pub struct PrometheusAlert {
     /// Name of the alert
     ///
     /// Must be in PascalCase.
-    name: String,
+    pub name: String,
 
     /// Summary of the alert.
     ///
     /// A one-line summary of the problem this alert captures.
-    summary: String,
+    pub summary: String,
 
     /// Description of the alert.
     ///
     /// A more verbose description of the problem should go here, together with any suggested actions
     /// or links to further resources useful to an on-call engineer responding to this issue.
-    description: String,
+    pub description: String,
 
     /// PromQL expression defining this alert.
     ///
     /// Whenever a new timeseries is returned by this expression, a new alert enters pending state.
-    expr: String,
+    pub expr: String,
 
     /// Minimum duration of a problem before an alert fires.
     ///
     /// This is the minimum duration a pending alert must remain active for in order to actually fire.
     /// Examples: '15m', '1h'.
-    min_duration: String,
+    pub min_duration: String,
 
     /// Severity of the alert.
     ///
     /// Corresponds to how urgently it should be actioned if it were in production.
-    severity: PrometheusAlertSeverity,
+    pub severity: PrometheusAlertSeverity,
 }
 
 /// Alert severity enumeration.
@@ -59,22 +59,28 @@ pub enum PrometheusAlertSeverity {
 }
 
 impl PrometheusAlert {
-    pub fn verify(&self) -> Result<()> {
+    pub fn verify(&self, svc: &str) -> Result<()> {
         if !is_pascal_case(&self.name) {
-            bail!("Prometheus alert needs a non-empty PascalCaseName");
+            bail!("Prometheus alert for {} needs a non-empty PascalCaseName", svc);
         }
         if self.summary.is_empty() {
-            bail!("Prometheus alert needs a summary of the problem it identifies");
+            bail!(
+                "Prometheus alert for {} needs a summary of the problem it identifies",
+                svc
+            );
         }
         if self.description.is_empty() {
-            bail!("Prometheus alert needs a description of the problem it identifies");
-        }
-        // Validation of the PromQL should be done by Prometheus Operator
-        if self.expr.is_empty() {
-            bail!("Prometheus alert needs an expr (PromQL) to evaluate");
+            bail!(
+                "Prometheus alert for {} needs a description of the problem it identifies",
+                svc
+            );
         }
         if !Regex::new(r"^\d+[mh]$").unwrap().is_match(&self.min_duration) {
             bail!("Prometheus alert has invalid min_duration value (needs to be like '15m' or '1h')");
+        }
+        // PromQL expression sanity (NB: syntax only, operator verifies properly)
+        if let Err(e) = prometheus_parser::parse_expr(&self.expr) {
+            bail!("Prometheus alert expression for {} invalid: {:?}", svc, e);
         }
 
         Ok(())

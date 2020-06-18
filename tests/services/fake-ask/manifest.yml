@@ -81,3 +81,10 @@ initContainers:
   env:
     FAKE_SECRET: "IN_VAULT"
     CORE_URL: "{{ base_urls.services }}/somesvc"
+prometheusAlerts:
+- name: FakeSvcContainerRestarts
+  summary: FakeSvc containers are restarting frequently
+  description: A fakesvc container restarted at least three times during the last 5 minutes.
+  expr: 'increase(kube_pod_container_status_restarts_total{container="fakesvc"}[5m]) > 2'
+  min_duration: 5m
+  severity: warning
