@@ -1,5 +1,5 @@
 use super::{Config, Region, Result};
-use shipcat_definitions::structs::Kong;
+use shipcat_definitions::{structs::Kong, BaseManifest};
 
 /// One Statuscake object
 #[derive(Serialize)]
@@ -16,8 +16,9 @@ struct StatuscakeTest {
 }
 
 impl StatuscakeTest {
-    fn new(region: &Region, name: String, external_svc: String, kong: Kong) -> Self {
-        let website_name = format!("{} {} healthcheck", region.name, name);
+    fn new(region: &Region, mf: &BaseManifest, external_svc: String, kong: Kong) -> Option<Self> {
+        let website_name = format!("{} {} healthcheck", region.name, mf.name);
+        let md = &mf.metadata;
 
         // Generate the URL to test
         let website_url = if let Some(host) = kong.hosts.first() {
@@ -34,26 +35,30 @@ impl StatuscakeTest {
         };
 
         // Generate tags, both regional and environment
-        let mut test_tags = format!("{},{}", region.name, region.environment.to_string());
+        let mut tags = vec![];
+        tags.push(region.name.clone());
+        tags.push(region.environment.to_string());
+        tags.push(format!("squad={}", md.squad.as_ref().expect("squad exists")));
+        tags.push(format!("tribe={}", md.tribe.as_ref().expect("tribe exists")));
 
         // Process extra region-specific config
         // Set the Contact group if available
         let contact_group = if let Some(ref conf) = region.statuscake {
             if let Some(ref region_tags) = conf.extra_tags {
-                test_tags = format!("{},{}", test_tags, region_tags);
+                tags.push(region_tags.to_string())
             }
             conf.contact_group.clone()
         } else {
             None
         };
 
-        StatuscakeTest {
-            name,
+        Some(StatuscakeTest {
+            name: mf.name.clone(),
             website_name,
             website_url,
             contact_group,
-            test_tags,
-        }
+            test_tags: tags.join(","),
+        })
     }
 }
 
@@ -75,12 +80,9 @@ async fn generate_statuscake_output(conf: &Config, region: &Region) -> Result<Ve
                     continue;
                 }
                 debug!("{:?} has a main kong configuration, adding", mf);
-                tests.push(StatuscakeTest::new(
-                    region,
-                    mf.base.name.to_string(),
-                    external_svc.to_string(),
-                    k,
-                ));
+                if let Some(t) = StatuscakeTest::new(region, &mf.base, external_svc.to_string(), k) {
+                    tests.push(t);
+                }
             }
         }
     // Extra APIs - let's not monitor them for now (too complex)
