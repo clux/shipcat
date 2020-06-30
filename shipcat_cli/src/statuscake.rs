@@ -17,8 +17,15 @@ struct StatuscakeTest {
 
 impl StatuscakeTest {
     fn new(region: &Region, mf: &BaseManifest, external_svc: String, kong: Kong) -> Option<Self> {
-        let website_name = format!("{} {} healthcheck", region.name, mf.name);
         let md = &mf.metadata;
+        let squad = md.squad.as_ref().expect("squad exists");
+        let tribe = md.squad.as_ref().expect("tribe exists");
+        // StatusCake alerts forwarded to pagerduty only includes this name
+        // so we have to stuff region, service, and owners into the name :/
+        let website_name = format!(
+            "{} {} healthcheck squad={},tribe={}",
+            region.name, mf.name, squad, tribe
+        );
 
         // Generate the URL to test
         let website_url = if let Some(host) = kong.hosts.first() {
@@ -35,11 +42,12 @@ impl StatuscakeTest {
         };
 
         // Generate tags, both regional and environment
+        // Tags are only helpful for the API part to StatusCake directly
         let mut tags = vec![];
         tags.push(region.name.clone());
         tags.push(region.environment.to_string());
-        tags.push(format!("squad={}", md.squad.as_ref().expect("squad exists")));
-        tags.push(format!("tribe={}", md.tribe.as_ref().expect("tribe exists")));
+        tags.push(format!("squad={}", squad));
+        tags.push(format!("tribe={}", tribe));
 
         // Process extra region-specific config
         // Set the Contact group if available
