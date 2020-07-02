@@ -19,7 +19,7 @@ impl StatuscakeTest {
     fn new(region: &Region, mf: &BaseManifest, external_svc: String, kong: Kong) -> Option<Self> {
         let md = &mf.metadata;
         let squad = md.squad.as_ref().expect("squad exists");
-        let tribe = md.squad.as_ref().expect("tribe exists");
+        let tribe = md.tribe.as_ref().expect("tribe exists");
         // StatusCake alerts forwarded to pagerduty only includes this name
         // so we have to stuff region, service, and owners into the name :/
         let website_name = format!(
