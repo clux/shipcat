@@ -2039,6 +2039,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "protobuf"
+version = "2.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d883f78645c21b7281d21305181aa1f4dd9e9363e7cf2566c93121552cff003e"
+dependencies = [
+ "serde",
+ "serde_derive",
+]
+
+[[package]]
+name = "protobuf-codegen"
+version = "2.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c3f99b1babb22152c6591b076d46f64e313c6e30f6f334a89e260e1b3569e6"
+dependencies = [
+ "protobuf",
+]
+
+[[package]]
+name = "protoc"
+version = "2.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47637dcbffb967d1c0e603644abe29e6041f44b19262472a994b29417ffe20d0"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "protoc-rust"
+version = "2.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b1e37791c6d4b9232a21151ef6329bf0887a02ce3593cf60703565db2e6c4df"
+dependencies = [
+ "protobuf",
+ "protobuf-codegen",
+ "protoc",
+ "tempfile",
+]
+
+[[package]]
 name = "quick-error"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2075,6 +2115,8 @@ dependencies = [
  "http 0.1.18",
  "kube",
  "log",
+ "protobuf",
+ "protoc-rust",
  "reqwest",
  "semver",
  "serde",
@@ -2528,7 +2570,7 @@ checksum = "2579985fda508104f7587689507983eadd6a6e84dd35d6d115361f530916fa0d"
 
 [[package]]
 name = "shipcat"
-version = "0.154.0"
+version = "0.154.1"
 dependencies = [
  "chrono",
  "clap",

@@ -44,7 +44,6 @@ pub mod sentryapi {
     }
 }
 
-
 pub mod newrelic {
     use crate::Result;
     use std::collections::BTreeMap;

@@ -18,3 +18,6 @@ pub mod integrations;
 /// State machinery for actix
 pub mod state;
 pub use state::State;
+
+pub mod kompass;
+pub mod protos;

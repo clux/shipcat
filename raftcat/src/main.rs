@@ -2,9 +2,14 @@
 #[macro_use] extern crate log;
 
 use serde_derive::Serialize;
-use std::collections::BTreeMap;
+use std::{
+    collections::{BTreeMap, HashMap},
+    io,
+};
 
 use chrono::Local;
+use reqwest::Url;
+use shipcat_definitions::Manifest;
 use std::env;
 
 pub use raftcat::*;
@@ -21,7 +26,6 @@ use actix_web::{
     web::{self, Data},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-
 
 // Route entrypoints
 async fn get_single_manifest(c: Data<State>, req: HttpRequest) -> Result<HttpResponse> {
@@ -63,6 +67,22 @@ async fn get_teams(c: Data<State>) -> Result<HttpResponse> {
 async fn get_versions(c: Data<State>) -> Result<HttpResponse> {
     let vers = c.get_versions().await?;
     Ok(HttpResponse::Ok().json(vers))
+}
+
+async fn get_kompass_hub_services(c: Data<State>, req: HttpRequest) -> Result<HttpResponse> {
+    let manifests = c.get_manifests().await?;
+    let mut services = HashMap::new();
+    let path = match req.headers().get("host") {
+        Some(host) => host.to_str().expect("host"),
+        None => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+    for (name, m) in manifests {
+        services.insert(name, kompass::to_protobuf(m, &path));
+    }
+    Ok(HttpResponse::Ok().json(protos::services::ServicesResponse {
+        services,
+        ..Default::default()
+    }))
 }
 
 async fn get_service(c: Data<State>, req: HttpRequest) -> Result<HttpResponse> {
@@ -194,7 +214,6 @@ struct SimpleRegion {
     url: String,
 }
 
-
 async fn index(c: Data<State>, _req: HttpRequest) -> Result<HttpResponse> {
     let mut ctx = tera::Context::new();
     let data = c
@@ -227,7 +246,7 @@ async fn index(c: Data<State>, _req: HttpRequest) -> Result<HttpResponse> {
 }
 
 #[actix_rt::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> io::Result<()> {
     //sentry::integrations::panic::register_panic_handler();
     //let dsn = env::var("SENTRY_DSN").expect("Sentry DSN required");
     //let _guard = sentry::init(dsn); // must keep _guard in scope
@@ -253,6 +272,15 @@ async fn main() -> std::io::Result<()> {
             .expect("Failed to load kube config")
     };
     let shared_state = state::init(cfg).await.unwrap();
+
+    let region = shared_state.get_region().await.unwrap();
+    let region_str = format!("{}{}", region.raftcat_url().expect("raftcat url"), "kompass-hub");
+    let region_url = Url::parse(&region_str)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, "invalid raftcat url"))?;
+    let kompass_evar = env::var("KOMPASS_URL").expect("Need KOMPASS_URL evar");
+    let kompass_url = Url::parse(&kompass_evar)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, "invalid kompass url"))?;
+    tokio::spawn(kompass::register(kompass_url, region_url));
 
     info!("Starting listening on 0.0.0.0:8080");
     HttpServer::new(move || {
@@ -280,6 +308,7 @@ async fn main() -> std::io::Result<()> {
             .service(web::resource("/raftcat/teams").route(web::get().to(get_teams)))
             .service(web::resource("/raftcat/health").route(web::get().to(health)))
             .service(web::resource("/raftcat/versions").route(web::get().to(get_versions)))
+            .service(web::resource("/raftcat/kompass-hub").route(web::get().to(get_kompass_hub_services)))
             .service(web::resource("/health").route(web::get().to(health))) // redundancy
             .service(web::resource("/raftcat/").route(web::get().to(index)))
     })
