@@ -12,7 +12,7 @@ use tokio::time;
 
 const REGISTER_PATH: &str = "register";
 const HEARTBEAT_PATH: &str = "heartbeat";
-const KOMPASS_AUTH_TOKEN: &str = "KOMPASS_AUTH_TOKEN";
+pub const KOMPASS_AUTH_TOKEN: &str = "KOMPASS_AUTH_TOKEN";
 
 pub fn to_protobuf(m: Manifest, path: &str) -> Service {
     let mut plugins = HashMap::new();

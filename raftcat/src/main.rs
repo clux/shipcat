@@ -70,6 +70,22 @@ async fn get_versions(c: Data<State>) -> Result<HttpResponse> {
 }
 
 async fn get_kompass_hub_services(c: Data<State>, req: HttpRequest) -> Result<HttpResponse> {
+    let req_token = req.headers().get("Authorization");
+    if req_token.is_none() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+    let req_token = req_token.expect("request token");
+
+    let auth_token = env::var(kompass::KOMPASS_AUTH_TOKEN).ok();
+    if auth_token.is_none() {
+        return Ok(HttpResponse::InternalServerError().finish());
+    }
+    let auth_token = auth_token.expect("auth token");
+
+    if req_token.to_str().expect("request token string") != &auth_token {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
     let manifests = c.get_manifests().await?;
     let mut services = HashMap::new();
     let path = match req.headers().get("host") {
