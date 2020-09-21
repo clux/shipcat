@@ -586,8 +586,14 @@ impl Region {
     }
 
     pub fn raftcat_url(&self) -> Option<String> {
-        self.base_urls
-            .get("external_services")
-            .map(|base| format!("{base}/raftcat/", base = base))
+        let devops = String::from("dev-ops");
+        let region_name = env::var("REGION_NAME").ok()?;
+        if region_name == devops {
+            Some(String::from("https://raftcat.ops.babylontech.co.uk/raftcat/"))
+        } else {
+            self.base_urls
+                .get("external_services")
+                .map(|base| format!("{base}/raftcat/", base = base))
+        }
     }
 }
