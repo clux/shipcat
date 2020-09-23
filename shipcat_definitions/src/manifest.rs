@@ -80,6 +80,14 @@ pub struct Manifest {
     #[serde(default, skip_serializing)]
     pub external: bool,
 
+    /// Whether the service is a kompass plugin
+    ///
+    /// ```yaml
+    /// kompassPlugin: true
+    /// ```
+    #[serde(default, skip_serializing)]
+    pub kompass_plugin: bool,
+
     /// Service is disabled
     ///
     /// This disallows usage of this service in all regions.

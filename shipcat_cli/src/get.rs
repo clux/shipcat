@@ -4,7 +4,6 @@ use shipcat_definitions::Environment;
 /// This file contains the `shipcat get` subcommand
 use std::collections::BTreeMap;
 
-
 // ----------------------------------------------------------------------------
 // Simple reducers
 
@@ -170,6 +169,7 @@ struct APIServiceParams {
     uris: String,
     internal: bool,
     publiclyAccessible: bool,
+    kompassPlugin: bool,
     websockets: bool,
 }
 
@@ -200,6 +200,7 @@ pub async fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
                 hosts: k.hosts.join(","),
                 internal: k.internal,
                 publiclyAccessible: mf.publiclyAccessible,
+                kompassPlugin: mf.kompass_plugin,
                 websockets: false,
             };
             if let Some(g) = &mf.gate {
@@ -224,6 +225,7 @@ pub async fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
                 hosts: api.hosts.join(","),
                 internal: api.internal,
                 publiclyAccessible: api.publiclyAccessible,
+                kompassPlugin: false,
                 // TODO [DIP-499]: `extra_apis` do not support `gate` confs
                 websockets: false,
             });

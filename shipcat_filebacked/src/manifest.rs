@@ -43,6 +43,7 @@ pub struct ManifestSource {
 pub struct ManifestOverrides {
     pub workload: Option<PrimaryWorkload>,
     pub publicly_accessible: Option<bool>,
+    pub kompass_plugin: Option<bool>,
     pub image: Option<ImageNameSource>,
     pub image_size: Option<u32>,
     pub version: Option<ImageTagSource>,
@@ -133,6 +134,7 @@ impl ManifestSource {
         Ok(Manifest {
             name,
             publiclyAccessible: overrides.publicly_accessible.unwrap_or_default(),
+            kompass_plugin: overrides.kompass_plugin.unwrap_or_default(),
             // TODO: Skip most validation if true
             external: simple.external,
             // TODO: Replace with simple.enabled
