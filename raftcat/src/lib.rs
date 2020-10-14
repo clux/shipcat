@@ -3,6 +3,7 @@
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate log;
 #[macro_use] extern crate failure;
+extern crate base64;
 
 pub use failure::Error;
 pub type Result<T> = std::result::Result<T, Error>;

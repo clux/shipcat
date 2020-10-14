@@ -31,6 +31,7 @@ url = "2.1.1"
 http = "0.1.13"
 failure = "0.1.5"
 env_logger = "0.7.1"
+base64 = "0.13.0"
 actix-web = { version = "2.0.0" }
 actix-rt = "1.0.0"
 actix-files = "0.2.1"

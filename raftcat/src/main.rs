@@ -22,6 +22,7 @@ fn find_team(owners: &Owners, slug: &str) -> Option<Squad> {
 // Web server interface
 use actix_files as fs;
 use actix_web::{
+    http::HeaderValue,
     middleware,
     web::{self, Data},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
@@ -74,7 +75,7 @@ async fn get_kompass_hub_services(c: Data<State>, req: HttpRequest) -> Result<Ht
     if req_token.is_none() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
-    let req_token = req_token.expect("request token");
+    let req_token = parse_basic_auth(req_token.expect("request token"))?;
 
     let auth_token = env::var(kompass::KOMPASS_AUTH_TOKEN).ok();
     if auth_token.is_none() {
@@ -82,7 +83,7 @@ async fn get_kompass_hub_services(c: Data<State>, req: HttpRequest) -> Result<Ht
     }
     let auth_token = auth_token.expect("auth token");
 
-    if req_token.to_str().expect("request token string") != &auth_token {
+    if req_token != auth_token {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -99,6 +100,28 @@ async fn get_kompass_hub_services(c: Data<State>, req: HttpRequest) -> Result<Ht
         services,
         ..Default::default()
     }))
+}
+
+fn parse_basic_auth(value: &HeaderValue) -> Result<String> {
+    let parse_err = failure::format_err!("Error parsing auth header");
+    let mut tokens = value.to_str()?.splitn(2, ' ');
+    match tokens.next() {
+        Some(scheme) if scheme == "Basic" => (),
+        _ => return Err(parse_err),
+    }
+
+    let decoded = base64::decode(
+        tokens
+            .next()
+            .ok_or(failure::format_err!("Error decoding base64"))?,
+    )?;
+    let auth_token = String::from(
+        String::from_utf8(decoded)?
+            .splitn(2, ':')
+            .nth(1)
+            .ok_or(parse_err)?,
+    );
+    Ok(auth_token)
 }
 
 async fn get_service(c: Data<State>, req: HttpRequest) -> Result<HttpResponse> {

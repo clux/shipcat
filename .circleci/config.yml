@@ -74,11 +74,20 @@ jobs:
   cargo_test:
     docker:
       - image: circleci/rust:latest
+      - image: vault:0.6.1
+        environment:
+           SKIP_SETCAP: true
+           VAULT_DEV_ROOT_TOKEN_ID: secret
     resource_class: xlarge
     environment:
       - RUST_BACKTRACE: "full"
+      - VAULT_ADDR: http://localhost:8200
+      - VAULT_TOKEN: secret
     steps:
       - checkout
+      - run:
+          name: Initialise Vault
+          command: (cd vault && ./init.sh)
       #- run: make sanity
       - restore_cache:
           keys:
