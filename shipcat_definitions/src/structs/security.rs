@@ -24,6 +24,23 @@ impl DataHandling {
     }
 }
 
+/// Possible levels of information classification of the data stored in the data store.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum InformationClassification {
+    StrictlyConfidential,
+    ConfidentialPatientData,
+    CommercialConfidential,
+    ProtectedInternal,
+    Public,
+}
+
+impl Default for InformationClassification {
+    fn default() -> Self {
+        InformationClassification::ConfidentialPatientData
+    }
+}
+
 /// Data storage information and encryption information
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
@@ -47,6 +64,9 @@ pub struct DataStore {
     pub keyRotator: Option<String>,
     /// Retention period if any TODO: format? humantime?
     pub retentionPeriod: Option<String>,
+
+    /// The information classification of the data stored in the data store.
+    pub informationClassification: Option<InformationClassification>,
 }
 
 impl DataStore {
@@ -79,7 +99,6 @@ impl DataStore {
         }
     }
 }
-
 
 /// Data storage information and encryption information
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -11,6 +11,7 @@ dataHandling:
   # NB: These values used to unit test cascading of encryption parameters
   stores:
   - backend: S3
+    informationClassification: protectedInternal
     cipher: AES256
     encrypted: true
     fields:
@@ -19,6 +20,7 @@ dataHandling:
     - name: DateOfBirth
       keyRotator: 2w
   - backend: MySQL
+    # informationClassification: leaving it commented to make sure it is not mandatory. this might change in the future.
     fields:
     - name: ChatHistory
   processes:
