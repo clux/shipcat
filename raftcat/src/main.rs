@@ -312,14 +312,17 @@ async fn main() -> io::Result<()> {
     };
     let shared_state = state::init(cfg).await.unwrap();
 
-    let region = shared_state.get_region().await.unwrap();
-    let region_str = format!("{}{}", region.raftcat_url().expect("raftcat url"), "kompass-hub");
-    let region_url = Url::parse(&region_str)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, "invalid raftcat url"))?;
-    let kompass_evar = env::var("KOMPASS_URL").expect("Need KOMPASS_URL evar");
-    let kompass_url = Url::parse(&kompass_evar)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, "invalid kompass url"))?;
-    tokio::spawn(kompass::register(kompass_url, region_url));
+    if env::var("KOMPASS_ENABLED").is_ok() {
+        info!("Registering");
+        let region = shared_state.get_region().await.unwrap();
+        let region_str = format!("{}{}", region.raftcat_url().expect("raftcat url"), "kompass-hub");
+        let region_url = Url::parse(&region_str)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, "invalid raftcat url"))?;
+        let kompass_evar = env::var("KOMPASS_URL").expect("Need KOMPASS_URL evar");
+        let kompass_url = Url::parse(&kompass_evar)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, "invalid kompass url"))?;
+        tokio::spawn(kompass::register(kompass_url, region_url));
+    }
 
     info!("Starting listening on 0.0.0.0:8080");
     HttpServer::new(move || {
