@@ -73,6 +73,12 @@ async fn kong_test() {
     assert_eq!(attr.enabled, true);
     assert_eq!(attr.config.header_name, "babylon-request-id");
 
+    assert_plugin_removed!(
+        "W3CTraceContext",
+        api.plugins.remove(0),
+        ApiPlugin::W3CTraceContext
+    );
+
     let attr = plugin_attributes!("TcpLog", api.plugins.remove(0), ApiPlugin::TcpLog);
     assert_eq!(attr.enabled, true);
 
@@ -129,6 +135,12 @@ async fn kong_test() {
     let attr = plugin_attributes!("CorrelationId", api.plugins.remove(0), ApiPlugin::CorrelationId);
     assert_eq!(attr.enabled, true);
     assert_eq!(attr.config.header_name, "babylon-request-id");
+
+    assert_plugin_removed!(
+        "W3CTraceContext",
+        api.plugins.remove(0),
+        ApiPlugin::W3CTraceContext
+    );
 
     let attr = plugin_attributes!("TcpLog", api.plugins.remove(0), ApiPlugin::TcpLog);
     assert_eq!(attr.enabled, true);

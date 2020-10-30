@@ -115,6 +115,9 @@ pub struct KongSource {
     pub upstream_send_timeout: Option<u32>,
     pub upstream_read_timeout: Option<u32>,
     pub add_headers: BTreeMap<String, String>,
+
+    pub w3c_trace_context: Option<bool>,
+    pub babylon_request_id: Option<bool>,
 }
 
 struct KongBuildParams {
@@ -169,6 +172,9 @@ impl Build<Kong, KongBuildParams> for KongSource {
             add_headers: self.add_headers,
             // Legacy authorization
             auth,
+            // Distributed Tracing
+            babylon_request_id: self.babylon_request_id.unwrap_or(true), // enabled by default for backwards compatibility.
+            w3c_trace_context: self.w3c_trace_context.unwrap_or_default(),
         })
     }
 }

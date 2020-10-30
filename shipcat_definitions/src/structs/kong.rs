@@ -113,6 +113,9 @@ pub struct Kong {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub upstream_service: Option<String>,
+
+    pub babylon_request_id: bool,
+    pub w3c_trace_context: bool,
 }
 
 fn preserve_host_default() -> bool {

@@ -282,6 +282,19 @@ impl Default for CorrelationIdPluginConfig {
     }
 }
 
+#[derive(Serialize, Debug, Clone)]
+pub struct W3CTraceContextPluginConfig {
+    pub set_babylon_request_id: bool,
+}
+
+impl Default for W3CTraceContextPluginConfig {
+    fn default() -> Self {
+        W3CTraceContextPluginConfig {
+            set_babylon_request_id: true,
+        }
+    }
+}
+
 #[allow(clippy::large_enum_variant)] // variants all reasonably similar
 #[derive(Serialize, Debug, Clone)]
 #[serde(tag = "name", rename_all = "kebab-case")]
@@ -291,6 +304,9 @@ pub enum ApiPlugin {
     JwtValidator(PluginBase<JwtValidatorPluginConfig>),
     Cors(PluginBase<CorsPluginConfig>),
     CorrelationId(PluginBase<CorrelationIdPluginConfig>),
+    // serde's kebab case conversion adds a hyphen after the "3" (even with `W3cTraceContext`)
+    #[serde(rename = "w3c-trace-context")]
+    W3CTraceContext(PluginBase<W3CTraceContextPluginConfig>),
     BabylonAuthHeader(PluginBase<BabylonAuthHeaderPluginConfig>),
     JsonCookiesToHeaders(PluginBase<JsonCookiesToHeadersPluginConfig>),
     JsonCookiesCsrf(PluginBase<JsonCookiesCsrfPluginConfig>),
@@ -348,10 +364,19 @@ pub fn kongfig_apis(from: BTreeMap<String, Kong>, config: KongConfig, region: &R
     for (k, v) in from.clone() {
         let mut plugins = Vec::new();
 
-        // Prepare plugins
+        plugins.push(ApiPlugin::CorrelationId(if v.babylon_request_id {
+            PluginBase::default()
+        } else {
+            PluginBase::removed()
+        }));
 
-        // Always: CorrelationId
-        plugins.push(ApiPlugin::CorrelationId(PluginBase::default()));
+        plugins.push(ApiPlugin::W3CTraceContext(if v.w3c_trace_context {
+            PluginBase::new(W3CTraceContextPluginConfig {
+                set_babylon_request_id: v.babylon_request_id,
+            })
+        } else {
+            PluginBase::removed()
+        }));
 
         // If globally enabled: TCP Logging
         if config.tcp_log.enabled {
