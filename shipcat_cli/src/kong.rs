@@ -36,7 +36,7 @@ impl KongfigOutput {
             host: data.kong.clone().config_url,
             headers: vec![],
             apis: kongfig_apis(data.apis, data.kong.clone(), region),
-            consumers: kongfig_consumers(data.kong.clone()),
+            consumers: kongfig_consumers(data.kong),
             plugins: vec![],
             upstreams: vec![],
             certificates: vec![],

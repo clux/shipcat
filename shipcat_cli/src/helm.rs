@@ -55,7 +55,6 @@ pub async fn values(mf: &Manifest, output: &str) -> Result<()> {
     Ok(())
 }
 
-
 /// Analogue of helm template
 ///
 /// Generates helm values to disk, then passes it to helm template
@@ -216,13 +215,7 @@ fn check_labels(mf: &Manifest, kind: &str, skipped: &[String], obj: &KubeObject)
 fn check_owner_refs(mf: &Manifest, kind: &str, obj: &KubeObject) -> Result<bool> {
     let mut success = true;
     // First ownerReferences must be ShipcatManifest
-    match obj
-        .metadata
-        .owner_references
-        .clone()
-        .unwrap_or_else(|| vec![])
-        .first()
-    {
+    match obj.metadata.owner_references.clone().unwrap_or_default().first() {
         Some(or) => {
             if or.kind == "ShipcatManifest" && or.controller != Some(true) && or.name == mf.name {
                 debug!("{}: valid ownerReference for {}", kind, or.kind);

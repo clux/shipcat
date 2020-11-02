@@ -1,8 +1,5 @@
 use super::Result;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    mem,
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Environment variables to inject
 ///
@@ -88,7 +85,7 @@ impl EnvVars {
                 plain.insert(k.to_string(), v.to_string());
             }
         }
-        mem::replace(&mut self.plain, plain);
+        self.plain = plain;
         vs
     }
 
@@ -107,7 +104,7 @@ impl EnvVars {
                 }
             };
         }
-        mem::replace(&mut self.plain, plain);
+        self.plain = plain;
         ts
     }
 }

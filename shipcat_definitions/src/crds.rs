@@ -16,6 +16,7 @@ impl From<Manifest> for ShipcatManifest {
         // we assume the manifest has all it needs to fill in the pieces
         // but no secrets!
         assert_eq!(mf.state, ManifestState::Base);
+        #[allow(clippy::redundant_clone)] // cloning the name is cheaper than cloning the manifest
         ShipcatManifest::new(&mf.name.clone(), mf)
     }
 }

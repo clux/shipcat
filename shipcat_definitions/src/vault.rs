@@ -10,7 +10,7 @@ fn default_addr() -> Result<String> {
 #[cfg(feature = "filesystem")]
 fn file_token_fallback() -> Result<String> {
     let path = dirs::home_dir()
-        .ok_or_else(|| ErrorKind::NoHomeDirectory)?
+        .ok_or(ErrorKind::NoHomeDirectory)?
         .join(".vault-token");
 
     let token = std::fs::read_to_string(&path)?;
@@ -218,7 +218,6 @@ impl Vault {
             .map(|v| v.clone().into())
     }
 }
-
 
 #[cfg(test)]
 mod tests {
