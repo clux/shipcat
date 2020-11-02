@@ -1,9 +1,8 @@
-use super::{Config, Manifest, Region, Result};
+use super::{Config, ConfigState, Manifest, Region, Result};
 use crate::{git, helm, kubectl};
 use regex::Regex;
 use shipcat_definitions::ShipcatManifest;
 use std::process::Command;
-
 
 /// YAML serialisation of a manifest.
 ///
@@ -19,7 +18,6 @@ async fn as_yaml(svc: &str, conf: &Config, region: &Region) -> Result<String> {
         Ok("".to_string())
     }
 }
-
 
 /// Fast local git compare of the crd
 ///
@@ -40,7 +38,8 @@ pub async fn values_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<
     }
 
     // compute before state
-    let before = as_yaml(&svc, conf, region).await?;
+    let (before_conf, before_region) = Config::new(ConfigState::Base, &region.name).await?;
+    let before = as_yaml(&svc, &before_conf, &before_region).await?;
 
     // move git back
     if needs_stash {
@@ -91,8 +90,10 @@ pub async fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Resul
     }
 
     // compute old state:
+    let (before_conf, before_region) = Config::new(ConfigState::Base, &region.name).await?;
+
     let beforepth = Path::new(".").join("before.shipcat.gen.yml");
-    let mf_before = shipcat_filebacked::load_manifest(svc, conf, region)
+    let mf_before = shipcat_filebacked::load_manifest(svc, &before_conf, &before_region)
         .await?
         .stub(region)
         .await?;
