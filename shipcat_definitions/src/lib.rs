@@ -80,8 +80,7 @@ pub mod region;
 pub use crate::region::{Environment, KongConfig, ReconciliationMode, Region, VaultConfig, VersionScheme};
 /// Master config with cross-region data
 pub mod config;
-pub use crate::config::{Cluster, Config, ConfigFallback, ManifestDefaults, ShipcatConfig};
-
+pub use crate::config::{Cluster, Config, ConfigFallback, ShipcatConfig};
 
 /// Structs for the manifest
 pub mod structs;

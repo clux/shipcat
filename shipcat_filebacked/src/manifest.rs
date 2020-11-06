@@ -266,6 +266,9 @@ impl ManifestSource {
         if let Some(image) = &self.overrides.image {
             image.clone().build(&())
         } else if let Some(prefix) = &self.overrides.defaults.image_prefix {
+            if prefix.ends_with('/') {
+                bail!("image prefix must not end with a slash");
+            }
             Ok(format!("{}/{}", prefix, service))
         } else {
             bail!("Image prefix is not defined")

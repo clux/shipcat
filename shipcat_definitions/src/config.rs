@@ -13,30 +13,6 @@ use crate::{
     states::ConfigState,
 };
 
-// ----------------------------------------------------------------------------------
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
-pub struct ManifestDefaults {
-    /// Image prefix string
-    pub imagePrefix: String,
-    /// Chart to defer to
-    pub chart: String,
-    /// Default replication counts
-    pub replicaCount: u32,
-}
-
-// Allow smaller base configs
-impl Default for ManifestDefaults {
-    fn default() -> Self {
-        ManifestDefaults {
-            chart: "base".into(),
-            replicaCount: 1,
-            imagePrefix: "".into(),
-        }
-    }
-}
-
 /// Kubernetes cluster information
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
@@ -72,7 +48,6 @@ pub struct GithubParameters {
     pub organisation: String,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct SlackParameters {
@@ -80,9 +55,7 @@ pub struct SlackParameters {
     pub team: String,
 }
 
-
 // ----------------------------------------------------------------------------------
-
 
 /// Main manifest, serializable from shipcat.conf
 #[derive(CustomResource, Serialize, Deserialize, Debug, Clone)]
@@ -95,9 +68,10 @@ pub struct SlackParameters {
 #[kube(apiextensions = "v1beta1")] // kubernetes < 1.16
 #[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
 pub struct Config {
-    /// Global defaults for the manifests
+    /// Global defaults for the manifests (used by shipcat_filebacked only)
     #[serde(default)]
-    pub defaults: ManifestDefaults,
+    #[cfg(feature = "filesystem")]
+    pub defaults: serde_yaml::Value,
 
     /// Cluster definitions
     pub clusters: BTreeMap<String, Cluster>,
@@ -145,18 +119,6 @@ pub struct Config {
 
 impl Config {
     pub fn verify(&self) -> Result<()> {
-        let defs = &self.defaults;
-        // verify default chart exists
-        if cfg!(feature = "filesystem") {
-            let chart = Path::new(".").join("charts").join(&defs.chart).join("Chart.yaml");
-            if !chart.is_file() {
-                bail!("Default chart {} does not exist", self.defaults.chart);
-            }
-        }
-        if defs.imagePrefix.ends_with('/') {
-            bail!("image prefix must not end with a slash");
-        }
-
         for (cname, clst) in &self.clusters {
             if cname != &clst.name {
                 bail!(
@@ -383,7 +345,6 @@ impl Config {
     }
 }
 
-
 /// Simplified config with version information only
 ///
 /// The part of shipcat.conf you never get to break the format of.
@@ -525,7 +486,6 @@ impl Config {
         Ok(())
     }
 }
-
 
 #[cfg(test)]
 mod tests {

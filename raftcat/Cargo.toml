@@ -1,6 +1,6 @@
 [package]
 name = "raftcat"
-version = "0.157.2"
+version = "0.158.0"
 authors = ["Eirik Albrigtsen <eirik.albrigtsen@babylonhealth.com>"]
 edition = "2018"
 

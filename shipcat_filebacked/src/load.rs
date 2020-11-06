@@ -116,12 +116,10 @@ impl ManifestSource {
 
 impl ManifestDefaults {
     fn from_global(conf: &Config) -> Result<Self> {
-        let mut defs = Self::default();
-        defs.chart = Option::Some(conf.defaults.chart.clone());
-        defs.image_prefix = Option::Some(conf.defaults.imagePrefix.clone());
-        defs.replica_count = Option::Some(conf.defaults.replicaCount);
-
-        Ok(defs)
+        match serde_yaml::from_value(conf.defaults.clone()) {
+            Err(e) => bail!("Global defaults did not parse as YAML: {}", e),
+            Ok(d) => Ok(d),
+        }
     }
 
     fn from_region(reg: &Region) -> Result<Self> {
@@ -166,7 +164,6 @@ async fn read_from<T: DeserializeOwned>(path: &PathBuf) -> Result<T> {
         Ok(d) => Ok(d),
     }
 }
-
 
 #[cfg(test)]
 mod tests {
