@@ -480,9 +480,6 @@ pub struct Region {
     #[serde(default)]
     pub base_urls: BTreeMap<String, String>,
 
-    /// Environment variables to inject
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub env: BTreeMap<String, String>,
     /// Kong configuration for the region
     #[serde(default)]
     pub kong: Option<KongConfig>,
@@ -511,9 +508,21 @@ pub struct Region {
     pub webhooks: Vec<Webhook>,
     /// CRD tuning
     pub customResources: Option<CRSettings>,
-    /// Default values for services
+
+    /// Old default values for services
+    // TODO: Remove after everything has been migrated to `defaultsV2`
     #[serde(skip_serializing, default)]
-    pub defaults: DefaultConfig,
+    pub defaults: Option<DefaultConfig>,
+    /// Old default environment variables to inject
+    // TODO: Remove after everything has been migrated to `defaultsV2`
+    #[serde(default, skip_serializing)]
+    pub env: Option<BTreeMap<String, String>>,
+    /// Default values for services (used by shipcat_filebacked only)
+    // TODO: Rename to `defaults` after removing legacy field
+    #[serde(skip_serializing, default)]
+    #[cfg(feature = "filesystem")]
+    pub defaultsV2: Option<serde_yaml::Value>,
+
     /// The regular expression used to verify destination rules' regions
     #[serde(default, skip_serializing_if = "Option::is_none", with = "serde_regex")]
     pub destinationRuleHostRegex: Option<Regex>,
