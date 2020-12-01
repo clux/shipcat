@@ -54,7 +54,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-          - musl_cache_2_{{ checksum "Cargo.lock" }}
+            - musl_cache_2_{{ checksum "Cargo.lock" }}
       - run: cargo build --release -p shipcat
       - run: cargo build --release -p raftcat
       - save_cache:
@@ -73,11 +73,11 @@ jobs:
 
   cargo_test:
     docker:
-      - image: circleci/rust:latest
+      - image: circleci/rust:1.45
       - image: vault:0.6.1
         environment:
-           SKIP_SETCAP: true
-           VAULT_DEV_ROOT_TOKEN_ID: secret
+          SKIP_SETCAP: true
+          VAULT_DEV_ROOT_TOKEN_ID: secret
     resource_class: xlarge
     environment:
       - RUST_BACKTRACE: "full"
@@ -91,15 +91,15 @@ jobs:
       #- run: make sanity
       - restore_cache:
           keys:
-          - debug_cache_2_{{ checksum "Cargo.lock" }}
+            - debug_cache_2_{{ checksum "Cargo.lock" }}
       - run: cargo test -p shipcat --no-run
       - run: cargo test -p shipcat -- --nocapture
       - run: cargo test -p raftcat --no-run
       - run: cargo test -p raftcat -- --nocapture
       # Tests within shipcat_definitions do not get run with features
       - run: |
-            cd shipcat_definitions
-            cargo test --features=filesystem -- --nocapture
+          cd shipcat_definitions
+          cargo test --features=filesystem -- --nocapture
       - run: cargo doc --no-deps --lib -p shipcat
       - run: cargo doc --no-deps --lib -p raftcat
       - save_cache:
@@ -143,7 +143,7 @@ jobs:
       - run: curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
       - restore_cache:
           keys:
-          - mac_cache_{{ checksum "Cargo.lock" }}
+            - mac_cache_{{ checksum "Cargo.lock" }}
       - run: ~/.cargo/bin/cargo build --release -p shipcat
       - save_cache:
           paths:
