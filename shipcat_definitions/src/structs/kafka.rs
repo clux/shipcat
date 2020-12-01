@@ -13,6 +13,13 @@ pub struct Kafka {
     #[serde(default)]
     pub brokers: Vec<String>,
 
+    /// Broker proxies for the region within pod
+    ///
+    /// ```yaml
+    /// brokers: 127.0.0.1:32401,127.0.0.1:324012,127.0.0.1:32403
+    #[serde(default)]
+    pub proxies: Vec<String>,
+
     /// Zookeeper ensemble for the region
     ///
     /// ```yaml
@@ -35,6 +42,9 @@ impl Kafka {
     pub fn implicits(&mut self, _svc: &str, reg: Region) {
         for v in reg.kafka.brokers {
             self.brokers.push(v);
+        }
+        for v in reg.kafka.proxies {
+            self.proxies.push(v);
         }
         for v in reg.kafka.zk {
             self.zk.push(v);

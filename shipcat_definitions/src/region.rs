@@ -122,6 +122,12 @@ pub struct KafkaConfig {
     /// These are injected in to the manifest.kafka struct if it's set.
     pub brokers: Vec<String>,
 
+    /// Proxy urls in "hostname:port" format.
+    ///
+    /// These are injected in to the manifest.kafka struct if it's set.
+    #[serde(default)]
+    pub proxies: Vec<String>,
+
     /// Zookeeper urls in "hostname:port" format.
     ///
     /// These are injected in to the manifest.kafka struct if it's set.
