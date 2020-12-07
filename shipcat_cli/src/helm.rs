@@ -1,3 +1,4 @@
+use regex::Regex;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -36,6 +37,34 @@ pub async fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
     Ok((out, err, s.status.success()))
 }
 
+pub async fn clone_chart(repo_url: &str) -> Result<(String, String, bool)> {
+    debug!("git clone {}", repo_url);
+    let path = format!("{}{}", "charts/", repo_url);
+    if Path::new(&path).exists() {
+        debug!("Repo already cloned {}", repo_url);
+        Ok(("".to_owned(), "".to_owned(), true))
+    } else {
+        let re = Regex::new(r"(^git@.*)\?ref=(.*)").unwrap();
+        if !re.is_match(repo_url) {
+            Ok((
+                "".to_owned(),
+                "Failed to parse git url, please check it contains a valid ref".to_owned(),
+                false,
+            ))
+        } else {
+            let captures = re.captures(repo_url).unwrap();
+            let repo = captures.get(1).map_or("", |m| m.as_str());
+            let tag = captures.get(2).map_or("", |m| m.as_str());
+            let args = ["clone", "-b", &tag, &repo, &path];
+            debug!("git clone {}", args.join(" "));
+            let s = Command::new("git").args(&args).output().await?;
+            let out: String = String::from_utf8_lossy(&s.stdout).into();
+            let err: String = String::from_utf8_lossy(&s.stderr).into();
+            Ok((out, err, s.status.success()))
+        }
+    }
+}
+
 /// Create helm values file for a service
 ///
 /// Requires a completed manifest (with inlined configs)
@@ -62,6 +91,14 @@ pub async fn template(mf: &Manifest, output: Option<PathBuf>) -> Result<String> 
     let hfile = format!("{}.helm.gen.yml", mf.name);
     values(&mf, &hfile).await?;
 
+    let chart = mf.chart.clone().unwrap();
+    if chart.starts_with("git@") {
+        let (_tpl, tplerr, success) = clone_chart(&chart).await?;
+        if !success {
+            warn!("{} stderr: {}", chart, tplerr);
+            bail!("helm failed to fetch template");
+        }
+    }
     // helm template with correct params
     let tplvec = vec![
         "template".into(),

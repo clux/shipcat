@@ -98,5 +98,12 @@ To see your completed kube yaml you can `shipcat template storage-provider`, whi
 
 Charts are expected to all have owner references back to our `shipcatmanifests` crd and not rely on the `.Release` object in helm templates (see the [example chart](https://github.com/babylonhealth/shipcat/tree/master/examples/charts/base)).
 
+### Use externally versioned base chart
+You can use an externally versioned base chat by specifying an SSH git endpoint with a ref argument in the service manifest or environment override.
+
+```
+chart: git@github.com:babylonhealth/base-chart.git?ref=1.0.0
+```
+
 ## Upgrade strategies
 All manifests in the repo are continually reconciled on merge using `shipcat cluster` commands. `shipcat apply {service} -t {imageversion}` can also be to perform individual upgrades.
