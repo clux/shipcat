@@ -34,10 +34,9 @@ RUN kubeval --version
 
 
 # Add core dependencies of validation
+ADD requirements.txt ./
 RUN apk add --no-cache --virtual virtualbuild libffi-dev g++ python3-dev openssl-dev && \
-    pip3 install --upgrade pip && \
-    pip3 install yamllint yq && \
-    pip3 install semver jira jinja2 schema && \
+    pip3 install -r requirements.txt && \
     apk del virtualbuild
 
 # Install shipcat (built for musl outside)
