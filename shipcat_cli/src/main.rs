@@ -794,8 +794,13 @@ async fn dispatch_commands(args: &ArgMatches<'_>) -> Result<()> {
         return shipcat::show::manifest_crd(&svc, &conf, &region).await;
     } else if let Some(a) = args.subcommand_matches("env") {
         let svc = a.value_of("service").map(String::from).unwrap();
-        let (conf, region) = resolve_config(a, ConfigState::Filtered).await?;
         let mock = !a.is_present("secrets");
+        let config_state = if mock {
+            ConfigState::Base
+        } else {
+            ConfigState::Filtered
+        };
+        let (conf, region) = resolve_config(a, config_state).await?;
         return shipcat::env::print_bash(&svc, &conf, &region, mock).await;
     } else if let Some(a) = args.subcommand_matches("diff") {
         let svc = a.value_of("service").map(String::from).unwrap();
