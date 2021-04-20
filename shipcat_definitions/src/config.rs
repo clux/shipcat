@@ -24,6 +24,9 @@ pub struct Cluster {
     /// Teleport url to use with tsh login
     #[serde(default)]
     pub teleport: Option<String>,
+    /// Clusternmae for overriding kube config context
+    #[serde(default)]
+    pub clustername: Option<String>,
     /// What regions this cluster control (perhaps not exclusively)
     pub regions: Vec<String>,
 }

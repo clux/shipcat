@@ -1,12 +1,22 @@
 use super::{Config, Region, Result};
 use crate::kubectl;
-use std::process::Command;
+use std::{env, process::Command};
+
+// Get the tsh version as needed
+fn tsh_version() -> String {
+    match env::var("TSH_VERSION") {
+        Ok(val) => val,
+        Err(_e) => "tsh".to_string(),
+    }
+}
 
 /// Check if teleport expired
 fn need_teleport_login(url: &str) -> Result<bool> {
     let args = vec!["status".to_string()]; // tsh status doesn't seem to have a nice filtering or yaml output :(
                                            // https://github.com/gravitational/teleport/issues/2869
-    let s = Command::new("tsh").args(&args).output()?;
+    let tsh = tsh_version();
+    let s = Command::new(&tsh).args(&args).output()?;
+
     let tsh_out = String::from_utf8_lossy(&s.stdout);
     let lines = tsh_out.lines().collect::<Vec<_>>();
     if let Some(idx) = lines.iter().position(|l| l.contains(url)) {
@@ -20,7 +30,8 @@ fn need_teleport_login(url: &str) -> Result<bool> {
 }
 
 fn ensure_teleport() -> Result<()> {
-    let s = Command::new("which").args(vec!["tsh"]).output()?;
+    let tsh = tsh_version();
+    let s = Command::new("which").args(vec![&tsh]).output()?;
     let out = String::from_utf8_lossy(&s.stdout);
     if out.is_empty() {
         bail!(
@@ -57,27 +68,30 @@ pub async fn login(conf: &Config, region: &Region, force: bool) -> Result<()> {
                     format!("--proxy={url}:443", url = &teleport),
                     "--auth=github".into(),
                 ];
-                info!("tsh {}", tsh_args.join(" "));
-                let s = Command::new("tsh").args(&tsh_args).output()?;
+                let tsh = tsh_version();
+                info!("{} {}", &tsh, tsh_args.join(" "));
+                let s = Command::new(&tsh).args(&tsh_args).output()?;
                 let out = String::from_utf8_lossy(&s.stdout);
                 let err = String::from_utf8_lossy(&s.stderr);
                 if !out.is_empty() {
                     debug!("{}", out);
                 }
                 if !s.status.success() {
-                    bail!("tsh login: {}", err);
+                    bail!("{} login: {}", &tsh, err);
                 }
             } else {
                 info!("Reusing active session for {}", teleport);
             }
 
-            // NB: tsh creates a cluster entry in ~/.kube/config named after the url
-            // We cannot customize this name the name of this cluster
-            let args = vec![
-                format!("--cluster={}", &teleport),
-                format!("--user={}", &teleport),
-                format!("--namespace={}", region.namespace),
-            ];
+            let mut args = vec![format!("--namespace={}", region.namespace)];
+
+            if let Some(clustername) = &cluster.clustername {
+                args.push(format!("--cluster={}", &clustername));
+                args.push(format!("--user={}", &clustername));
+            } else {
+                args.push(format!("--cluster={}", &teleport));
+                args.push(format!("--user={}", &teleport));
+            }
             kubectl::set_context(&region.name, args).await?;
             kubectl::use_context(&region.name).await?;
         } else {
