@@ -1,21 +1,12 @@
 use super::{Config, Region, Result};
 use crate::kubectl;
-use std::{env, process::Command};
-
-// Get the tsh version as needed
-fn tsh_version() -> String {
-    match env::var("TSH_VERSION") {
-        Ok(val) => val,
-        Err(_e) => "tsh".to_string(),
-    }
-}
+use std::process::Command;
 
 /// Check if teleport expired
 fn need_teleport_login(url: &str) -> Result<bool> {
     let args = vec!["status".to_string()]; // tsh status doesn't seem to have a nice filtering or yaml output :(
                                            // https://github.com/gravitational/teleport/issues/2869
-    let tsh = tsh_version();
-    let s = Command::new(&tsh).args(&args).output()?;
+    let s = Command::new("tsh").args(&args).output()?;
 
     let tsh_out = String::from_utf8_lossy(&s.stdout);
     let lines = tsh_out.lines().collect::<Vec<_>>();
@@ -30,14 +21,13 @@ fn need_teleport_login(url: &str) -> Result<bool> {
 }
 
 fn ensure_teleport() -> Result<()> {
-    let tsh = tsh_version();
-    let s = Command::new("which").args(vec![&tsh]).output()?;
+    let s = Command::new("which").args(vec!["tsh"]).output()?;
     let out = String::from_utf8_lossy(&s.stdout);
     if out.is_empty() {
         bail!(
             "tsh not found. please install tsh --> https://gravitational.com/teleport/download/
-Download link for MacOS --> https://get.gravitational.com/teleport-v3.2.6-darwin-amd64-bin.tar.gz
-You must install version 3.2.* and not 4.0.0"
+Download link for MacOS --> https://get.gravitational.com/teleport-v4.4.9-darwin-amd64-bin.tar.gz
+You must install version 4.4.9 and not higher versions"
         );
     }
     // TODO: pin teleport url in cluster entry?
@@ -68,16 +58,15 @@ pub async fn login(conf: &Config, region: &Region, force: bool) -> Result<()> {
                     format!("--proxy={url}:443", url = &teleport),
                     "--auth=github".into(),
                 ];
-                let tsh = tsh_version();
-                info!("{} {}", &tsh, tsh_args.join(" "));
-                let s = Command::new(&tsh).args(&tsh_args).output()?;
+                info!("tsh {}", tsh_args.join(" "));
+                let s = Command::new("tsh").args(&tsh_args).output()?;
                 let out = String::from_utf8_lossy(&s.stdout);
                 let err = String::from_utf8_lossy(&s.stderr);
                 if !out.is_empty() {
                     debug!("{}", out);
                 }
                 if !s.status.success() {
-                    bail!("{} login: {}", &tsh, err);
+                    bail!("tsh login: {}", err);
                 }
             } else {
                 info!("Reusing active session for {}", teleport);
