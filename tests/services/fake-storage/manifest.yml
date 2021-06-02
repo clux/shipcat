@@ -9,6 +9,8 @@ resources:
     memory: 512Mi
 dataHandling:
   # NB: These values used to unit test cascading of encryption parameters
+  informationClassification:
+    highestProcessed: protectedInternal
   stores:
   - backend: S3
     informationClassification: protectedInternal

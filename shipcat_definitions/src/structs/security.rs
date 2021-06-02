@@ -14,6 +14,9 @@ pub struct DataHandling {
     /// Where the data was retrieved from
     #[serde(default)]
     pub processes: Vec<DataProcess>,
+    /// Information classification for the service as a whole
+    #[serde(default)]
+    pub informationClassification: Option<InformationClassificationData>,
 }
 
 impl DataHandling {
@@ -22,6 +25,13 @@ impl DataHandling {
             s.implicits();
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[cfg_attr(feature = "filesystem", serde(deny_unknown_fields))]
+pub struct InformationClassificationData {
+    /// The highest information classification for data this service processes
+    pub highestProcessed: InformationClassification,
 }
 
 /// Possible levels of information classification of the data stored in the data store.
